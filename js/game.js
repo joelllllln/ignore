@@ -348,20 +348,51 @@
       b.onclick = () => { if (META.starDust < sdCost(u)) return; META.starDust -= sdCost(u); META.sd[u.id]++; recompute(); buildSD(); syncHUD(); save(); };
     }
   }
-  function buildGalaxyMap() {
-    const wrap = $("gm-list"); wrap.innerHTML = "";
-    const maxG = Math.max(S.peakGalaxy + 2, S.galaxy + 2, 10);
-    for (let g = 1; g <= maxG; g++) {
-      const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-      const weps = DEF_ORDER.filter(t => DEF_TYPES[t].gal === g).map(t => DEF_TYPES[t].name).join(", ");
-      const el = document.createElement("div"); el.className = "gm " + (current ? "current" : reached ? "done" : next ? "next" : "locked");
-      let right; if (current) right = "<span class='gm-here'>▶ HERE</span>"; else if (reached) right = "<span class='gm-chk'>✓</span>";
-      else if (next) { const c = travelCost(S.galaxy); right = "<button class='gm-go'" + (S.cash >= c ? "" : " disabled") + ">$" + fmt(c) + "</button>"; } else right = "<span class='gm-lock'>🔒</span>";
-      el.innerHTML = "<span class='gm-n'>" + g + "</span><div class='gm-mid'><div class='gm-name'>" + galName(g) + "</div><div class='gm-sub'>" + (weps ? "Unlocks: " + weps : current ? "You are here" : next ? "Next galaxy" : "Locked") + "</div></div>" + right;
-      wrap.appendChild(el);
-      if (next) { const b = el.querySelector(".gm-go"); if (b) b.onclick = () => { travel(); buildGalaxyMap(); }; }
-    }
-  }
+  // interactive pseudo-3D black & white star map
+  const GMap = {
+    open: false, yaw: 0.6, pitch: -0.25, t: 0, cv: null, c: null, w: 0, h: 0,
+    down: false, lx: 0, ly: 0, moved: false, hit: [], stars: [],
+    init() {
+      this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
+      this.cv.addEventListener("pointerdown", e => { this.down = true; this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; });
+      this.cv.addEventListener("pointermove", e => { if (!this.down) return; const p = this.pt(e), dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 6) this.moved = true; this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.2, 1.2); this.lx = p.x; this.ly = p.y; });
+      const up = e => { if (this.down && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } this.down = false; };
+      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", () => { this.down = false; });
+    },
+    pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
+    show() { this.open = true; this.resize(); if (!this.stars.length) for (let i = 0; i < 90; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); },
+    hide() { this.open = false; },
+    resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
+    proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360); return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
+    node(g) { const i = g - 1, a = i * 0.7, R = 110; return { x: Math.cos(a) * R, y: (i - (S.galaxy - 1)) * 62, z: Math.sin(a) * R }; },
+    render(dt) {
+      if (!this.cv) return; const c = this.c;
+      if (!this.down) this.yaw += dt * 0.12; this.t += dt;
+      c.setTransform(Math.min(window.devicePixelRatio || 1, 2), 0, 0, Math.min(window.devicePixelRatio || 1, 2), 0, 0);
+      c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
+      c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.25 + 0.4 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
+      const maxG = Math.max(S.peakGalaxy + 2, S.galaxy + 2, 10), pts = [];
+      for (let g = 1; g <= maxG; g++) { const w = this.node(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
+      c.strokeStyle = "#fff"; c.lineWidth = 1;
+      for (let i = 0; i < pts.length - 1; i++) { c.globalAlpha = clamp(pts[i].p.f, 0.2, 1) * 0.5; c.beginPath(); c.moveTo(pts[i].p.x, pts[i].p.y); c.lineTo(pts[i + 1].p.x, pts[i + 1].p.y); c.stroke(); }
+      c.globalAlpha = 1;
+      const order = pts.slice().sort((a, b) => b.p.z - a.p.z); this.hit = [];
+      for (const it of order) {
+        const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, rad = clamp(7 * p.f, 3, 16);
+        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(rad + 10, 22), next });
+        if (current) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.4 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 7 + pulse * 4, 0, TAU); c.stroke(); }
+        c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
+        if (reached || current) { c.fillStyle = "#fff"; c.fill(); }
+        else { c.fillStyle = "rgba(255,255,255,0.10)"; c.fill(); c.strokeStyle = next ? "#fff" : "rgba(255,255,255,0.4)"; c.lineWidth = 1.5; c.stroke(); }
+        c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center";
+        c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(11 * clamp(p.f, 0.65, 1.3)) + "px ui-monospace,monospace";
+        c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - rad - 8);
+        if (next) { const cost = travelCost(S.galaxy); c.fillStyle = S.cash >= cost ? "#fff" : "rgba(255,255,255,0.5)"; c.font = "11px ui-monospace,monospace"; c.fillText("travel $" + fmt(cost), p.x, p.y + rad + 16); }
+        c.globalAlpha = 1;
+      }
+    },
+    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best && best.next) { const cost = travelCost(S.galaxy); if (S.cash >= cost) travel(); } },
+  };
   function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; recompute(); syncHUD(); save(); }
   function rebirthGain() { return Math.floor(5 + Math.max(0, S.peakGalaxy - 9) * 6 + Math.cbrt(S.totalRun + 1) * 0.5); }
   function openRebirth() { if (S.galaxy < 10 && S.peakGalaxy < 10) return; $("rb-text").textContent = "Reset this run (cash, defenders & upgrades wiped) to bank Star Dust for permanent upgrades."; $("rb-gain").textContent = "✦ +" + fmt(rebirthGain()) + " Star Dust"; $("rebirth-modal").classList.add("show"); }
@@ -405,7 +436,7 @@
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
   $("btn-travel").onclick = travel; $("btn-rebirth").onclick = openRebirth; $("rb-confirm").onclick = doRebirth; $("rb-close").onclick = () => $("rebirth-modal").classList.remove("show");
   $("btn-sd").onclick = () => { buildSD(); $("sd-shop").classList.add("show"); }; $("sd-close").onclick = () => $("sd-shop").classList.remove("show");
-  $("galaxy-open").onclick = () => { buildGalaxyMap(); $("galaxy-map").classList.add("show"); }; $("gm-close").onclick = () => $("galaxy-map").classList.remove("show");
+  $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("up-close").onclick = closeUnitPanel; $("up-sell").onclick = sellUnit;
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   $("btn-menu").onclick = () => $("menu").classList.add("show");
@@ -414,7 +445,7 @@
   $("menu-reset").onclick = () => { if (confirm("Erase ALL progress (including Star Dust)?")) { localStorage.removeItem(KEY); location.reload(); } };
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
   $("home-play").onclick = () => { renderList(); setScreen("play"); };
-  $("home-galaxies").onclick = () => { buildGalaxyMap(); $("galaxy-map").classList.add("show"); };
+  $("home-galaxies").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); };
   $("home-how").onclick = () => $("how").classList.add("show");
   $("how-close").onclick = $("how-back").onclick = () => $("how").classList.remove("show");
   $("home-reset").onclick = () => { if (confirm("Erase ALL progress?")) { localStorage.removeItem(KEY); location.reload(); } };
@@ -424,15 +455,16 @@
     DPR = Math.min(window.devicePixelRatio || 1, 2); W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = W * DPR | 0; canvas.height = H * DPR | 0; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     for (const dr of drones) { dr.x = clamp(dr.x, 0, W); dr.y = clamp(dr.y, 0, H); }
+    if (GMap.open) GMap.resize();
   }
   window.addEventListener("resize", resize);
   let last = 0, saveAcc = 0;
-  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
+  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
-  load(); resize(); syncDrones(); renderList(); setScreen("home");
+  load(); resize(); syncDrones(); renderList(); GMap.init(); setScreen("home");
   if (S._welcome) { $("welcome-text").textContent = "Your defenders kept firing for " + fmtTime(S._welcome.elapsed) + "."; $("welcome-cash").textContent = "$" + fmt(S._welcome.gain); $("welcome").classList.add("show"); S._welcome = null; }
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, uDmg, uRate, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, openUnitPanel, sellUnit, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, uDmg, uRate, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, openUnitPanel, sellUnit, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap };
 })();

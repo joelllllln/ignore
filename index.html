@@ -82,12 +82,11 @@
     </div>
   </div>
 
-  <!-- GALAXY MAP -->
-  <div id="galaxy-map" class="modal">
-    <div class="card">
-      <div class="card-head"><h2>Galaxies &amp; progress</h2><button class="x" id="gm-close">✕</button></div>
-      <div id="gm-list"></div>
-    </div>
+  <!-- GALAXY MAP (interactive 3D) -->
+  <div id="galaxy-map" class="modal mapmodal">
+    <canvas id="gmap"></canvas>
+    <div class="map-bar"><span class="map-title">★ STAR MAP</span><button class="x" id="gm-close">✕</button></div>
+    <div class="map-hint">drag to rotate · tap the next galaxy to travel</div>
   </div>
 
   <!-- STAR DUST SHOP -->
