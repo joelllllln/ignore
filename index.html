@@ -3,179 +3,83 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>HIVE WORLDS — Galactic Tower Defense</title>
+<title>IDLE DOT SHOOTER</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <div id="game-root">
-  <canvas id="gl"></canvas>
   <canvas id="game"></canvas>
 
-  <!-- ===================== MAIN MENU ===================== -->
-  <div id="menu" class="screen visible">
-    <div class="panel menu-card">
-      <h1 class="title">HIVE<span>WORLDS</span></h1>
-      <p class="tagline">Crystalline defenders vs. the endless Hive. Conquer the galaxy.</p>
-      <button class="btn primary" id="btn-play">▶ &nbsp;CONQUER</button>
-      <div class="btn-row">
-        <button class="btn" id="btn-map">🌌 Star Map</button>
-        <button class="btn" id="btn-tech">⬡ Tech</button>
+  <!-- ===================== HUD ===================== -->
+  <div id="hud" class="layer">
+    <div class="hud-row">
+      <div class="hud-coins">◆ <b id="ui-coins">0</b></div>
+      <div class="hud-wave">
+        <div class="wave-label">WAVE <b id="ui-wave">1</b> <span id="ui-quota"></span></div>
+        <div class="bar wave-bar"><div id="wave-fill"></div></div>
       </div>
-      <div class="btn-row">
-        <button class="btn" id="btn-howto">❔ How to Play</button>
-        <button class="btn" id="btn-settings">⚙ Settings</button>
-      </div>
-      <div class="menu-foot">
-        <span id="menu-progress">0 / 0 conquered</span>
-        <span id="menu-cores" class="cores">◆ 0 Cores</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================== HOW TO PLAY ===================== -->
-  <div id="howto" class="screen">
-    <div class="panel menu-card wide">
-      <h2>Field Manual</h2>
-      <ul class="manual">
-        <li><b>🌌 Star Map</b> — zoom Universe → Galaxy → System. Tap a lit planet to invade.</li>
-        <li><b>🧱 Build</b> — pick a defender, tap a grid cell to deploy. <b>Hold &amp; drag</b> to relocate.</li>
-        <li><b>🎯 Tune</b> — tap a defender for its skill tree &amp; target priority (First/Close/Strong/Fast/Weak).</li>
-        <li><b>🐝 The Hive</b> — 7 species + a boss finale on every world. They crawl your Nexus &amp; defenders.</li>
-        <li><b>⚙ Efficiency</b> — damage lowers efficiency, slowing conquest &amp; income. Never game-over.</li>
-        <li><b>⏩ Speed</b> — higher speed = faster conquest &amp; a reward multiplier. Fire rate stays fixed → more pressure.</li>
-        <li><b>👆 Tap the sky</b> above your grid to strike the swarm yourself.</li>
-        <li><b>⬡ Tech</b> — earn Cores by conquering; spend on permanent upgrades.</li>
-      </ul>
-      <button class="btn primary" id="btn-howto-back">UNDERSTOOD</button>
-    </div>
-  </div>
-
-  <!-- ===================== SETTINGS ===================== -->
-  <div id="settings" class="screen">
-    <div class="panel menu-card">
-      <h2>Settings</h2>
-      <label class="toggle"><span>Sound effects</span><input type="checkbox" id="set-sound" checked></label>
-      <label class="toggle"><span>Music</span><input type="checkbox" id="set-music" checked></label>
-      <button class="btn danger" id="set-reset">⟲ Reset All Progress</button>
-      <button class="btn primary" id="set-back">BACK</button>
-    </div>
-  </div>
-
-  <!-- ===================== TECH TREE ===================== -->
-  <div id="tech" class="screen">
-    <div class="panel menu-card wide">
-      <h2>Sentinel Tech <span id="tech-cores" class="cores">◆ 0</span></h2>
-      <div id="tech-grid" class="tech-grid"></div>
-      <button class="btn primary" id="tech-back">BACK</button>
-    </div>
-  </div>
-
-  <!-- ===================== STAR MAP UI ===================== -->
-  <div id="map-ui" class="overlay-ui">
-    <div class="bar top">
-      <button class="chip" id="map-menu">☰</button>
-      <span id="map-breadcrumb" class="breadcrumb">Universe</span>
-      <button class="chip" id="map-zoomout">⤴ Out</button>
-    </div>
-    <div id="map-hint" class="hint">Tap a galaxy to dive in</div>
-  </div>
-
-  <!-- ===================== PLANET (GLOBE) UI ===================== -->
-  <div id="planet-ui" class="overlay-ui">
-    <div class="bar top">
-      <button class="chip" id="planet-back">⤴ Map</button>
-      <span id="planet-name" class="breadcrumb">Planet</span>
-      <button class="chip" id="planet-menu">☰</button>
-    </div>
-    <div id="planet-hint" class="hint planet-hint">drag to spin the planet</div>
-    <div id="planet-cities" class="city-bar"></div>
-  </div>
-
-  <!-- ===================== BATTLE UI ===================== -->
-  <div id="battle-ui" class="overlay-ui">
-    <div class="bar top" id="hud-top">
-      <button class="chip" id="btn-to-map">🌌</button>
       <button class="chip" id="btn-pause">❚❚</button>
-      <div class="hud-stat"><span class="lbl" id="ui-planet">Planet</span><b id="ui-world-name">—</b></div>
-      <div class="hud-stat"><span class="lbl">Energy</span><b id="ui-energy" class="gold">0</b></div>
-      <div class="hud-stat"><span class="lbl">Hive</span><b id="ui-hive">0/0</b></div>
-      <div class="hud-stat"><span class="lbl">Effncy</span><b id="ui-eff">100%</b></div>
-      <div class="hud-stat"><span class="lbl">Nexus</span><b id="ui-core">100%</b></div>
-      <div class="hud-stat"><span class="lbl">Income</span><b id="ui-income" class="gold">+2/s</b></div>
     </div>
-
-    <div id="completion-wrap">
-      <div class="meter-label">CONQUEST <span id="ui-reward" class="reward">×1.0</span></div>
-      <div class="meter"><div id="completion-fill"></div><span id="completion-pct">0%</span></div>
+    <div class="base-row">
+      <span class="base-label">BASE</span>
+      <div class="bar base-bar"><div id="base-fill"></div></div>
     </div>
-
-    <div id="combo-tag" class="combo-tag"></div>
-
-    <!-- tower panel -->
-    <div id="tower-panel" class="panel hidden">
-      <div class="tp-head"><span id="tp-name">Defender</span><button id="tp-close">✕</button></div>
-      <div id="tp-stats" class="tp-stats"></div>
-      <div class="tp-lbl">Target priority</div>
-      <div id="tp-targets" class="tp-targets"></div>
-      <div class="tp-lbl">Skill tree</div>
-      <div id="tp-tree" class="tp-tree"></div>
-      <button id="tp-sell" class="btn danger sm">Sell for 60%</button>
-    </div>
-
-    <div id="controls">
-      <button id="btn-eco" class="eco-btn"><span class="eco-l">💰 Economy</span><span id="eco-info" class="eco-r">+2/s · 60◇</span></button>
-      <div class="speed-row">
-        <label>SPD <b id="speed-val" class="gold">1.0×</b></label>
-        <input type="range" id="speed" min="1" max="6" step="0.5" value="1" />
-      </div>
-      <div class="build-row">
-        <button id="open-defenders" class="def-open">⊕<span>Units</span></button>
-        <div id="palette"></div>
-      </div>
-    </div>
-    <div id="tap-hint" class="hint sky-hint">tap the sky to strike • tap a cell to build</div>
   </div>
 
-  <!-- ===================== DEFENDERS PICKER ===================== -->
-  <div id="defenders" class="modal">
-    <div class="panel modal-card">
-      <div class="modal-head"><h2>Deploy Defender</h2><button id="def-close">✕</button></div>
-      <div id="def-list" class="def-list"></div>
+  <!-- ===================== CONTROLS ===================== -->
+  <div id="controls" class="layer">
+    <div class="speed-row">
+      <span>SPEED</span>
+      <input type="range" id="speed" min="1" max="5" step="1" value="1" />
+      <b id="speed-val" class="gold">1×</b>
+    </div>
+    <div id="shop" class="shop"></div>
+  </div>
+
+  <!-- ===================== START MENU ===================== -->
+  <div id="menu" class="screen visible">
+    <div class="card">
+      <h1 class="title">IDLE&nbsp;DOT<span>SHOOTER</span></h1>
+      <p class="tag">Auto-fire. Crack the dots. Bank coins. Upgrade forever.</p>
+      <button class="btn primary" id="btn-play">▶ PLAY</button>
+      <button class="btn" id="btn-how">❔ How to play</button>
+      <label class="toggle"><span>🔊 Sound</span><input type="checkbox" id="set-sound" checked></label>
+      <button class="btn ghost" id="btn-reset">⟲ Reset save</button>
+      <div class="best">Best wave: <b id="ui-best">1</b></div>
+    </div>
+  </div>
+
+  <!-- ===================== HOW TO ===================== -->
+  <div id="how" class="screen">
+    <div class="card">
+      <h2>How to play</h2>
+      <ul class="how">
+        <li>🔻 <b>Dots</b> fall from the top. Each has health that grows every wave.</li>
+        <li>🔫 Your <b>cannons</b> auto-fire at the nearest dot. Kills earn <b>◆ coins</b>.</li>
+        <li>🛒 Spend coins on <b>Damage, Fire Rate, +Cannon, Coin Boost</b> — costs rise each level.</li>
+        <li>🌊 Clear a wave's quota to advance. Every 10th wave is a <b>BOSS</b>.</li>
+        <li>🛡️ Dots that reach the bottom hurt your <b>Base</b>. If it falls, you regroup a few waves back — never game over.</li>
+        <li>⏩ <b>Speed</b> fast-forwards the assault (more coins, more pressure).</li>
+        <li>👆 <b>Tap a dot</b> to blast it yourself.</li>
+      </ul>
+      <button class="btn primary" id="btn-how-back">BACK</button>
     </div>
   </div>
 
   <!-- ===================== PAUSE ===================== -->
   <div id="pause" class="screen">
-    <div class="panel menu-card">
+    <div class="card">
       <h2>Paused</h2>
-      <button class="btn primary" id="pause-resume">▶ Resume</button>
-      <button class="btn" id="pause-settings">⚙ Settings</button>
-      <button class="btn danger" id="pause-retreat">⟵ Retreat to Map</button>
-    </div>
-  </div>
-
-  <!-- ===================== WORLD CLEAR ===================== -->
-  <div id="clear" class="screen">
-    <div class="panel menu-card">
-      <h2 id="clear-title">PLANET CONQUERED</h2>
-      <p id="clear-text"></p>
-      <div id="clear-reward" class="cores big"></div>
-      <button class="btn primary" id="clear-next">NEXT WORLD ▶</button>
-      <button class="btn" id="clear-map">Star Map</button>
+      <button class="btn primary" id="btn-resume">▶ Resume</button>
+      <label class="toggle"><span>🔊 Sound</span><input type="checkbox" id="set-sound2" checked></label>
+      <button class="btn ghost" id="btn-quit">⟵ Main menu</button>
     </div>
   </div>
 </div>
 
 <script src="js/engine.js"></script>
 <script src="js/audio.js"></script>
-<script src="js/data.js"></script>
-<script src="js/art.js"></script>
-<script src="js/globe.js"></script>
-<script src="js/planet.js"></script>
-<script src="js/map.js"></script>
-<script src="js/battle.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/main.js"></script>
+<script src="js/game.js"></script>
 </body>
 </html>

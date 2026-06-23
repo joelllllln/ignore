@@ -1,86 +1,50 @@
-# HIVE WORLDS — Galactic Tower Defense
+# Idle Dot Shooter
 
-A complete, polished browser tower-defense game built entirely with **HTML5,
-JavaScript and Canvas** — **zero dependencies, zero asset files**. Every visual
-is hand-authored procedural art and every sound is synthesized at runtime with
-the Web Audio API. Just open `index.html` and play (desktop or mobile).
+A focused **idle shooter** built with **HTML5, JavaScript and Canvas** — no
+dependencies, no asset files (graphics are drawn procedurally, sound is
+synthesized). Open `index.html` and play.
 
-Crystalline **Sentinel** defenders hold the line against the organic **Hive**.
-Build a grid of turrets, fill each world's conquest meter to 100%, defeat the
-boss, and take the galaxy planet by planet.
+Dots fall from the top. Your cannons auto-fire at the nearest one. Kills pay
+**coins**. Spend coins on a handful of upgrades whose costs rise each level.
+Waves scale **exponentially**, so progression is a long, satisfying grind.
 
-## Play
+## Core loop
 
-Open `index.html` in any modern browser, or play the hosted build (see *Hosting*).
+1. **Dots descend** — each has health that grows every wave (`hp ≈ 10 × 1.165^wave`).
+2. **Cannons auto-fire** at the nearest dot; kills grant coins (`≈ 2 × 1.15^wave`).
+3. **Upgrade** with coins:
+   - **⚔ Damage** — more damage per shot.
+   - **⚡ Fire Rate** — cannons shoot faster.
+   - **➕ Cannon** — add a turret (up to 8).
+   - **💰 Coin Boost** — more coins per kill.
+4. **Clear the wave's quota** to advance. Every **10th wave is a BOSS** — one
+   huge dot you must destroy.
+5. **Defend the Base** — dots that reach the bottom damage it. If it falls you
+   *regroup a few waves back* and refill — there's no permanent game over.
 
-## Features
+## Controls
 
-### Worlds & progression
-- **Three galaxies → eighteen planets → ~95 cities.** Each *city* is a battle;
-  liberate every city to free a planet, every planet to take a galaxy.
-- A **galaxy sector map** of connected worlds, and a **rotating planet globe**
-  (Helldivers-style): a shaded planet with a live lat/long wireframe you **drag to
-  spin**, with city markers pinned to the surface and an always-present city list.
-  Tap a city to invade. (Renders on 2D canvas for cross-device reliability.)
-- Each planet's last city is a **capital**: a boss showdown.
-- **Persistent save** (localStorage): conquest, unlocked cities, Cores and tech.
+- **Speed slider (1×–5×)** fast-forwards the assault: faster coins, but the
+  swarm presses harder (fire rate stays real-time).
+- **Tap a dot** to blast it yourself.
+- **Pause** any time; progress (coins, wave, upgrades, best wave) is saved to
+  `localStorage` and resumes next visit.
 
-### The battle
-- **Grid placement** — pick a defender, tap a cell to deploy; **hold & drag** to
-  relocate any turret.
-- **Five defender types**, each a distinct animated sprite & playstyle:
-  Pulse (rapid), Lance (railgun sniper), Mortar (splash), Cryo (slows), Arc
-  (chain lightning).
-- A **Defenders menu** to browse/pick units (stats + blurb), plus a quick palette.
-- **Per-defender skill trees** (7 nodes each, branching) plus **target priority**
-  (First / Close / Strong / Fast / Weak) and sell-for-refund.
-- **Kill-driven conquest**: the completion bar tracks enemies actually defeated —
-  it only fills as you clear the hive (and the capital boss), never before.
-- **Seven enemy species**, each with bespoke art, animation and abilities:
-  Crawler, Runner (dashes), Brute (armored), Shielded (regen shield), Flyer
-  (flapping), Splitter (bursts into minis), Healer (heals the swarm).
-- **A boss finale on every world** — Broodmother, Colossus or Leviathan — with a
-  weak-point core, a dedicated health bar, and summon abilities.
-- **The Nexus** — your animated home core. Enemies that slip past your turrets
-  chip its integrity, which (with turret damage) lowers **Efficiency** and slows
-  your conquest. There is no game-over — only faster or slower victory.
+## Why it lasts
 
-### Economy & pacing
-- **Speed slider (1×–6×)** scales the swarm, conquest and a matching **reward
-  multiplier**. Fire rate stays fixed, so speed buys progress and energy in
-  exchange for pressure.
-- **Cores** earned by conquering feed a **persistent meta tech tree** — permanent
-  bonuses to damage, fire rate, range, hull, economy and Nexus integrity.
-
-### Game feel
-- Screen shake, **hit-stop** on big kills, hit-flash, recoil, muzzle flashes,
-  bullet trails, explosions & shockwave rings, debris, smoke.
-- **Combo streaks**, arcing damage numbers, energy pickups, placement pops.
-- Screen flashes & damage vignette, parallax starfield + nebula, a CRT-style
-  finish, and a fully procedural soundtrack + SFX.
+Enemy health grows exponentially per wave while your damage grows from upgrades
+you can only afford as fast as coins come in — so you naturally stall, grind,
+upgrade, and push deeper. The wave counter climbs indefinitely.
 
 ## Project layout
 
 ```
-index.html      Screens, HUD and module <script> tags
-style.css       Cohesive sci-fi UI theme (responsive)
-js/engine.js    Canvas, math, easing, tweens, camera (shake/hit-stop),
-                particles, floating text, input
-js/audio.js     Procedural Web Audio SFX + ambient music
-js/data.js      Galaxies, defenders + skill trees, enemies, bosses, tech tree
-js/art.js       All procedural artwork (backgrounds, planets, towers, enemies)
-js/map.js       Star map with zoom transitions
-js/battle.js    Battle simulation, rendering, grid, bosses, economy, juice
-js/ui.js        Menus, HUD, defender panel, tech tree
-js/main.js      Save system, state machine, master loop
-icon.svg        App icon
+index.html   Single screen: HUD, shop, menus
+style.css    Theme + layout (responsive, mobile-friendly)
+js/engine.js Canvas, math, camera shake, particles, floating text, input
+js/audio.js  Procedural Web Audio SFX + ambient
+js/game.js   The whole game: dots, cannons, waves, bosses, shop, save, loop
+icon.svg     App icon
 ```
 
-Everything runs client-side in a single `requestAnimationFrame` loop — no
-server, bundler, or downloads.
-
-## Hosting
-
-The game is static, so GitHub Pages can serve it directly: **Settings → Pages →
-Deploy from a branch → `claude/html5-tower-defense-5izjr2` / root**. It will be
-playable at `https://joelllllln.github.io/ignore/`.
+Everything runs client-side in a single `requestAnimationFrame` loop.
