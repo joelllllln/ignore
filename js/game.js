@@ -406,7 +406,7 @@
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (!best) return; const n = best.n; if (!this.buyable(n)) return; if (n.kind === "branch") buyPath(this.type, n.key); else buyKey(this.type, n); },
   };
-  function openSkillTree(type) { selType = type; STree.open(type); $("skilltree").classList.add("show"); }
+  function openSkillTree(type) { selType = type; $("skilltree").classList.add("show"); STree.open(type); }
   function closeSkillTree() { $("skilltree").classList.remove("show"); }
   function buyPath(type, k) {
     const tt = ct(type); if (tt[k] >= MAXTIER) return; const c = pathCost(type, k); if (S.cash < c) return;
@@ -476,7 +476,7 @@
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
-    node(g) { const i = g - 1, total = 26, y = 1 - (i / (total - 1)) * 2, r = Math.sqrt(Math.max(0, 1 - y * y)), th = i * 2.399963, R = 140; return { x: Math.cos(th) * r * R, y: y * R * 0.82, z: Math.sin(th) * r * R }; },
+    node(g) { const i = g - 1, total = 26, t = i / (total - 1), ang = i * 0.62, rad = 18 + (1 - t) * 150; return { x: Math.cos(ang) * rad, y: (t - 0.5) * 16, z: Math.sin(ang) * rad }; },
     cluster(cx, cy, scale, bright, rot) {
       const c = this.c, n = 22;
       for (let k = 0; k < n; k++) { const tk = k / n, ang = tk * 6.2 + rot, r = tk * scale, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r * 0.62; c.globalAlpha = bright * (1 - tk * 0.55); c.fillStyle = "#fff"; c.fillRect(x, y, 1.6, 1.6); }
