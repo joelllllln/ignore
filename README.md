@@ -20,8 +20,10 @@ upgrades → the rhythm shifts → travel / trigger an ability for a burst.
 - **Defence** — Fire Rate, Damage, Critical Hits, **Marines** (extra fire
   streams), **Mortar** (splash), **Plasma** (heavy single-target). Multiple
   weapons fire in rotation.
-- **Drone** — Speed, Suction (pull radius), Agility, Collector Size. Sets how
-  much of your earned cash you actually pick up.
+- **Collectors** — gather the cash orbs dots drop. Buy more and unlock new
+  classes as you travel: **Drone** → **Drone Swarm** → **Black Hole** (a
+  vacuum that slowly drags every orb, and nearby dots, inward). Each collector
+  class has its **own skill web** (Speed / Suction / Yield).
 - **Economy** — Capacity (cash ceiling), Value (cash per dot), Spawn Rate
   (more targets), Luck (chance of high-value special dots). These multiply the
   other two pillars, so keep all three in step.

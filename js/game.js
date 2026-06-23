@@ -30,6 +30,19 @@
     railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0 },
   };
   const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun"];
+  /* ----------------------- collector types ----------------------- */
+  // Collectors gather the cash orbs dots drop. Like defenders they come in
+  // classes you buy more of, each with its OWN skill tree. "hole" mode = a
+  // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
+  const COL_TYPES = {
+    drone:       { name: "Drone",        base: 300,     gal: 1, speed: 110, suction: 70,  collect: 16, yield: 1.0,  mode: "chase" },
+    swarm:       { name: "Drone Swarm",  base: 90000,   gal: 3, speed: 165, suction: 100, collect: 22, yield: 1.2,  mode: "chase" },
+    singularity: { name: "Black Hole",   base: 8000000, gal: 6, speed: 46,  suction: 360, collect: 64, yield: 1.5,  mode: "hole"  },
+  };
+  const COL_ORDER = ["drone", "swarm", "singularity"];
+  const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
+  const isCol = type => !!COL_TYPES[type];
+  const TY = type => DEF_TYPES[type] || COL_TYPES[type];
   const MAXTIER = 5;
   const PATHS = [
     { key: "a", name: "Power",  fx: t => "×" + Math.pow(1.7, t).toFixed(1) + " dmg" },
@@ -37,13 +50,14 @@
     { key: "c", name: "Optics", fx: t => "+" + 55 * t + " rng" + (t >= 3 ? " · crit" : "") },
   ];
   const newUnit = type => ({ type, cd: rnd(0, 0.4) });
-  const countType = type => S.units.filter(u => u.type === type).length;
-  const unitBuyCost = type => Math.floor(DEF_TYPES[type].base * Math.pow(1.9, countType(type)));
+  const classList = type => isCol(type) ? S.collectors : S.units;
+  const countType = type => classList(type).filter(u => u.type === type).length;
+  const unitBuyCost = type => Math.floor(TY(type).base * Math.pow(1.9, countType(type)));
   // class-wide upgrade tree: tiers live on the TYPE, so they apply to EVERY unit of that type.
   const ct = type => (S.classT[type] || (S.classT[type] = { a: 0, b: 0, c: 0 }));
   const keyOn = (type, id) => !!(S.classKeys && S.classKeys[type] && S.classKeys[type][id]);
-  const pathCost = (type, k) => Math.floor(DEF_TYPES[type].base * 1.5 * Math.pow(2.6, ct(type)[k]));
-  const keyCost = type => Math.floor(DEF_TYPES[type].base * 14);
+  const pathCost = (type, k) => Math.floor(TY(type).base * 1.5 * Math.pow(2.6, ct(type)[k]));
+  const keyCost = type => Math.floor(TY(type).base * 14);
   const kcore = type => keyOn(type, "kscore") ? 1.25 : 1;
   const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * (ct(u.type).a >= 5 ? 1.25 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * kcore(u.type) * derived.sdDmg;
   const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * (ct(u.type).b >= 5 ? 1.5 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * kcore(u.type) * derived.sdFire;
@@ -51,6 +65,13 @@
   const uCrit = u => (ct(u.type).c >= 5 ? 0.45 : ct(u.type).c >= 3 ? 0.25 : 0) + (keyOn(u.type, "ksbc") ? 0.15 : 0) + (keyOn(u.type, "kscore") ? 0.1 : 0);
   const uCritMul = u => 2 + 0.3 * ct(u.type).c;
   const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + 14 * ct(u.type).c : 0;
+  // collector class stats (path a=Speed, b=Suction, c=Yield). Keystones reuse
+  // the same ids as defenders so the web machinery is shared.
+  const cSpeed   = type => COL_TYPES[type].speed   * Math.pow(1.18, ct(type).a) * (ct(type).a >= 5 ? 1.2 : 1) * (keyOn(type, "ksab") ? 1.2 : 1) * kcore(type);
+  const cSuction = type => COL_TYPES[type].suction * Math.pow(1.16, ct(type).b) * (keyOn(type, "ksab") ? 1.2 : 1) * (keyOn(type, "ksac") ? 1.25 : 1) * kcore(type);
+  const cCollect = type => COL_TYPES[type].collect + 4 * ct(type).c + (keyOn(type, "ksac") ? 10 : 0);
+  const cYield   = type => COL_TYPES[type].yield * (1 + 0.06 * ct(type).c) * (ct(type).c >= 5 ? 1.25 : 1) * (keyOn(type, "ksbc") ? 1.2 : 1) * (keyOn(type, "kscore") ? 1.25 : 1) * derived.incomeMul;
+  const AGILITY = 0.12;
 
   // fully-built class skill trees (3 paths x 5 named tiers). Effects are the
   // scaling above; names give each tier flavour for the skill-tree screen.
@@ -69,6 +90,19 @@
     if (tier === 5) return "+55 range · 45% crit";
     return "+55 range";
   }
+  // collector skill webs: a=Speed, b=Suction, c=Yield
+  const COL_SKILLS = {
+    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field"], c: ["Bigger Scoop", "Compactor", "Refinery", "Cash Sense", "Midas Touch"] },
+    swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep"], c: ["Many Hands", "Bulk Haul", "Hive Vault", "Pack Bonus", "Golden Swarm"] },
+    singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach"], c: ["Accretion", "Compression", "Mass Yield", "Hawking Cash", "Quasar"] },
+  };
+  function colNodeEffect(key, tier) {
+    if (key === "a") return tier === 5 ? "+18% speed (capped fast)" : "+18% move speed";
+    if (key === "b") return tier === 5 ? "+16% suction" : "+16% suction radius";
+    return tier === 5 ? "+collect · +31% yield" : "+collect size · +6% yield";
+  }
+  const skillNames = type => isCol(type) ? COL_SKILLS[type] : SKILLS[type];
+  const effectText = (type, key, tier) => isCol(type) ? colNodeEffect(key, tier) : nodeEffect(key, tier);
   const GAL_DESC = [
     "A quiet starting sector. Sparse, fragile dots — good for finding your rhythm.",
     "Azure nebula. Swarms drift faster; keep your drones close.",
@@ -92,11 +126,6 @@
 
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
-    { id: "drones",     tab: "drone", name: "Extra Drone", base: 300, mul: 1.85, max: 8, desc: l => (1 + l) + " drones" },
-    { id: "droneSpeed", tab: "drone", name: "Drone Speed", base: 18, mul: 1.18, desc: () => Math.round(derived.droneSpeed) + " px/s" },
-    { id: "suction",    tab: "drone", name: "Suction",     base: 24, mul: 1.20, desc: () => Math.round(derived.suction) + " radius" },
-    { id: "agility",    tab: "drone", name: "Agility",     base: 18, mul: 1.18, max: 40, desc: l => "Lv " + l },
-    { id: "size",       tab: "drone", name: "Collector Size", base: 28, mul: 1.20, desc: () => Math.round(derived.collect) + " px" },
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 10, mul: 1.27, desc: () => "$" + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 16, mul: 1.22, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
     { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 24, mul: 1.21, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
@@ -126,8 +155,8 @@
   let S, derived = {}, META, state = "home";
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
-    const classT = {}, classKeys = {}; DEF_ORDER.forEach(t => { classT[t] = { a: 0, b: 0, c: 0 }; classKeys[t] = {}; });
-    return { cash: 0, galaxy: 1, lv, classT, classKeys, units: [newUnit("turret")], totalRun: 0, peakGalaxy: 1 };
+    const classT = {}, classKeys = {}; ALL_TYPES.forEach(t => { classT[t] = { a: 0, b: 0, c: 0 }; classKeys[t] = {}; });
+    return { cash: 0, galaxy: 1, lv, classT, classKeys, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1 };
   }
   function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0 }; }
 
@@ -142,10 +171,6 @@
     derived.sdDmg = 1 + 0.25 * m.sd.sdDmg;
     derived.sdFire = (1 + 0.15 * m.sd.sdFire) * (frenzyT > 0 ? 5 : 1);
     derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
-    derived.droneSpeed = 90 + 16 * L.droneSpeed;
-    derived.suction = 26 + 7 * L.suction;              // small base -> need more drones
-    derived.agility = clamp(0.06 + 0.01 * L.agility, 0, 0.5);
-    derived.collect = 8 + 2 * L.size;
     derived.capacity = 200 * Math.pow(1.7, L.capacity);
     derived.valueMul = Math.pow(1.25, L.value);
     derived.spawnPerSec = 0.9 + 0.4 * L.spawnRate;
@@ -160,7 +185,7 @@
     try {
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
-        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classT) S.classT = {}; if (!S.classKeys) S.classKeys = {}; DEF_ORDER.forEach(t => { if (!S.classT[t]) S.classT[t] = { a: 0, b: 0, c: 0 }; if (!S.classKeys[t]) S.classKeys[t] = {}; }); }
+        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classT) S.classT = {}; if (!S.classKeys) S.classKeys = {}; ALL_TYPES.forEach(t => { if (!S.classT[t]) S.classT[t] = { a: 0, b: 0, c: 0 }; if (!S.classKeys[t]) S.classKeys[t] = {}; }); if (!Array.isArray(S.collectors) || !S.collectors.length) { const n = 1 + (d.S.lv && d.S.lv.drones || 0); S.collectors = []; for (let i = 0; i < n; i++) S.collectors.push({ type: "drone" }); } }
         if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {}); }
         if (d.ts && d.cps > 0) { const e = clamp((Date.now() - d.ts) / 1000, 0, 8 * 3600); if (e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; } }
       }
@@ -170,7 +195,12 @@
   }
 
   /* ----------------------------- entities ------------------------ */
-  function syncDrones() { const n = 1 + S.lv.drones; while (drones.length < n) drones.push({ x: rnd(W * 0.3, W * 0.7), y: rnd(H * 0.3, H * 0.6), vx: 0, vy: 0 }); while (drones.length > n) drones.pop(); }
+  function syncCollectors() {
+    const n = S.collectors.length;
+    while (drones.length < n) drones.push({ x: rnd(W * 0.3, W * 0.7), y: rnd(H * 0.3, H * 0.6), vx: 0, vy: 0 });
+    while (drones.length > n) drones.pop();
+    for (let i = 0; i < n; i++) drones[i].type = S.collectors[i].type;
+  }
 
   function spawnDot(special) {
     const g = S.galaxy, hp = 5 * enemyHpMul(g) * rnd(0.8, 1.6);
@@ -226,22 +256,26 @@
     for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; u.cd -= dt; if (u.cd <= 0) { fireUnit(u, unitPos(i, S.units.length)); u.cd = 1 / uRate(u); } }
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
 
-    // drones coordinate: each claims its nearest orb (so they split up)
-    if (drones.length === 0) syncDrones();
+    // collectors coordinate: chase-types each claim their nearest orb (so they
+    // split up); black-hole types stay put and drag everything in slowly.
+    if (drones.length === 0) syncCollectors();
     for (const dr of drones) { dr.cand = null; dr.cbd = Infinity; }
-    for (const o of orbs) { let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2; if (q < bd) { bd = q; nd = dr; } } if (nd && bd < nd.cbd) { nd.cbd = bd; nd.cand = o; } }
+    for (const o of orbs) { let nd = null, bd = Infinity; for (const dr of drones) { if (COL_TYPES[dr.type].mode === "hole") continue; const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2; if (q < bd) { bd = q; nd = dr; } } if (nd && bd < nd.cbd) { nd.cbd = bd; nd.cand = o; } }
     for (const dr of drones) {
-      const tgt = dr.cand;
-      if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1; dr.vx += (dx / dl * derived.droneSpeed - dr.vx) * derived.agility; dr.vy += (dy / dl * derived.droneSpeed - dr.vy) * derived.agility; }
+      const hole = COL_TYPES[dr.type].mode === "hole", tgt = dr.cand;
+      if (hole) { const dx = W / 2 - dr.x, dy = H * 0.42 - dr.y; dr.vx += (dx * 0.6 - dr.vx) * 0.04; dr.vy += (dy * 0.6 - dr.vy) * 0.04; }   // hovers near centre
+      else if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1, sp = cSpeed(dr.type); dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; }
       else { dr.vx *= 0.9; dr.vy *= 0.9; }
       dr.x = clamp(dr.x + dr.vx * dt, 0, W); dr.y = clamp(dr.y + dr.vy * dt, 0, H);
     }
+    // black holes also drag nearby dots gently toward them (the "suck in" feel)
+    for (const dr of drones) { if (COL_TYPES[dr.type].mode !== "hole") continue; const R = cSuction(dr.type) * 1.5; for (const d of dots) { const dx = dr.x - d.x, dy = dr.y - d.y, dl = Math.hypot(dx, dy) || 1; if (dl < R) { d.x += dx / dl * 60 * dt; d.y += dy / dl * 60 * dt; } } }
     let earned = 0;
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
-      let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2; if (q < bd) { bd = q; nd = dr; } }
-      if (nd) { const dl = Math.sqrt(bd) || 1; if (dl < derived.suction) { o.x += (nd.x - o.x) / dl * 240 * dt; o.y += (nd.y - o.y) / dl * 240 * dt; } if (dl < derived.collect + 6 || o.t > 30) { if (o.t <= 30) earned += o.value; orbs.splice(i, 1); } }
-      else if (o.t > 30) orbs.splice(i, 1);
+      let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
+      if (nd) { const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 150 : 240; o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > 45) { if (o.t <= 45) earned += Math.round(o.value * cYield(nd.type)); orbs.splice(i, 1); } }
+      else if (o.t > 45) orbs.splice(i, 1);
     }
     if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
@@ -274,7 +308,22 @@
       const tt = ct(u.type), tot = tt.a + tt.b + tt.c; if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - 21); }
     }
     ctx.textBaseline = "alphabetic";
-    for (const dr of drones) { ctx.strokeStyle = "rgba(255,255,255,0.14)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, derived.suction, 0, TAU); ctx.stroke(); ctx.fillStyle = "#ddd"; ctx.save(); ctx.translate(dr.x, dr.y); ctx.rotate(Date.now() / 300); ctx.fillRect(-6, -6, 12, 12); ctx.restore(); }
+    for (const dr of drones) {
+      const mode = COL_TYPES[dr.type].mode, sr = cSuction(dr.type);
+      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, sr, 0, TAU); ctx.stroke();
+      ctx.save(); ctx.translate(dr.x, dr.y);
+      if (mode === "hole") {
+        const rot = Date.now() / 600;
+        for (let k = 0; k < 3; k++) { ctx.strokeStyle = "rgba(255,255,255," + (0.5 - k * 0.13) + ")"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 7 + k * 5, rot + k, rot + k + 4.2); ctx.stroke(); }
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, TAU); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
+      } else if (dr.type === "swarm") {
+        ctx.rotate(Date.now() / 240); ctx.fillStyle = "#eee";
+        for (let k = 0; k < 3; k++) { const a = k / 3 * TAU; ctx.beginPath(); ctx.arc(Math.cos(a) * 6, Math.sin(a) * 6, 3.2, 0, TAU); ctx.fill(); }
+      } else {
+        ctx.rotate(Date.now() / 300); ctx.fillStyle = "#ddd"; ctx.fillRect(-6, -6, 12, 12);
+      }
+      ctx.restore();
+    }
     if (trail.length) { ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 16; ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.beginPath(); for (let i = 0; i < trail.length; i++) { const tp = trail[i]; i ? ctx.lineTo(tp.x, tp.y) : ctx.moveTo(tp.x, tp.y); } ctx.stroke(); }
   }
 
@@ -290,7 +339,7 @@
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {
-        const d = DEF_TYPES[id], locked = S.galaxy < d.gal, c = unitBuyCost(id);
+        const d = TY(id), locked = S.galaxy < d.gal, c = unitBuyCost(id);
         row.desc.textContent = "owned " + countType(id) + (locked ? "" : " · " + d.name);
         if (locked) { row.buy.textContent = "🔒 G" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); }
         else { row.buy.textContent = "$" + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); }
@@ -304,16 +353,18 @@
     // tab badges
     const aff = { def: false, drone: false, eco: false };
     for (const t of DEF_ORDER) if (S.galaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t)) aff.def = true;
+    for (const t of COL_ORDER) if (S.galaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t)) aff.drone = true;
     for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
     for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
   }
 
   function renderList() {
     const wrap = $("up-list"); wrap.innerHTML = ""; listRows = {};
-    if (activeTab === "def") {
-      for (const type of DEF_ORDER) {
+    if (activeTab === "def" || activeTab === "drone") {
+      const order = activeTab === "def" ? DEF_ORDER : COL_ORDER, col = activeTab === "def" ? "#fff" : "var(--drone)";
+      for (const type of order) {
         const el = document.createElement("div"); el.className = "up";
-        el.innerHTML = `<span class="u-dot" style="background:#fff"></span><div class="u-mid"><div class="u-name">${DEF_TYPES[type].name}</div><div class="u-desc"></div></div><button class="u-up" title="Upgrade class">⬆ Class</button><button class="u-buy"></button>`;
+        el.innerHTML = `<span class="u-dot" style="background:${col}"></span><div class="u-mid"><div class="u-name">${TY(type).name}</div><div class="u-desc"></div></div><button class="u-up" title="Upgrade class">⬆ Tree</button><button class="u-buy"></button>`;
         wrap.appendChild(el);
         el.querySelector(".u-up").onclick = () => openSkillTree(type);
         el.querySelector(".u-buy").onclick = () => buyUnit(type);
@@ -332,14 +383,16 @@
     syncHUD();
   }
   function buyUnit(type) {
-    if (S.galaxy < DEF_TYPES[type].gal || S.units.length >= 40) return;
+    const list = classList(type), cap = isCol(type) ? 24 : 40;
+    if (S.galaxy < TY(type).gal || list.length >= cap) return;
     const c = unitBuyCost(type); if (S.cash < c) return;
-    S.cash -= c; S.units.push(newUnit(type)); Audio_buy(); renderList(); save();
+    S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); if (isCol(type)) syncCollectors();
+    Audio_buy(); renderList(); save();
   }
   function buyUpgrade(u) {
     const lvl = S.lv[u.id]; if (u.max != null && lvl >= u.max) return;
     const c = upCost(u); if (S.cash < c) return;
-    S.cash -= c; S.lv[u.id]++; if (u.id === "drones") syncDrones();
+    S.cash -= c; S.lv[u.id]++;
     Audio_buy(); recompute(); syncHUD(); save();
   }
   function Audio_buy() {}  // (silent build)
@@ -352,22 +405,25 @@
   // Each class has its own rotation, curve, cross-weave and keystone names, so
   // no two webs look or unlock the same. Nodes light up only with prereqs.
   const CLASS_WEB = {
-    //         rot (base angle)   curve   cross-links [node, extraReq]            keystone names [ab, bc, ac, core]
-    turret:  { rot: -1.57, curve:  0.13, cross: [["a4", "b2"], ["c3", "a1"]],            keys: ["Twin Cannons", "Marksman", "Heavy Optics", "War Machine"] },
-    mortar:  { rot: -1.10, curve: -0.20, cross: [["b3", "a2"], ["c4", "b1"], ["a3", "c1"]], keys: ["Saturation", "Spotter Net", "Blast Lens", "Annihilation"] },
-    plasma:  { rot: -1.90, curve:  0.24, cross: [["c4", "a2"], ["a3", "b2"]],            keys: ["Ion Storm", "Crit Cascade", "Phase Lens", "Singularity"] },
-    laser:   { rot: -1.30, curve: -0.16, cross: [["b4", "c2"], ["c3", "a2"], ["a4", "b3"]], keys: ["Resonance", "Prism Crit", "Mirror Array", "Death Beam"] },
-    railgun: { rot: -2.10, curve:  0.30, cross: [["a4", "c2"], ["b3", "a1"]],            keys: ["Overrail", "Calibrated", "Long Shot", "Railstorm"] },
+    //             rot (base angle)  curve   cross-links [node, extraReq]               keystone names [ab, bc, ac, core]
+    turret:      { rot: -1.57, curve:  0.05, cross: [["a4", "b2"], ["c3", "a1"]],              keys: ["Twin Cannons", "Marksman", "Heavy Optics", "War Machine"] },
+    mortar:      { rot: -1.20, curve: -0.06, cross: [["b3", "a2"], ["c4", "b1"], ["a3", "c1"]], keys: ["Saturation", "Spotter Net", "Blast Lens", "Annihilation"] },
+    plasma:      { rot: -1.90, curve:  0.07, cross: [["c4", "a2"], ["a3", "b2"]],              keys: ["Ion Storm", "Crit Cascade", "Phase Lens", "Overload"] },
+    laser:       { rot: -1.30, curve: -0.05, cross: [["b4", "c2"], ["c3", "a2"], ["a4", "b3"]], keys: ["Resonance", "Prism Crit", "Mirror Array", "Death Beam"] },
+    railgun:     { rot: -2.10, curve:  0.06, cross: [["a4", "c2"], ["b3", "a1"]],              keys: ["Overrail", "Calibrated", "Long Shot", "Railstorm"] },
+    drone:       { rot: -1.57, curve:  0.05, cross: [["b3", "a1"], ["c4", "b2"]],              keys: ["Swift Magnet", "Rich Haul", "Wide Scoop", "Perfect Collector"] },
+    swarm:       { rot: -1.30, curve: -0.06, cross: [["a3", "b1"], ["c3", "a2"], ["b4", "c2"]], keys: ["Hive Sync", "Pack Yield", "Mesh Reach", "Locust God"] },
+    singularity: { rot: -1.90, curve:  0.07, cross: [["b4", "a2"], ["c3", "b2"]],              keys: ["Tidal Lock", "Mass Cash", "Event Horizon", "Big Crunch"] },
   };
   function webNodes(type) {
-    const cfg = CLASS_WEB[type] || CLASS_WEB.turret, arms = ["a", "b", "c"], pos = { root: { x: 0, y: 0 } };
-    const N = [{ id: "root", x: 0, y: 0, kind: "root", name: DEF_TYPES[type].name, req: [] }];
+    const cfg = CLASS_WEB[type] || CLASS_WEB.turret, arms = ["a", "b", "c"], pos = { root: { x: 0, y: 0 } }, sk = skillNames(type);
+    const N = [{ id: "root", x: 0, y: 0, kind: "root", name: TY(type).name, req: [] }];
     arms.forEach((k, ai) => {
       const base = cfg.rot + ai * (Math.PI * 2 / 3);
       for (let t = 1; t <= MAXTIER; t++) {
-        const ang = base + cfg.curve * t, rad = t * 0.62, x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+        const ang = base + cfg.curve * t, rad = 0.55 + t * 0.66, x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
         pos[k + t] = { x, y };
-        N.push({ id: k + t, kind: "branch", key: k, tier: t, x, y, name: SKILLS[type][k][t - 1], fx: nodeEffect(k, t), req: [t === 1 ? "root" : k + (t - 1)] });
+        N.push({ id: k + t, kind: "branch", key: k, tier: t, x, y, name: sk[k][t - 1], fx: effectText(type, k, t), req: [t === 1 ? "root" : k + (t - 1)] });
       }
     });
     // weave the arms together: each cross-link adds a real diagonal prerequisite.
@@ -376,13 +432,16 @@
     // bridge keystones sit between two arms (real cross-arm gates + edges).
     const mid = (p, q, push) => ({ x: (pos[p].x + pos[q].x) / 2 * push, y: (pos[p].y + pos[q].y) / 2 * push });
     const mab = mid("a3", "b3", 1.25), mbc = mid("b3", "c3", 1.25), mac = mid("c3", "a3", 1.25);
-    N.push({ id: "ksab", kind: "key", x: mab.x, y: mab.y, name: cfg.keys[0], fx: "+20% dmg & rate", req: ["a3", "b3"] });
-    N.push({ id: "ksbc", kind: "key", x: mbc.x, y: mbc.y, name: cfg.keys[1], fx: "+15% crit", req: ["b3", "c3"] });
-    N.push({ id: "ksac", kind: "key", x: mac.x, y: mac.y, name: cfg.keys[2], fx: "+25% range", req: ["c3", "a3"] });
+    const kfx = isCol(type)
+      ? { ab: "+20% speed & suction", bc: "+20% yield", ac: "+25% suction · +collect", core: "+25% speed/suction · +25% yield" }
+      : { ab: "+20% dmg & rate", bc: "+15% crit", ac: "+25% range", core: "+25% dmg & rate · +10% crit" };
+    N.push({ id: "ksab", kind: "key", x: mab.x, y: mab.y, name: cfg.keys[0], fx: kfx.ab, req: ["a3", "b3"] });
+    N.push({ id: "ksbc", kind: "key", x: mbc.x, y: mbc.y, name: cfg.keys[1], fx: kfx.bc, req: ["b3", "c3"] });
+    N.push({ id: "ksac", kind: "key", x: mac.x, y: mac.y, name: cfg.keys[2], fx: kfx.ac, req: ["c3", "a3"] });
     // crowning capstone: needs all three keystones — its edges fan back across
     // the whole web. Sits out past the bridges so it doesn't cover the root.
-    const cap = cfg.rot + Math.PI, cr = 2.75;
-    N.push({ id: "kscore", kind: "key", x: Math.cos(cap) * cr, y: Math.sin(cap) * cr, name: cfg.keys[3], fx: "+25% dmg & rate · +10% crit", req: ["ksab", "ksbc", "ksac"] });
+    const cap = cfg.rot + Math.PI, cr = 3.3;
+    N.push({ id: "kscore", kind: "key", x: Math.cos(cap) * cr, y: Math.sin(cap) * cr, name: cfg.keys[3], fx: kfx.core, req: ["ksab", "ksbc", "ksac"] });
     return N;
   }
   // is a web node (by id) already owned for this class? handles root / branch
@@ -410,7 +469,7 @@
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); this.clampPan(); },
     owned(n) { return n.kind === "root" ? true : n.kind === "branch" ? ct(this.type)[n.key] >= n.tier : keyOn(this.type, n.id); },
     buyable(n) { if (this.owned(n)) return false; if (!n.req.every(r => webOwned(this.type, r))) return false; if (n.kind === "branch") return ct(this.type)[n.key] + 1 === n.tier; return n.kind === "key"; },
-    cost(n) { return n.kind === "key" ? keyCost(this.type) : Math.floor(DEF_TYPES[this.type].base * 1.5 * Math.pow(2.6, n.tier - 1)); },
+    cost(n) { return n.kind === "key" ? keyCost(this.type) : Math.floor(TY(this.type).base * 1.5 * Math.pow(2.6, n.tier - 1)); },
     sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.11 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h * 0.46 + this.cy + ny * u, u }; },
     render(dt) {
       if (!this.cv) return; const c = this.c; this.t += dt;
@@ -433,10 +492,12 @@
         if (n.fx) { c.fillStyle = "rgba(255,255,255,0.5)"; c.font = "9px ui-monospace,monospace"; c.fillText(n.fx, p.x, p.y + rad + 12); }
         if (!own && buy) { c.fillStyle = afford ? "#fff" : "rgba(255,255,255,0.45)"; c.font = "11px ui-monospace,monospace"; c.fillText("$" + fmt(cost), p.x, p.y + rad + (n.fx ? 24 : 12)); }
       }
-      const sample = { type: this.type };
-      $("st-title").textContent = DEF_TYPES[this.type].name.toUpperCase();
-      $("st-owned").textContent = "· " + countType(this.type) + " deployed · affects ALL";
-      $("st-stats").innerHTML = "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
+      const sample = { type: this.type }, tp = this.type;
+      $("st-title").textContent = TY(tp).name.toUpperCase();
+      $("st-owned").textContent = "· " + countType(tp) + " deployed · affects ALL";
+      $("st-stats").innerHTML = isCol(tp)
+        ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> suction · <b>" + Math.round(cCollect(tp)) + "</b> grab · <b>×" + cYield(tp).toFixed(2) + "</b> yield"
+        : "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (!best) return; const n = best.n; if (!this.buyable(n)) return; if (n.kind === "branch") buyPath(this.type, n.key); else buyKey(this.type, n); },
   };
@@ -452,24 +513,16 @@
     S.cash -= c; S.classKeys[type][n.id] = true; recompute(); syncHUD(); save();
   }
   function sellOne() {
-    const i = S.units.findIndex(u => u.type === selType);
-    if (i < 0 || S.units.length <= 1) return;
+    const list = classList(selType), i = list.findIndex(u => u.type === selType);
+    const minKeep = isCol(selType) ? (selType === "drone" ? 1 : 0) : 1;
+    if (i < 0 || countType(selType) <= minKeep) return;
     S.cash += Math.round(unitBuyCost(selType) / 1.9 * 0.5);
-    S.units.splice(i, 1); syncHUD(); save();
+    list.splice(i, 1); if (isCol(selType)) syncCollectors();
+    renderList(); syncHUD(); save();
   }
   function showGalaxyInfo(g) {
     const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
-    const weps = DEF_ORDER.filter(t => DEF_TYPES[t].gal === g).map(t => DEF_TYPES[t].name);
-    const action = current ? "<span class='gi-tag'>▶ You are here</span>" : reached ? "<span class='gi-tag'>Conquered ✓</span>"
-      : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
-    $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div><div class='gi-desc'>" + galDesc(g) + "</div>" +
-      (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
-    $("gm-info").classList.add("show");
-    const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
-  }
-  function showGalaxyInfo(g) {
-    const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
-    const weps = DEF_ORDER.filter(t => DEF_TYPES[t].gal === g).map(t => DEF_TYPES[t].name);
+    const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span>" : reached ? "<span class='gi-tag'>Conquered ✓</span>"
       : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div><div class='gi-desc'>" + galDesc(g) + "</div>" +
@@ -552,7 +605,7 @@
     META.starDust += rebirthGain(); const keep = META; S = fresh(); META = keep;
     if (META.sd.sdStart > 0) S.cash = 50 * Math.pow(6, META.sd.sdStart);
     dots = []; orbs = []; beams = []; spawnAcc = 0; cps = 0; drones = []; selUnit = -1;
-    syncDrones(); recompute(); $("rebirth-modal").classList.remove("show"); renderList(); buildSD(); syncHUD(); save();
+    syncCollectors(); recompute(); $("rebirth-modal").classList.remove("show"); renderList(); buildSD(); syncHUD(); save();
   }
 
   /* ----------------------------- screens ------------------------- */
@@ -615,10 +668,10 @@
   let last = 0, saveAcc = 0;
   function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt); saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
-  load(); resize(); syncDrones(); renderList(); GMap.init(); STree.init(); setScreen("home");
+  load(); resize(); syncCollectors(); renderList(); GMap.init(); STree.init(); setScreen("home");
   if (S._welcome) { $("welcome-text").textContent = "Your defenders kept firing for " + fmtTime(S._welcome.elapsed) + "."; $("welcome-cash").textContent = "$" + fmt(S._welcome.gain); $("welcome").classList.add("show"); S._welcome = null; }
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, uDmg, uRate, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, buyKey, webNodes, openSkillTree, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, buyKey, webNodes, openSkillTree, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
