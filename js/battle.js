@@ -398,7 +398,7 @@ const Battle = {
     Camera.end();
 
     if (s.boss) {
-      const bw = VIEW.w * 0.7, bx = (VIEW.w - bw) / 2, by = 96;
+      const bw = VIEW.w * 0.7, bx = (VIEW.w - bw) / 2, by = 124;
       c.fillStyle = "rgba(0,0,0,0.5)"; roundRect(c, bx, by, bw, 12, 6); c.fill();
       const f = clamp((s.boss.hp + s.boss.shield) / (s.boss.maxHp + s.boss.maxShield), 0, 1);
       c.fillStyle = s.boss.def.color; roundRect(c, bx, by, bw * f, 12, 6); c.fill();

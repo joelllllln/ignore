@@ -89,9 +89,7 @@ function drawMenuFlair() {
 /* ------------------------------ boot ----------------------------- */
 function boot() {
   loadProgress();
-  Globe.init();
   resizeCanvas();
-  Globe.resize();
   Input.init();
   Battle.init();
   PlanetScreen.init();

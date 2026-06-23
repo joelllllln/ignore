@@ -18,11 +18,10 @@ Open `index.html` in any modern browser, or play the hosted build (see *Hosting*
 ### Worlds & progression
 - **Three galaxies → eighteen planets → ~95 cities.** Each *city* is a battle;
   liberate every city to free a planet, every planet to take a galaxy.
-- A **galaxy sector map** of connected worlds, and a **real WebGL planet globe**
-  (Helldivers-style): a procedurally textured, lit, **360° spinning sphere** —
-  continents, ice caps, clouds, night-side city lights, atmosphere rim — that you
-  **drag to spin**, with city markers pinned to the surface. Tap a city to invade.
-  (Falls back to a 2D planet if WebGL is unavailable, so it always runs.)
+- A **galaxy sector map** of connected worlds, and a **rotating planet globe**
+  (Helldivers-style): a shaded planet with a live lat/long wireframe you **drag to
+  spin**, with city markers pinned to the surface and an always-present city list.
+  Tap a city to invade. (Renders on 2D canvas for cross-device reliability.)
 - Each planet's last city is a **capital**: a boss showdown.
 - **Persistent save** (localStorage): conquest, unlocked cities, Cores and tech.
 

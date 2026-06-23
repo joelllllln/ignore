@@ -23,8 +23,8 @@ const PlanetScreen = {
     this.planet = planet;
     this.land = hexRGB(planet.ref.biome[0]); this.ocean = hexRGB(planet.ref.biome[1]);
     this.seed = (planet.gi + 1) * 3.137;
-    this.rotY = 0; this.velY = 0.25; this.rotX = -0.35;
-    Globe.show(Globe.ok);
+    this.rotY = 0; this.velY = 0.12; this.rotX = -0.35;
+    Globe.show(false);                 // reliable 2D globe (canvas), no WebGL dependency
     this.buildCityList();
     setState("planet");
   },
@@ -50,25 +50,48 @@ const PlanetScreen = {
 
   update(dt) {
     this.t += dt;
-    this.rotY += (0.18 + this.velY) * dt;
-    this.velY *= Math.pow(0.06, dt);       // inertia decay
+    this.rotY += (0.12 + this.velY) * dt;
+    this.velY *= Math.pow(0.04, dt);       // inertia decay
   },
 
-  screenRadius() { const p = Globe.project([0, 1, 0], 0, 0); return Math.abs(p.y - VIEW.h / 2); },
+  // True projected silhouette radius of the unit sphere (px), so the drawn
+  // planet disc matches where city markers land.
+  screenRadius() {
+    const d = Globe._camDist(), z = 1 / d, y = Math.sqrt(Math.max(0, 1 - z * z));
+    const p = Globe.project([0, y, z], 0, 0);
+    return Math.abs(p.y - VIEW.h / 2);
+  },
 
   render() {
     const c = ctx;
-    if (Globe.ok) {
-      Globe.render(this.rotX, this.rotY, this.land, this.ocean, this.t, this.seed);
-      c.clearRect(0, 0, VIEW.w, VIEW.h);               // 2D layer transparent over GL
-      this._stars(c);
-    } else {
-      Sky.draw(c, this.planet.galRef.nebula, 0, 0);
-      paintPlanet(c, VIEW.w / 2, VIEW.h / 2, this.screenRadius(), this.planet.ref.biome, false, false, this.rotY);
-    }
+    Sky.draw(c, this.planet.galRef.nebula, 0, 0);
+    const cx = VIEW.w / 2, cy = VIEW.h / 2, R = this.screenRadius();
+    paintPlanet(c, cx, cy, R, this.planet.ref.biome, false, false, this.rotY);
+    this._graticule(c);
     this._markers(c);
     FloatText.draw(c);
     this._hud(c);
+  },
+
+  // rotating lat/long wireframe — makes the 3D spin obvious & anchors cities
+  _graticule(c) {
+    c.strokeStyle = hexA(PAL.sentinelHi, 0.13); c.lineWidth = 1;
+    for (let m = 0; m < 12; m++) {
+      const lon = m / 12 * TAU; let started = false; c.beginPath();
+      for (let a = -80; a <= 80; a += 8) {
+        const pr = Globe.project(latLonDir(a * Math.PI / 180, lon), this.rotX, this.rotY);
+        if (pr.vis) { started ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); started = true; } else started = false;
+      }
+      c.stroke();
+    }
+    for (let p = -60; p <= 60; p += 30) {
+      let started = false; c.beginPath();
+      for (let lon = 0; lon <= 360; lon += 8) {
+        const pr = Globe.project(latLonDir(p * Math.PI / 180, lon * Math.PI / 180), this.rotX, this.rotY);
+        if (pr.vis) { started ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); started = true; } else started = false;
+      }
+      c.stroke();
+    }
   },
 
   _stars(c) {
