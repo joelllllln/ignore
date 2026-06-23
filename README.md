@@ -1,57 +1,80 @@
-# Hive Worlds — Galactic Tower Defense
+# HIVE WORLDS — Galactic Tower Defense
 
-A browser **tower-defense progression** game built entirely with **HTML5, JavaScript,
-and Canvas** — no build step, no dependencies. Open `index.html` and play.
+A complete, polished browser tower-defense game built entirely with **HTML5,
+JavaScript and Canvas** — **zero dependencies, zero asset files**. Every visual
+is hand-authored procedural art and every sound is synthesized at runtime with
+the Web Audio API. Just open `index.html` and play (desktop or mobile).
 
-Conquer a galaxy planet by planet. Each planet hides a fixed-size swarm (the **hive**)
-that crawls toward your defenders. Build a defensive grid, auto-fire on the swarm, fill
-the **conquest meter** to 100%, and move on to the next world.
+Crystalline **Sentinel** defenders hold the line against the organic **Hive**.
+Build a grid of turrets, fill each world's conquest meter to 100%, defeat the
+boss, and take the galaxy planet by planet.
 
-## Screens
+## Play
 
-- **Main menu** — Play, Star Map, How to Play, Reset Progress. Tracks planets conquered.
-- **Star map** — a zoomable, pseudo-3D view: **Universe → Galaxy → Solar System**. Spiral
-  galaxies, orbiting shaded planets with day/night terminators, and lit/locked/✓-conquered
-  states so you can *see* your conquest spread. Tap a lit planet to invade it.
-- **Battle** — the grid-based defense.
+Open `index.html` in any modern browser, or play the hosted build (see *Hosting*).
 
-## Battle features
+## Features
 
-- **Grid placement.** Pick a defender from the palette, tap a cell to deploy.
-  **Hold &amp; drag** a placed defender to move it to another cell.
-- **5 defender types**, each distinct: **Blaster** (rapid), **Sniper** (long-range burst),
-  **Cannon** (splash), **Frost** (slows the swarm), **Tesla** (chain lightning).
-- **Per-defender skill trees.** Tap a defender to open its panel — spend energy on a
-  branching tree (power / precision / special) unique to each type.
-- **Target priorities.** Each defender can prioritize **First / Close / Strong / Fast / Weak**.
-- **7 enemy species** with their own art, animation, and abilities: Crawler (walking legs),
-  Runner (dashing), Brute (armored tank), Shielded (regenerating shield), Flyer (flapping,
-  erratic), Splitter (bursts into minis on death), Healer (pulses heals to nearby hive).
-- **You start with one** defender's worth of energy and build up from kills.
+### Worlds & progression
+- **Three galaxies → six solar systems → eighteen planets**, each its own level.
+- A **zoomable star map** (Universe → Galaxy → System) with animated **fly-in /
+  fly-out** zoom transitions, spiral galaxies, flaring suns and shaded, rotating
+  pseudo-3D planets that light up as you conquer them.
+- **Persistent save** (localStorage): conquest, unlocked worlds, Cores and tech.
 
-## Speed &amp; economy
+### The battle
+- **Grid placement** — pick a defender, tap a cell to deploy; **hold & drag** to
+  relocate any turret.
+- **Five defender types**, each a distinct animated sprite & playstyle:
+  Pulse (rapid), Lance (railgun sniper), Mortar (splash), Cryo (slows), Arc
+  (chain lightning).
+- **Per-defender skill trees** (7 nodes each, branching) plus **target priority**
+  (First / Close / Strong / Fast / Weak) and sell-for-refund.
+- **Seven enemy species**, each with bespoke art, animation and abilities:
+  Crawler, Runner (dashes), Brute (armored), Shielded (regen shield), Flyer
+  (flapping), Splitter (bursts into minis), Healer (heals the swarm).
+- **A boss finale on every world** — Broodmother, Colossus or Leviathan — with a
+  weak-point core, a dedicated health bar, and summon abilities.
+- **The Nexus** — your animated home core. Enemies that slip past your turrets
+  chip its integrity, which (with turret damage) lowers **Efficiency** and slows
+  your conquest. There is no game-over — only faster or slower victory.
 
-- **Speed slider (1×–6×)** scales enemy movement, spawns, and conquest speed, and applies a
-  matching **reward multiplier** to energy income (shown as `×N reward`).
-- **Fire rate does NOT scale with speed** — so cranking speed means a faster swarm against the
-  same volume of fire: faster progress and richer rewards, but real pressure.
-- **No game over.** Damaged defenders lower **Efficiency**, which throttles conquest gain and
-  income (and slows each turret's fire). Damage *slows the conquest*, it never ends the run.
-- **👆 Tap the sky** (above your grid) to strike enemies directly.
+### Economy & pacing
+- **Speed slider (1×–6×)** scales the swarm, conquest and a matching **reward
+  multiplier**. Fire rate stays fixed, so speed buys progress and energy in
+  exchange for pressure.
+- **Cores** earned by conquering feed a **persistent meta tech tree** — permanent
+  bonuses to damage, fire rate, range, hull, economy and Nexus integrity.
 
-## Progress
-
-Conquest is saved to `localStorage`, so your galaxy map remembers what you've taken.
+### Game feel
+- Screen shake, **hit-stop** on big kills, hit-flash, recoil, muzzle flashes,
+  bullet trails, explosions & shockwave rings, debris, smoke.
+- **Combo streaks**, arcing damage numbers, energy pickups, placement pops.
+- Screen flashes & damage vignette, parallax starfield + nebula, a CRT-style
+  finish, and a fully procedural soundtrack + SFX.
 
 ## Project layout
 
 ```
-index.html   Screens (menu / how-to / map UI / battle HUD / clear) + canvas
-style.css    Layout & theming (responsive, mobile-friendly)
-game.js      Engine: galaxy data, tower & enemy definitions, skill trees,
-             star-map renderer, battle sim, grid/drag input, render loop
-icon.svg     App icon
+index.html      Screens, HUD and module <script> tags
+style.css       Cohesive sci-fi UI theme (responsive)
+js/engine.js    Canvas, math, easing, tweens, camera (shake/hit-stop),
+                particles, floating text, input
+js/audio.js     Procedural Web Audio SFX + ambient music
+js/data.js      Galaxies, defenders + skill trees, enemies, bosses, tech tree
+js/art.js       All procedural artwork (backgrounds, planets, towers, enemies)
+js/map.js       Star map with zoom transitions
+js/battle.js    Battle simulation, rendering, grid, bosses, economy, juice
+js/ui.js        Menus, HUD, defender panel, tech tree
+js/main.js      Save system, state machine, master loop
+icon.svg        App icon
 ```
 
-Everything runs client-side in a single `requestAnimationFrame` loop — no server,
-bundler, or assets required.
+Everything runs client-side in a single `requestAnimationFrame` loop — no
+server, bundler, or downloads.
+
+## Hosting
+
+The game is static, so GitHub Pages can serve it directly: **Settings → Pages →
+Deploy from a branch → `claude/html5-tower-defense-5izjr2` / root**. It will be
+playable at `https://joelllllln.github.io/ignore/`.
