@@ -35,47 +35,58 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",        base: 300,     gal: 1, speed: 110, suction: 70,  collect: 16, yield: 1.0,  mode: "chase" },
-    swarm:       { name: "Drone Swarm",  base: 90000,   gal: 3, speed: 165, suction: 100, collect: 22, yield: 1.2,  mode: "chase" },
-    singularity: { name: "Black Hole",   base: 8000000, gal: 6, speed: 46,  suction: 360, collect: 64, yield: 1.5,  mode: "hole"  },
+    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 110, suction: 70,  collect: 16, yield: 1.0, mode: "chase", sides: 4 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 165, suction: 100, collect: 22, yield: 1.2, mode: "swarm", sides: 3 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 120, suction: 135, collect: 34, yield: 1.5, mode: "chase", sides: 6 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 150, suction: 190, collect: 42, yield: 1.9, mode: "chase", sides: 5 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 135, suction: 265, collect: 54, yield: 2.3, mode: "chase", sides: 8 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 50,  suction: 390, collect: 72, yield: 2.8, mode: "hole",  sides: 0 },
   };
-  const COL_ORDER = ["drone", "swarm", "singularity"];
+  const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
   const isCol = type => !!COL_TYPES[type];
   const TY = type => DEF_TYPES[type] || COL_TYPES[type];
-  const MAXTIER = 5;
-  const PATHS = [
-    { key: "a", name: "Power",  fx: t => "×" + Math.pow(1.7, t).toFixed(1) + " dmg" },
-    { key: "b", name: "Speed",  fx: t => "×" + Math.pow(1.35, t).toFixed(1) + " rate" },
-    { key: "c", name: "Optics", fx: t => "+" + 55 * t + " rng" + (t >= 3 ? " · crit" : "") },
-  ];
   const newUnit = type => ({ type, cd: rnd(0, 0.4) });
   const classList = type => isCol(type) ? S.collectors : S.units;
   const countType = type => classList(type).filter(u => u.type === type).length;
   const unitBuyCost = type => Math.floor(TY(type).base * Math.pow(1.9, countType(type)));
-  // class-wide upgrade tree: tiers live on the TYPE, so they apply to EVERY unit of that type.
-  const ct = type => (S.classT[type] || (S.classT[type] = { a: 0, b: 0, c: 0 }));
-  const keyOn = (type, id) => !!(S.classKeys && S.classKeys[type] && S.classKeys[type][id]);
-  const pathCost = (type, k) => Math.floor(TY(type).base * 1.5 * Math.pow(2.6, ct(type)[k]));
-  const keyCost = type => Math.floor(TY(type).base * 14);
-  const kcore = type => keyOn(type, "kscore") ? 1.25 : 1;
-  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * (ct(u.type).a >= 5 ? 1.25 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * kcore(u.type) * derived.sdDmg;
-  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * (ct(u.type).b >= 5 ? 1.5 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * kcore(u.type) * derived.sdFire;
-  const uRange = u => (DEF_TYPES[u.type].range + 55 * ct(u.type).c) * (keyOn(u.type, "ksac") ? 1.25 : 1);
-  const uCrit = u => (ct(u.type).c >= 5 ? 0.45 : ct(u.type).c >= 3 ? 0.25 : 0) + (keyOn(u.type, "ksbc") ? 0.15 : 0) + (keyOn(u.type, "kscore") ? 0.1 : 0);
-  const uCritMul = u => 2 + 0.3 * ct(u.type).c;
-  const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + 14 * ct(u.type).c : 0;
-  // collector class stats (path a=Speed, b=Suction, c=Yield). Keystones reuse
-  // the same ids as defenders so the web machinery is shared.
-  const cSpeed   = type => COL_TYPES[type].speed   * Math.pow(1.18, ct(type).a) * (ct(type).a >= 5 ? 1.2 : 1) * (keyOn(type, "ksab") ? 1.2 : 1) * kcore(type);
-  const cSuction = type => COL_TYPES[type].suction * Math.pow(1.16, ct(type).b) * (keyOn(type, "ksab") ? 1.2 : 1) * (keyOn(type, "ksac") ? 1.25 : 1) * kcore(type);
-  const cCollect = type => COL_TYPES[type].collect + 4 * ct(type).c + (keyOn(type, "ksac") ? 10 : 0);
-  const cYield   = type => COL_TYPES[type].yield * (1 + 0.06 * ct(type).c) * (ct(type).c >= 5 ? 1.25 : 1) * (keyOn(type, "ksbc") ? 1.2 : 1) * (keyOn(type, "kscore") ? 1.25 : 1) * derived.incomeMul;
+  // ---- class skill tree: an interconnected node MAP. Each class allocates
+  // nodes outward from a start node; a node can only be taken once a CONNECTED
+  // node is already allocated. Aggregated bonuses live in derived.cls[type].
+  const DEF_PRIM = ["dmg", "rate", "range"], COL_PRIM = ["speed", "suction", "yield"];
+  const MAG = { mul: { min: 0.10, maj: 0.22, key: 0.16 }, range: { min: 16, maj: 34, key: 24 }, crit: { min: 0.06, maj: 0.10, key: 0.06 }, collect: { min: 4, maj: 8, key: 5 } };
+  const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
+  function slotAmt(type, s) {
+    const col = isCol(type);
+    if (s.p === "x") return col ? MAG.collect[s.mag] : MAG.crit[s.mag];
+    const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
+    return key === "range" ? MAG.range[s.mag] : MAG.mul[s.mag];
+  }
+  function classStats(type) {
+    const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0 };
+    const A = S.classNodes[type], G = buildTree();
+    if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
+      for (const s of n.slots) { const amt = slotAmt(type, s);
+        if (s.p === "x") { if (col) o.collect += amt; else o.crit += amt; }
+        else { const key = prim[s.p - 1]; if (key === "range") o.range += amt; else o[key] += amt; } } }
+    return o;
+  }
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0 };
+  const cls = type => (derived.cls && derived.cls[type]) || ZERO;
+  const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg * derived.sdDmg;
+  const uRate = u => DEF_TYPES[u.type].rate * cls(u.type).rate * derived.sdFire;
+  const uRange = u => DEF_TYPES[u.type].range + cls(u.type).range;
+  const uCrit = u => Math.min(0.85, cls(u.type).crit);
+  const uCritMul = u => 2.2;
+  const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + cls(u.type).range * 0.4 : 0;
+  const cSpeed   = type => COL_TYPES[type].speed   * cls(type).speed;
+  const cSuction = type => COL_TYPES[type].suction * cls(type).suction;
+  const cCollect = type => COL_TYPES[type].collect + cls(type).collect;
+  const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * derived.incomeMul;
   const AGILITY = 0.12;
 
-  // fully-built class skill trees (3 paths x 5 named tiers). Effects are the
-  // scaling above; names give each tier flavour for the skill-tree screen.
-  const PATH_META = [{ key: "a", label: "POWER" }, { key: "b", label: "SPEED" }, { key: "c", label: "OPTICS" }];
+  // flavour names for notable skill nodes (one pool per stat branch per class).
   const SKILLS = {
     turret:  { a: ["Reinforced Rounds", "Tungsten Core", "Armor Piercing", "Hollow Points", "Overcharge"], b: ["Quick Hands", "Belt Feed", "Rapid Servos", "Hair Trigger", "Double Tap"], c: ["Scope", "Range Finder", "Laser Sight", "Tracking AI", "Eagle Eye"] },
     mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Cluster Munitions", "Carpet Bomb"], b: ["Fast Fuse", "Auto-Loader", "Twin Tubes", "Rapid Mortar", "Barrage"], c: ["Wider Blast", "Shrapnel", "Spotter", "Precision Strike", "Saturation"] },
@@ -83,26 +94,16 @@
     laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split"] },
     railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm"] },
   };
-  function nodeEffect(key, tier) {
-    if (key === "a") return tier === 5 ? "+70% dmg & +25% bonus" : "+70% damage";
-    if (key === "b") return tier === 5 ? "+35% rate & double-tap" : "+35% fire rate";
-    if (tier === 3) return "+55 range · unlock 25% crit";
-    if (tier === 5) return "+55 range · 45% crit";
-    return "+55 range";
-  }
   // collector skill webs: a=Speed, b=Suction, c=Yield
   const COL_SKILLS = {
     drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field"], c: ["Bigger Scoop", "Compactor", "Refinery", "Cash Sense", "Midas Touch"] },
     swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep"], c: ["Many Hands", "Bulk Haul", "Hive Vault", "Pack Bonus", "Golden Swarm"] },
+    collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex"], c: ["Cargo Hold", "Crusher", "Smelter", "Bulk Bonus", "Gold Press"] },
+    magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar"], c: ["Bin", "Pack Rat", "Foundry", "Yield Coil", "Midas Coil"] },
+    tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach"], c: ["Hopper", "Baler", "Processor", "Beam Bonus", "Gold Beam"] },
     singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach"], c: ["Accretion", "Compression", "Mass Yield", "Hawking Cash", "Quasar"] },
   };
-  function colNodeEffect(key, tier) {
-    if (key === "a") return tier === 5 ? "+18% speed (capped fast)" : "+18% move speed";
-    if (key === "b") return tier === 5 ? "+16% suction" : "+16% suction radius";
-    return tier === 5 ? "+collect · +31% yield" : "+collect size · +6% yield";
-  }
   const skillNames = type => isCol(type) ? COL_SKILLS[type] : SKILLS[type];
-  const effectText = (type, key, tier) => isCol(type) ? colNodeEffect(key, tier) : nodeEffect(key, tier);
   const GAL_DESC = [
     "A quiet starting sector. Sparse, fragile dots — good for finding your rhythm.",
     "Azure nebula. Swarms drift faster; keep your drones close.",
@@ -155,8 +156,8 @@
   let S, derived = {}, META, state = "home";
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
-    const classT = {}, classKeys = {}; ALL_TYPES.forEach(t => { classT[t] = { a: 0, b: 0, c: 0 }; classKeys[t] = {}; });
-    return { cash: 0, galaxy: 1, lv, classT, classKeys, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1 };
+    const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
+    return { cash: 0, galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1 };
   }
   function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0 }; }
 
@@ -175,6 +176,7 @@
     derived.valueMul = Math.pow(1.25, L.value);
     derived.spawnPerSec = 0.9 + 0.4 * L.spawnRate;
     derived.luck = Math.min(0.5, 0.02 * L.luck);
+    derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
 
   /* ----------------------------- save ---------------------------- */
@@ -185,7 +187,7 @@
     try {
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
-        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classT) S.classT = {}; if (!S.classKeys) S.classKeys = {}; ALL_TYPES.forEach(t => { if (!S.classT[t]) S.classT[t] = { a: 0, b: 0, c: 0 }; if (!S.classKeys[t]) S.classKeys[t] = {}; }); if (!Array.isArray(S.collectors) || !S.collectors.length) { const n = 1 + (d.S.lv && d.S.lv.drones || 0); S.collectors = []; for (let i = 0; i < n; i++) S.collectors.push({ type: "drone" }); } }
+        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classNodes || typeof S.classNodes !== "object") S.classNodes = {}; ALL_TYPES.forEach(t => { if (!S.classNodes[t]) S.classNodes[t] = {}; }); if (!Array.isArray(S.collectors) || !S.collectors.length) { const n = 1 + (d.S.lv && d.S.lv.drones || 0); S.collectors = []; for (let i = 0; i < n; i++) S.collectors.push({ type: "drone" }); } }
         if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {}); }
         if (d.ts && d.cps > 0) { const e = clamp((Date.now() - d.ts) / 1000, 0, 8 * 3600); if (e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; } }
       }
@@ -305,7 +307,7 @@
       ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, TAU); ctx.fill();
       ctx.fillStyle = uColor(u); ctx.beginPath(); ctx.arc(p.x, p.y, u.type === "turret" ? 11 : 9, 0, TAU); ctx.fill();
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
-      const tt = ct(u.type), tot = tt.a + tt.b + tt.c; if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - 21); }
+      const tot = allocCount(u.type); if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - 21); }
     }
     ctx.textBaseline = "alphabetic";
     for (const dr of drones) {
@@ -397,106 +399,115 @@
   }
   function Audio_buy() {}  // (silent build)
 
-  /* --------------------- class skill WEB (node graph) ------------ */
-  // A genuine web, laid out uniquely per class: a central root, three arms
-  // (Power/Speed/Optics) fanned at 120° and CURVED into a pinwheel, woven
-  // together by cross-links (diagonal prerequisites between arms) and bridge
-  // keystones, all converging on a central capstone that needs all three arms.
-  // Each class has its own rotation, curve, cross-weave and keystone names, so
-  // no two webs look or unlock the same. Nodes light up only with prereqs.
+  /* --------------------- class skill TREE (interconnected map) ----- */
+  // A real, Path-of-Exile-style skill tree: a START node at the centre with
+  // three "wings". Each wing is a diamond LOOP of small nodes (so there are
+  // multiple routes), feeding two stat branches into a big NOTABLE keystone and
+  // an outer extra node. Adjacent wings are cross-linked, so the whole thing is
+  // one connected graph. A node can only be allocated once a CONNECTED node is
+  // already allocated — that is the prerequisite. Layout is shared; each class
+  // names its notables differently and resolves its own stat magnitudes.
   const CLASS_WEB = {
-    //             rot (base angle)  curve   cross-links [node, extraReq]               keystone names [ab, bc, ac, core]
-    turret:      { rot: -1.57, curve:  0.05, cross: [["a4", "b2"], ["c3", "a1"]],              keys: ["Twin Cannons", "Marksman", "Heavy Optics", "War Machine"] },
-    mortar:      { rot: -1.20, curve: -0.06, cross: [["b3", "a2"], ["c4", "b1"], ["a3", "c1"]], keys: ["Saturation", "Spotter Net", "Blast Lens", "Annihilation"] },
-    plasma:      { rot: -1.90, curve:  0.07, cross: [["c4", "a2"], ["a3", "b2"]],              keys: ["Ion Storm", "Crit Cascade", "Phase Lens", "Overload"] },
-    laser:       { rot: -1.30, curve: -0.05, cross: [["b4", "c2"], ["c3", "a2"], ["a4", "b3"]], keys: ["Resonance", "Prism Crit", "Mirror Array", "Death Beam"] },
-    railgun:     { rot: -2.10, curve:  0.06, cross: [["a4", "c2"], ["b3", "a1"]],              keys: ["Overrail", "Calibrated", "Long Shot", "Railstorm"] },
-    drone:       { rot: -1.57, curve:  0.05, cross: [["b3", "a1"], ["c4", "b2"]],              keys: ["Swift Magnet", "Rich Haul", "Wide Scoop", "Perfect Collector"] },
-    swarm:       { rot: -1.30, curve: -0.06, cross: [["a3", "b1"], ["c3", "a2"], ["b4", "c2"]], keys: ["Hive Sync", "Pack Yield", "Mesh Reach", "Locust God"] },
-    singularity: { rot: -1.90, curve:  0.07, cross: [["b4", "a2"], ["c3", "b2"]],              keys: ["Tidal Lock", "Mass Cash", "Event Horizon", "Big Crunch"] },
+    turret:      { keys: ["War Machine", "Marksman", "Heavy Ordnance"] },
+    mortar:      { keys: ["Annihilation", "Spotter Net", "Saturation"] },
+    plasma:      { keys: ["Overload", "Crit Cascade", "Ion Storm"] },
+    laser:       { keys: ["Death Beam", "Prism Crit", "Resonance"] },
+    railgun:     { keys: ["Railstorm", "Calibrated", "Overrail"] },
+    drone:       { keys: ["Perfect Collector", "Rich Haul", "Swift Magnet"] },
+    swarm:       { keys: ["Locust God", "Pack Yield", "Hive Sync"] },
+    collector:   { keys: ["Mega Hauler", "Bulk Yield", "Power Magnet"] },
+    magnet:      { keys: ["Magnetar Core", "Coil Yield", "Flux Drive"] },
+    tractor:     { keys: ["Singularity Beam", "Tow Yield", "Beam Lock"] },
+    singularity: { keys: ["Big Crunch", "Mass Cash", "Tidal Lock"] },
   };
-  function webNodes(type) {
-    const cfg = CLASS_WEB[type] || CLASS_WEB.turret, arms = ["a", "b", "c"], pos = { root: { x: 0, y: 0 } }, sk = skillNames(type);
-    const N = [{ id: "root", x: 0, y: 0, kind: "root", name: TY(type).name, req: [] }];
-    arms.forEach((k, ai) => {
-      const base = cfg.rot + ai * (Math.PI * 2 / 3);
-      for (let t = 1; t <= MAXTIER; t++) {
-        const ang = base + cfg.curve * t, rad = 0.55 + t * 0.66, x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
-        pos[k + t] = { x, y };
-        N.push({ id: k + t, kind: "branch", key: k, tier: t, x, y, name: sk[k][t - 1], fx: effectText(type, k, t), req: [t === 1 ? "root" : k + (t - 1)] });
-      }
+  let _tree = null;
+  function buildTree() {
+    if (_tree) return _tree;
+    const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1 }], edges = [];
+    const wings = [{ l: 1, r: 2 }, { l: 2, r: 3 }, { l: 3, r: 1 }];
+    wings.forEach((w, i) => {
+      const th = -Math.PI / 2 + i * 2 * Math.PI / 3, ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
+      const id = k => "w" + i + k;
+      const add = (k, r, s, kind, slots) => nodes.push({ id: id(k), x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: i });
+      add("E", 1.05, 0, "minor", [{ p: w.l, mag: "min" }]);
+      add("L", 1.95, -0.85, "minor", [{ p: w.l, mag: "min" }]);
+      add("R", 1.95, 0.85, "minor", [{ p: w.r, mag: "min" }]);
+      add("Lb", 2.6, -1.05, "minor", [{ p: w.l, mag: "min" }]);
+      add("Rb", 2.6, 1.05, "minor", [{ p: w.r, mag: "min" }]);
+      add("L2", 3.25, -0.72, "major", [{ p: w.l, mag: "maj" }]);
+      add("R2", 3.25, 0.72, "major", [{ p: w.r, mag: "maj" }]);
+      add("K", 4.05, 0, "key", [{ p: w.l, mag: "key" }, { p: w.r, mag: "key" }]);
+      add("S", 4.85, 0, "major", [{ p: "x", mag: "maj" }]);
+      const e = (a, b) => edges.push([id(a), id(b)]);
+      edges.push(["start", id("E")]);
+      e("E", "L"); e("E", "R"); e("L", "Lb"); e("Lb", "L2"); e("R", "Rb"); e("Rb", "R2"); e("L2", "K"); e("R2", "K"); e("K", "S");
     });
-    // weave the arms together: each cross-link adds a real diagonal prerequisite.
-    const byId = {}; N.forEach(n => byId[n.id] = n);
-    for (const [node, extra] of cfg.cross) if (byId[node] && pos[extra]) byId[node].req.push(extra);
-    // bridge keystones sit between two arms (real cross-arm gates + edges).
-    const mid = (p, q, push) => ({ x: (pos[p].x + pos[q].x) / 2 * push, y: (pos[p].y + pos[q].y) / 2 * push });
-    const mab = mid("a3", "b3", 1.25), mbc = mid("b3", "c3", 1.25), mac = mid("c3", "a3", 1.25);
-    const kfx = isCol(type)
-      ? { ab: "+20% speed & suction", bc: "+20% yield", ac: "+25% suction · +collect", core: "+25% speed/suction · +25% yield" }
-      : { ab: "+20% dmg & rate", bc: "+15% crit", ac: "+25% range", core: "+25% dmg & rate · +10% crit" };
-    N.push({ id: "ksab", kind: "key", x: mab.x, y: mab.y, name: cfg.keys[0], fx: kfx.ab, req: ["a3", "b3"] });
-    N.push({ id: "ksbc", kind: "key", x: mbc.x, y: mbc.y, name: cfg.keys[1], fx: kfx.bc, req: ["b3", "c3"] });
-    N.push({ id: "ksac", kind: "key", x: mac.x, y: mac.y, name: cfg.keys[2], fx: kfx.ac, req: ["c3", "a3"] });
-    // crowning capstone: needs all three keystones — its edges fan back across
-    // the whole web. Sits out past the bridges so it doesn't cover the root.
-    const cap = cfg.rot + Math.PI, cr = 3.3;
-    N.push({ id: "kscore", kind: "key", x: Math.cos(cap) * cr, y: Math.sin(cap) * cr, name: cfg.keys[3], fx: kfx.core, req: ["ksab", "ksbc", "ksac"] });
-    return N;
+    for (let i = 0; i < 3; i++) edges.push(["w" + i + "R", "w" + ((i + 1) % 3) + "L"]); // weave wings together
+    const map = {}, adj = {}; nodes.forEach(n => { map[n.id] = n; adj[n.id] = []; });
+    edges.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
+    _tree = { nodes, edges, map, adj };
+    return _tree;
   }
-  // is a web node (by id) already owned for this class? handles root / branch
-  // tiers (a3) / keystones (ksab, kscore — ids starting with 'k').
-  function webOwned(type, id) { return id === "root" ? true : id[0] === "k" ? keyOn(type, id) : ct(type)[id[0]] >= +id.slice(1); }
-  // headline stat line for a class (reused by the tree header + node preview).
+  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", yield: "yield", collect: "grab" };
+  function slotText(type, s) {
+    const col = isCol(type), amt = slotAmt(type, s);
+    if (s.p === "x") return col ? "+" + amt + " grab" : "+" + Math.round(amt * 100) + "% crit";
+    const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
+    return key === "range" ? "+" + amt + " rng" : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
+  }
+  const nodeFx = (type, n) => (n.slots || []).map(s => slotText(type, s)).join(" · ");
+  function nodeLabel(type, n) {
+    if (n.kind === "start") return TY(type).name;
+    if (n.kind === "key") return (CLASS_WEB[type] || CLASS_WEB.turret).keys[n.wing] || "Keystone";
+    if (n.kind === "major") {
+      const s = n.slots[0];
+      if (s.p === "x") return isCol(type) ? "Refinery" : "Critical Core";
+      const letter = ["", "a", "b", "c"][s.p], list = skillNames(type)[letter];
+      return list[(n.wing + (n.id.indexOf("R") >= 0 ? 2 : 0)) % list.length];
+    }
+    return "";
+  }
   function statLine(tp) {
     const s = { type: tp };
     return isCol(tp)
       ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> grab · <b>×" + cYield(tp).toFixed(2) + "</b> yield"
       : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "");
   }
-  const pathLabel = (type, k) => isCol(type) ? { a: "Speed", b: "Suction", c: "Yield" }[k] : { a: "Power", b: "Speed", c: "Optics" }[k];
-  function pathDesc(type, k) {
-    if (isCol(type)) return k === "a" ? "Collectors move faster, reaching cash orbs sooner." : k === "b" ? "Widens the suction radius that pulls orbs (and, for black holes, dots) in." : "Bigger grab size and more cash from every orb collected.";
-    return k === "a" ? "Every shot deals more damage." : k === "b" ? "Fires more often — more shots per second." : "Greater targeting range, and unlocks critical hits at higher tiers.";
+  // allocation: a node is allocatable if a connected node is already allocated.
+  const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
+  const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree().adj[n.id] || []).some(a => nodeAllocated(type, a));
+  function nodeCost(type, n) { const k = n.kind === "key" ? 5 : n.kind === "major" ? 2.3 : 1; return Math.floor(TY(type).base * 0.6 * Math.pow(1.17, allocCount(type)) * k); }
+  function allocNode(type, n) {
+    if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
+    S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
   }
-  // what does this node change? returns {before, after} stat lines (after = if bought).
-  function nodePreview(type, node) {
-    const before = statLine(type);
-    let revert;
-    if (node.kind === "branch") { const tt = ct(type), old = tt[node.key]; tt[node.key] = node.tier; revert = () => tt[node.key] = old; }
-    else { const had = !!(S.classKeys[type] && S.classKeys[type][node.id]); if (!S.classKeys[type]) S.classKeys[type] = {}; S.classKeys[type][node.id] = true; revert = () => { if (!had) delete S.classKeys[type][node.id]; }; }
-    const after = statLine(type); revert();
+  // before/after stat preview if this node were allocated.
+  function nodePreview(type, n) {
+    const before = statLine(type), set = S.classNodes[type] || (S.classNodes[type] = {}), had = set[n.id];
+    set[n.id] = true; derived.cls[type] = classStats(type);
+    const after = statLine(type);
+    if (!had) delete set[n.id]; derived.cls[type] = classStats(type);
     return { before, after };
   }
-  function nodeName(type, id) { const n = webNodes(type).find(x => x.id === id); return n ? n.name : id; }
-  function showNodeInfo(node) {
+  function showNodeInfo(n) {
     const panel = $("st-info"), type = STree.type;
-    if (!node || node.kind === "root") { panel.classList.remove("show"); STree.sel = node ? node.id : null; return; }
-    STree.sel = node.id;
-    const owned = STree.owned(node), buyable = STree.buyable(node), cost = STree.cost(node), afford = S.cash >= cost;
-    $("si-name").textContent = node.name;
-    $("si-tag").textContent = node.kind === "key" ? "✦ Keystone" : pathLabel(type, node.key) + " · Tier " + node.tier + "/" + MAXTIER;
-    $("si-desc").textContent = node.kind === "key" ? "Powerful bonus that needs nodes from more than one path." : pathDesc(type, node.key);
-    $("si-fx").textContent = node.fx ? "Effect: " + node.fx : "";
+    if (!n || n.kind === "start") { panel.classList.remove("show"); STree.sel = n ? n.id : null; return; }
+    STree.sel = n.id;
+    const has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost, fx = nodeFx(type, n);
+    $("si-name").textContent = nodeLabel(type, n) || fx;
+    $("si-tag").textContent = n.kind === "key" ? "✦ Notable Keystone" : n.kind === "major" ? "◆ Notable" : "• Passive";
+    $("si-desc").textContent = n.kind === "key" ? "A powerful node joining two stat branches of this wing." : n.kind === "major" ? "A stronger passive on this branch." : "A small passive on the path.";
+    $("si-fx").textContent = "Grants: " + fx;
     const btn = $("st-upgrade");
-    if (owned) {
-      $("si-prev").innerHTML = "✓ Unlocked · class now <span class='si-after'>" + statLine(type) + "</span>";
-      btn.textContent = "UNLOCKED"; btn.disabled = true;
-    } else if (buyable) {
-      const p = nodePreview(type, node);
-      $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>";
-      btn.textContent = "UPGRADE · $" + fmt(cost); btn.disabled = !afford;
-    } else {
-      const miss = node.req.filter(r => !webOwned(type, r)).map(r => nodeName(type, r));
-      $("si-prev").innerHTML = "🔒 Requires: " + (miss.join(", ") || "earlier nodes");
-      btn.textContent = "LOCKED"; btn.disabled = true;
-    }
+    if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
+    else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = "ALLOCATE · $" + fmt(cost); btn.disabled = !afford; }
+    else { $("si-prev").innerHTML = "🔒 Locked — first allocate a node connected to this one."; btn.textContent = "LOCKED"; btn.disabled = true; }
     panel.classList.add("show");
   }
   const STree = {
     type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null,
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
-    selNode() { return this.sel ? webNodes(this.type).find(n => n.id === this.sel) : null; },
+    selNode() { return this.sel ? buildTree().map[this.sel] : null; },
     init() {
       this.cv = $("sttree"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
@@ -512,52 +523,47 @@
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
     reset() { this.cx = 0; this.cy = 0; this.zoom = 1; },
-    clampPan() { const u = Math.min(this.w, this.h) * 0.11 * this.zoom, m = 3.6 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },
+    clampPan() { const u = Math.min(this.w, this.h) * 0.085 * this.zoom, m = 5.4 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); this.clampPan(); },
-    owned(n) { return n.kind === "root" ? true : n.kind === "branch" ? ct(this.type)[n.key] >= n.tier : keyOn(this.type, n.id); },
-    buyable(n) { if (this.owned(n)) return false; if (!n.req.every(r => webOwned(this.type, r))) return false; if (n.kind === "branch") return ct(this.type)[n.key] + 1 === n.tier; return n.kind === "key"; },
-    cost(n) { return n.kind === "key" ? keyCost(this.type) : Math.floor(TY(this.type).base * 1.5 * Math.pow(2.6, n.tier - 1)); },
-    sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.11 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h * 0.46 + this.cy + ny * u, u }; },
+    nodeRad(n, u) { return n.kind === "key" ? clamp(u * 0.30, 13, 26) : n.kind === "major" ? clamp(u * 0.22, 10, 18) : n.kind === "start" ? clamp(u * 0.26, 12, 22) : clamp(u * 0.15, 7, 12); },
+    sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.085 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h / 2 + this.cy + ny * u, u }; },
     render(dt) {
-      if (!this.cv) return; const c = this.c; this.t += dt;
+      if (!this.cv) return; const c = this.c, type = this.type; this.t += dt;
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
-      const ns = webNodes(this.type), map = {}; ns.forEach(n => map[n.id] = n);
-      for (const n of ns) for (const r of n.req) { const m = map[r]; if (!m) continue; const a = this.sc(n.x, n.y), b = this.sc(m.x, m.y); c.globalAlpha = (this.owned(n) && this.owned(m)) ? 0.8 : 0.18; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
-      c.globalAlpha = 1; this.hit = [];
-      for (const n of ns) {
-        const p = this.sc(n.x, n.y), rad = clamp(p.u * 0.32, 12, 34), own = this.owned(n), buy = this.buyable(n), cost = this.cost(n), afford = S.cash >= cost;
-        this.hit.push({ n, x: p.x, y: p.y, r: rad + 6 });
-        if (n.id === this.sel) { c.globalAlpha = 1; c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, rad + 8, 0, TAU); c.stroke(); }
-        if (buy && afford) { const pl = 0.5 + 0.5 * Math.sin(this.t * 4); c.globalAlpha = 0.4 + pl * 0.5; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 5, 0, TAU); c.stroke(); c.globalAlpha = 1; }
-        c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
-        c.fillStyle = own ? "#fff" : buy ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.05)";
-        c.strokeStyle = own || buy ? "#fff" : "rgba(255,255,255,0.3)"; c.lineWidth = 2; c.fill(); c.stroke();
-        if (n.kind === "key") { c.fillStyle = own ? "#000" : "#fff"; c.font = "bold " + Math.round(rad * 0.9) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("✦", p.x, p.y + 1); }
-        c.textAlign = "center"; c.textBaseline = "alphabetic";
-        c.fillStyle = own || buy ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(clamp(p.u * 0.14, 9, 13)) + "px ui-monospace,monospace";
-        c.fillText(n.name, p.x, p.y - rad - 5);
-        if (n.fx) { c.fillStyle = "rgba(255,255,255,0.5)"; c.font = "9px ui-monospace,monospace"; c.fillText(n.fx, p.x, p.y + rad + 12); }
-        if (!own && buy) { c.fillStyle = afford ? "#fff" : "rgba(255,255,255,0.45)"; c.font = "11px ui-monospace,monospace"; c.fillText("$" + fmt(cost), p.x, p.y + rad + (n.fx ? 24 : 12)); }
+      const G = buildTree();
+      // edges: bright if both allocated, medium if one (the frontier), dim else.
+      for (const [ai, bi] of G.edges) {
+        const A = G.map[ai], B = G.map[bi], oa = nodeAllocated(type, ai), ob = nodeAllocated(type, bi);
+        const a = this.sc(A.x, A.y), b = this.sc(B.x, B.y);
+        c.globalAlpha = oa && ob ? 0.85 : oa || ob ? 0.4 : 0.13; c.strokeStyle = "#fff"; c.lineWidth = oa && ob ? 3 : 2;
+        c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
       }
-      const tp = this.type;
-      $("st-title").textContent = TY(tp).name.toUpperCase();
-      $("st-owned").textContent = "· " + countType(tp) + " deployed · affects ALL";
-      $("st-stats").innerHTML = statLine(tp);
+      c.globalAlpha = 1; this.hit = [];
+      for (const n of G.nodes) {
+        const p = this.sc(n.x, n.y), rad = this.nodeRad(n, p.u), has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost;
+        this.hit.push({ n, x: p.x, y: p.y, r: rad + 7 });
+        if (n.id === this.sel) { c.globalAlpha = 1; c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, rad + 7, 0, TAU); c.stroke(); }
+        if (can && afford) { const pl = 0.5 + 0.5 * Math.sin(this.t * 4); c.globalAlpha = 0.35 + pl * 0.5; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 4, 0, TAU); c.stroke(); c.globalAlpha = 1; }
+        c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
+        c.fillStyle = has ? "#fff" : can ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)";
+        c.strokeStyle = has || can ? "#fff" : "rgba(255,255,255,0.28)"; c.lineWidth = n.kind === "minor" ? 1.5 : 2.5; c.fill(); c.stroke();
+        if (n.kind === "key" || n.kind === "start") { c.fillStyle = has ? "#000" : "#fff"; c.font = "bold " + Math.round(rad * 0.95) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(n.kind === "start" ? "★" : "✦", p.x, p.y + 1); }
+        // labels only for notable nodes (keep the map clean, like a real tree)
+        if (n.kind !== "minor") {
+          c.textAlign = "center"; c.textBaseline = "alphabetic";
+          c.fillStyle = has || can ? "#fff" : "rgba(255,255,255,0.55)"; c.font = Math.round(clamp(p.u * 0.13, 9, 13)) + "px ui-monospace,monospace";
+          c.fillText(nodeLabel(type, n), p.x, p.y - rad - 5);
+        }
+      }
+      $("st-title").textContent = TY(type).name.toUpperCase();
+      $("st-owned").textContent = "· " + countType(type) + " deployed · " + allocCount(type) + " nodes · affects ALL";
+      $("st-stats").innerHTML = statLine(type);
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (!best) { this.sel = null; $("st-info").classList.remove("show"); return; } showNodeInfo(best.n); },
   };
   function openSkillTree(type) { selType = type; $("skilltree").classList.add("show"); STree.open(type); }
   function closeSkillTree() { $("skilltree").classList.remove("show"); }
-  function buyPath(type, k) {
-    const tt = ct(type); if (tt[k] >= MAXTIER) return; const c = pathCost(type, k); if (S.cash < c) return;
-    S.cash -= c; tt[k]++; recompute(); syncHUD(); save();
-  }
-  function buyKey(type, n) {
-    if (keyOn(type, n.id)) return; if (!n.req.every(r => webOwned(type, r))) return;
-    const c = keyCost(type); if (S.cash < c) return;
-    S.cash -= c; S.classKeys[type][n.id] = true; recompute(); syncHUD(); save();
-  }
   function sellOne() {
     const list = classList(selType), i = list.findIndex(u => u.type === selType);
     const minKeep = isCol(selType) ? (selType === "drone" ? 1 : 0) : 1;
@@ -690,11 +696,12 @@
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
   $("st-upgrade").onclick = () => {
-    const node = STree.selNode(); if (!node || !STree.buyable(node)) return;
-    if (node.kind === "branch") buyPath(STree.type, node.key); else buyKey(STree.type, node);
-    let next = node;
-    if (node.kind === "branch" && node.tier < MAXTIER) { const nn = webNodes(STree.type).find(n => n.id === node.key + (node.tier + 1)); if (nn) next = nn; }
-    showNodeInfo(next);
+    const type = STree.type, node = STree.selNode(); if (!node || !nodeAllocatable(type, node)) return;
+    allocNode(type, node);
+    // keep showing this node (now allocated) so the panel updates; if it leads
+    // onward to a single newly-reachable node, hop the selection there.
+    const G = buildTree(), onward = (G.adj[node.id] || []).map(a => G.map[a]).filter(m => nodeAllocatable(type, m));
+    showNodeInfo(onward.length === 1 ? onward[0] : node);
   };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
@@ -726,5 +733,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, buyKey, webNodes, openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, classStats: t => classStats(t), openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
