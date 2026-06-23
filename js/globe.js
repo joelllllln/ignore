@@ -125,19 +125,25 @@ const Globe = {
     this._mul(out, RX, RY);
   },
 
+  // Camera distance chosen so the unit sphere fits BOTH axes (with margin),
+  // regardless of aspect ratio — keeps the globe on-screen in portrait too.
+  _camDist() {
+    const t = 1 / Math.tan(Math.PI / 8);     // fov = 45°
+    const asp = VIEW.w / VIEW.h, target = 0.82;
+    return Math.max(2.7, t / target, t / (target * asp));
+  },
+
   // project a unit-sphere direction to screen (CSS px). Returns {x,y,vis}
   project(dir, rx, ry) {
     this._model(this.model, rx, ry);
-    // world pos
     const wx = this.model[0] * dir[0] + this.model[4] * dir[1] + this.model[8] * dir[2];
     const wy = this.model[1] * dir[0] + this.model[5] * dir[1] + this.model[9] * dir[2];
     const wz = this.model[2] * dir[0] + this.model[6] * dir[1] + this.model[10] * dir[2];
-    // view: translate z by -3
-    const ez = wz - 3;
-    const proj = new Float32Array(16); this._persp(proj, Math.PI / 4, VIEW.w / VIEW.h, 0.1, 10);
-    const cx = proj[0] * wx, cy = proj[5] * wy, cw = proj[11] * ez; // clip x,y,w (z unused)
+    const d = this._camDist(), ez = wz - d;
+    const proj = new Float32Array(16); this._persp(proj, Math.PI / 4, VIEW.w / VIEW.h, 0.1, 20);
+    const cx = proj[0] * wx, cy = proj[5] * wy, cw = proj[11] * ez;
     const ndcx = cx / cw, ndcy = cy / cw;
-    return { x: (ndcx * 0.5 + 0.5) * VIEW.w, y: (1 - (ndcy * 0.5 + 0.5)) * VIEW.h, vis: wz > 0.02 };
+    return { x: (ndcx * 0.5 + 0.5) * VIEW.w, y: (1 - (ndcy * 0.5 + 0.5)) * VIEW.h, vis: wz > 0.04 };
   },
 
   render(rx, ry, land, ocean, time, seed) {
@@ -146,14 +152,15 @@ const Globe = {
     gl.viewport(0, 0, this.glcv.width, this.glcv.height);
     gl.clearColor(0.02, 0.03, 0.06, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.prog);
-    const proj = new Float32Array(16); this._persp(proj, Math.PI / 4, VIEW.w / VIEW.h, 0.1, 10);
-    const view = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -3, 1]);
+    const d = this._camDist();
+    const proj = new Float32Array(16); this._persp(proj, Math.PI / 4, VIEW.w / VIEW.h, 0.1, 20);
+    const view = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -d, 1]);
     this._model(this.model, rx, ry);
     const pv = new Float32Array(16); this._mul(pv, proj, view); this._mul(this.mvp, pv, this.model);
     gl.uniformMatrix4fv(this.loc.uMVP, false, this.mvp);
     gl.uniformMatrix4fv(this.loc.uModel, false, this.model);
     gl.uniform3fv(this.loc.uLand, land); gl.uniform3fv(this.loc.uOcean, ocean);
-    gl.uniform3fv(this.loc.uLight, [0.6, 0.45, 0.7]); gl.uniform3fv(this.loc.uCam, [0, 0, 3]);
+    gl.uniform3fv(this.loc.uLight, [0.6, 0.45, 0.7]); gl.uniform3fv(this.loc.uCam, [0, 0, d]);
     gl.uniform1f(this.loc.uTime, time); gl.uniform1f(this.loc.uSeed, seed);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
     gl.enableVertexAttribArray(this.loc.aPos);

@@ -64,9 +64,10 @@ const PlanetScreen = {
       this._stars(c);
     } else {
       Sky.draw(c, this.planet.galRef.nebula, 0, 0);
-      paintPlanet(c, VIEW.w / 2, VIEW.h / 2, Math.min(VIEW.w, VIEW.h) * 0.32, this.planet.ref.biome, false, false, this.rotY);
+      paintPlanet(c, VIEW.w / 2, VIEW.h / 2, this.screenRadius(), this.planet.ref.biome, false, false, this.rotY);
     }
     this._markers(c);
+    FloatText.draw(c);
     this._hud(c);
   },
 
@@ -111,9 +112,10 @@ const PlanetScreen = {
   },
 
   tap(x, y) {
-    let best = null, bd = 26 * 26;
+    let best = null, bd = 32 * 32;
     for (const m of this.markers) { const d = dist2(x, y, m.x, m.y); if (d < bd) { bd = d; best = m; } }
-    if (best && !best.locked) { Globe.show(false); startBattle(best.city.ci); }
-    else if (best) { Audio2.click(); }
+    if (!best) return;
+    if (best.locked) { Audio2.click(); FloatText.add(best.x, best.y - 24, "LOCKED", PAL.warn, { size: 12 }); return; }
+    Audio2.click(); Globe.show(false); startBattle(best.city.ci);
   },
 };
