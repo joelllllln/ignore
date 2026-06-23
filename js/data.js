@@ -59,15 +59,43 @@ GALAXIES.forEach((g, gi) => g.systems.forEach((s, si) => s.planets.forEach((p, p
                  isSystemEnd: pi === s.planets.length - 1 });
 })));
 
-function planetConfig(idx) {
+// Every planet is broken into CITIES — each city is a battle ("liberate the
+// city"). Conquering every city liberates the planet. Cities are placed at
+// deterministic lat/lon on the globe so their markers stay put.
+function srand(seed) { let s = (seed >>> 0) || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+const CITY_PARTS = ["Haven", "Bastion", "Reach", "Spire", "Hollow", "Forge", "Vale", "Crest", "Drift", "Keep", "Cross", "Port", "Watch", "Gate", "Ridge", "Mere", "Hold", "Span", "Anvil", "Verge"];
+const CITIES = [];
+PLANETS.forEach(P => {
+  const rng = srand((P.gi + 1) * 97 + 13);
+  const n = 4 + Math.floor(rng() * 3);          // 4–6 cities per planet
+  P.cities = [];
+  const used = {};
+  for (let i = 0; i < n; i++) {
+    const lat = (rng() * 130 - 65) * Math.PI / 180;
+    const lon = (rng() * 360 - 180) * Math.PI / 180;
+    const capital = i === n - 1;
+    let nm; do { nm = CITY_PARTS[Math.floor(rng() * CITY_PARTS.length)]; } while (used[nm]); used[nm] = 1;
+    const city = { ci: CITIES.length, planet: P, idx: i, lat, lon, capital,
+      name: capital ? nm + " Capital" : nm + " " + ["Outpost", "Sector", "District", "Colony", "Station"][i % 5] };
+    CITIES.push(city); P.cities.push(city);
+  }
+});
+
+// Difficulty scales with the planet's global index; size with the city index.
+// Levels are long — you must clear the whole hive (and the capital's boss).
+function cityConfig(city) {
+  const d = city.planet.gi;
   return {
-    hive: 28 + idx * 7,
-    hpMul: 1 + idx * 0.22,
-    speed: 22 + idx * 2.4,
-    dmgMul: 1 + idx * 0.15,
-    spawn: Math.max(0.34, 1.35 - idx * 0.07),
+    hive: 50 + d * 9 + city.idx * 7,
+    hpMul: 1 + d * 0.20,
+    speed: 21 + d * 2.1,
+    dmgMul: 1 + d * 0.13,
+    spawn: Math.max(0.28, 1.15 - d * 0.05),
+    boss: city.capital,
+    waves: 3 + Math.floor(d / 3),
   };
 }
+function planetCityProgress(P) { let done = 0; for (const c of P.cities) if (progress.conquered[c.ci]) done++; return { done, total: P.cities.length }; }
 
 /* ----------------------------- defenders ------------------------- */
 // base stats; skill tree nodes mutate a tower instance permanently.

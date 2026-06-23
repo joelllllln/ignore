@@ -16,11 +16,15 @@ Open `index.html` in any modern browser, or play the hosted build (see *Hosting*
 ## Features
 
 ### Worlds & progression
-- **Three galaxies → six solar systems → eighteen planets**, each its own level.
-- A **zoomable star map** (Universe → Galaxy → System) with animated **fly-in /
-  fly-out** zoom transitions, spiral galaxies, flaring suns and shaded, rotating
-  pseudo-3D planets that light up as you conquer them.
-- **Persistent save** (localStorage): conquest, unlocked worlds, Cores and tech.
+- **Three galaxies → eighteen planets → ~95 cities.** Each *city* is a battle;
+  liberate every city to free a planet, every planet to take a galaxy.
+- A **galaxy sector map** of connected worlds, and a **real WebGL planet globe**
+  (Helldivers-style): a procedurally textured, lit, **360° spinning sphere** —
+  continents, ice caps, clouds, night-side city lights, atmosphere rim — that you
+  **drag to spin**, with city markers pinned to the surface. Tap a city to invade.
+  (Falls back to a 2D planet if WebGL is unavailable, so it always runs.)
+- Each planet's last city is a **capital**: a boss showdown.
+- **Persistent save** (localStorage): conquest, unlocked cities, Cores and tech.
 
 ### The battle
 - **Grid placement** — pick a defender, tap a cell to deploy; **hold & drag** to
@@ -28,8 +32,11 @@ Open `index.html` in any modern browser, or play the hosted build (see *Hosting*
 - **Five defender types**, each a distinct animated sprite & playstyle:
   Pulse (rapid), Lance (railgun sniper), Mortar (splash), Cryo (slows), Arc
   (chain lightning).
+- A **Defenders menu** to browse/pick units (stats + blurb), plus a quick palette.
 - **Per-defender skill trees** (7 nodes each, branching) plus **target priority**
   (First / Close / Strong / Fast / Weak) and sell-for-refund.
+- **Kill-driven conquest**: the completion bar tracks enemies actually defeated —
+  it only fills as you clear the hive (and the capital boss), never before.
 - **Seven enemy species**, each with bespoke art, animation and abilities:
   Crawler, Runner (dashes), Brute (armored), Shielded (regen shield), Flyer
   (flapping), Splitter (bursts into minis), Healer (heals the swarm).

@@ -23,17 +23,19 @@ const SCREENS = ["menu", "howto", "settings", "tech", "pause", "clear"];
 function setState(s) {
   prevState = state; state = s;
   for (const id of SCREENS) document.getElementById(id).classList.toggle("visible", id === s);
-  document.getElementById("map-ui").classList.toggle("visible", s === "map");
+  document.getElementById("map-ui").classList.toggle("visible", s === "map" || s === "planet");
   document.getElementById("battle-ui").classList.toggle("visible", s === "battle");
+  if (s !== "planet") Globe.show(false);
   if (s === "menu") {
-    setText("menu-progress", conqueredCount() + " / " + PLANETS.length + " conquered");
+    setText("menu-progress", conqueredCount() + " / " + CITIES.length + " cities");
     setText("menu-cores", "◆ " + (progress.cores || 0) + " Cores");
   }
-  if (s === "battle") { UI.buildPalette(); UI.syncBattle(Battle.s); }
+  if (s === "battle") { UI.buildPalette(); UI.syncBattle(Battle.s); UI.closeDefenders(); }
 }
 
 /* ---------------------------- resize ----------------------------- */
 function onResize() {
+  if (typeof Globe !== "undefined") Globe.resize();
   if (Battle.s && (state === "battle" || state === "pause" || state === "clear")) {
     Battle.computeGrid();
     Battle.s.coreX = VIEW.w / 2; Battle.s.coreY = VIEW.h - 74;
@@ -53,11 +55,13 @@ function loop(now) {
   Audio2.music(dt);
   if (state === "battle") Battle.update(dt);
   else if (state === "map") MapScreen.update(dt);
+  else if (state === "planet") PlanetScreen.update(dt);
   Particles.update(dt);
   FloatText.update(dt);
 
   // --- render ---
-  if (Battle.s && (state === "battle" || state === "pause" || state === "clear")) Battle.render();
+  if (state === "planet") PlanetScreen.render();
+  else if (Battle.s && (state === "battle" || state === "pause" || state === "clear")) Battle.render();
   else if (state === "map") MapScreen.render();
   else { Sky.draw(ctx, ["#13324a", "#0a1830"], 0, 0); drawMenuFlair(); }
 
@@ -84,9 +88,12 @@ function drawMenuFlair() {
 /* ------------------------------ boot ----------------------------- */
 function boot() {
   loadProgress();
+  Globe.init();
   resizeCanvas();
+  Globe.resize();
   Input.init();
   Battle.init();
+  PlanetScreen.init();
   UI.init();
   // map taps
   Input.on("tap", p => { if (state === "map") MapScreen.tap(p.x, p.y); });

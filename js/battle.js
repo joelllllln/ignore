@@ -1,14 +1,13 @@
 /* =====================================================================
    HIVE WORLDS — battle.js
-   The core defense loop: grid placement + drag, auto-firing defenders,
-   the advancing Hive (with abilities + a per-planet boss finale), the
-   Nexus core, completion/efficiency, economy, combos and full game-feel.
+   The core defense loop. A "battle" liberates one CITY. You must clear the
+   whole hive (and, in a capital, defeat the boss) — completion is strictly
+   kill-driven, so the bar tracks real progress.
    ===================================================================== */
 const Battle = {
   s: null,
   grid: { cols: 0, rows: 0, cell: 60, x0: 0, y0: 0 },
 
-  /* ---------------------------- setup ---------------------------- */
   computeGrid() {
     const cell = clamp(Math.floor(VIEW.w / 8.5), 50, 74);
     const cols = Math.max(4, Math.floor((VIEW.w - 16) / cell));
@@ -23,17 +22,16 @@ const Battle = {
   },
   towerAtCell(cc, rr) { return this.s.towers.find(t => t.cc === cc && t.rr === rr); },
 
-  start(gi) {
+  start(ci) {
     this.computeGrid();
-    const cfg = planetConfig(gi);
-    const tb = techBonus(progress);
-    const P = PLANETS[gi];
+    const city = CITIES[ci], cfg = cityConfig(city), tb = techBonus(progress);
     this.s = {
-      gi, cfg, tb, P, species: availableSpecies(gi),
-      energy: 75 + tb.startE, towers: [], enemies: [], bullets: [], beams: [], pickups: [],
-      spawned: 0, killed: 0, hiveTotal: cfg.hive, spawnT: 0.6,
+      ci, city, P: city.planet, diff: city.planet.gi, isBoss: cfg.boss, cfg, tb,
+      species: availableSpecies(city.planet.gi),
+      energy: 80 + tb.startE, towers: [], enemies: [], bullets: [], beams: [], pickups: [],
+      spawned: 0, killed: 0, hiveTotal: cfg.hive, spawnT: 1.0,
       completion: 0, efficiency: 1, speed: 1, paused: false,
-      coreMax: 100 * tb.core, coreHp: 100 * tb.core, coreRegen: 0,
+      coreMax: 120 * tb.core, coreHp: 120 * tb.core,
       bossSpawned: false, bossDead: false, boss: null,
       buildType: "blaster", selected: null, drag: null,
       combo: 0, comboT: 0, time: 0, done: false,
@@ -43,7 +41,10 @@ const Battle = {
     this.deselect();
   },
 
-  /* --------------------------- entities -------------------------- */
+  bossTarget() { return this.s.isBoss ? 90 : 100; },   // completion reachable from kills
+  cap() { return this.s.bossDead ? 100 : this.s.isBoss ? 90 : 100; },
+  rewardMult() { return this.s.speed; },
+
   makeTower(typeId, cc, rr) {
     const def = TOWER_TYPES[typeId], b = def.base, tb = this.s.tb, pos = this.cellCenter(cc, rr);
     return {
@@ -56,35 +57,34 @@ const Battle = {
   },
 
   spawnEnemy(forceType, mini) {
-    const cfg = this.s.cfg, typeId = forceType || choose(this.s.species), ty = ENEMY_TYPES[typeId];
-    const side = Math.random();
-    let x, y;
+    const s = this.s, cfg = s.cfg, typeId = forceType || choose(s.species), ty = ENEMY_TYPES[typeId];
+    const side = Math.random(); let x, y;
     if (side < 0.74) { x = rand(VIEW.w * 0.08, VIEW.w * 0.92); y = -26; }
     else if (side < 0.87) { x = -26; y = rand(0, VIEW.h * 0.34); }
     else { x = VIEW.w + 26; y = rand(0, VIEW.h * 0.34); }
-    const baseHp = (14 + this.s.gi * 6) * cfg.hpMul * ty.hp;
+    const baseHp = (14 + s.diff * 6) * cfg.hpMul * ty.hp;
     const e = {
-      type: typeId, def: ty, x, y, r: (10 + this.s.gi * 0.3) * ty.size,
+      type: typeId, def: ty, x, y, r: (10 + s.diff * 0.3) * ty.size,
       maxHp: baseHp, hp: baseHp,
       shield: ty.shield ? baseHp * ty.shield : 0, maxShield: ty.shield ? baseHp * ty.shield : 0,
-      baseSpeed: cfg.speed * ty.spd * rand(0.9, 1.15), dmg: (6 + this.s.gi * 1.4) * cfg.dmgMul * ty.dmg,
+      baseSpeed: cfg.speed * ty.spd * rand(0.9, 1.15), dmg: (6 + s.diff * 1.4) * cfg.dmgMul * ty.dmg,
       anim: rand(0, TAU), wob: rand(0, TAU), dir: Math.PI / 2,
       slowT: 0, slowF: 1, hitCd: 0, dashCd: rand(1, 3), dashT: 0, healCd: 1, flash: 0, mini: !!mini,
     };
-    this.s.enemies.push(e);
-    if (!forceType && !mini) this.s.spawned++;
+    s.enemies.push(e);
+    if (!forceType && !mini) s.spawned++;
     return e;
   },
 
   spawnBoss() {
     const s = this.s, type = s.P.sysRef.boss, def = BOSSES[type];
-    const scale = (s.P.isSystemEnd ? 1.6 : 0.85) * (1 + s.gi * 0.12);
-    const hp = def.hp * (12 + s.gi * 5) * scale;
+    const scale = (s.city.capital ? 1.5 : 1) * (1 + s.diff * 0.12);
+    const hp = def.hp * (14 + s.diff * 5) * scale;
     const e = {
-      type, def, boss: true, x: VIEW.w / 2, y: -60, r: (26 + s.gi) * (def.size / 3.4) * (s.P.isSystemEnd ? 1.25 : 1),
+      type, def, boss: true, x: VIEW.w / 2, y: -70, r: (28 + s.diff) * (def.size / 3.4),
       maxHp: hp, hp,
       shield: def.shield ? hp * (def.shield - 1) : 0, maxShield: def.shield ? hp * (def.shield - 1) : 0,
-      baseSpeed: s.cfg.speed * def.spd, dmg: (10 + s.gi * 2) * def.dmg,
+      baseSpeed: s.cfg.speed * def.spd, dmg: (10 + s.diff * 2) * def.dmg,
       anim: 0, wob: 0, dir: Math.PI / 2, slowT: 0, slowF: 1, hitCd: 0, spawnCd: 2.4, flash: 0, mini: false,
     };
     s.enemies.push(e); s.boss = e; s.bossSpawned = true;
@@ -92,7 +92,6 @@ const Battle = {
     FloatText.add(VIEW.w / 2, VIEW.h * 0.4, "⚠ " + def.name.toUpperCase() + " ⚠", PAL.warn, { vy: -8, life: 2.2, size: 26, crit: true });
   },
 
-  /* --------------------------- combat ---------------------------- */
   getTarget(t) {
     let best = null, bestScore = -Infinity; const r2 = t.range * t.range;
     for (const e of this.s.enemies) {
@@ -113,7 +112,7 @@ const Battle = {
 
   fireTower(t) {
     const target = this.getTarget(t); if (!target) return;
-    t.angle = lerpAngle(t.angle, Math.atan2(target.y - t.y, target.x - t.x), 1);
+    t.angle = Math.atan2(target.y - t.y, target.x - t.x);
     t.flash = 0.12; t.recoil = 1;
     const crit = Math.random() < t.crit;
     Audio2.shot(t.type);
@@ -135,7 +134,7 @@ const Battle = {
         x: t.x + Math.cos(ang) * (t.r + 6), y: t.y + Math.sin(ang) * (t.r + 6),
         vx: Math.cos(ang) * t.projSpeed, vy: Math.sin(ang) * t.projSpeed,
         damage: t.damage, splash: t.splash, slowMul: t.slowMul, slowDur: t.slowDur,
-        r: t.type === "cannon" ? 6 : t.type === "sniper" ? 4 : 4, life: 2.2, color: t.col, crit, trail: t.type === "sniper",
+        r: t.type === "cannon" ? 6 : 4, life: 2.2, color: t.col, crit, trail: t.type === "sniper",
       });
       Particles.burst(t.x + Math.cos(ang) * (t.r + 6), t.y + Math.sin(ang) * (t.r + 6), t.col, 3, { speed: 60, life: 0.2, dir: ang, cone: 0.4 });
     }
@@ -165,11 +164,12 @@ const Battle = {
       if (!e.mini) s.killed++;
       s.combo++; s.comboT = 1.9;
       Audio2.kill(s.combo); if (big) { Audio2.explosion(false); Camera.shake(5); }
-      const gain = Math.round((2 + e.maxHp * 0.05) * this.rewardMult() * s.tb.eco);
+      const gain = Math.round((2 + e.maxHp * 0.05) * this.rewardMult() * s.tb.eco * (0.6 + 0.4 * s.efficiency));
       this.spawnPickup(e.x, e.y, gain);
       Particles.burst(e.x, e.y, e.def.color, big ? 18 : 9, { speed: big ? 200 : 130, life: 0.5 });
       Particles.ring(e.x, e.y, e.def.color, 6, big ? 60 : 34, 0.4);
-      if (!e.mini && !s.bossDead) s.completion = Math.min(this.cap(), s.completion + (90 / s.hiveTotal) * (0.5 + 0.5 * s.efficiency));
+      // completion is strictly kill-driven (reach 90 in a capital, 100 otherwise)
+      if (!e.mini) s.completion = Math.min(this.cap(), (s.killed / s.hiveTotal) * this.bossTarget());
       const ty = e.def;
       if (ty.split && !e.mini) for (let i = 0; i < ty.split; i++) {
         const ch = this.spawnEnemy("crawler", true);
@@ -179,8 +179,6 @@ const Battle = {
       if (s.combo >= 3) FloatText.add(e.x, e.y - e.r - 12, s.combo + "× COMBO", PAL.sentinel, { size: 12 + Math.min(s.combo, 12), crit: s.combo > 6 });
     }
   },
-  cap() { return this.s.bossDead ? 100 : 90; },
-  rewardMult() { return this.s.speed; },
 
   spawnPickup(x, y, amount) { this.s.pickups.push({ x, y, vy: -30, amount, life: 1.1, t: 0 }); },
 
@@ -189,41 +187,35 @@ const Battle = {
     Particles.ring(x, y, PAL.sentinelHi, 8, R, 0.35);
     Particles.burst(x, y, PAL.sentinelHi, 12, { speed: 160, life: 0.4 });
     Audio2.hit(); Camera.shake(3);
-    for (const e of s.enemies) if (!e.dead && dist2(e.x, e.y, x, y) < R * R) this.damageEnemy(e, 16 + s.gi * 3, false);
+    for (const e of s.enemies) if (!e.dead && dist2(e.x, e.y, x, y) < R * R) this.damageEnemy(e, 16 + s.diff * 3, false);
   },
 
-  /* ---------------------------- update --------------------------- */
   update(dt) {
-    const s = this.s; if (!s || s.done) return;
-    if (s.paused) return;
-    if (Camera.hitstop > 0) dt *= 0.15;     // global hit-stop
+    const s = this.s; if (!s || s.done || s.paused) return;
+    if (Camera.hitstop > 0) dt *= 0.15;
     const sp = s.speed, sdt = dt * sp;
     s.time += sdt;
 
-    // spawning: hive then boss then stragglers
+    // spawn the full hive, then the boss (capital only)
     s.spawnT -= sdt;
     if (s.spawnT <= 0) {
       if (s.spawned < s.hiveTotal) { this.spawnEnemy(); s.spawnT = s.cfg.spawn; }
-      else if (!s.bossSpawned) { this.spawnBoss(); }
-      else if (!s.bossDead && s.completion < this.cap()) { this.spawnEnemy(); s.spawnT = s.cfg.spawn * 2.4; }
+      else if (s.isBoss && !s.bossSpawned && s.killed >= s.hiveTotal) this.spawnBoss();
     }
-    // boss summons adds
     if (s.boss && s.boss.def.spawns) { s.boss.spawnCd -= sdt; if (s.boss.spawnCd <= 0) { s.boss.spawnCd = 3; const a = this.spawnEnemy(s.boss.def.spawns, true); a.x = s.boss.x + rand(-30, 30); a.y = s.boss.y + 20; } }
+    // non-capital city: liberated once the whole hive is cleared
+    if (!s.isBoss && s.killed >= s.hiveTotal) s.completion = 100;
 
-    // efficiency from towers + core
+    // efficiency from towers + core (affects fire rate + income, NOT the bar)
     let frac = 0; for (const t of s.towers) frac += t.hp / t.maxHp;
     const towerFrac = s.towers.length ? frac / s.towers.length : 0;
     const coreFrac = s.coreHp / s.coreMax;
     const targetEff = s.towers.length ? towerFrac * 0.72 + coreFrac * 0.28 : coreFrac * 0.4;
     s.efficiency += (targetEff - s.efficiency) * Math.min(1, dt * 3);
-
-    // core slow regen
     s.coreHp = Math.min(s.coreMax, s.coreHp + s.coreMax * 0.012 * sdt);
-
-    // combo timer
     if (s.comboT > 0) { s.comboT -= dt; if (s.comboT <= 0) s.combo = 0; }
 
-    // towers fire (REAL dt → not sped up → speed adds pressure not DPS)
+    // towers fire (REAL dt → speed adds pressure, not DPS)
     for (const t of s.towers) {
       t.flash = Math.max(0, t.flash - dt * 2);
       t.recoil = Math.max(0, t.recoil - dt * 6);
@@ -233,7 +225,7 @@ const Battle = {
       t.cd -= dt; if (t.cd <= 0) { this.fireTower(t); t.cd = 1 / rate; }
     }
 
-    // bullets (world time)
+    // bullets
     for (const b of s.bullets) {
       b.x += b.vx * sdt; b.y += b.vy * sdt; b.life -= sdt;
       if (b.x < -40 || b.x > VIEW.w + 40 || b.y < -40 || b.y > VIEW.h + 40) { b.life = 0; continue; }
@@ -242,8 +234,7 @@ const Battle = {
         if (dist2(e.x, e.y, b.x, b.y) < rr * rr) {
           if (b.splash > 0) {
             Particles.burst(b.x, b.y, b.color, 14, { speed: 180, life: 0.5 });
-            Particles.ring(b.x, b.y, b.color, 6, b.splash, 0.35);
-            Audio2.explosion(false); Camera.shake(4);
+            Particles.ring(b.x, b.y, b.color, 6, b.splash, 0.35); Audio2.explosion(false); Camera.shake(4);
             for (const o of s.enemies) if (!o.dead && dist2(o.x, o.y, b.x, b.y) < b.splash * b.splash) {
               this.damageEnemy(o, b.damage, false);
               if (b.slowDur > 0 && !o.dead) { o.slowT = b.slowDur; o.slowF = b.slowMul; }
@@ -260,7 +251,7 @@ const Battle = {
     s.bullets = s.bullets.filter(b => b.life > 0);
     for (const bm of s.beams) bm.life -= dt; s.beams = s.beams.filter(b => b.life > 0);
 
-    // enemies move + abilities
+    // enemies
     for (const e of s.enemies) {
       if (e.dead) continue;
       e.anim += sdt * 6; e.wob += sdt * 4; e.flash = Math.max(0, e.flash - dt * 6);
@@ -270,7 +261,6 @@ const Battle = {
       if (ty.shield && e.shield < e.maxShield && e.maxShield) e.shield = Math.min(e.maxShield, e.shield + e.maxShield * 0.05 * sdt);
       let speed = e.baseSpeed * e.slowF;
       if (ty.dash) { e.dashCd -= sdt; if (e.dashCd <= 0) { e.dashCd = rand(2, 4); e.dashT = 0.5; } if (e.dashT > 0) { e.dashT -= sdt; speed *= 2.2; } }
-
       let tgt = null, bd = Infinity;
       for (const t of s.towers) { if (t.hp <= 0) continue; const d = dist2(t.x, t.y, e.x, e.y); if (d < bd) { bd = d; tgt = t; } }
       const aim = tgt || { x: s.coreX, y: s.coreY, r: 30, core: true };
@@ -299,37 +289,32 @@ const Battle = {
     }
     s.enemies = s.enemies.filter(e => !e.dead);
 
-    // passive completion trickle (throttled by efficiency & speed)
-    if (!s.bossDead) s.completion = Math.min(this.cap(), s.completion + 0.3 * s.efficiency * sp * dt);
-
-    // pickups float to HUD then bank
     for (let i = s.pickups.length - 1; i >= 0; i--) {
       const p = s.pickups[i]; p.t += dt; p.y += p.vy * dt; p.vy += 40 * dt;
       if (p.t > 0.5) { s.energy += p.amount; FloatText.add(p.x, p.y, "+" + p.amount, PAL.gold, { size: 12 }); s.pickups.splice(i, 1); }
     }
 
     if (s.completion >= 100 && !s.done) { s.done = true; this.onConquer(); }
-    syncBattleHUD(s, this);
+    syncBattleHUD(s);
   },
 
   onConquer() {
-    const s = this.s, first = !progress.conquered[s.gi];
-    progress.conquered[s.gi] = true;
-    progress.maxUnlocked = Math.max(progress.maxUnlocked, s.gi + 1);
-    if (first) progress.cores = (progress.cores || 0) + (1 + Math.floor(s.gi / 2)) + (s.P.isSystemEnd ? 2 : 0);
+    const s = this.s, first = !progress.conquered[s.ci];
+    progress.conquered[s.ci] = true;
+    progress.maxUnlocked = Math.max(progress.maxUnlocked, s.ci + 1);
+    if (first) progress.cores = (progress.cores || 0) + (1 + Math.floor(s.diff / 2)) + (s.city.capital ? 2 : 0);
     saveProgress();
     Camera.flashScreen(PAL.good, 0.5);
-    showClear(s.gi, first);
+    showClear(s.ci, first);
   },
 
   /* ----------------------------- input --------------------------- */
   init() {
-    Input.on("tap", p => { if (state !== "battle" || this.s.paused) return; this.onTap(p.x, p.y); });
+    Input.on("tap", p => { if (state !== "battle" || !this.s || this.s.paused) return; this.onTap(p.x, p.y); });
     Input.on("dragStart", p => {
-      if (state !== "battle" || this.s.paused) return;
+      if (state !== "battle" || !this.s || this.s.paused) return;
       const cell = this.cellAt(p.x, p.y); if (!cell) return;
-      const t = this.towerAtCell(cell.c, cell.r);
-      if (t) { this.s.drag = { tower: t, from: { c: t.cc, r: t.rr } }; }
+      const t = this.towerAtCell(cell.c, cell.r); if (t) this.s.drag = { tower: t };
     });
     Input.on("drag", p => { if (this.s && this.s.drag) { this.s.drag.tower.x = p.x; this.s.drag.tower.y = p.y; } });
     Input.on("dragEnd", p => {
@@ -384,43 +369,34 @@ const Battle = {
   render() {
     const s = this.s, c = ctx, g = this.grid, P = s.P;
     Sky.draw(c, P.galRef.nebula, 0, 0);
-    // planet surface band at the bottom (the world you're invading)
     c.fillStyle = hexA(P.ref.surface, 1);
     c.beginPath(); c.moveTo(0, VIEW.h);
-    for (let x = 0; x <= VIEW.w; x += 20) c.lineTo(x, VIEW.h - 36 - Math.sin(x * 0.01 + s.time * 0.2) * 8 - (P.ref.biome ? 18 : 0));
+    for (let x = 0; x <= VIEW.w; x += 20) c.lineTo(x, VIEW.h - 36 - Math.sin(x * 0.01 + s.time * 0.2) * 8 - 18);
     c.lineTo(VIEW.w, VIEW.h); c.closePath(); c.fill();
 
     Camera.begin();
-
     this.drawGrid(c);
     paintNexus(c, s.coreX, s.coreY, 30, s.coreHp / s.coreMax, s.time);
-
-    // build/drag ghost
     if (s.drag) { c.globalAlpha = 0.6; paintTower(c, s.drag.tower, s.time); c.globalAlpha = 1; }
-
-    // selected range ring
     if (s.selected) {
-      const t = s.selected;
-      c.strokeStyle = hexA(t.col, 0.35); c.lineWidth = 1.5;
-      c.beginPath(); c.arc(t.x, t.y, t.range, 0, TAU); c.stroke();
-      c.fillStyle = hexA(t.col, 0.05); c.fill();
+      const t = s.selected; c.strokeStyle = hexA(t.col, 0.35); c.lineWidth = 1.5;
+      c.beginPath(); c.arc(t.x, t.y, t.range, 0, TAU); c.stroke(); c.fillStyle = hexA(t.col, 0.05); c.fill();
     }
-
     for (const b of s.bullets) paintBullet(c, b);
     for (const bm of s.beams) paintBeam(c, bm);
     for (const e of s.enemies) if (!e.boss) paintEnemy(c, e, s.time);
     for (const e of s.enemies) if (e.boss) paintEnemy(c, e, s.time);
-    for (const t of s.towers) { if (!s.drag || s.drag.tower !== t) { if (t.placeT < 1) { c.save(); const sc = Ease.outBack(t.placeT); c.translate(t.x, t.y); c.scale(sc, sc); c.translate(-t.x, -t.y); paintTower(c, t, s.time); c.restore(); } else paintTower(c, t, s.time); } }
-
+    for (const t of s.towers) {
+      if (s.drag && s.drag.tower === t) continue;
+      if (t.placeT < 1) { c.save(); const sc = Ease.outBack(t.placeT); c.translate(t.x, t.y); c.scale(sc, sc); c.translate(-t.x, -t.y); paintTower(c, t, s.time); c.restore(); }
+      else paintTower(c, t, s.time);
+    }
     Particles.draw(c);
-    // energy pickups
     for (const p of s.pickups) { c.globalAlpha = clamp(1 - p.t, 0, 1); c.fillStyle = PAL.gold; c.shadowColor = PAL.gold; c.shadowBlur = 8; c.beginPath(); c.arc(p.x, p.y, 4, 0, TAU); c.fill(); c.shadowBlur = 0; }
     c.globalAlpha = 1;
     FloatText.draw(c);
-
     Camera.end();
 
-    // boss health bar (top)
     if (s.boss) {
       const bw = VIEW.w * 0.7, bx = (VIEW.w - bw) / 2, by = 96;
       c.fillStyle = "rgba(0,0,0,0.5)"; roundRect(c, bx, by, bw, 12, 6); c.fill();
@@ -434,16 +410,11 @@ const Battle = {
   drawGrid(c) {
     const g = this.grid;
     for (let cc = 0; cc < g.cols; cc++) for (let rr = 0; rr < g.rows; rr++) {
-      const x = g.x0 + cc * g.cell, y = g.y0 + rr * g.cell;
-      const occ = this.towerAtCell(cc, rr);
-      // buildable cell with notched corners
+      const x = g.x0 + cc * g.cell, y = g.y0 + rr * g.cell, occ = this.towerAtCell(cc, rr), m = 2;
       c.strokeStyle = hexA(PAL.sentinel2, occ ? 0.08 : 0.18);
       c.fillStyle = hexA(PAL.sentinel2, occ ? 0.015 : 0.04);
-      const m = 2;
       c.beginPath(); c.rect(x + m, y + m, g.cell - m * 2, g.cell - m * 2); c.fill(); c.stroke();
-      // corner ticks
-      c.strokeStyle = hexA(PAL.sentinel, 0.25); c.lineWidth = 1.5;
-      const k = 6;
+      c.strokeStyle = hexA(PAL.sentinel, 0.25); c.lineWidth = 1.5; const k = 6;
       c.beginPath();
       c.moveTo(x + m, y + m + k); c.lineTo(x + m, y + m); c.lineTo(x + m + k, y + m);
       c.moveTo(x + g.cell - m - k, y + g.cell - m); c.lineTo(x + g.cell - m, y + g.cell - m); c.lineTo(x + g.cell - m, y + g.cell - m - k);
@@ -452,5 +423,4 @@ const Battle = {
   },
 };
 
-// global entry point used by the map screen
-function startBattle(gi) { Battle.start(gi); setState("battle"); }
+function startBattle(ci) { Battle.start(ci); setState("battle"); }

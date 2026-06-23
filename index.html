@@ -9,6 +9,7 @@
 </head>
 <body>
 <div id="game-root">
+  <canvas id="gl"></canvas>
   <canvas id="game"></canvas>
 
   <!-- ===================== MAIN MENU ===================== -->
@@ -115,9 +116,20 @@
         <label>SPD <b id="speed-val" class="gold">1.0×</b></label>
         <input type="range" id="speed" min="1" max="6" step="0.5" value="1" />
       </div>
-      <div id="palette"></div>
+      <div class="build-row">
+        <button id="open-defenders" class="def-open">⊕<span>Units</span></button>
+        <div id="palette"></div>
+      </div>
     </div>
     <div id="tap-hint" class="hint sky-hint">tap the sky to strike • tap a cell to build</div>
+  </div>
+
+  <!-- ===================== DEFENDERS PICKER ===================== -->
+  <div id="defenders" class="modal">
+    <div class="panel modal-card">
+      <div class="modal-head"><h2>Deploy Defender</h2><button id="def-close">✕</button></div>
+      <div id="def-list" class="def-list"></div>
+    </div>
   </div>
 
   <!-- ===================== PAUSE ===================== -->
@@ -146,6 +158,8 @@
 <script src="js/audio.js"></script>
 <script src="js/data.js"></script>
 <script src="js/art.js"></script>
+<script src="js/globe.js"></script>
+<script src="js/planet.js"></script>
 <script src="js/map.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/ui.js"></script>

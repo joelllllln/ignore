@@ -12,8 +12,8 @@ const UI = {
 
   init() {
     // menu nav
-    $("btn-play").onclick = () => { click(); const gi = clamp(progress.maxUnlocked, 0, PLANETS.length - 1); const P = PLANETS[gi]; MapScreen.enter("system", P.galaxy, P.system); setState("map"); };
-    $("btn-map").onclick = () => { click(); MapScreen.enter("universe"); setState("map"); };
+    $("btn-play").onclick = () => { click(); const ci = clamp(progress.maxUnlocked, 0, CITIES.length - 1); MapScreen.enter(CITIES[ci].planet.galaxy); setState("map"); };
+    $("btn-map").onclick = () => { click(); MapScreen.enter(); setState("map"); };
     $("btn-tech").onclick = () => { click(); this.buildTech(); setState("tech"); };
     $("btn-howto").onclick = () => { click(); setState("howto"); };
     $("btn-settings").onclick = () => { click(); setState("settings"); };
@@ -26,25 +26,51 @@ const UI = {
     $("set-reset").onclick = () => { if (confirm("Erase ALL conquest + tech progress?")) { progress = freshProgress(); saveProgress(); this.buildTech(); setState("menu"); } };
     $("set-back").onclick = () => { click(); setState(prevState === "pause" ? "pause" : "menu"); };
 
-    // map
+    // map / planet
     $("map-menu").onclick = () => { click(); setState("menu"); };
-    $("map-zoomout").onclick = () => MapScreen.zoomOut();
+    $("map-zoomout").onclick = () => { if (state === "planet") PlanetScreen.exit(); else MapScreen.zoomOut(); };
 
     // battle
-    $("btn-to-map").onclick = () => { click(); MapScreen.enter("system", Battle.s.P.galaxy, Battle.s.P.system); setState("map"); };
+    $("btn-to-map").onclick = () => { click(); MapScreen.enter(Battle.s.P.galaxy); setState("map"); };
     $("btn-pause").onclick = () => { click(); Battle.s.paused = true; setState("pause"); };
     $("tp-close").onclick = () => { click(); Battle.deselect(); };
     $("tp-sell").onclick = () => Battle.sellSelected();
     $("speed").oninput = e => { const v = parseFloat(e.target.value); setSpeedUI(v); Battle.setSpeed(v); };
+    $("open-defenders").onclick = () => { click(); this.openDefenders(); };
+    $("def-close").onclick = () => { click(); this.closeDefenders(); };
 
     // pause
     $("pause-resume").onclick = () => { click(); Battle.s.paused = false; setState("battle"); };
     $("pause-settings").onclick = () => { click(); setState("settings"); };
-    $("pause-retreat").onclick = () => { click(); MapScreen.enter("system", Battle.s.P.galaxy, Battle.s.P.system); setState("map"); };
+    $("pause-retreat").onclick = () => { click(); MapScreen.enter(Battle.s.P.galaxy); setState("map"); };
 
     // clear
-    $("clear-map").onclick = () => { click(); MapScreen.enter("system", Battle.s.P.galaxy, Battle.s.P.system); setState("map"); };
+    $("clear-map").onclick = () => { click(); MapScreen.enter(Battle.s.P.galaxy); setState("map"); };
   },
+
+  /* -------------------------- defenders menu --------------------- */
+  openDefenders() {
+    const list = $("def-list"); list.innerHTML = "";
+    TOWER_ORDER.forEach(id => {
+      const def = TOWER_TYPES[id], b = def.base, afford = Battle.s.energy >= def.cost;
+      const card = document.createElement("div");
+      card.className = "def-card" + (Battle.s.buildType === id ? " active" : "");
+      card.innerHTML =
+        `<canvas class="def-ic" width="46" height="46"></canvas>` +
+        `<div class="def-info"><div class="def-top"><b class="def-name">${def.name}</b><span class="def-cost">${def.cost}◇</span></div>` +
+        `<div class="def-blurb">${def.blurb}</div>` +
+        `<div class="def-stats">DMG ${b.damage} · ${b.fireRate}/s · RNG ${b.range}${b.splash ? " · splash" : ""}${b.chain ? " · chain" : ""}${b.slowDur ? " · slow" : ""}</div></div>` +
+        `<button class="def-pick" ${afford ? "" : "disabled"}>Deploy</button>`;
+      list.appendChild(card);
+      const ic = card.querySelector("canvas").getContext("2d");
+      ic.translate(23, 23); ic.fillStyle = def.color; ic.shadowColor = def.color; ic.shadowBlur = 10;
+      ic.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; const x = Math.cos(a) * 15, y = Math.sin(a) * 15; i ? ic.lineTo(x, y) : ic.moveTo(x, y); } ic.closePath(); ic.fill(); ic.shadowBlur = 0;
+      ic.fillStyle = "#06121a"; ic.font = "bold 16px ui-monospace, monospace"; ic.textAlign = "center"; ic.textBaseline = "middle"; ic.fillText(def.name[0], 0, 1);
+      card.querySelector(".def-pick").onclick = () => { Battle.s.buildType = id; Audio2.buy(); this.closeDefenders(); UI.syncBattle(Battle.s); };
+    });
+    $("defenders").classList.add("open");
+  },
+  closeDefenders() { $("defenders").classList.remove("open"); },
 
   /* ----------------------------- palette ------------------------- */
   buildPalette() {
@@ -139,8 +165,8 @@ const UI = {
     $("ui-eff").style.color = s.efficiency > 0.6 ? PAL.sentinel : s.efficiency > 0.3 ? PAL.gold : PAL.warn;
     setText("ui-core", Math.round(s.coreHp / s.coreMax * 100) + "%");
     $("ui-core").style.color = s.coreHp / s.coreMax > 0.5 ? PAL.sentinel : s.coreHp / s.coreMax > 0.25 ? PAL.gold : PAL.warn;
-    setText("ui-world-name", s.P.ref.name);
-    setText("ui-planet", "Planet " + (s.gi + 1));
+    setText("ui-world-name", s.city.name);
+    setText("ui-planet", s.P.ref.name);
     const pct = Math.floor(s.completion);
     $("completion-fill").style.width = pct + "%"; setText("completion-pct", pct + "%");
     setText("ui-reward", "×" + s.speed.toFixed(1));
@@ -162,16 +188,19 @@ const UI = {
 function syncBattleHUD(s) { UI.syncBattle(s); }
 function click() { Audio2.click(); }
 
-function showClear(gi, first) {
-  const P = PLANETS[gi], last = gi + 1 >= PLANETS.length;
-  setText("clear-title", last ? "GALAXY CONQUERED" : P.isSystemEnd ? "SYSTEM SECURED" : "PLANET CONQUERED");
-  setText("clear-text", last ? "Every world has fallen. The Hive is broken across the stars."
-    : P.ref.name + " is liberated. " + (P.isSystemEnd ? "The system is yours." : "The next world calls."));
-  const cores = first ? ((1 + Math.floor(gi / 2)) + (P.isSystemEnd ? 2 : 0)) : 0;
-  setText("clear-reward", first ? "◆ +" + cores + " Cores" : "Already conquered");
+function showClear(ci, first) {
+  const city = CITIES[ci], P = city.planet, last = ci + 1 >= CITIES.length;
+  const pc = planetCityProgress(P), liberated = pc.done === pc.total;
+  setText("clear-title", last ? "GALAXY CONQUERED"
+    : city.capital ? (liberated ? P.ref.name.toUpperCase() + " LIBERATED" : "CAPITAL TAKEN") : "CITY LIBERATED");
+  setText("clear-text", last ? "Every city on every world has fallen. The Hive is broken across the stars."
+    : city.name + " is free. " + (liberated ? P.ref.name + " is fully liberated." : pc.done + "/" + pc.total + " cities on " + P.ref.name + " secured."));
+  const cores = first ? ((1 + Math.floor(P.gi / 2)) + (city.capital ? 2 : 0)) : 0;
+  setText("clear-reward", first ? "◆ +" + cores + " Cores" : "Already liberated");
   const next = $("clear-next");
   next.style.display = last ? "none" : "block";
-  next.textContent = "INVADE " + PLANETS[Math.min(PLANETS.length - 1, gi + 1)].ref.name.toUpperCase() + " ▶";
-  next.onclick = () => { click(); if (!last) { MapScreen.enter("system", PLANETS[gi + 1].galaxy, PLANETS[gi + 1].system); startBattle(gi + 1); } };
+  const nextCity = CITIES[Math.min(CITIES.length - 1, ci + 1)];
+  next.textContent = (nextCity.planet !== P ? "TRAVEL TO " + nextCity.planet.ref.name.toUpperCase() : "INVADE " + nextCity.name.toUpperCase()) + " ▶";
+  next.onclick = () => { click(); if (last) return; if (nextCity.planet !== P) PlanetScreen.enter(nextCity.planet); else startBattle(ci + 1); };
   setState("clear");
 }
