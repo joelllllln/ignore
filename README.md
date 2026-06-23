@@ -1,49 +1,52 @@
-# Idle Dot Shooter
+# Hive Worlds
 
-A one-shot idle tower-defense shooter built in **Godot 4.6 / GDScript**, inspired by
-idle dot shooters with a *They Are Billions*–style defense twist.
+A browser **tower-defense progression** game built entirely with **HTML5, JavaScript,
+and Canvas** — no build step, no dependencies. Open `index.html` and play.
 
-Colored **dots** descend from the top of the screen and drift down toward your line of
-**cannons** at the bottom. Cannons auto-target and fire at the nearest dot. Destroying
-dots earns **coins**, which you spend on upgrades. Let too many dots breach the wall and
-it's game over.
+You advance through a series of **worlds**, each holding a fixed-size swarm of enemies
+(the **hive**). Enemies crawl toward your towers and chip away at them; your towers
+auto-fire back. Fill each world's **completion meter** to 100% to unlock the next world.
 
 ## How to play
 
-1. Open the project folder in Godot 4.6 (`Import` → select `project.godot`).
-2. Press **F5** / the Play button to run `scenes/Main.tscn`.
-3. Everything is automatic — cannons fire on their own. Spend coins on the right-hand
-   upgrade buttons and survive as long as you can.
+Just open `index.html` in any modern browser (desktop or mobile). Press **Enter World 1**
+and defend.
 
-## Controls / UI
+## Core loop
 
-- **Speed / Difficulty slider** (top): drag to scale dot speed *and* spawn rate live
-  (0.5x – 3.0x). Crank it up for more pressure (and faster waves).
-- **Upgrades** (right panel):
-  - **Damage** — more damage per bullet
-  - **Fire Rate** — cannons shoot faster
-  - **Add Cannon** — adds a turret to the line (up to 10), spread evenly
-  - **Reinforce Wall** — +10 max wall HP and a full repair
-- **Stats** (top-left): coins, wall HP, current wave, kills, cannon count.
-- On game over, press **Restart**.
+1. **Enter a world** — the hive begins spawning.
+2. **Enemies move toward your towers** and damage them on contact.
+3. **Towers auto-fire** at the nearest enemy.
+4. **Adjust speed and tap** the battlefield to influence the fight.
+5. **World completion climbs** as you defeat the hive (plus a passive trickle).
+6. At **100%**, advance to the **next world** — tougher, faster, with a bigger hive.
 
 ## Mechanics
 
-- Dots get tougher and spawn faster the longer you survive (wave tiers every ~12s).
-- Bigger/tankier dots hit the wall harder if they breach.
-- Difficulty multiplier affects both descent speed and spawn rate, so it doubles as a
-  pace control and a challenge dial.
+- **No game over.** Towers can be knocked offline, but that never ends the run.
+  Instead, damaged towers drop your **Efficiency**, which throttles both completion
+  gain and energy income — so damage *slows progression* rather than killing you.
+- **Speed slider (1×–5×).** Higher speed = faster spawns, faster completion, and more
+  **Energy** per kill — but a fiercer, faster swarm pressing your towers.
+- **Tap to assist.** Tap/click anywhere on the battlefield to unleash an area strike
+  that damages nearby enemies.
+- **Energy economy.** Kills grant Energy. Spend it on:
+  - **+ Tower** — add a turret to your defensive line (up to 8).
+  - **⚔ Damage** — more damage per shot.
+  - **⚡ Fire Rate** — towers shoot faster.
+  - **✚ Repair** — fully restore all towers (restores Efficiency).
+- **Worlds scale.** Each world raises hive size, enemy HP, speed, damage, and spawn
+  rate. Six themed worlds, then an endless continuation.
 
 ## Project layout
 
 ```
-project.godot        Godot 4.6 project config (main scene = scenes/Main.tscn)
-icon.svg             App icon
-scenes/Main.tscn     Minimal root scene (Node2D + Main.gd)
-scripts/Main.gd      Game manager: spawning, cannons, bullets, economy, UI
-scripts/Dot.gd       Descending enemy
-scripts/Bullet.gd    Projectile
-scripts/Cannon.gd    Turret
+index.html   Markup, HUD, completion meter, controls, start/clear overlay
+style.css    Layout and theming (responsive, mobile-friendly)
+game.js      All game logic: worlds, spawning, towers, bullets, enemies,
+             completion/efficiency, economy, FX, and the render/update loop
+icon.svg     App icon
 ```
 
-Entities are created programmatically from `Main.gd`, so the scene tree stays simple.
+Everything runs client-side in a single `requestAnimationFrame` loop; no server,
+bundler, or assets required.

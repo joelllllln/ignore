@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Hive Worlds — Tower Defense</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game"></canvas>
+
+    <!-- Top HUD -->
+    <div id="hud-top">
+      <div class="hud-block">
+        <span class="hud-label">World</span>
+        <span id="ui-world" class="hud-value">1</span>
+        <span id="ui-world-name" class="hud-sub">Verdant Reach</span>
+      </div>
+      <div class="hud-block">
+        <span class="hud-label">Energy</span>
+        <span id="ui-energy" class="hud-value">0</span>
+      </div>
+      <div class="hud-block">
+        <span class="hud-label">Hive</span>
+        <span id="ui-hive" class="hud-value">0 / 0</span>
+      </div>
+      <div class="hud-block">
+        <span class="hud-label">Efficiency</span>
+        <span id="ui-eff" class="hud-value">100%</span>
+      </div>
+    </div>
+
+    <!-- Completion meter -->
+    <div id="completion-wrap">
+      <div class="meter-label">World Completion</div>
+      <div id="completion-bar"><div id="completion-fill"></div><span id="completion-pct">0%</span></div>
+    </div>
+
+    <!-- Bottom control bar -->
+    <div id="controls">
+      <div id="speed-control">
+        <label for="speed">Speed <span id="speed-val">1.0×</span></label>
+        <input type="range" id="speed" min="1" max="5" step="0.5" value="1" />
+      </div>
+      <div id="build-buttons">
+        <button class="build-btn" data-action="tower"   title="Build a new tower">
+          <span class="b-title">+ Tower</span><span class="b-cost" id="cost-tower">50</span>
+        </button>
+        <button class="build-btn" data-action="damage"  title="Upgrade tower damage">
+          <span class="b-title">⚔ Damage</span><span class="b-cost" id="cost-damage">40</span>
+        </button>
+        <button class="build-btn" data-action="firerate" title="Upgrade fire rate">
+          <span class="b-title">⚡ Fire Rate</span><span class="b-cost" id="cost-firerate">40</span>
+        </button>
+        <button class="build-btn" data-action="repair"  title="Repair all towers">
+          <span class="b-title">✚ Repair</span><span class="b-cost" id="cost-repair">30</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tap hint -->
+    <div id="tap-hint">Tap the battlefield to strike the hive!</div>
+
+    <!-- Overlay (start / world clear) -->
+    <div id="overlay" class="visible">
+      <div class="overlay-card">
+        <h1 id="ov-title">HIVE WORLDS</h1>
+        <p id="ov-text">Defend your towers. Clear the hive. Conquer every world.</p>
+        <ul id="ov-rules">
+          <li>🛡️ Towers auto-fire at the swarm. Build and upgrade with <b>Energy</b>.</li>
+          <li>🐝 Enemies crawl toward your towers and chip their health.</li>
+          <li>⚙️ Damaged towers lose <b>Efficiency</b>, slowing your progress.</li>
+          <li>⏩ Crank up <b>Speed</b> for faster progress &amp; energy — but more pressure.</li>
+          <li>👆 <b>Tap</b> the battlefield to blast enemies yourself.</li>
+        </ul>
+        <button id="ov-btn">ENTER WORLD 1</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
