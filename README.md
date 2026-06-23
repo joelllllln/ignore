@@ -1,52 +1,57 @@
-# Hive Worlds
+# Hive Worlds — Galactic Tower Defense
 
 A browser **tower-defense progression** game built entirely with **HTML5, JavaScript,
 and Canvas** — no build step, no dependencies. Open `index.html` and play.
 
-You advance through a series of **worlds**, each holding a fixed-size swarm of enemies
-(the **hive**). Enemies crawl toward your towers and chip away at them; your towers
-auto-fire back. Fill each world's **completion meter** to 100% to unlock the next world.
+Conquer a galaxy planet by planet. Each planet hides a fixed-size swarm (the **hive**)
+that crawls toward your defenders. Build a defensive grid, auto-fire on the swarm, fill
+the **conquest meter** to 100%, and move on to the next world.
 
-## How to play
+## Screens
 
-Just open `index.html` in any modern browser (desktop or mobile). Press **Enter World 1**
-and defend.
+- **Main menu** — Play, Star Map, How to Play, Reset Progress. Tracks planets conquered.
+- **Star map** — a zoomable, pseudo-3D view: **Universe → Galaxy → Solar System**. Spiral
+  galaxies, orbiting shaded planets with day/night terminators, and lit/locked/✓-conquered
+  states so you can *see* your conquest spread. Tap a lit planet to invade it.
+- **Battle** — the grid-based defense.
 
-## Core loop
+## Battle features
 
-1. **Enter a world** — the hive begins spawning.
-2. **Enemies move toward your towers** and damage them on contact.
-3. **Towers auto-fire** at the nearest enemy.
-4. **Adjust speed and tap** the battlefield to influence the fight.
-5. **World completion climbs** as you defeat the hive (plus a passive trickle).
-6. At **100%**, advance to the **next world** — tougher, faster, with a bigger hive.
+- **Grid placement.** Pick a defender from the palette, tap a cell to deploy.
+  **Hold &amp; drag** a placed defender to move it to another cell.
+- **5 defender types**, each distinct: **Blaster** (rapid), **Sniper** (long-range burst),
+  **Cannon** (splash), **Frost** (slows the swarm), **Tesla** (chain lightning).
+- **Per-defender skill trees.** Tap a defender to open its panel — spend energy on a
+  branching tree (power / precision / special) unique to each type.
+- **Target priorities.** Each defender can prioritize **First / Close / Strong / Fast / Weak**.
+- **7 enemy species** with their own art, animation, and abilities: Crawler (walking legs),
+  Runner (dashing), Brute (armored tank), Shielded (regenerating shield), Flyer (flapping,
+  erratic), Splitter (bursts into minis on death), Healer (pulses heals to nearby hive).
+- **You start with one** defender's worth of energy and build up from kills.
 
-## Mechanics
+## Speed &amp; economy
 
-- **No game over.** Towers can be knocked offline, but that never ends the run.
-  Instead, damaged towers drop your **Efficiency**, which throttles both completion
-  gain and energy income — so damage *slows progression* rather than killing you.
-- **Speed slider (1×–5×).** Higher speed = faster spawns, faster completion, and more
-  **Energy** per kill — but a fiercer, faster swarm pressing your towers.
-- **Tap to assist.** Tap/click anywhere on the battlefield to unleash an area strike
-  that damages nearby enemies.
-- **Energy economy.** Kills grant Energy. Spend it on:
-  - **+ Tower** — add a turret to your defensive line (up to 8).
-  - **⚔ Damage** — more damage per shot.
-  - **⚡ Fire Rate** — towers shoot faster.
-  - **✚ Repair** — fully restore all towers (restores Efficiency).
-- **Worlds scale.** Each world raises hive size, enemy HP, speed, damage, and spawn
-  rate. Six themed worlds, then an endless continuation.
+- **Speed slider (1×–6×)** scales enemy movement, spawns, and conquest speed, and applies a
+  matching **reward multiplier** to energy income (shown as `×N reward`).
+- **Fire rate does NOT scale with speed** — so cranking speed means a faster swarm against the
+  same volume of fire: faster progress and richer rewards, but real pressure.
+- **No game over.** Damaged defenders lower **Efficiency**, which throttles conquest gain and
+  income (and slows each turret's fire). Damage *slows the conquest*, it never ends the run.
+- **👆 Tap the sky** (above your grid) to strike enemies directly.
+
+## Progress
+
+Conquest is saved to `localStorage`, so your galaxy map remembers what you've taken.
 
 ## Project layout
 
 ```
-index.html   Markup, HUD, completion meter, controls, start/clear overlay
-style.css    Layout and theming (responsive, mobile-friendly)
-game.js      All game logic: worlds, spawning, towers, bullets, enemies,
-             completion/efficiency, economy, FX, and the render/update loop
+index.html   Screens (menu / how-to / map UI / battle HUD / clear) + canvas
+style.css    Layout & theming (responsive, mobile-friendly)
+game.js      Engine: galaxy data, tower & enemy definitions, skill trees,
+             star-map renderer, battle sim, grid/drag input, render loop
 icon.svg     App icon
 ```
 
-Everything runs client-side in a single `requestAnimationFrame` loop; no server,
+Everything runs client-side in a single `requestAnimationFrame` loop — no server,
 bundler, or assets required.
