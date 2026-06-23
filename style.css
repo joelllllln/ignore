@@ -35,14 +35,29 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   color:var(--text);padding:9px 4px;font-size:13px;font-weight:700}
 .ab:disabled{opacity:.55}
 .ab-cd{position:absolute;left:0;bottom:0;height:3px;background:var(--sd);width:0}
-#tabs{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto}
-.tab{flex:0 0 auto;background:var(--panel);border:1px solid var(--edge);border-radius:9px;color:var(--dim);
-  padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.5px}
+#tabs{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.tab{position:relative;flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:9px;color:var(--dim);
+  padding:9px 6px;font-size:12px;font-weight:800;letter-spacing:.5px}
 .tab.sel{color:var(--text);border-color:#7aa8ff;background:rgba(120,170,255,.12)}
-.tab.special{color:var(--cash);border-color:rgba(255,212,94,.5)}
-#btn-rebirth{color:var(--sd);border-color:rgba(155,231,255,.6)}
-#btn-sd{color:var(--sd)}
+.tab.has-buy::after{content:"";position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;
+  background:var(--cash);box-shadow:0 0 6px var(--cash);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+#buymode{flex:0 0 auto;background:rgba(120,170,255,.14);border:1px solid #7aa8ff;border-radius:9px;color:#a9c6ff;
+  padding:9px 12px;font-size:12px;font-weight:800;font-family:var(--mono)}
 .hidden{display:none!important}
+
+/* action row (travel / dust / rebirth) */
+#actions{display:flex;gap:8px;margin-top:8px}
+.act{flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:11px;color:var(--text);
+  padding:11px 6px;font-size:13px;font-weight:800;letter-spacing:.5px}
+.act.travel{color:var(--cash);border-color:rgba(255,212,94,.4)}
+.act.travel.ready{background:linear-gradient(95deg,#ffd45e,#ffb74d);color:#231600;border:none;animation:pulse 1.4s infinite}
+.act.dust,.act.rebirth{color:var(--sd);border-color:rgba(155,231,255,.5);flex:0 0 auto;padding:11px 14px}
+.act.rebirth{background:rgba(155,231,255,.12);animation:pulse 1.6s infinite}
+
+/* ability cooldown seconds */
+.ab-s{position:absolute;top:4px;right:7px;font-size:11px;font-family:var(--mono);color:var(--sd)}
+.u-buy.afford{box-shadow:0 0 10px rgba(255,212,94,.5)}
 
 #up-list{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow-y:auto}
 .up{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--edge);border-radius:11px;padding:9px 11px}

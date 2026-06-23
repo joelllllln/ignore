@@ -73,7 +73,7 @@
   let dots = [], orbs = [], beams = [], drone, sources = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0;
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
-  let activeTab = "def", paused = false, listRows = {};
+  let activeTab = "def", paused = false, listRows = {}, buyMode = "x1", tabBtns = {};
 
   /* ----------------------------- derived ------------------------- */
   function recompute() {
@@ -287,21 +287,28 @@
     const tc = travelCost(S.galaxy);
     $("galaxy-fill").style.width = clamp(S.cash / tc, 0, 1) * 100 + "%";
     $("btn-travel").textContent = "TRAVEL ▸ $" + fmt(tc);
-    $("btn-travel").disabled = false;
+    $("btn-travel").classList.toggle("ready", S.cash >= tc);
     $("btn-rebirth").classList.toggle("hidden", S.galaxy < 10 && S.peakGalaxy < 10);
     for (const k in ABIL_CD) {
-      const b = $("ab-" + k); b.disabled = abil[k] > 0;
+      $("ab-" + k).disabled = abil[k] > 0;
       $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0";
+      $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : "";
     }
-    // upgrade rows
+    // upgrade rows (buy-amount aware + affordability glow)
     for (const id in listRows) {
-      const u = UP[id], lvl = S.lv[id], maxed = u.max != null && lvl >= u.max, c = upCost(u);
-      const row = listRows[id];
-      row.lv.textContent = u.id === "mortar" || u.id === "plasma" ? (lvl ? "Lv " + lvl : "") : "Lv " + lvl;
+      const u = UP[id], lvl = S.lv[id], maxed = u.max != null && lvl >= u.max, row = listRows[id];
+      row.lv.textContent = (u.id === "mortar" || u.id === "plasma") ? (lvl ? "Lv " + lvl : "") : "Lv " + lvl;
       row.desc.textContent = u.desc(lvl);
-      if (maxed) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.el.classList.add("maxed"); }
-      else { row.buy.textContent = "$" + fmt(c); row.buy.disabled = S.cash < c; row.el.classList.remove("maxed"); }
+      if (maxed) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.el.classList.add("maxed"); row.buy.classList.remove("afford"); continue; }
+      row.el.classList.remove("maxed");
+      const r = levelsToBuy(u, buyMode);
+      if (r.count <= 0) { row.buy.textContent = "$" + fmt(upCost(u)); row.buy.disabled = true; row.buy.classList.remove("afford"); }
+      else { row.buy.textContent = (buyMode === "x1" ? "" : "×" + r.count + " ") + "$" + fmt(r.total); row.buy.disabled = false; row.buy.classList.add("afford"); }
     }
+    // tab "affordable" badges
+    const aff = { def: false, drone: false, eco: false };
+    for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
+    for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
   }
 
   function renderList() {
@@ -320,11 +327,24 @@
     }
     syncHUD();
   }
+  function levelsToBuy(u, mode) {
+    let lvl = S.lv[u.id], cash = S.cash, count = 0, total = 0;
+    const limit = mode === "max" ? Infinity : mode === "x10" ? 10 : 1;
+    while (count < limit) {
+      if (u.max != null && lvl >= u.max) break;
+      const c = Math.floor(u.base * Math.pow(u.mul, lvl));
+      if (cash < c) break;
+      cash -= c; total += c; lvl++; count++;
+    }
+    return { count, total };
+  }
   function buyUpgrade(u) {
-    const lvl = S.lv[u.id]; if (u.max != null && lvl >= u.max) return;
-    const c = upCost(u); if (S.cash < c) return;
-    S.cash -= c; S.lv[u.id]++;
+    const r = levelsToBuy(u, buyMode);
+    if (r.count <= 0) return;
+    S.cash -= r.total; S.lv[u.id] += r.count;
     if (u.id === "marines" || u.id === "mortar" || u.id === "plasma") rebuildSources();
+    const row = listRows[u.id];
+    if (row && row.el.animate) row.el.animate([{ filter: "brightness(1.9)" }, { filter: "brightness(1)" }], 220);
     recompute(); syncHUD(); save();
   }
 
@@ -368,8 +388,15 @@
   }
 
   /* ----------------------------- input / wiring ------------------ */
-  for (const t of document.querySelectorAll(".tab[data-tab]"))
-    t.onclick = () => { activeTab = t.dataset.tab; for (const x of document.querySelectorAll(".tab[data-tab]")) x.classList.toggle("sel", x === t); renderList(); };
+  for (const t of document.querySelectorAll(".tab[data-tab]")) {
+    tabBtns[t.dataset.tab] = t;
+    t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); renderList(); };
+  }
+  $("buymode").onclick = () => {
+    buyMode = buyMode === "x1" ? "x10" : buyMode === "x10" ? "max" : "x1";
+    $("buymode").textContent = "BUY " + (buyMode === "x1" ? "×1" : buyMode === "x10" ? "×10" : "MAX");
+    syncHUD();
+  };
   $("ab-frenzy").onclick = () => useAbility("frenzy");
   $("ab-dotrain").onclick = () => useAbility("dotrain");
   $("ab-blackhole").onclick = () => useAbility("blackhole");

@@ -24,19 +24,22 @@
   <!-- BOTTOM DOCK -->
   <div id="dock" class="layer">
     <div id="abilities">
-      <button class="ab" id="ab-frenzy"><span class="ab-n">⚡ Frenzy</span><span class="ab-cd" id="cd-frenzy"></span></button>
-      <button class="ab" id="ab-dotrain"><span class="ab-n">▽ Dot Rain</span><span class="ab-cd" id="cd-dotrain"></span></button>
-      <button class="ab" id="ab-blackhole"><span class="ab-n">◉ Black Hole</span><span class="ab-cd" id="cd-blackhole"></span></button>
+      <button class="ab" id="ab-frenzy"><span class="ab-n">⚡ Frenzy</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
+      <button class="ab" id="ab-dotrain"><span class="ab-n">▽ Dot Rain</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
+      <button class="ab" id="ab-blackhole"><span class="ab-n">◉ Black Hole</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
     </div>
     <div id="tabs">
       <button class="tab sel" data-tab="def">DEFENCE</button>
       <button class="tab" data-tab="drone">DRONE</button>
       <button class="tab" data-tab="eco">ECONOMY</button>
-      <button class="tab special" id="btn-travel">TRAVEL ▸</button>
-      <button class="tab special hidden" id="btn-rebirth">✦ REBIRTH</button>
-      <button class="tab" id="btn-sd">✦ DUST</button>
+      <button id="buymode" title="Buy amount">BUY ×1</button>
     </div>
     <div id="up-list"></div>
+    <div id="actions">
+      <button class="act travel" id="btn-travel">TRAVEL ▸</button>
+      <button class="act dust" id="btn-sd">✦ DUST</button>
+      <button class="act rebirth hidden" id="btn-rebirth">✦ REBIRTH</button>
+    </div>
   </div>
 
   <!-- STAR DUST SHOP -->
