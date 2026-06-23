@@ -41,11 +41,13 @@
   const unitBuyCost = type => Math.floor(DEF_TYPES[type].base * Math.pow(1.9, countType(type)));
   // class-wide upgrade tree: tiers live on the TYPE, so they apply to EVERY unit of that type.
   const ct = type => (S.classT[type] || (S.classT[type] = { a: 0, b: 0, c: 0 }));
+  const keyOn = (type, id) => !!(S.classKeys && S.classKeys[type] && S.classKeys[type][id]);
   const pathCost = (type, k) => Math.floor(DEF_TYPES[type].base * 1.5 * Math.pow(2.6, ct(type)[k]));
-  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * (ct(u.type).a >= 5 ? 1.25 : 1) * derived.sdDmg;
-  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * (ct(u.type).b >= 5 ? 1.5 : 1) * derived.sdFire;
+  const keyCost = type => Math.floor(DEF_TYPES[type].base * 14);
+  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * (ct(u.type).a >= 5 ? 1.25 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * derived.sdDmg;
+  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * (ct(u.type).b >= 5 ? 1.5 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * derived.sdFire;
   const uRange = u => DEF_TYPES[u.type].range + 55 * ct(u.type).c;
-  const uCrit = u => ct(u.type).c >= 5 ? 0.45 : ct(u.type).c >= 3 ? 0.25 : 0;
+  const uCrit = u => (ct(u.type).c >= 5 ? 0.45 : ct(u.type).c >= 3 ? 0.25 : 0) + (keyOn(u.type, "ksbc") ? 0.15 : 0);
   const uCritMul = u => 2 + 0.3 * ct(u.type).c;
   const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + 14 * ct(u.type).c : 0;
 
@@ -123,8 +125,8 @@
   let S, derived = {}, META, state = "home";
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
-    const classT = {}; DEF_ORDER.forEach(t => classT[t] = { a: 0, b: 0, c: 0 });
-    return { cash: 0, galaxy: 1, lv, classT, units: [newUnit("turret")], totalRun: 0, peakGalaxy: 1 };
+    const classT = {}, classKeys = {}; DEF_ORDER.forEach(t => { classT[t] = { a: 0, b: 0, c: 0 }; classKeys[t] = {}; });
+    return { cash: 0, galaxy: 1, lv, classT, classKeys, units: [newUnit("turret")], totalRun: 0, peakGalaxy: 1 };
   }
   function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0 }; }
 
@@ -157,7 +159,7 @@
     try {
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
-        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classT) S.classT = {}; DEF_ORDER.forEach(t => { if (!S.classT[t]) S.classT[t] = { a: 0, b: 0, c: 0 }; }); }
+        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classT) S.classT = {}; if (!S.classKeys) S.classKeys = {}; DEF_ORDER.forEach(t => { if (!S.classT[t]) S.classT[t] = { a: 0, b: 0, c: 0 }; if (!S.classKeys[t]) S.classKeys[t] = {}; }); }
         if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {}); }
         if (d.ts && d.cps > 0) { const e = clamp((Date.now() - d.ts) / 1000, 0, 8 * 3600); if (e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; } }
       }
@@ -341,39 +343,95 @@
   }
   function Audio_buy() {}  // (silent build)
 
-  /* ------------------------- unit upgrade tree ------------------- */
-  function openSkillTree(type) { selType = type; buildSkillTree(); $("skilltree").classList.add("show"); }
-  function closeSkillTree() { $("skilltree").classList.remove("show"); }
-  function buildSkillTree() {
-    const type = selType, d = DEF_TYPES[type], sample = { type }, owned = countType(type);
-    $("st-title").textContent = d.name.toUpperCase();
-    $("st-owned").textContent = "· " + owned + " deployed · upgrades affect them ALL";
-    $("st-stats").innerHTML = "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
-    const cols = $("st-cols"); cols.innerHTML = "";
-    for (const pm of PATH_META) {
-      const cur = ct(type)[pm.key];
-      const col = document.createElement("div"); col.className = "st-col";
-      col.innerHTML = `<div class="st-colh">${pm.label}</div>`;
-      for (let tier = 1; tier <= MAXTIER; tier++) {
-        const own = cur >= tier, next = cur + 1 === tier, cost = Math.floor(d.base * 1.5 * Math.pow(2.6, tier - 1));
-        const node = document.createElement("div");
-        node.className = "st-node " + (own ? "owned" : next ? "next" : "locked") + (next && S.cash >= cost ? " afford" : "");
-        node.innerHTML = `<div class="st-n-name">${SKILLS[type][pm.key][tier - 1]}</div><div class="st-n-fx">${nodeEffect(pm.key, tier)}</div><div class="st-n-cost">${own ? "✓ owned" : next ? "$" + fmt(cost) : "🔒"}</div>`;
-        if (next) node.onclick = () => buyPath(type, pm.key);
-        col.appendChild(node);
-      }
-      cols.appendChild(col);
-    }
+  /* --------------------- class skill WEB (node graph) ------------ */
+  // a branching web: a central root, three arms (Power/Speed/Optics) of 5
+  // nodes each (each needs the previous), plus keystones that need nodes from
+  // two arms. Rendered on a pan/zoom canvas; nodes unlock only with prereqs.
+  function webNodes(type) {
+    const N = [{ id: "root", x: 0, y: 0, kind: "root", name: DEF_TYPES[type].name, req: [] }];
+    const arms = { a: { dx: -1, dy: -0.15 }, b: { dx: 1, dy: -0.15 }, c: { dx: 0, dy: 1 } };
+    for (const k in arms) for (let t = 1; t <= MAXTIER; t++)
+      N.push({ id: k + t, kind: "branch", key: k, tier: t, x: arms[k].dx * t, y: arms[k].dy * t + (k === "c" ? 0 : -t * 0.12), name: SKILLS[type][k][t - 1], fx: nodeEffect(k, t), req: [t === 1 ? "root" : k + (t - 1)] });
+    N.push({ id: "ksab", kind: "key", x: 0, y: -2.1, name: "Twin Link", fx: "+20% dmg & rate", req: ["a3", "b3"] });
+    N.push({ id: "ksbc", kind: "key", x: 1.5, y: 1.5, name: "Keen Optics", fx: "+15% crit", req: ["b3", "c3"] });
+    return N;
   }
+  const STree = {
+    type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
+    ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
+    init() {
+      this.cv = $("sttree"); if (!this.cv) return; this.c = this.cv.getContext("2d");
+      this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
+      this.cv.addEventListener("pointermove", e => {
+        if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
+        if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.5, 3); this.pinchD = d; this.moved = true; return; }
+        const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 5) this.moved = true; this.cx += dx; this.cy += dy; this.lx = p.x; this.ly = p.y;
+      });
+      const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
+      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; });
+      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.5, 3); }, { passive: false });
+    },
+    pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
+    open(type) { this.type = type; this.cx = 0; this.cy = 0; this.zoom = 1; this.resize(); },
+    resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
+    owned(n) { return n.kind === "root" ? true : n.kind === "branch" ? ct(this.type)[n.key] >= n.tier : keyOn(this.type, n.id); },
+    buyable(n) { if (this.owned(n)) return false; if (n.kind === "branch") return ct(this.type)[n.key] + 1 === n.tier; if (n.kind === "key") return n.req.every(r => ct(this.type)[r[0]] >= +r.slice(1)); return false; },
+    cost(n) { return n.kind === "key" ? keyCost(this.type) : Math.floor(DEF_TYPES[this.type].base * 1.5 * Math.pow(2.6, n.tier - 1)); },
+    sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.11 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h * 0.46 + this.cy + ny * u, u }; },
+    render(dt) {
+      if (!this.cv) return; const c = this.c; this.t += dt;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
+      const ns = webNodes(this.type), map = {}; ns.forEach(n => map[n.id] = n);
+      for (const n of ns) for (const r of n.req) { const m = map[r]; if (!m) continue; const a = this.sc(n.x, n.y), b = this.sc(m.x, m.y); c.globalAlpha = (this.owned(n) && this.owned(m)) ? 0.8 : 0.18; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
+      c.globalAlpha = 1; this.hit = [];
+      for (const n of ns) {
+        const p = this.sc(n.x, n.y), rad = clamp(p.u * 0.32, 12, 34), own = this.owned(n), buy = this.buyable(n), cost = this.cost(n), afford = S.cash >= cost;
+        this.hit.push({ n, x: p.x, y: p.y, r: rad + 6 });
+        if (buy && afford) { const pl = 0.5 + 0.5 * Math.sin(this.t * 4); c.globalAlpha = 0.4 + pl * 0.5; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 5, 0, TAU); c.stroke(); c.globalAlpha = 1; }
+        c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
+        c.fillStyle = own ? "#fff" : buy ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.05)";
+        c.strokeStyle = own || buy ? "#fff" : "rgba(255,255,255,0.3)"; c.lineWidth = 2; c.fill(); c.stroke();
+        if (n.kind === "key") { c.fillStyle = own ? "#000" : "#fff"; c.font = "bold " + Math.round(rad * 0.9) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("✦", p.x, p.y + 1); }
+        c.textAlign = "center"; c.textBaseline = "alphabetic";
+        c.fillStyle = own || buy ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(clamp(p.u * 0.14, 9, 13)) + "px ui-monospace,monospace";
+        c.fillText(n.name, p.x, p.y - rad - 5);
+        if (n.fx) { c.fillStyle = "rgba(255,255,255,0.5)"; c.font = "9px ui-monospace,monospace"; c.fillText(n.fx, p.x, p.y + rad + 12); }
+        if (!own && buy) { c.fillStyle = afford ? "#fff" : "rgba(255,255,255,0.45)"; c.font = "11px ui-monospace,monospace"; c.fillText("$" + fmt(cost), p.x, p.y + rad + (n.fx ? 24 : 12)); }
+      }
+      const sample = { type: this.type };
+      $("st-title").textContent = DEF_TYPES[this.type].name.toUpperCase();
+      $("st-owned").textContent = "· " + countType(this.type) + " deployed · affects ALL";
+      $("st-stats").innerHTML = "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
+    },
+    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (!best) return; const n = best.n; if (!this.buyable(n)) return; if (n.kind === "branch") buyPath(this.type, n.key); else buyKey(this.type, n); },
+  };
+  function openSkillTree(type) { selType = type; STree.open(type); $("skilltree").classList.add("show"); }
+  function closeSkillTree() { $("skilltree").classList.remove("show"); }
   function buyPath(type, k) {
     const tt = ct(type); if (tt[k] >= MAXTIER) return; const c = pathCost(type, k); if (S.cash < c) return;
-    S.cash -= c; tt[k]++; recompute(); buildSkillTree(); syncHUD(); save();
+    S.cash -= c; tt[k]++; recompute(); syncHUD(); save();
+  }
+  function buyKey(type, n) {
+    if (keyOn(type, n.id)) return; if (!n.req.every(r => ct(type)[r[0]] >= +r.slice(1))) return;
+    const c = keyCost(type); if (S.cash < c) return;
+    S.cash -= c; S.classKeys[type][n.id] = true; recompute(); syncHUD(); save();
   }
   function sellOne() {
     const i = S.units.findIndex(u => u.type === selType);
     if (i < 0 || S.units.length <= 1) return;
     S.cash += Math.round(unitBuyCost(selType) / 1.9 * 0.5);
-    S.units.splice(i, 1); buildSkillTree(); syncHUD(); save();
+    S.units.splice(i, 1); syncHUD(); save();
+  }
+  function showGalaxyInfo(g) {
+    const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
+    const weps = DEF_ORDER.filter(t => DEF_TYPES[t].gal === g).map(t => DEF_TYPES[t].name);
+    const action = current ? "<span class='gi-tag'>▶ You are here</span>" : reached ? "<span class='gi-tag'>Conquered ✓</span>"
+      : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
+    $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div><div class='gi-desc'>" + galDesc(g) + "</div>" +
+      (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
+    $("gm-info").classList.add("show");
+    const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
   }
   function showGalaxyInfo(g) {
     const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
@@ -418,7 +476,7 @@
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
-    node(g) { const i = g - 1, cx = (i - (S.galaxy - 1)) * 82; return { x: cx, y: Math.sin(i * 1.3) * 72 + Math.cos(i * 0.7) * 30, z: Math.cos(i * 1.1) * 82 + Math.sin(i * 0.5) * 30 }; },
+    node(g) { const i = g - 1, total = 26, y = 1 - (i / (total - 1)) * 2, r = Math.sqrt(Math.max(0, 1 - y * y)), th = i * 2.399963, R = 140; return { x: Math.cos(th) * r * R, y: y * R * 0.82, z: Math.sin(th) * r * R }; },
     cluster(cx, cy, scale, bright, rot) {
       const c = this.c, n = 22;
       for (let k = 0; k < n; k++) { const tk = k / n, ang = tk * 6.2 + rot, r = tk * scale, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r * 0.62; c.globalAlpha = bright * (1 - tk * 0.55); c.fillStyle = "#fff"; c.fillRect(x, y, 1.6, 1.6); }
@@ -427,7 +485,7 @@
     },
     render(dt) {
       if (!this.cv) return; const c = this.c;
-      if (this.ptrs.size === 0) this.yaw += dt * 0.08; this.t += dt;
+      this.t += dt;
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
       c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.2 + 0.35 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
@@ -513,15 +571,16 @@
     canvas.width = W * DPR | 0; canvas.height = H * DPR | 0; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     for (const dr of drones) { dr.x = clamp(dr.x, 0, W); dr.y = clamp(dr.y, 0, H); }
     if (GMap.open) GMap.resize();
+    if ($("skilltree").classList.contains("show")) STree.resize();
   }
   window.addEventListener("resize", resize);
   let last = 0, saveAcc = 0;
-  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
+  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt); saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
-  load(); resize(); syncDrones(); renderList(); GMap.init(); setScreen("home");
+  load(); resize(); syncDrones(); renderList(); GMap.init(); STree.init(); setScreen("home");
   if (S._welcome) { $("welcome-text").textContent = "Your defenders kept firing for " + fmtTime(S._welcome.elapsed) + "."; $("welcome-cash").textContent = "$" + fmt(S._welcome.gain); $("welcome").classList.add("show"); S._welcome = null; }
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, uDmg, uRate, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, openSkillTree, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, uDmg, uRate, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, buyKey, webNodes, openSkillTree, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree };
 })();

@@ -72,12 +72,12 @@
     </div>
   </div>
 
-  <!-- CLASS SKILL TREE (full screen) -->
+  <!-- CLASS SKILL TREE (full-screen node web) -->
   <div id="skilltree" class="modal stmodal">
     <div class="st-head"><div><b id="st-title">Turret</b> <span id="st-owned" class="muted"></span></div><button class="x" id="st-close">✕</button></div>
     <div id="st-stats" class="st-stats"></div>
-    <div id="st-cols" class="st-cols"></div>
-    <div class="st-foot"><button id="st-sell">SELL ONE (50%)</button></div>
+    <canvas id="sttree"></canvas>
+    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node to unlock</span><button id="st-sell">SELL ONE</button></div>
   </div>
 
   <!-- GALAXY MAP (interactive 3D) -->
