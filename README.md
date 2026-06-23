@@ -1,42 +1,65 @@
 # Idle Dot Shooter
 
-An **HTML5 / Canvas** port of the original *Idle Dot Shooter* (Godot 4.6) — a
-faithful 1:1 recreation of every mechanic, formula, colour and the UI layout.
-No dependencies, no build step: open `index.html` and play.
+An idle/incremental space shooter built with **HTML5, JavaScript and Canvas** —
+no dependencies, no build step. Open `index.html` and play. Visuals are simple
+placeholder shapes; the focus is the full idle systems loop.
 
-Colored **dots** descend from the top and drift toward your line of **cannons**
-at the bottom. Cannons auto-target and fire at the nearest dot. Destroying dots
-earns **coins**, which you spend on upgrades. Let too many dots breach the wall
-and it's game over.
+You command a single auto-firing turret in the void. Dots drift in, your guns
+pop them, a drone vacuums up the cash they drop, and you pour that cash into
+upgrades across three tabs. Travel galaxies for tougher dots and bigger payouts;
+reach Galaxy 10 to **Rebirth** for permanent **Star Dust** upgrades.
 
-## Controls / UI
+## The loop
 
-- **Speed / Difficulty slider** (top): drag to scale dot speed *and* spawn rate
-  live (0.5×–3.0×). Higher = more pressure and faster waves.
-- **Upgrades** (right panel):
-  - **Damage** — `2 + 1.5·level` damage per bullet.
-  - **Fire Rate** — `1.2 + 0.25·level` shots/sec (capped at 14).
-  - **Add Cannon** — adds a turret to the line (up to 10), spread evenly.
-  - **Reinforce Wall** — +10 max wall HP and a full repair.
-- **Stats** (top-left): coins, wall HP, wave, kills, cannon count.
-- On game over, press **Restart**.
+Dots spawn → turret + weapons + marines auto-fire at the nearest ones → dots pop
+and drop cash → the **drone** collects it (capped by **Capacity**) → spend on
+upgrades → the rhythm shifts → travel / trigger an ability for a burst.
 
-## Mechanics (exact)
+## Three upgrade tabs
 
-- Dots get tougher and spawn faster the longer you survive — a new tier every
-  ~12s (`hp = 3 + 2.5·tier + 0.05·elapsed`, speed `40 + 0.22·elapsed`).
-- Spawn interval `clamp(1.4 − 0.01·elapsed, 0.32, 1.4) / difficulty`.
-- Bigger/tankier dots hit the wall harder if they breach (`ceil(maxHp / 6)`).
-- The difficulty multiplier scales both descent speed and spawn rate.
+- **Defence** — Fire Rate, Damage, Critical Hits, **Marines** (extra fire
+  streams), **Mortar** (splash), **Plasma** (heavy single-target). Multiple
+  weapons fire in rotation.
+- **Drone** — Speed, Suction (pull radius), Agility, Collector Size. Sets how
+  much of your earned cash you actually pick up.
+- **Economy** — Capacity (cash ceiling), Value (cash per dot), Spawn Rate
+  (more targets), Luck (chance of high-value special dots). These multiply the
+  other two pillars, so keep all three in step.
+
+## Big-Moment abilities
+
+- **⚡ Frenzy** — massive fire-rate burst for a few seconds.
+- **▽ Dot Rain** — floods the field with targets.
+- **◉ Black Hole** — drags every dot to the centre and crushes them.
+
+Each runs on a cooldown — save them for dense or high-value screens.
+
+## Galaxies, Rebirth & Star Dust
+
+- **Travel** to the next galaxy (a cash spend): dots get tougher *and* worth
+  more. Income ceilings rise with difficulty.
+- At **Galaxy 10**, **Rebirth**: reset the run (cash & upgrades wiped) to bank
+  **Star Dust**, then buy permanent upgrades (damage, income, fire rate,
+  head-start cash) that carry into every future run — so each run starts
+  stronger and reaches Galaxy 10 faster.
+
+## Idle & offline
+
+- Cash keeps flowing with zero input. **Offline earnings**: while you're away
+  your turret "keeps firing" — on return you collect a capped share (up to 8h)
+  of your recent coins-per-second, shown on a Welcome-back screen.
+- Everything autosaves to `localStorage`.
 
 ## Project layout
 
 ```
-index.html   Canvas + UI (slider, stats, upgrades, game-over), scaled to fit
-style.css    UI styled in the original's 1152×648 logical layout
-js/game.js   The whole game (spawning, cannons, bullets, wall, upgrades, draw)
+index.html   HUD (cash/galaxy/star dust), dock (abilities, tabs, upgrade list),
+             modals (Star Dust shop, Rebirth, Welcome-back, menu)
+style.css    Layout + theme (responsive, mobile-friendly)
+js/game.js   The whole game: dots, turret/weapons/marines, drone, upgrades,
+             abilities, galaxies, Rebirth/Star Dust, offline, save, loop
 icon.svg     App icon
 ```
 
-The play field is the original's logical **1152×648**, letterboxed to fit any
-window. Everything runs client-side in a single `requestAnimationFrame` loop.
+Tap a dot to pop it yourself. Everything runs client-side in one
+`requestAnimationFrame` loop.

@@ -2,40 +2,79 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Idle Dot Shooter</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="stage">
-  <canvas id="game" width="1152" height="648"></canvas>
+<div id="root">
+  <canvas id="game"></canvas>
 
-  <!-- UI layer is sized to the logical 1152x648 and scaled to match the canvas -->
-  <div id="ui-root">
-    <!-- top: speed / difficulty slider -->
-    <div id="bar">
-      <span class="bar-label">SPEED / DIFFICULTY</span>
-      <input type="range" id="slider" min="0.5" max="3.0" step="0.1" value="1.0" />
-      <span id="diff-val">1.0x</span>
+  <!-- TOP BAR -->
+  <div id="top" class="layer">
+    <div class="t-cash">$<b id="ui-cash">0</b><span id="ui-cap"> / 0</span></div>
+    <div class="t-galaxy">
+      <div class="g-label">GALAXY <b id="ui-galaxy">1</b> <span id="ui-gname"></span></div>
+      <div class="g-bar"><div id="galaxy-fill"></div></div>
     </div>
+    <div class="t-sd" id="sd-wrap">✦ <b id="ui-stardust">0</b></div>
+  </div>
 
-    <!-- top-left stats -->
-    <pre id="stats"></pre>
-
-    <!-- right-side upgrade panel -->
-    <div id="panel">
-      <div class="panel-title">— UPGRADES —</div>
-      <button class="up-btn" id="btn-dmg"></button>
-      <button class="up-btn" id="btn-rate"></button>
-      <button class="up-btn" id="btn-cannon"></button>
-      <button class="up-btn" id="btn-wall"></button>
+  <!-- BOTTOM DOCK -->
+  <div id="dock" class="layer">
+    <div id="abilities">
+      <button class="ab" id="ab-frenzy"><span class="ab-n">⚡ Frenzy</span><span class="ab-cd" id="cd-frenzy"></span></button>
+      <button class="ab" id="ab-dotrain"><span class="ab-n">▽ Dot Rain</span><span class="ab-cd" id="cd-dotrain"></span></button>
+      <button class="ab" id="ab-blackhole"><span class="ab-n">◉ Black Hole</span><span class="ab-cd" id="cd-blackhole"></span></button>
     </div>
+    <div id="tabs">
+      <button class="tab sel" data-tab="def">DEFENCE</button>
+      <button class="tab" data-tab="drone">DRONE</button>
+      <button class="tab" data-tab="eco">ECONOMY</button>
+      <button class="tab special" id="btn-travel">TRAVEL ▸</button>
+      <button class="tab special hidden" id="btn-rebirth">✦ REBIRTH</button>
+      <button class="tab" id="btn-sd">✦ DUST</button>
+    </div>
+    <div id="up-list"></div>
+  </div>
 
-    <!-- game over -->
-    <div id="gameover">
-      <pre id="go-text"></pre>
-      <button id="btn-restart">RESTART</button>
+  <!-- STAR DUST SHOP -->
+  <div id="sd-shop" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>✦ Star Dust — permanent upgrades</h2><button class="x" id="sd-close">✕</button></div>
+      <div id="sd-list"></div>
+    </div>
+  </div>
+
+  <!-- REBIRTH CONFIRM -->
+  <div id="rebirth-modal" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>✦ Rebirth</h2><button class="x" id="rb-close">✕</button></div>
+      <p id="rb-text" class="muted"></p>
+      <div class="rb-gain" id="rb-gain"></div>
+      <button class="big" id="rb-confirm">REBIRTH NOW</button>
+    </div>
+  </div>
+
+  <!-- WELCOME BACK -->
+  <div id="welcome" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>Welcome back</h2></div>
+      <p id="welcome-text" class="muted"></p>
+      <div class="rb-gain" id="welcome-cash"></div>
+      <button class="big" id="welcome-ok">COLLECT</button>
+    </div>
+  </div>
+
+  <!-- MENU -->
+  <button id="btn-menu" class="layer">☰</button>
+  <div id="menu" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>Idle Dot Shooter</h2><button class="x" id="menu-close">✕</button></div>
+      <p class="muted">Auto-fire at the dots. Drone collects the cash. Buy upgrades across Defence, Drone &amp; Economy. Travel galaxies; reach Galaxy 10 to Rebirth for permanent Star Dust.</p>
+      <button class="big" id="menu-resume">RESUME</button>
+      <button class="big danger" id="menu-reset">RESET SAVE</button>
     </div>
   </div>
 </div>
