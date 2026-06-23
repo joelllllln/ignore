@@ -43,6 +43,45 @@
     </div>
   </div>
 
+  <!-- HOME SCREEN -->
+  <div id="home" class="modal show">
+    <div class="card home-card">
+      <h1 class="home-title">IDLE&nbsp;DOT<span>SHOOTER</span></h1>
+      <div class="home-stats"><span>Galaxy <b id="home-gal">1</b></span><span>✦ <b id="home-sd">0</b> Star Dust</span></div>
+      <button class="big" id="home-play">▶ PLAY</button>
+      <button class="big alt" id="home-galaxies">🌌 GALAXIES &amp; PROGRESS</button>
+      <button class="big alt" id="home-how">❔ HOW TO PLAY</button>
+      <button class="big alt danger" id="home-reset">⟲ RESET SAVE</button>
+    </div>
+  </div>
+
+  <!-- HOW TO -->
+  <div id="how" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>How to play</h2><button class="x" id="how-close">✕</button></div>
+      <ul class="how-list">
+        <li>🔫 <b>Defenders</b> auto-fire at dots. Buy more (and new types) from the <b>DEFENCE</b> tab.</li>
+        <li>🌳 <b>Tap any defender</b> to open its own <b>upgrade tree</b> (3 paths) — every unit grows, none go obsolete.</li>
+        <li>🛰️ <b>Drones</b> collect the cash dots drop. One isn't enough — buy more in the <b>DRONE</b> tab; they split up to cover the field.</li>
+        <li>💰 <b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck.</li>
+        <li>🌌 Tap the <b>galaxy bar</b> (top) for the map. Travel for tougher dots, more of them, and bigger payouts.</li>
+        <li>✦ Reach Galaxy 10 to <b>Rebirth</b> for permanent Star Dust upgrades.</li>
+        <li>✍️ <b>Draw across the field</b> to blast dots yourself.</li>
+      </ul>
+      <button class="big" id="how-back">BACK</button>
+    </div>
+  </div>
+
+  <!-- UNIT UPGRADE TREE -->
+  <div id="unit-panel" class="modal">
+    <div class="card">
+      <div class="card-head"><h2 id="up-name">Defender</h2><button class="x" id="up-close">✕</button></div>
+      <div id="up-stats" class="muted"></div>
+      <div id="up-paths"></div>
+      <button class="big danger" id="up-sell">SELL (50%)</button>
+    </div>
+  </div>
+
   <!-- GALAXY MAP -->
   <div id="galaxy-map" class="modal">
     <div class="card">
