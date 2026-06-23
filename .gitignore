@@ -1,0 +1,16 @@
+# Godot 4 editor and import caches
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+
+# Exported builds
+build/
+*.exe
+*.pck
+*.zip
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.tmp
