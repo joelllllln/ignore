@@ -23,7 +23,8 @@ const SCREENS = ["menu", "howto", "settings", "tech", "pause", "clear"];
 function setState(s) {
   prevState = state; state = s;
   for (const id of SCREENS) document.getElementById(id).classList.toggle("visible", id === s);
-  document.getElementById("map-ui").classList.toggle("visible", s === "map" || s === "planet");
+  document.getElementById("map-ui").classList.toggle("visible", s === "map");
+  document.getElementById("planet-ui").classList.toggle("visible", s === "planet");
   document.getElementById("battle-ui").classList.toggle("visible", s === "battle");
   if (s !== "planet") Globe.show(false);
   if (s === "menu") {

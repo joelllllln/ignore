@@ -28,7 +28,9 @@ const UI = {
 
     // map / planet
     $("map-menu").onclick = () => { click(); setState("menu"); };
-    $("map-zoomout").onclick = () => { if (state === "planet") PlanetScreen.exit(); else MapScreen.zoomOut(); };
+    $("map-zoomout").onclick = () => MapScreen.zoomOut();
+    $("planet-back").onclick = () => { click(); PlanetScreen.exit(); };
+    $("planet-menu").onclick = () => { click(); Globe.show(false); setState("menu"); };
 
     // battle
     $("btn-to-map").onclick = () => { click(); MapScreen.enter(Battle.s.P.galaxy); setState("map"); };

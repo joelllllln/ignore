@@ -25,9 +25,28 @@ const PlanetScreen = {
     this.seed = (planet.gi + 1) * 3.137;
     this.rotY = 0; this.velY = 0.25; this.rotX = -0.35;
     Globe.show(Globe.ok);
+    this.buildCityList();
     setState("planet");
   },
   exit() { Globe.show(false); MapScreen.enter(this.planet.galaxy); setState("map"); },
+
+  // Always-available city selector (works regardless of WebGL / globe rotation)
+  buildCityList() {
+    const pc = planetCityProgress(this.planet);
+    setText("planet-name", this.planet.galRef.name + " › " + this.planet.ref.name);
+    const bar = document.getElementById("planet-cities"); bar.innerHTML = "";
+    for (const city of this.planet.cities) {
+      const conquered = !!progress.conquered[city.ci], locked = !isUnlocked(city.ci);
+      const b = document.createElement("button");
+      b.className = "city-chip" + (conquered ? " done" : locked ? " locked" : city.capital ? " capital" : " open");
+      b.innerHTML = `<span class="cc-ic">${conquered ? "✓" : locked ? "🔒" : city.capital ? "☠" : "◆"}</span>` +
+        `<span class="cc-name">${city.name}</span>` +
+        `<span class="cc-sub">${conquered ? "liberated" : locked ? "locked" : city.capital ? "CAPITAL" : "invade"}</span>`;
+      if (!locked) b.onclick = () => { Audio2.click(); Globe.show(false); startBattle(city.ci); };
+      else b.disabled = true;
+      bar.appendChild(b);
+    }
+  },
 
   update(dt) {
     this.t += dt;
@@ -88,8 +107,7 @@ const PlanetScreen = {
 
   _hud(c) {
     const pc = planetCityProgress(this.planet);
-    setText("map-breadcrumb", this.planet.galRef.name + " › " + this.planet.ref.name);
-    setText("map-hint", "Drag to spin • tap a city to invade  (" + pc.done + "/" + pc.total + ")");
+    setText("planet-hint", "drag to spin • " + pc.done + "/" + pc.total + " cities liberated");
   },
 
   tap(x, y) {

@@ -162,3 +162,19 @@ b{font-family:var(--mono)}
 .def-pick{flex:0 0 auto;align-self:center;background:linear-gradient(95deg,var(--cyan),var(--blue));border:none;color:#04121a;
   font-weight:800;border-radius:9px;padding:9px 12px;font-size:12px}
 .def-pick:disabled{background:#243441;color:var(--dim)}
+
+/* ---------- planet globe: city selector ---------- */
+.planet-hint{top:62px}
+.city-bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;padding:12px 10px 16px;overflow-x:auto;
+  background:linear-gradient(180deg,transparent,rgba(4,7,13,.92) 45%)}
+.city-chip{flex:0 0 auto;min-width:104px;background:var(--panel);border:1px solid var(--edge);border-radius:11px;
+  color:var(--text);padding:8px 11px;display:flex;flex-direction:column;gap:2px;align-items:flex-start;
+  transition:transform .06s,border-color .15s,background .15s}
+.city-chip:active{transform:scale(.95)}
+.city-chip .cc-ic{font-size:14px}
+.city-chip .cc-name{font-size:12px;font-weight:700;white-space:nowrap}
+.city-chip .cc-sub{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
+.city-chip.open{border-color:var(--cyan)} .city-chip.open .cc-ic{color:var(--cyan)}
+.city-chip.capital{border-color:var(--gold)} .city-chip.capital .cc-ic,.city-chip.capital .cc-sub{color:var(--gold)}
+.city-chip.done{border-color:var(--good)} .city-chip.done .cc-ic{color:var(--good)}
+.city-chip.locked{opacity:.5}

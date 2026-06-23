@@ -24,7 +24,11 @@ const Globe = {
       varying vec3 vWorld;
       void main(){ vWorld = (uModel * vec4(aPos,1.0)).xyz; gl_Position = uMVP * vec4(aPos,1.0); }`;
     const fs = `
+      #ifdef GL_FRAGMENT_PRECISION_HIGH
       precision highp float;
+      #else
+      precision mediump float;
+      #endif
       varying vec3 vWorld;
       uniform vec3 uLand, uOcean, uLight, uCam; uniform float uTime, uSeed;
       float hash(vec3 p){ p=fract(p*0.3183099+vec3(0.71,0.113,0.419)); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -73,14 +77,20 @@ const Globe = {
   _shader(type, src) {
     const gl = this.gl, s = gl.createShader(type);
     gl.shaderSource(s, src); gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { gl.deleteShader(s); return null; }
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      try { console.warn("Globe: shader compile failed —", gl.getShaderInfoLog(s)); } catch (e) {}
+      gl.deleteShader(s); return null;
+    }
     return s;
   },
   _program(vsrc, fsrc) {
     const gl = this.gl, v = this._shader(gl.VERTEX_SHADER, vsrc), f = this._shader(gl.FRAGMENT_SHADER, fsrc);
     if (!v || !f) return null;
     const p = gl.createProgram(); gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) return null;
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      try { console.warn("Globe: program link failed —", gl.getProgramInfoLog(p)); } catch (e) {}
+      return null;
+    }
     return p;
   },
   _sphere(rings, segs) {
