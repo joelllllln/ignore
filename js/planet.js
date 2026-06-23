@@ -13,7 +13,7 @@ const PlanetScreen = {
     Input.on("drag", p => {
       if (state !== "planet") return;
       this.rotY += (p.x - this.lastX) * 0.008; this.velY = (p.x - this.lastX) * 0.008;
-      this.rotX = clamp(this.rotX - (p.y - this.lastY) * 0.006, -1.1, 1.1);
+      this.rotX = clamp(this.rotX + (p.y - this.lastY) * 0.006, -1.1, 1.1);
       this.lastX = p.x; this.lastY = p.y;
     });
     Input.on("tap", p => { if (state === "planet") this.tap(p.x, p.y); });

@@ -81,18 +81,18 @@ PLANETS.forEach(P => {
   }
 });
 
-// Difficulty scales with the planet's global index; size with the city index.
-// Levels are long — you must clear the whole hive (and the capital's boss).
+// Long, idle-shooter style levels: you grind down a large hive while income and
+// upgrades compound. Difficulty scales with the planet index, size with the city.
 function cityConfig(city) {
   const d = city.planet.gi;
   return {
-    hive: 50 + d * 9 + city.idx * 7,
-    hpMul: 1 + d * 0.20,
-    speed: 21 + d * 2.1,
-    dmgMul: 1 + d * 0.13,
-    spawn: Math.max(0.28, 1.15 - d * 0.05),
+    hive: 160 + d * 70 + city.idx * 40,     // ~160 early → 1000s late
+    hpMul: 1 + d * 0.28,
+    speed: 20 + d * 1.8,
+    dmgMul: 1 + d * 0.12,
+    spawn: Math.max(0.18, 0.7 - d * 0.025),
+    maxAlive: 44,                            // concurrent cap (perf + steady grind)
     boss: city.capital,
-    waves: 3 + Math.floor(d / 3),
   };
 }
 function planetCityProgress(P) { let done = 0; for (const c of P.cities) if (progress.conquered[c.ci]) done++; return { done, total: P.cities.length }; }

@@ -98,6 +98,11 @@ b{font-family:var(--mono)}
 
 #controls{position:absolute;bottom:0;left:0;right:0;display:flex;flex-direction:column;gap:8px;padding:10px;
   background:linear-gradient(180deg,transparent,rgba(4,7,13,.92) 36%)}
+.eco-btn{display:flex;justify-content:space-between;align-items:center;background:var(--panel);
+  border:1px solid var(--gold);border-radius:11px;color:var(--gold);padding:9px 13px;font-weight:700;font-size:14px}
+.eco-btn:active{transform:scale(.98)}
+.eco-btn .eco-r{font-family:var(--mono);font-size:13px}
+.eco-btn.poor{opacity:.5;border-color:var(--edge);color:var(--dim)}
 .speed-row{display:flex;align-items:center;gap:12px}
 .speed-row label{font-size:13px;font-family:var(--mono)}
 #speed{flex:1;accent-color:var(--cyan);height:26px}

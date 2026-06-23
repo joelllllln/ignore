@@ -29,7 +29,8 @@ const Battle = {
       ci, city, P: city.planet, diff: city.planet.gi, isBoss: cfg.boss, cfg, tb,
       species: availableSpecies(city.planet.gi),
       energy: 80 + tb.startE, towers: [], enemies: [], bullets: [], beams: [], pickups: [],
-      spawned: 0, killed: 0, hiveTotal: cfg.hive, spawnT: 1.0,
+      income: 2, ecoLevel: 0, killMult: 1, ecoCost: 60,
+      spawned: 0, killed: 0, hiveTotal: cfg.hive, maxAlive: cfg.maxAlive, spawnT: 1.0,
       completion: 0, efficiency: 1, speed: 1, paused: false,
       coreMax: 120 * tb.core, coreHp: 120 * tb.core,
       bossSpawned: false, bossDead: false, boss: null,
@@ -164,7 +165,7 @@ const Battle = {
       if (!e.mini) s.killed++;
       s.combo++; s.comboT = 1.9;
       Audio2.kill(s.combo); if (big) { Audio2.explosion(false); Camera.shake(5); }
-      const gain = Math.round((2 + e.maxHp * 0.05) * this.rewardMult() * s.tb.eco * (0.6 + 0.4 * s.efficiency));
+      const gain = Math.round((2 + e.maxHp * 0.05) * this.rewardMult() * s.tb.eco * s.killMult * (0.6 + 0.4 * s.efficiency));
       this.spawnPickup(e.x, e.y, gain);
       Particles.burst(e.x, e.y, e.def.color, big ? 18 : 9, { speed: big ? 200 : 130, life: 0.5 });
       Particles.ring(e.x, e.y, e.def.color, 6, big ? 60 : 34, 0.4);
@@ -196,11 +197,15 @@ const Battle = {
     const sp = s.speed, sdt = dt * sp;
     s.time += sdt;
 
-    // spawn the full hive, then the boss (capital only)
+    // passive (idle) income — scales with game speed so cranking speed pays off
+    s.energy += s.income * sdt;
+
+    // spawn the hive (capped concurrent for a steady grind), then the boss
     s.spawnT -= sdt;
     if (s.spawnT <= 0) {
-      if (s.spawned < s.hiveTotal) { this.spawnEnemy(); s.spawnT = s.cfg.spawn; }
+      if (s.spawned < s.hiveTotal && s.enemies.length < s.maxAlive) { this.spawnEnemy(); s.spawnT = s.cfg.spawn; }
       else if (s.isBoss && !s.bossSpawned && s.killed >= s.hiveTotal) this.spawnBoss();
+      else s.spawnT = 0.1;
     }
     if (s.boss && s.boss.def.spawns) { s.boss.spawnCd -= sdt; if (s.boss.spawnCd <= 0) { s.boss.spawnCd = 3; const a = this.spawnEnemy(s.boss.def.spawns, true); a.x = s.boss.x + rand(-30, 30); a.y = s.boss.y + 20; } }
     // non-capital city: liberated once the whole hive is cleared
@@ -362,6 +367,15 @@ const Battle = {
     Particles.burst(t.x, t.y, t.col, 16, { speed: 120, life: 0.5 }); Audio2.buy();
     FloatText.add(t.x, t.y - t.r, node.name + "!", t.col, { size: 12 });
     return true;
+  },
+  upgradeEconomy() {
+    const s = this.s; if (s.energy < s.ecoCost) { Audio2.click(); return; }
+    s.energy -= s.ecoCost; s.ecoLevel++;
+    s.income += 2 + s.ecoLevel * 0.5;        // compounding passive income
+    s.killMult += 0.15;                      // and richer kills
+    s.ecoCost = Math.round(s.ecoCost * 1.7);
+    Audio2.buy(); Camera.flashScreen(PAL.gold, 0.15);
+    FloatText.add(s.coreX, s.coreY - 40, "ECONOMY Lv" + s.ecoLevel, PAL.gold, { size: 14, crit: true });
   },
   setSpeed(v) { this.s.speed = v; },
 

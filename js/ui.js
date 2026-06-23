@@ -38,6 +38,7 @@ const UI = {
     $("tp-close").onclick = () => { click(); Battle.deselect(); };
     $("tp-sell").onclick = () => Battle.sellSelected();
     $("speed").oninput = e => { const v = parseFloat(e.target.value); setSpeedUI(v); Battle.setSpeed(v); };
+    $("btn-eco").onclick = () => Battle.upgradeEconomy();
     $("open-defenders").onclick = () => { click(); this.openDefenders(); };
     $("def-close").onclick = () => { click(); this.closeDefenders(); };
 
@@ -172,6 +173,9 @@ const UI = {
     const pct = Math.floor(s.completion);
     $("completion-fill").style.width = pct + "%"; setText("completion-pct", pct + "%");
     setText("ui-reward", "×" + s.speed.toFixed(1));
+    setText("ui-income", "+" + Math.round(s.income) + "/s");
+    setText("eco-info", "Lv" + s.ecoLevel + " · " + s.ecoCost + "◇");
+    $("btn-eco").classList.toggle("poor", s.energy < s.ecoCost);
     // combo tag
     const ct = $("combo-tag");
     if (s.combo >= 3) { ct.textContent = s.combo + "× COMBO"; ct.style.opacity = clamp(s.comboT / 1.9, 0, 1); ct.style.transform = `translateX(-50%) scale(${1 + Math.min(s.combo, 15) * 0.03})`; }
