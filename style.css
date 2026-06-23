@@ -164,6 +164,19 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #sttree:active{cursor:grabbing}
 .st-foot{padding:12px 16px;display:flex;align-items:center;gap:12px}
 .st-foot .st-tip{flex:1;color:var(--dim);font-size:11px}
+/* node detail panel */
+.st-info{position:absolute;left:12px;right:12px;bottom:70px;z-index:4;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:13px 15px;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.st-info.show{display:block}
+.si-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.si-name{font-family:var(--mono);letter-spacing:1px;color:#fff;font-size:16px;font-weight:800}
+.si-tag{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.si-desc{font-size:12px;color:var(--text);line-height:1.45;margin-bottom:6px}
+.si-fx{font-family:var(--mono);font-size:12px;color:var(--sd);margin-bottom:6px}
+.si-prev{font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:10px}
+.si-prev b{color:#fff;font-family:var(--mono)}
+.si-prev .si-after b{color:#fff}
+.si-btn{display:block;width:100%;background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;font-size:14px;padding:11px;border-radius:10px;font-family:var(--mono)}
+.si-btn:disabled{background:#2b2b2b;color:var(--dim)}
 .st-foot #st-reset{flex:0 0 auto;background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:10px;padding:11px 14px;font-weight:700}
 .st-foot #st-reset:hover{border-color:#fff}
 .st-foot #st-sell{flex:0 0 auto;min-width:110px;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:10px;padding:11px 16px;font-weight:700}

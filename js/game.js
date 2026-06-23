@@ -447,9 +447,56 @@
   // is a web node (by id) already owned for this class? handles root / branch
   // tiers (a3) / keystones (ksab, kscore — ids starting with 'k').
   function webOwned(type, id) { return id === "root" ? true : id[0] === "k" ? keyOn(type, id) : ct(type)[id[0]] >= +id.slice(1); }
+  // headline stat line for a class (reused by the tree header + node preview).
+  function statLine(tp) {
+    const s = { type: tp };
+    return isCol(tp)
+      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> grab · <b>×" + cYield(tp).toFixed(2) + "</b> yield"
+      : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "");
+  }
+  const pathLabel = (type, k) => isCol(type) ? { a: "Speed", b: "Suction", c: "Yield" }[k] : { a: "Power", b: "Speed", c: "Optics" }[k];
+  function pathDesc(type, k) {
+    if (isCol(type)) return k === "a" ? "Collectors move faster, reaching cash orbs sooner." : k === "b" ? "Widens the suction radius that pulls orbs (and, for black holes, dots) in." : "Bigger grab size and more cash from every orb collected.";
+    return k === "a" ? "Every shot deals more damage." : k === "b" ? "Fires more often — more shots per second." : "Greater targeting range, and unlocks critical hits at higher tiers.";
+  }
+  // what does this node change? returns {before, after} stat lines (after = if bought).
+  function nodePreview(type, node) {
+    const before = statLine(type);
+    let revert;
+    if (node.kind === "branch") { const tt = ct(type), old = tt[node.key]; tt[node.key] = node.tier; revert = () => tt[node.key] = old; }
+    else { const had = !!(S.classKeys[type] && S.classKeys[type][node.id]); if (!S.classKeys[type]) S.classKeys[type] = {}; S.classKeys[type][node.id] = true; revert = () => { if (!had) delete S.classKeys[type][node.id]; }; }
+    const after = statLine(type); revert();
+    return { before, after };
+  }
+  function nodeName(type, id) { const n = webNodes(type).find(x => x.id === id); return n ? n.name : id; }
+  function showNodeInfo(node) {
+    const panel = $("st-info"), type = STree.type;
+    if (!node || node.kind === "root") { panel.classList.remove("show"); STree.sel = node ? node.id : null; return; }
+    STree.sel = node.id;
+    const owned = STree.owned(node), buyable = STree.buyable(node), cost = STree.cost(node), afford = S.cash >= cost;
+    $("si-name").textContent = node.name;
+    $("si-tag").textContent = node.kind === "key" ? "✦ Keystone" : pathLabel(type, node.key) + " · Tier " + node.tier + "/" + MAXTIER;
+    $("si-desc").textContent = node.kind === "key" ? "Powerful bonus that needs nodes from more than one path." : pathDesc(type, node.key);
+    $("si-fx").textContent = node.fx ? "Effect: " + node.fx : "";
+    const btn = $("st-upgrade");
+    if (owned) {
+      $("si-prev").innerHTML = "✓ Unlocked · class now <span class='si-after'>" + statLine(type) + "</span>";
+      btn.textContent = "UNLOCKED"; btn.disabled = true;
+    } else if (buyable) {
+      const p = nodePreview(type, node);
+      $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>";
+      btn.textContent = "UPGRADE · $" + fmt(cost); btn.disabled = !afford;
+    } else {
+      const miss = node.req.filter(r => !webOwned(type, r)).map(r => nodeName(type, r));
+      $("si-prev").innerHTML = "🔒 Requires: " + (miss.join(", ") || "earlier nodes");
+      btn.textContent = "LOCKED"; btn.disabled = true;
+    }
+    panel.classList.add("show");
+  }
   const STree = {
-    type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
+    type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null,
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
+    selNode() { return this.sel ? webNodes(this.type).find(n => n.id === this.sel) : null; },
     init() {
       this.cv = $("sttree"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
@@ -463,7 +510,7 @@
       this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.5, 3); this.clampPan(); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
-    open(type) { this.type = type; this.reset(); this.resize(); },
+    open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
     reset() { this.cx = 0; this.cy = 0; this.zoom = 1; },
     clampPan() { const u = Math.min(this.w, this.h) * 0.11 * this.zoom, m = 3.6 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); this.clampPan(); },
@@ -481,6 +528,7 @@
       for (const n of ns) {
         const p = this.sc(n.x, n.y), rad = clamp(p.u * 0.32, 12, 34), own = this.owned(n), buy = this.buyable(n), cost = this.cost(n), afford = S.cash >= cost;
         this.hit.push({ n, x: p.x, y: p.y, r: rad + 6 });
+        if (n.id === this.sel) { c.globalAlpha = 1; c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, rad + 8, 0, TAU); c.stroke(); }
         if (buy && afford) { const pl = 0.5 + 0.5 * Math.sin(this.t * 4); c.globalAlpha = 0.4 + pl * 0.5; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 5, 0, TAU); c.stroke(); c.globalAlpha = 1; }
         c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
         c.fillStyle = own ? "#fff" : buy ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.05)";
@@ -492,14 +540,12 @@
         if (n.fx) { c.fillStyle = "rgba(255,255,255,0.5)"; c.font = "9px ui-monospace,monospace"; c.fillText(n.fx, p.x, p.y + rad + 12); }
         if (!own && buy) { c.fillStyle = afford ? "#fff" : "rgba(255,255,255,0.45)"; c.font = "11px ui-monospace,monospace"; c.fillText("$" + fmt(cost), p.x, p.y + rad + (n.fx ? 24 : 12)); }
       }
-      const sample = { type: this.type }, tp = this.type;
+      const tp = this.type;
       $("st-title").textContent = TY(tp).name.toUpperCase();
       $("st-owned").textContent = "· " + countType(tp) + " deployed · affects ALL";
-      $("st-stats").innerHTML = isCol(tp)
-        ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> suction · <b>" + Math.round(cCollect(tp)) + "</b> grab · <b>×" + cYield(tp).toFixed(2) + "</b> yield"
-        : "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
+      $("st-stats").innerHTML = statLine(tp);
     },
-    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (!best) return; const n = best.n; if (!this.buyable(n)) return; if (n.kind === "branch") buyPath(this.type, n.key); else buyKey(this.type, n); },
+    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (!best) { this.sel = null; $("st-info").classList.remove("show"); return; } showNodeInfo(best.n); },
   };
   function openSkillTree(type) { selType = type; $("skilltree").classList.add("show"); STree.open(type); }
   function closeSkillTree() { $("skilltree").classList.remove("show"); }
@@ -643,6 +689,13 @@
   $("btn-sd").onclick = () => { buildSD(); $("sd-shop").classList.add("show"); }; $("sd-close").onclick = () => $("sd-shop").classList.remove("show");
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
+  $("st-upgrade").onclick = () => {
+    const node = STree.selNode(); if (!node || !STree.buyable(node)) return;
+    if (node.kind === "branch") buyPath(STree.type, node.key); else buyKey(STree.type, node);
+    let next = node;
+    if (node.kind === "branch" && node.tier < MAXTIER) { const nn = webNodes(STree.type).find(n => n.id === node.key + (node.tier + 1)); if (nn) next = nn; }
+    showNodeInfo(next);
+  };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   $("btn-menu").onclick = () => $("menu").classList.add("show");
@@ -673,5 +726,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, buyKey, webNodes, openSkillTree, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, buyKey, webNodes, openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
