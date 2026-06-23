@@ -10,17 +10,21 @@ Waves scale **exponentially**, so progression is a long, satisfying grind.
 
 ## Core loop
 
-1. **Dots descend** — each has health that grows every wave (`hp ≈ 10 × 1.165^wave`).
-2. **Cannons auto-fire** at the nearest dot; kills grant coins (`≈ 2 × 1.15^wave`).
-3. **Upgrade** with coins:
-   - **⚔ Damage** — more damage per shot.
-   - **⚡ Fire Rate** — cannons shoot faster.
-   - **➕ Cannon** — add a turret (up to 8).
-   - **💰 Coin Boost** — more coins per kill.
-4. **Clear the wave's quota** to advance. Every **10th wave is a BOSS** — one
-   huge dot you must destroy.
-5. **Defend the Base** — dots that reach the bottom damage it. If it falls you
-   *regroup a few waves back* and refill — there's no permanent game over.
+1. **Dots descend** — health grows every wave and every city.
+2. **Cannons auto-fire** at the nearest dot; kills grant coins.
+3. **Upgrade** with coins (costs rise each level):
+   - **⚔ Damage** · **⚡ Fire Rate** · **➕ Cannon** (up to 8) · **💰 Coin Boost**.
+4. **Climb the city.** Each **city is 30 waves**; every 10th wave is a boss and
+   wave 30 is the **City Boss**. Beat it to **unlock the next city** (a step
+   harder — ~3× tougher dots).
+5. **Everything carries over.** Your cannons, all upgrades and coins persist
+   from city to city forever — so you stomp the early waves of a new city, then
+   hit the wall and grind deeper.
+6. **Defend the Base** — leaked dots damage it. If it falls you *regroup a few
+   waves back* (loadout intact) — never a permanent game over.
+
+Cities are long by design — enemy health outpaces raw damage, so each one is a
+sustained grind of many waves and bosses before it falls.
 
 ## Controls
 

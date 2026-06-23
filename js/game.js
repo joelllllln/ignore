@@ -25,10 +25,15 @@
   ];
   const cost = (u, lvl) => Math.floor(u.base * Math.pow(u.grow, lvl));
 
-  function damage()      { return 5 * Math.pow(1.23, G.lv.dmg); }
+  // A CITY is a long climb of WAVES_PER_CITY waves ending in a City Boss. Your
+  // whole loadout (cannons + upgrades + coins) carries over to the next city.
+  const WAVES_PER_CITY = 30;
+
+  function damage()      { return 5 * Math.pow(1.20, G.lv.dmg); }
   function fireRate()    { return 1.0 + 0.12 * G.lv.rate; }      // shots/sec per cannon
   function cannonCount() { return 1 + G.lv.cannon; }
   function coinMult()    { return 1 + 0.3 * G.lv.coin; }
+  function cityHpMul()   { return Math.pow(3.0, G.city - 1); }   // each city is a step up
 
   /* ----------------------------- dot tiers ----------------------- */
   const TIERS = [
@@ -43,9 +48,9 @@
     if (w >= 3) n = 2; if (w >= 6) n = 3; if (w >= 10) n = 4; if (w >= 16) n = 5;
     return TIERS.slice(0, n);
   }
-  function enemyHp(w, tier) { return 10 * Math.pow(1.165, w - 1) * tier.hp; }
-  function enemyCoins(w, tier) { return Math.ceil(2 * Math.pow(1.15, w - 1) * tier.coin * coinMult()); }
-  function enemyDmg(w) { return 8 + w * 0.8; }
+  function enemyHp(w, tier) { return 12 * cityHpMul() * Math.pow(1.18, w - 1) * tier.hp; }
+  function enemyCoins(w, tier) { return Math.ceil(2 * cityHpMul() * 0.9 * Math.pow(1.15, w - 1) * tier.coin * coinMult()); }
+  function enemyDmg(w) { return 8 + w * 0.8 + G.city * 3; }
 
   /* ----------------------------- state --------------------------- */
   let G = null;
@@ -54,7 +59,7 @@
 
   function fresh() {
     return {
-      coins: 0, wave: 1, best: 1,
+      coins: 0, city: 1, wave: 1, best: 1,
       lv: { dmg: 0, rate: 0, cannon: 0, coin: 0 },
       kills: 0, quota: waveQuota(1),
       cannons: [], dots: [], bullets: [],
@@ -64,18 +69,19 @@
       banner: null, bannerT: 0,
     };
   }
-  function waveQuota(w) { return 10 + Math.floor(w * 1.6); }
-  function isBossWave(w) { return w % 10 === 0; }
+  function waveQuota(w) { return 15 + Math.floor(w * 3); }       // bigger quotas = longer waves
+  function isBossWave(w) { return w % 10 === 0 || w === WAVES_PER_CITY; }
+  function isCityBoss() { return G.wave === WAVES_PER_CITY; }
 
-  const SAVE = "idledot.v1";
+  const SAVE = "idledot.v2";
   function save() {
-    try { localStorage.setItem(SAVE, JSON.stringify({ coins: G.coins, wave: G.wave, best: G.best, lv: G.lv })); } catch (e) {}
+    try { localStorage.setItem(SAVE, JSON.stringify({ coins: G.coins, city: G.city, wave: G.wave, best: G.best, lv: G.lv })); } catch (e) {}
   }
   function load() {
     G = fresh();
     try {
       const s = JSON.parse(localStorage.getItem(SAVE));
-      if (s) { G.coins = s.coins || 0; G.wave = Math.max(1, s.wave || 1); G.best = s.best || G.wave; G.lv = Object.assign(G.lv, s.lv || {}); }
+      if (s) { G.coins = s.coins || 0; G.city = Math.max(1, s.city || 1); G.wave = Math.max(1, s.wave || 1); G.best = Math.max(s.best || 1, G.city); G.lv = Object.assign(G.lv, s.lv || {}); }
     } catch (e) {}
     G.quota = waveQuota(G.wave); G.bossWave = isBossWave(G.wave);
   }
@@ -95,7 +101,7 @@
     G.dots.length = 0; G.bullets.length = 0; G.boss = null;
     G.baseHp = G.baseMax; G.kills = 0; G.quota = waveQuota(G.wave); G.bossWave = isBossWave(G.wave);
     G.spawnT = 0.4; G.invuln = 1;
-    banner("WAVE " + G.wave, "#7ab8ff");
+    banner("CITY " + G.city + " · WAVE " + G.wave, "#7ab8ff");
     setState("play");
     buildShop(); syncHUD();
   }
@@ -104,17 +110,27 @@
 
   /* ----------------------------- waves --------------------------- */
   function nextWave() {
-    G.wave++; G.best = Math.max(G.best, G.wave);
+    G.wave++;
     G.kills = 0; G.quota = waveQuota(G.wave); G.bossWave = isBossWave(G.wave);
     G.boss = null; G.spawnT = 0.5; save();
-    banner(G.bossWave ? "⚠ BOSS WAVE ⚠" : "WAVE " + G.wave, G.bossWave ? "#ff5a6a" : "#7be86a");
+    banner(G.wave === WAVES_PER_CITY ? "⚠ CITY BOSS ⚠" : G.bossWave ? "⚠ BOSS WAVE ⚠" : "WAVE " + G.wave, G.bossWave ? "#ff5a6a" : "#7be86a");
     if (G.bossWave) Audio2.boss(); else Audio2.click();
     layoutCannons(); syncHUD();
   }
 
+  // City cleared — KEEP all upgrades, cannons and coins; advance to next city.
+  function cityClear() {
+    G.city++; G.best = Math.max(G.best, G.city);
+    G.wave = 1; G.kills = 0; G.quota = waveQuota(1); G.bossWave = false;
+    G.dots.length = 0; G.boss = null; G.baseHp = G.baseMax; G.invuln = 2.5; G.spawnT = 0.6;
+    banner("CITY " + (G.city - 1) + " CLEARED → CITY " + G.city, "#ffd45e");
+    Audio2.victory(); Camera.flashScreen("#ffd45e", 0.45); Camera.shake(8);
+    layoutCannons(); save(); syncHUD();
+  }
+
   function overrun() {
     const back = Math.max(1, G.wave - 3);
-    G.wave = back; G.best = Math.max(G.best, G.wave);
+    G.wave = back;
     G.kills = 0; G.quota = waveQuota(G.wave); G.bossWave = isBossWave(G.wave);
     G.dots.length = 0; G.boss = null; G.baseHp = G.baseMax; G.invuln = 2.5;
     banner("OVERRUN — REGROUP", "#ff5a6a");
@@ -132,9 +148,9 @@
       vy: (26 + G.wave * 0.8) * tier.spd, wob: rand(0, TAU), wobx: rand(8, 22), hit: 0, coins: enemyCoins(G.wave, tier) });
   }
   function spawnBoss() {
-    const tier = TIERS[4], hp = enemyHp(G.wave, tier) * 30;
-    G.boss = { x: VIEW.w / 2, y: -60, r: 46, hp, maxHp: hp, tier, vy: 14 + G.wave * 0.3, wob: 0, wobx: VIEW.w * 0.3, hit: 0,
-      coins: Math.ceil(enemyCoins(G.wave, tier) * 25), boss: true };
+    const city = isCityBoss(), tier = TIERS[4], hp = enemyHp(G.wave, tier) * (city ? 90 : 30);
+    G.boss = { x: VIEW.w / 2, y: -60, r: city ? 58 : 46, hp, maxHp: hp, tier, vy: (city ? 9 : 14) + G.wave * 0.2, wob: 0, wobx: VIEW.w * 0.3, hit: 0,
+      coins: Math.ceil(enemyCoins(G.wave, tier) * (city ? 60 : 25)), boss: true, city };
     G.dots.push(G.boss);
   }
 
@@ -157,7 +173,7 @@
     Particles.burst(d.x, d.y, d.tier.c, d.boss ? 40 : 10, { speed: d.boss ? 260 : 130, life: 0.5 });
     Particles.ring(d.x, d.y, d.tier.c, 6, d.boss ? 120 : 34, 0.4);
     Audio2.kill(1); if (d.boss) { Audio2.explosion(true); Camera.shake(10); Camera.freeze(0.25); }
-    if (d.boss) { G.boss = null; nextWave(); return; }
+    if (d.boss) { G.boss = null; if (d.city) cityClear(); else nextWave(); return; }
     G.kills++;
     if (!G.bossWave && G.kills >= G.quota) nextWave();
     else if (G.bossWave && !G.boss) { /* boss spawns from update */ }
@@ -337,9 +353,10 @@
   }
   function syncHUD() {
     el("ui-coins").textContent = fmt(G.coins);
-    el("ui-wave").textContent = G.wave;
+    el("ui-city").textContent = G.city;
+    el("ui-wave").textContent = G.wave + "/" + WAVES_PER_CITY;
     el("ui-best").textContent = G.best;
-    if (G.bossWave) { el("ui-quota").textContent = "BOSS"; el("wave-fill").style.width = (G.boss ? clamp(G.boss.hp / G.boss.maxHp, 0, 1) * 100 : 100) + "%"; }
+    if (G.bossWave) { el("ui-quota").textContent = isCityBoss() ? "CITY BOSS" : "BOSS"; el("wave-fill").style.width = (G.boss ? clamp(G.boss.hp / G.boss.maxHp, 0, 1) * 100 : 100) + "%"; }
     else { el("ui-quota").textContent = G.kills + "/" + G.quota; el("wave-fill").style.width = clamp(G.kills / G.quota, 0, 1) * 100 + "%"; }
     el("base-fill").style.width = clamp(G.baseHp / G.baseMax, 0, 1) * 100 + "%";
     for (const u of UPGRADES) {
@@ -399,5 +416,5 @@
   requestAnimationFrame(loop);
 
   // lightweight debug handle (used by tests / console)
-  if (typeof window !== "undefined") window.__IDS = { G: () => G, state: () => state, fmt, cannonCount };
+  if (typeof window !== "undefined") window.__IDS = { G: () => G, state: () => state, fmt, cannonCount, WAVES_PER_CITY };
 })();
