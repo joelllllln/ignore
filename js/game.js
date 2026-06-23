@@ -29,11 +29,13 @@
     { id: "damage",   tab: "def", name: "Damage",    base: 14, mul: 1.18, desc: () => fmt(derived.damage) + " dmg" },
     { id: "crit",     tab: "def", name: "Critical Hits", base: 60, mul: 1.26, desc: () => Math.round(derived.critChance * 100) + "% · ×" + derived.critMult.toFixed(1) },
     { id: "marines",  tab: "def", name: "Marines",   base: 250, mul: 1.55, max: 8, desc: l => l + " / 8 units" },
+    { id: "turrets",  tab: "def", name: "Extra Turret", base: 400, mul: 1.7, max: 6, desc: l => (1 + l) + " turrets" },
     { id: "mortar",   tab: "def", name: "Mortar (splash)", base: 800, mul: 3.2, max: 6, gal: 2, desc: l => l ? "Lv " + l : "Unlock" },
     { id: "plasma",   tab: "def", name: "Plasma (heavy)", base: 6000, mul: 3.4, max: 6, gal: 3, desc: l => l ? "Lv " + l : "Unlock" },
     { id: "laser",    tab: "def", name: "Laser (rapid)", base: 45000, mul: 3.4, max: 6, gal: 5, desc: l => l ? "Lv " + l : "Unlock" },
     { id: "railgun",  tab: "def", name: "Railgun (heavy)", base: 350000, mul: 3.6, max: 6, gal: 7, desc: l => l ? "Lv " + l : "Unlock" },
     // Drone
+    { id: "drones",     tab: "drone", name: "Extra Drone", base: 300, mul: 1.7, max: 6, desc: l => (1 + l) + " drones" },
     { id: "droneSpeed", tab: "drone", name: "Drone Speed", base: 16, mul: 1.17, desc: () => Math.round(derived.droneSpeed) + " px/s" },
     { id: "suction",    tab: "drone", name: "Suction",     base: 22, mul: 1.20, desc: () => Math.round(derived.suction) + " radius" },
     { id: "agility",    tab: "drone", name: "Agility",     base: 18, mul: 1.18, max: 40, desc: l => "Lv " + l },
@@ -72,7 +74,8 @@
   function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0 }; }
 
   // runtime-only (not saved)
-  let dots = [], orbs = [], beams = [], drone, sources = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0;
+  let dots = [], orbs = [], beams = [], drones = [], sources = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0;
+  let drawing = false, lastDraw = null, trail = [];
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", paused = false, listRows = {}, buyMode = "x1", tabBtns = {};
@@ -122,7 +125,8 @@
 
   /* ----------------------------- entities ------------------------ */
   function rebuildSources() {
-    sources = [{ t: "turret", cd: 0 }];
+    sources = [];
+    for (let i = 0; i < 1 + S.lv.turrets; i++) sources.push({ t: "turret", cd: rnd(0, 0.3) });
     for (let i = 0; i < S.lv.marines; i++) sources.push({ t: "marine", cd: rnd(0, 0.3) });
     if (S.lv.mortar > 0) sources.push({ t: "mortar", cd: 0 });
     if (S.lv.plasma > 0) sources.push({ t: "plasma", cd: 0 });
@@ -134,7 +138,17 @@
     const a = (i - 1) / Math.max(1, n - 1) * TAU, r = 46;
     return { x: W / 2 + Math.cos(a) * r, y: H / 2 + Math.sin(a) * r };
   }
-  function newDrone() { drone = { x: W / 2, y: H * 0.4, vx: 0, vy: 0 }; }
+  function syncDrones() {
+    const n = 1 + S.lv.drones;
+    while (drones.length < n) drones.push({ x: W / 2 + rnd(-50, 50), y: H * 0.4 + rnd(-40, 40), vx: 0, vy: 0 });
+    while (drones.length > n) drones.pop();
+  }
+  // draw-to-pop: damage dots near a point (per-dot cooldown so a stroke chews them down)
+  function brushAt(x, y) {
+    const R = 30, dmg = derived.damage * 3 + 3;
+    for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && (!d.drawCd || d.drawCd <= 0)) { hitDot(d, dmg); d.drawCd = 0.07; } }
+    trail.push({ x, y, life: 0.35 });
+  }
 
   function spawnDot(special) {
     const g = S.galaxy, hp = 5 * enemyHpMul(g) * rnd(0.8, 1.6);
@@ -218,27 +232,34 @@
     for (const b of beams) b.life -= dt;
     beams = beams.filter(b => b.life > 0);
 
-    // drone: seek nearest orb, suck nearby, collect within radius
-    if (!drone) newDrone();
-    let tgt = null, bd = Infinity;
-    for (const o of orbs) { const q = (o.x - drone.x) ** 2 + (o.y - drone.y) ** 2; if (q < bd) { bd = q; tgt = o; } }
-    if (tgt) {
-      const dx = tgt.x - drone.x, dy = tgt.y - drone.y, dl = Math.hypot(dx, dy) || 1;
-      drone.vx += (dx / dl * derived.droneSpeed - drone.vx) * derived.agility;
-      drone.vy += (dy / dl * derived.droneSpeed - drone.vy) * derived.agility;
-    } else { drone.vx *= 0.9; drone.vy *= 0.9; }
-    drone.x = clamp(drone.x + drone.vx * dt, 0, W); drone.y = clamp(drone.y + drone.vy * dt, 0, H);
-
+    // drones: each seeks the nearest orb
+    if (drones.length === 0) syncDrones();
+    for (const dr of drones) {
+      let tgt = null, bd = Infinity;
+      for (const o of orbs) { const q = (o.x - dr.x) ** 2 + (o.y - dr.y) ** 2; if (q < bd) { bd = q; tgt = o; } }
+      if (tgt) {
+        const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1;
+        dr.vx += (dx / dl * derived.droneSpeed - dr.vx) * derived.agility;
+        dr.vy += (dy / dl * derived.droneSpeed - dr.vy) * derived.agility;
+      } else { dr.vx *= 0.9; dr.vy *= 0.9; }
+      dr.x = clamp(dr.x + dr.vx * dt, 0, W); dr.y = clamp(dr.y + dr.vy * dt, 0, H);
+    }
+    // collection: nearest drone sucks/collects each orb
     let earned = 0;
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
-      const dx = drone.x - o.x, dy = drone.y - o.y, dl = Math.hypot(dx, dy) || 1;
-      if (dl < derived.suction) { o.x += dx / dl * 260 * dt; o.y += dy / dl * 260 * dt; }
-      if (dl < derived.collect + 6 || o.t > 25) {
-        if (o.t <= 25) earned += o.value;
-        orbs.splice(i, 1);
-      }
+      let nd = null, bd = Infinity;
+      for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2; if (q < bd) { bd = q; nd = dr; } }
+      if (nd) {
+        const dl = Math.sqrt(bd) || 1;
+        if (dl < derived.suction) { o.x += (nd.x - o.x) / dl * 260 * dt; o.y += (nd.y - o.y) / dl * 260 * dt; }
+        if (dl < derived.collect + 6 || o.t > 25) { if (o.t <= 25) earned += o.value; orbs.splice(i, 1); }
+      } else if (o.t > 25) orbs.splice(i, 1);
     }
+    // draw-stroke cooldowns + trail fade
+    for (const d of dots) if (d.drawCd > 0) d.drawCd -= dt;
+    for (const tp of trail) tp.life -= dt;
+    trail = trail.filter(tp => tp.life > 0);
     if (earned > 0) {
       S.cash = Math.min(derived.capacity, S.cash + earned);
       S.totalRun += earned; META.totalEver += earned; earnAcc += earned;
@@ -276,10 +297,17 @@
       ctx.fillStyle = src.t === "turret" ? "#ffffff" : "#aaaaaa";
       ctx.beginPath(); ctx.arc(p.x, p.y, src.t === "turret" ? 14 : 8, 0, TAU); ctx.fill();
     }
-    // drone
-    if (drone) {
-      ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(drone.x, drone.y, derived.suction, 0, TAU); ctx.stroke();
-      ctx.fillStyle = "#dddddd"; ctx.save(); ctx.translate(drone.x, drone.y); ctx.rotate(Date.now() / 300); ctx.fillRect(-7, -7, 14, 14); ctx.restore();
+    // drones
+    for (const dr of drones) {
+      ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, derived.suction, 0, TAU); ctx.stroke();
+      ctx.fillStyle = "#dddddd"; ctx.save(); ctx.translate(dr.x, dr.y); ctx.rotate(Date.now() / 300); ctx.fillRect(-7, -7, 14, 14); ctx.restore();
+    }
+    // draw stroke trail
+    if (trail.length) {
+      ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 16; ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.beginPath();
+      for (let i = 0; i < trail.length; i++) { const tp = trail[i]; i ? ctx.lineTo(tp.x, tp.y) : ctx.moveTo(tp.x, tp.y); }
+      ctx.stroke();
     }
   }
 
@@ -350,7 +378,8 @@
     const r = levelsToBuy(u, buyMode);
     if (r.count <= 0) return;
     S.cash -= r.total; S.lv[u.id] += r.count;
-    if (["marines", "mortar", "plasma", "laser", "railgun"].includes(u.id)) rebuildSources();
+    if (["turrets", "marines", "mortar", "plasma", "laser", "railgun"].includes(u.id)) rebuildSources();
+    if (u.id === "drones") syncDrones();
     const row = listRows[u.id];
     if (row && row.el.animate) row.el.animate([{ filter: "brightness(1.9)" }, { filter: "brightness(1)" }], 220);
     recompute(); syncHUD(); save();
@@ -376,7 +405,7 @@
     const keepMeta = META; S = fresh(); META = keepMeta;
     if (META.sd.sdStart > 0) S.cash = 50 * Math.pow(6, META.sd.sdStart);
     dots = []; orbs = []; beams = []; spawnAcc = 0; cps = 0;
-    rebuildSources(); newDrone(); recompute();
+    rebuildSources(); syncDrones(); recompute();
     $("rebirth-modal").classList.remove("show"); renderList(); buildSD(); syncHUD(); save();
   }
 
@@ -441,14 +470,22 @@
   $("menu-close").onclick = $("menu-resume").onclick = () => { paused = false; $("menu").classList.remove("show"); };
   $("menu-reset").onclick = () => { if (confirm("Erase ALL progress (including Star Dust)?")) { localStorage.removeItem(KEY); location.reload(); } };
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
-  // tap the field to pop a dot (manual assist)
-  canvas.addEventListener("pointerdown", e => {
-    if (paused) return;
-    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    let best = null, bd = 44 * 44;
-    for (const d of dots) { const q = (d.x - x) ** 2 + (d.y - y) ** 2; if (q < bd) { bd = q; best = d; } }
-    if (best) hitDot(best, derived.damage * 6 + 5);
+  // draw across the field to pop dots (manual assist)
+  function ptr(e) { const r = canvas.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; }
+  canvas.addEventListener("pointerdown", e => { if (paused) return; drawing = true; lastDraw = ptr(e); brushAt(lastDraw.x, lastDraw.y); });
+  canvas.addEventListener("pointermove", e => {
+    if (!drawing || paused) return;
+    const p = ptr(e), dx = p.x - lastDraw.x, dy = p.y - lastDraw.y, dist = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.floor(dist / 14));
+    for (let i = 1; i <= steps; i++) brushAt(lastDraw.x + dx * i / steps, lastDraw.y + dy * i / steps);
+    lastDraw = p;
   });
+  const endDraw = () => { drawing = false; };
+  canvas.addEventListener("pointerup", endDraw);
+  canvas.addEventListener("pointercancel", endDraw);
+  canvas.addEventListener("pointerleave", endDraw);
+  // minimise / expand the dock
+  $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
 
   /* ----------------------------- loop / boot --------------------- */
   function resize() {
@@ -456,7 +493,7 @@
     W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = W * DPR | 0; canvas.height = H * DPR | 0;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    if (drone) { drone.x = clamp(drone.x, 0, W); drone.y = clamp(drone.y, 0, H); }
+    for (const dr of drones) { dr.x = clamp(dr.x, 0, W); dr.y = clamp(dr.y, 0, H); }
   }
   window.addEventListener("resize", resize);
 
@@ -471,11 +508,11 @@
   load();
   resize();
   rebuildSources();
-  newDrone();
+  syncDrones();
   renderList();
   if (S._welcome) { $("welcome-text").textContent = "Your turret kept firing for " + fmtTime(S._welcome.elapsed) + "."; $("welcome-cash").textContent = "$" + fmt(S._welcome.gain); $("welcome").classList.add("show"); S._welcome = null; }
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, sources: () => sources, useAbility, travel, doRebirth, rebirthGain, fmt, buyUp: id => buyUpgrade(UP[id]), recompute, abil: () => abil, travelCost };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, sources: () => sources, drones: () => drones, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUp: id => buyUpgrade(UP[id]), recompute, abil: () => abil, travelCost };
 })();
