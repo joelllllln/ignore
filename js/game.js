@@ -36,16 +36,18 @@
     { key: "b", name: "Speed",  fx: t => "×" + Math.pow(1.35, t).toFixed(1) + " rate" },
     { key: "c", name: "Optics", fx: t => "+" + 55 * t + " rng" + (t >= 3 ? " · crit" : "") },
   ];
-  const newUnit = type => ({ type, t: { a: 0, b: 0, c: 0 }, cd: rnd(0, 0.4) });
+  const newUnit = type => ({ type, cd: rnd(0, 0.4) });
   const countType = type => S.units.filter(u => u.type === type).length;
   const unitBuyCost = type => Math.floor(DEF_TYPES[type].base * Math.pow(1.9, countType(type)));
-  const pathCost = (u, k) => Math.floor(DEF_TYPES[u.type].base * 0.8 * Math.pow(3.0, u.t[k]));
-  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, u.t.a) * derived.sdDmg;
-  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, u.t.b) * derived.sdFire;
-  const uRange = u => DEF_TYPES[u.type].range + 55 * u.t.c;
-  const uCrit = u => u.t.c >= 3 ? 0.25 : 0;
-  const uCritMul = u => 2 + 0.3 * u.t.c;
-  const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + 14 * u.t.c : 0;
+  // class-wide upgrade tree: tiers live on the TYPE, so they apply to EVERY unit of that type.
+  const ct = type => (S.classT[type] || (S.classT[type] = { a: 0, b: 0, c: 0 }));
+  const pathCost = (type, k) => Math.floor(DEF_TYPES[type].base * 1.5 * Math.pow(2.6, ct(type)[k]));
+  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * derived.sdDmg;
+  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * derived.sdFire;
+  const uRange = u => DEF_TYPES[u.type].range + 55 * ct(u.type).c;
+  const uCrit = u => ct(u.type).c >= 3 ? 0.25 : 0;
+  const uCritMul = u => 2 + 0.3 * ct(u.type).c;
+  const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + 14 * ct(u.type).c : 0;
   const uColor = u => u.type === "mortar" ? "#9a9a9a" : u.type === "turret" ? "#ffffff" : "#cccccc";
   function unitPos(i, n) {
     const ring = Math.floor(i / 9), per = 9, idx = i % per;
@@ -89,12 +91,13 @@
   let S, derived = {}, META, state = "home";
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
-    return { cash: 0, galaxy: 1, lv, units: [newUnit("turret")], totalRun: 0, peakGalaxy: 1 };
+    const classT = {}; DEF_ORDER.forEach(t => classT[t] = { a: 0, b: 0, c: 0 });
+    return { cash: 0, galaxy: 1, lv, classT, units: [newUnit("turret")], totalRun: 0, peakGalaxy: 1 };
   }
   function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0 }; }
 
   let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0;
-  let drawing = false, lastDraw = null, trail = [], selUnit = -1;
+  let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", listRows = {}, tabBtns = {};
@@ -122,7 +125,7 @@
     try {
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
-        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { if (!u.t) u.t = { a: 0, b: 0, c: 0 }; u.cd = u.cd || 0; }); }
+        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classT) S.classT = {}; DEF_ORDER.forEach(t => { if (!S.classT[t]) S.classT[t] = { a: 0, b: 0, c: 0 }; }); }
         if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {}); }
         if (d.ts && d.cps > 0) { const e = clamp((Date.now() - d.ts) / 1000, 0, 8 * 3600); if (e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; } }
       }
@@ -233,7 +236,7 @@
       ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, TAU); ctx.fill();
       ctx.fillStyle = uColor(u); ctx.beginPath(); ctx.arc(p.x, p.y, u.type === "turret" ? 11 : 9, 0, TAU); ctx.fill();
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
-      const tot = u.t.a + u.t.b + u.t.c; if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - 21); }
+      const tt = ct(u.type), tot = tt.a + tt.b + tt.c; if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - 21); }
     }
     ctx.textBaseline = "alphabetic";
     for (const dr of drones) { ctx.strokeStyle = "rgba(255,255,255,0.14)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, derived.suction, 0, TAU); ctx.stroke(); ctx.fillStyle = "#ddd"; ctx.save(); ctx.translate(dr.x, dr.y); ctx.rotate(Date.now() / 300); ctx.fillRect(-6, -6, 12, 12); ctx.restore(); }
@@ -307,34 +310,34 @@
   function Audio_buy() {}  // (silent build)
 
   /* ------------------------- unit upgrade tree ------------------- */
-  function openUnitPanel(i) { selUnit = i; refreshUnitPanel(); $("unit-panel").classList.add("show"); }
+  function openUnitPanel(i) { selUnit = i; selType = S.units[i].type; refreshUnitPanel(); $("unit-panel").classList.add("show"); }
   function closeUnitPanel() { selUnit = -1; $("unit-panel").classList.remove("show"); }
   function refreshUnitPanel() {
-    const u = S.units[selUnit]; if (!u) { closeUnitPanel(); return; }
-    const d = DEF_TYPES[u.type];
-    $("up-name").textContent = d.name + "  (" + (u.t.a + u.t.b + u.t.c) + " upgrades)";
-    $("up-stats").innerHTML = "<b>" + fmt(uDmg(u)) + "</b> dmg · <b>" + uRate(u).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(u)) + "</b> rng" + (uSplash(u) ? " · splash" : "") + (uCrit(u) ? " · " + Math.round(uCrit(u) * 100) + "% crit" : "");
+    const type = selType, d = DEF_TYPES[type], tt = ct(type), sample = { type }, owned = countType(type);
+    $("up-name").textContent = d.name + " class · " + owned + " owned";
+    $("up-stats").innerHTML = "Upgrades affect <b>ALL " + owned + " " + d.name + (owned === 1 ? "" : "s") + "</b> — " +
+      "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
     const wrap = $("up-paths"); wrap.innerHTML = "";
     for (const p of PATHS) {
-      const tier = u.t[p.key], maxed = tier >= MAXTIER, c = pathCost(u, p.key);
+      const tier = tt[p.key], maxed = tier >= MAXTIER, c = pathCost(type, p.key);
       const pips = "●".repeat(tier) + "○".repeat(MAXTIER - tier);
       const el = document.createElement("div"); el.className = "path";
       el.innerHTML = `<div class="p-mid"><div class="p-name">${p.name} <span class="p-pips">${pips}</span></div><div class="p-fx">${p.fx(tier)} → ${p.fx(tier + 1)}</div></div>` +
         `<button class="p-buy">${maxed ? "MAX" : "$" + fmt(c)}</button>`;
       wrap.appendChild(el);
       const b = el.querySelector(".p-buy");
-      if (maxed) b.disabled = true; else { b.disabled = S.cash < c; b.onclick = () => buyPath(u, p.key); }
+      if (maxed) b.disabled = true; else { b.disabled = S.cash < c; b.onclick = () => buyPath(type, p.key); }
     }
   }
-  function buyPath(u, k) {
-    if (u.t[k] >= MAXTIER) return; const c = pathCost(u, k); if (S.cash < c) return;
-    S.cash -= c; u.t[k]++; recompute(); refreshUnitPanel(); syncHUD(); save();
+  function buyPath(type, k) {
+    const tt = ct(type); if (tt[k] >= MAXTIER) return; const c = pathCost(type, k); if (S.cash < c) return;
+    S.cash -= c; tt[k]++; recompute(); refreshUnitPanel(); syncHUD(); save();
   }
   function sellUnit() {
     if (selUnit < 0 || S.units.length <= 1) { closeUnitPanel(); return; }   // keep at least one
     const u = S.units[selUnit];
-    let spent = unitBuyCost(u.type) / 1.9; for (const k of ["a", "b", "c"]) for (let t = 0; t < u.t[k]; t++) spent += DEF_TYPES[u.type].base * 0.8 * Math.pow(3, t);
-    S.cash += Math.round(spent * 0.5); S.units.splice(selUnit, 1); closeUnitPanel(); save();
+    S.cash += Math.round(unitBuyCost(u.type) / 1.9 * 0.5);   // refund half of this unit's purchase
+    S.units.splice(selUnit, 1); closeUnitPanel(); save();
   }
 
   /* ------------------------- star dust + galaxy ------------------ */
