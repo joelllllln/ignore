@@ -42,12 +42,44 @@
   // class-wide upgrade tree: tiers live on the TYPE, so they apply to EVERY unit of that type.
   const ct = type => (S.classT[type] || (S.classT[type] = { a: 0, b: 0, c: 0 }));
   const pathCost = (type, k) => Math.floor(DEF_TYPES[type].base * 1.5 * Math.pow(2.6, ct(type)[k]));
-  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * derived.sdDmg;
-  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * derived.sdFire;
+  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * (ct(u.type).a >= 5 ? 1.25 : 1) * derived.sdDmg;
+  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * (ct(u.type).b >= 5 ? 1.5 : 1) * derived.sdFire;
   const uRange = u => DEF_TYPES[u.type].range + 55 * ct(u.type).c;
-  const uCrit = u => ct(u.type).c >= 3 ? 0.25 : 0;
+  const uCrit = u => ct(u.type).c >= 5 ? 0.45 : ct(u.type).c >= 3 ? 0.25 : 0;
   const uCritMul = u => 2 + 0.3 * ct(u.type).c;
   const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + 14 * ct(u.type).c : 0;
+
+  // fully-built class skill trees (3 paths x 5 named tiers). Effects are the
+  // scaling above; names give each tier flavour for the skill-tree screen.
+  const PATH_META = [{ key: "a", label: "POWER" }, { key: "b", label: "SPEED" }, { key: "c", label: "OPTICS" }];
+  const SKILLS = {
+    turret:  { a: ["Reinforced Rounds", "Tungsten Core", "Armor Piercing", "Hollow Points", "Overcharge"], b: ["Quick Hands", "Belt Feed", "Rapid Servos", "Hair Trigger", "Double Tap"], c: ["Scope", "Range Finder", "Laser Sight", "Tracking AI", "Eagle Eye"] },
+    mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Cluster Munitions", "Carpet Bomb"], b: ["Fast Fuse", "Auto-Loader", "Twin Tubes", "Rapid Mortar", "Barrage"], c: ["Wider Blast", "Shrapnel", "Spotter", "Precision Strike", "Saturation"] },
+    plasma:  { a: ["Ion Charge", "Superheated", "Fusion Core", "Antimatter", "Singularity Bolt"], b: ["Capacitor", "Coolant Loop", "Overclock", "Rapid Cycle", "Continuous Beam"], c: ["Focusing Lens", "Long Barrel", "Crit Matrix", "Targeting Array", "Lancer"] },
+    laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split"] },
+    railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm"] },
+  };
+  function nodeEffect(key, tier) {
+    if (key === "a") return tier === 5 ? "+70% dmg & +25% bonus" : "+70% damage";
+    if (key === "b") return tier === 5 ? "+35% rate & double-tap" : "+35% fire rate";
+    if (tier === 3) return "+55 range · unlock 25% crit";
+    if (tier === 5) return "+55 range · 45% crit";
+    return "+55 range";
+  }
+  const GAL_DESC = [
+    "A quiet starting sector. Sparse, fragile dots — good for finding your rhythm.",
+    "Azure nebula. Swarms drift faster; keep your drones close.",
+    "Ember fields. Hotter, tougher dots — Mortars unlock here.",
+    "Verdant drift. Dense clouds of targets and richer payouts; Plasma unlocks.",
+    "Cobalt deep. Heavily reinforced dots demand real damage.",
+    "Crimson expanse. Relentless waves; Lasers unlock for crowd control.",
+    "Amber reach. High-value specials appear far more often.",
+    "Violet void. Chaotic, dense spawns; Railguns unlock to punch through.",
+    "Frost belt. Slow but massive, high-HP dots.",
+    "Nova core. Extreme density — your whole arsenal earns its keep.",
+    "The Abyss. Endless and brutal. How deep can you push?",
+  ];
+  const galDesc = g => GAL_DESC[(g - 1) % GAL_DESC.length];
   const uColor = u => u.type === "mortar" ? "#9a9a9a" : u.type === "turret" ? "#ffffff" : "#cccccc";
   function unitPos(i, n) {
     const ring = Math.floor(i / 9), per = 9, idx = i % per;
@@ -271,7 +303,6 @@
     for (const t of DEF_ORDER) if (S.galaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t)) aff.def = true;
     for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
     for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
-    if (selUnit >= 0 && state === "play") refreshUnitPanel();
   }
 
   function renderList() {
@@ -279,8 +310,9 @@
     if (activeTab === "def") {
       for (const type of DEF_ORDER) {
         const el = document.createElement("div"); el.className = "up";
-        el.innerHTML = `<span class="u-dot" style="background:#fff"></span><div class="u-mid"><div class="u-name">${DEF_TYPES[type].name}</div><div class="u-desc"></div></div><button class="u-buy"></button>`;
+        el.innerHTML = `<span class="u-dot" style="background:#fff"></span><div class="u-mid"><div class="u-name">${DEF_TYPES[type].name}</div><div class="u-desc"></div></div><button class="u-up" title="Upgrade class">⬆ Class</button><button class="u-buy"></button>`;
         wrap.appendChild(el);
+        el.querySelector(".u-up").onclick = () => openSkillTree(type);
         el.querySelector(".u-buy").onclick = () => buyUnit(type);
         listRows[type] = { kind: "unit", el, desc: el.querySelector(".u-desc"), buy: el.querySelector(".u-buy") };
       }
@@ -310,34 +342,48 @@
   function Audio_buy() {}  // (silent build)
 
   /* ------------------------- unit upgrade tree ------------------- */
-  function openUnitPanel(i) { selUnit = i; selType = S.units[i].type; refreshUnitPanel(); $("unit-panel").classList.add("show"); }
-  function closeUnitPanel() { selUnit = -1; $("unit-panel").classList.remove("show"); }
-  function refreshUnitPanel() {
-    const type = selType, d = DEF_TYPES[type], tt = ct(type), sample = { type }, owned = countType(type);
-    $("up-name").textContent = d.name + " class · " + owned + " owned";
-    $("up-stats").innerHTML = "Upgrades affect <b>ALL " + owned + " " + d.name + (owned === 1 ? "" : "s") + "</b> — " +
-      "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
-    const wrap = $("up-paths"); wrap.innerHTML = "";
-    for (const p of PATHS) {
-      const tier = tt[p.key], maxed = tier >= MAXTIER, c = pathCost(type, p.key);
-      const pips = "●".repeat(tier) + "○".repeat(MAXTIER - tier);
-      const el = document.createElement("div"); el.className = "path";
-      el.innerHTML = `<div class="p-mid"><div class="p-name">${p.name} <span class="p-pips">${pips}</span></div><div class="p-fx">${p.fx(tier)} → ${p.fx(tier + 1)}</div></div>` +
-        `<button class="p-buy">${maxed ? "MAX" : "$" + fmt(c)}</button>`;
-      wrap.appendChild(el);
-      const b = el.querySelector(".p-buy");
-      if (maxed) b.disabled = true; else { b.disabled = S.cash < c; b.onclick = () => buyPath(type, p.key); }
+  function openSkillTree(type) { selType = type; buildSkillTree(); $("skilltree").classList.add("show"); }
+  function closeSkillTree() { $("skilltree").classList.remove("show"); }
+  function buildSkillTree() {
+    const type = selType, d = DEF_TYPES[type], sample = { type }, owned = countType(type);
+    $("st-title").textContent = d.name.toUpperCase();
+    $("st-owned").textContent = "· " + owned + " deployed · upgrades affect them ALL";
+    $("st-stats").innerHTML = "<b>" + fmt(uDmg(sample)) + "</b> dmg · <b>" + uRate(sample).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(sample)) + "</b> rng" + (uSplash(sample) ? " · splash" : "") + (uCrit(sample) ? " · " + Math.round(uCrit(sample) * 100) + "% crit" : "");
+    const cols = $("st-cols"); cols.innerHTML = "";
+    for (const pm of PATH_META) {
+      const cur = ct(type)[pm.key];
+      const col = document.createElement("div"); col.className = "st-col";
+      col.innerHTML = `<div class="st-colh">${pm.label}</div>`;
+      for (let tier = 1; tier <= MAXTIER; tier++) {
+        const own = cur >= tier, next = cur + 1 === tier, cost = Math.floor(d.base * 1.5 * Math.pow(2.6, tier - 1));
+        const node = document.createElement("div");
+        node.className = "st-node " + (own ? "owned" : next ? "next" : "locked") + (next && S.cash >= cost ? " afford" : "");
+        node.innerHTML = `<div class="st-n-name">${SKILLS[type][pm.key][tier - 1]}</div><div class="st-n-fx">${nodeEffect(pm.key, tier)}</div><div class="st-n-cost">${own ? "✓ owned" : next ? "$" + fmt(cost) : "🔒"}</div>`;
+        if (next) node.onclick = () => buyPath(type, pm.key);
+        col.appendChild(node);
+      }
+      cols.appendChild(col);
     }
   }
   function buyPath(type, k) {
     const tt = ct(type); if (tt[k] >= MAXTIER) return; const c = pathCost(type, k); if (S.cash < c) return;
-    S.cash -= c; tt[k]++; recompute(); refreshUnitPanel(); syncHUD(); save();
+    S.cash -= c; tt[k]++; recompute(); buildSkillTree(); syncHUD(); save();
   }
-  function sellUnit() {
-    if (selUnit < 0 || S.units.length <= 1) { closeUnitPanel(); return; }   // keep at least one
-    const u = S.units[selUnit];
-    S.cash += Math.round(unitBuyCost(u.type) / 1.9 * 0.5);   // refund half of this unit's purchase
-    S.units.splice(selUnit, 1); closeUnitPanel(); save();
+  function sellOne() {
+    const i = S.units.findIndex(u => u.type === selType);
+    if (i < 0 || S.units.length <= 1) return;
+    S.cash += Math.round(unitBuyCost(selType) / 1.9 * 0.5);
+    S.units.splice(i, 1); buildSkillTree(); syncHUD(); save();
+  }
+  function showGalaxyInfo(g) {
+    const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
+    const weps = DEF_ORDER.filter(t => DEF_TYPES[t].gal === g).map(t => DEF_TYPES[t].name);
+    const action = current ? "<span class='gi-tag'>▶ You are here</span>" : reached ? "<span class='gi-tag'>Conquered ✓</span>"
+      : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
+    $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div><div class='gi-desc'>" + galDesc(g) + "</div>" +
+      (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
+    $("gm-info").classList.add("show");
+    const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
   }
 
   /* ------------------------- star dust + galaxy ------------------ */
@@ -353,48 +399,56 @@
   }
   // interactive pseudo-3D black & white star map
   const GMap = {
-    open: false, yaw: 0.6, pitch: -0.25, t: 0, cv: null, c: null, w: 0, h: 0,
-    down: false, lx: 0, ly: 0, moved: false, hit: [], stars: [],
+    open: false, yaw: 0.6, pitch: -0.25, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
+    ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
-      this.cv.addEventListener("pointerdown", e => { this.down = true; this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; });
-      this.cv.addEventListener("pointermove", e => { if (!this.down) return; const p = this.pt(e), dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 6) this.moved = true; this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.2, 1.2); this.lx = p.x; this.ly = p.y; });
-      const up = e => { if (this.down && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } this.down = false; };
-      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", () => { this.down = false; });
+      this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
+      this.cv.addEventListener("pointermove", e => {
+        if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
+        if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.4, 3.5); this.pinchD = d; this.moved = true; return; }
+        const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 6) this.moved = true; this.yaw -= dx * 0.01; this.pitch = clamp(this.pitch + dy * 0.01, -1.2, 1.2); this.lx = p.x; this.ly = p.y;
+      });
+      const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
+      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; });
+      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.4, 3.5); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
-    show() { this.open = true; this.resize(); if (!this.stars.length) for (let i = 0; i < 90; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); },
+    show() { this.open = true; this.resize(); if (!this.stars.length) for (let i = 0; i < 90; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); $("gm-info").classList.remove("show"); },
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
-    proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360); return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
-    node(g) { const i = g - 1, a = i * 0.7, R = 110; return { x: Math.cos(a) * R, y: (i - (S.galaxy - 1)) * 62, z: Math.sin(a) * R }; },
+    proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
+    node(g) { const i = g - 1, cx = (i - (S.galaxy - 1)) * 82; return { x: cx, y: Math.sin(i * 1.3) * 72 + Math.cos(i * 0.7) * 30, z: Math.cos(i * 1.1) * 82 + Math.sin(i * 0.5) * 30 }; },
+    cluster(cx, cy, scale, bright, rot) {
+      const c = this.c, n = 22;
+      for (let k = 0; k < n; k++) { const tk = k / n, ang = tk * 6.2 + rot, r = tk * scale, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r * 0.62; c.globalAlpha = bright * (1 - tk * 0.55); c.fillStyle = "#fff"; c.fillRect(x, y, 1.6, 1.6); }
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.55); g.addColorStop(0, "rgba(255,255,255," + bright + ")"); g.addColorStop(1, "rgba(255,255,255,0)");
+      c.globalAlpha = 1; c.fillStyle = g; c.beginPath(); c.arc(cx, cy, scale * 0.55, 0, TAU); c.fill(); c.globalAlpha = 1;
+    },
     render(dt) {
       if (!this.cv) return; const c = this.c;
-      if (!this.down) this.yaw += dt * 0.12; this.t += dt;
-      c.setTransform(Math.min(window.devicePixelRatio || 1, 2), 0, 0, Math.min(window.devicePixelRatio || 1, 2), 0, 0);
+      if (this.ptrs.size === 0) this.yaw += dt * 0.08; this.t += dt;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
-      c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.25 + 0.4 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
+      c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.2 + 0.35 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
       const maxG = Math.max(S.peakGalaxy + 2, S.galaxy + 2, 10), pts = [];
       for (let g = 1; g <= maxG; g++) { const w = this.node(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
       c.strokeStyle = "#fff"; c.lineWidth = 1;
-      for (let i = 0; i < pts.length - 1; i++) { c.globalAlpha = clamp(pts[i].p.f, 0.2, 1) * 0.5; c.beginPath(); c.moveTo(pts[i].p.x, pts[i].p.y); c.lineTo(pts[i + 1].p.x, pts[i + 1].p.y); c.stroke(); }
+      for (let i = 0; i < pts.length - 1; i++) { c.globalAlpha = clamp(pts[i].p.f, 0.15, 1) * 0.4; c.beginPath(); c.moveTo(pts[i].p.x, pts[i].p.y); c.lineTo(pts[i + 1].p.x, pts[i + 1].p.y); c.stroke(); }
       c.globalAlpha = 1;
       const order = pts.slice().sort((a, b) => b.p.z - a.p.z); this.hit = [];
       for (const it of order) {
-        const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, rad = clamp(7 * p.f, 3, 16);
-        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(rad + 10, 22), next });
-        if (current) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.4 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 7 + pulse * 4, 0, TAU); c.stroke(); }
-        c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
-        if (reached || current) { c.fillStyle = "#fff"; c.fill(); }
-        else { c.fillStyle = "rgba(255,255,255,0.10)"; c.fill(); c.strokeStyle = next ? "#fff" : "rgba(255,255,255,0.4)"; c.lineWidth = 1.5; c.stroke(); }
-        c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center";
-        c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(11 * clamp(p.f, 0.65, 1.3)) + "px ui-monospace,monospace";
-        c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - rad - 8);
-        if (next) { const cost = travelCost(S.galaxy); c.fillStyle = S.cash >= cost ? "#fff" : "rgba(255,255,255,0.5)"; c.font = "11px ui-monospace,monospace"; c.fillText("travel $" + fmt(cost), p.x, p.y + rad + 16); }
+        const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
+        const scale = clamp(26 * p.f, 8, 64), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.32;
+        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(scale * 0.7, 26) });
+        if (current || g === this.sel) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, scale * 0.7 + 6 + pulse * 4, 0, TAU); c.stroke(); }
+        this.cluster(p.x, p.y, scale, bright, this.t * 0.3 + g);
+        c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(11 * clamp(p.f, 0.65, 1.4)) + "px ui-monospace,monospace";
+        c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - scale * 0.7 - 8);
         c.globalAlpha = 1;
       }
     },
-    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best && best.next) { const cost = travelCost(S.galaxy); if (S.cash >= cost) travel(); } },
+    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
   function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; recompute(); syncHUD(); save(); }
   function rebirthGain() { return Math.floor(5 + Math.max(0, S.peakGalaxy - 9) * 6 + Math.cbrt(S.totalRun + 1) * 0.5); }
@@ -422,7 +476,7 @@
   canvas.addEventListener("pointerdown", e => {
     if (state !== "play") return;
     const p = ptr(e), ui = unitAt(p.x, p.y);
-    if (ui >= 0) { openUnitPanel(ui); return; }
+    if (ui >= 0) { openSkillTree(S.units[ui].type); return; }
     drawing = true; lastDraw = p; brushAt(p.x, p.y);
   });
   canvas.addEventListener("pointermove", e => {
@@ -440,7 +494,7 @@
   $("btn-travel").onclick = travel; $("btn-rebirth").onclick = openRebirth; $("rb-confirm").onclick = doRebirth; $("rb-close").onclick = () => $("rebirth-modal").classList.remove("show");
   $("btn-sd").onclick = () => { buildSD(); $("sd-shop").classList.add("show"); }; $("sd-close").onclick = () => $("sd-shop").classList.remove("show");
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
-  $("up-close").onclick = closeUnitPanel; $("up-sell").onclick = sellUnit;
+  $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");
@@ -469,5 +523,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, uDmg, uRate, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, openUnitPanel, sellUnit, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, uDmg, uRate, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buyPath, openSkillTree, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap };
 })();

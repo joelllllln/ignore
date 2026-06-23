@@ -143,3 +143,44 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .p-fx{font-size:11px;color:var(--dim);font-family:var(--mono)}
 .p-buy{flex:0 0 auto;background:#e6e6e6;border:none;color:#000;font-weight:800;border-radius:9px;padding:9px 12px;font-size:13px;font-family:var(--mono);min-width:74px}
 .p-buy:disabled{background:#333;color:var(--dim)}
+
+/* ---- defence-tab 'upgrade class' button ---- */
+.u-up{flex:0 0 auto;background:rgba(255,255,255,.1);border:1px solid var(--edge);color:#fff;border-radius:9px;padding:8px 9px;font-size:12px;font-weight:700;margin-right:6px}
+.u-up:hover{border-color:#fff}
+
+/* ---- full-screen class skill tree ---- */
+.stmodal{padding:0;background:#000;flex-direction:column;align-items:stretch;justify-content:flex-start}
+.stmodal.show{display:flex}
+.st-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px}
+.st-head b{font-family:var(--mono);letter-spacing:2px;font-size:18px;color:#fff}
+.st-head .muted{font-size:12px}
+.st-head .x{font-size:20px}
+.st-stats{text-align:center;color:var(--text);font-size:13px;padding:0 16px 12px}
+.st-stats b{color:#fff;font-family:var(--mono)}
+.st-cols{flex:1;display:flex;gap:10px;padding:0 12px;overflow-y:auto;align-items:flex-start}
+.st-col{flex:1;display:flex;flex-direction:column;align-items:center}
+.st-colh{font-family:var(--mono);letter-spacing:2px;font-size:12px;color:var(--dim);margin-bottom:10px}
+.st-node{position:relative;width:100%;background:rgba(255,255,255,.04);border:1px solid var(--edge);border-radius:10px;padding:9px 8px;margin-bottom:18px;text-align:center}
+.st-node:not(:last-child)::after{content:"";position:absolute;left:50%;bottom:-18px;width:2px;height:18px;background:var(--edge);transform:translateX(-50%)}
+.st-node.owned{border-color:#fff;background:rgba(255,255,255,.12)}
+.st-node.owned::after{background:#fff}
+.st-node.next{cursor:pointer;border-color:rgba(255,255,255,.5)}
+.st-node.next.afford{animation:pulse 1.2s infinite;border-color:#fff}
+.st-node.locked{opacity:.4}
+.st-n-name{font-size:12px;font-weight:700}
+.st-n-fx{font-size:10px;color:var(--dim);margin:2px 0}
+.st-n-cost{font-family:var(--mono);font-size:12px;color:var(--cash)}
+.st-node.owned .st-n-cost{color:#fff}
+.st-foot{padding:12px 16px}
+.st-foot #st-sell{width:100%;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:10px;padding:11px;font-weight:700}
+
+/* ---- galaxy info panel ---- */
+.gm-info{position:absolute;left:12px;right:12px;bottom:44px;z-index:3;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;display:none}
+.gm-info.show{display:block}
+.gi-name{font-family:var(--mono);letter-spacing:2px;color:#fff;font-size:15px;margin-bottom:4px}
+.gi-desc{font-size:12px;color:var(--dim);line-height:1.4}
+.gi-unlock{font-size:11px;color:#fff;margin-top:6px}
+.gi-act{margin-top:10px}
+.gi-tag{font-family:var(--mono);font-size:12px;color:var(--dim)}
+#gi-travel{background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;border-radius:9px;padding:10px 16px;font-family:var(--mono)}
+#gi-travel:disabled{background:#333;color:var(--dim)}

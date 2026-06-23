@@ -72,21 +72,20 @@
     </div>
   </div>
 
-  <!-- UNIT UPGRADE TREE -->
-  <div id="unit-panel" class="modal">
-    <div class="card">
-      <div class="card-head"><h2 id="up-name">Defender</h2><button class="x" id="up-close">✕</button></div>
-      <div id="up-stats" class="muted"></div>
-      <div id="up-paths"></div>
-      <button class="big danger" id="up-sell">SELL (50%)</button>
-    </div>
+  <!-- CLASS SKILL TREE (full screen) -->
+  <div id="skilltree" class="modal stmodal">
+    <div class="st-head"><div><b id="st-title">Turret</b> <span id="st-owned" class="muted"></span></div><button class="x" id="st-close">✕</button></div>
+    <div id="st-stats" class="st-stats"></div>
+    <div id="st-cols" class="st-cols"></div>
+    <div class="st-foot"><button id="st-sell">SELL ONE (50%)</button></div>
   </div>
 
   <!-- GALAXY MAP (interactive 3D) -->
   <div id="galaxy-map" class="modal mapmodal">
     <canvas id="gmap"></canvas>
     <div class="map-bar"><span class="map-title">★ STAR MAP</span><button class="x" id="gm-close">✕</button></div>
-    <div class="map-hint">drag to rotate · tap the next galaxy to travel</div>
+    <div class="map-hint">drag to rotate · scroll/pinch to zoom · tap a galaxy</div>
+    <div id="gm-info" class="gm-info"></div>
   </div>
 
   <!-- STAR DUST SHOP -->
