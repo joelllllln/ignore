@@ -1,54 +1,42 @@
 # Idle Dot Shooter
 
-A focused **idle shooter** built with **HTML5, JavaScript and Canvas** — no
-dependencies, no asset files (graphics are drawn procedurally, sound is
-synthesized). Open `index.html` and play.
+An **HTML5 / Canvas** port of the original *Idle Dot Shooter* (Godot 4.6) — a
+faithful 1:1 recreation of every mechanic, formula, colour and the UI layout.
+No dependencies, no build step: open `index.html` and play.
 
-Dots fall from the top. Your cannons auto-fire at the nearest one. Kills pay
-**coins**. Spend coins on a handful of upgrades whose costs rise each level.
-Waves scale **exponentially**, so progression is a long, satisfying grind.
+Colored **dots** descend from the top and drift toward your line of **cannons**
+at the bottom. Cannons auto-target and fire at the nearest dot. Destroying dots
+earns **coins**, which you spend on upgrades. Let too many dots breach the wall
+and it's game over.
 
-## Core loop
+## Controls / UI
 
-1. **Dots descend** — health grows every wave and every city.
-2. **Cannons auto-fire** at the nearest dot; kills grant coins.
-3. **Upgrade** with coins (costs rise each level):
-   - **⚔ Damage** · **⚡ Fire Rate** · **➕ Cannon** (up to 8) · **💰 Coin Boost**.
-4. **Climb the city.** Each **city is 30 waves**; every 10th wave is a boss and
-   wave 30 is the **City Boss**. Beat it to **unlock the next city** (a step
-   harder — ~3× tougher dots).
-5. **Everything carries over.** Your cannons, all upgrades and coins persist
-   from city to city forever — so you stomp the early waves of a new city, then
-   hit the wall and grind deeper.
-6. **Defend the Base** — leaked dots damage it. If it falls you *regroup a few
-   waves back* (loadout intact) — never a permanent game over.
+- **Speed / Difficulty slider** (top): drag to scale dot speed *and* spawn rate
+  live (0.5×–3.0×). Higher = more pressure and faster waves.
+- **Upgrades** (right panel):
+  - **Damage** — `2 + 1.5·level` damage per bullet.
+  - **Fire Rate** — `1.2 + 0.25·level` shots/sec (capped at 14).
+  - **Add Cannon** — adds a turret to the line (up to 10), spread evenly.
+  - **Reinforce Wall** — +10 max wall HP and a full repair.
+- **Stats** (top-left): coins, wall HP, wave, kills, cannon count.
+- On game over, press **Restart**.
 
-Cities are long by design — enemy health outpaces raw damage, so each one is a
-sustained grind of many waves and bosses before it falls.
+## Mechanics (exact)
 
-## Controls
-
-- **Speed slider (1×–5×)** fast-forwards the assault: faster coins, but the
-  swarm presses harder (fire rate stays real-time).
-- **Tap a dot** to blast it yourself.
-- **Pause** any time; progress (coins, wave, upgrades, best wave) is saved to
-  `localStorage` and resumes next visit.
-
-## Why it lasts
-
-Enemy health grows exponentially per wave while your damage grows from upgrades
-you can only afford as fast as coins come in — so you naturally stall, grind,
-upgrade, and push deeper. The wave counter climbs indefinitely.
+- Dots get tougher and spawn faster the longer you survive — a new tier every
+  ~12s (`hp = 3 + 2.5·tier + 0.05·elapsed`, speed `40 + 0.22·elapsed`).
+- Spawn interval `clamp(1.4 − 0.01·elapsed, 0.32, 1.4) / difficulty`.
+- Bigger/tankier dots hit the wall harder if they breach (`ceil(maxHp / 6)`).
+- The difficulty multiplier scales both descent speed and spawn rate.
 
 ## Project layout
 
 ```
-index.html   Single screen: HUD, shop, menus
-style.css    Theme + layout (responsive, mobile-friendly)
-js/engine.js Canvas, math, camera shake, particles, floating text, input
-js/audio.js  Procedural Web Audio SFX + ambient
-js/game.js   The whole game: dots, cannons, waves, bosses, shop, save, loop
+index.html   Canvas + UI (slider, stats, upgrades, game-over), scaled to fit
+style.css    UI styled in the original's 1152×648 logical layout
+js/game.js   The whole game (spawning, cannons, bullets, wall, upgrades, draw)
 icon.svg     App icon
 ```
 
-Everything runs client-side in a single `requestAnimationFrame` loop.
+The play field is the original's logical **1152×648**, letterboxed to fit any
+window. Everything runs client-side in a single `requestAnimationFrame` loop.

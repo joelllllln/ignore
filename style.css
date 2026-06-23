@@ -1,74 +1,69 @@
-:root{
-  --ink:#05080f; --panel:rgba(12,20,32,.9); --edge:rgba(122,184,255,.22);
-  --cyan:#4ff0d0; --blue:#7ab8ff; --gold:#ffd45e; --warn:#ff5a6a; --good:#7be86a;
-  --text:#d7e6f0; --dim:#6f8699; --mono:ui-monospace,"Consolas",monospace;
+/* Idle Dot Shooter — HTML5 port. UI mirrors the original Godot layout
+   (logical 1152x648), scaled to fit the window. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  height: 100%;
+  background: #0a0c10;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-user-select: none; user-select: none;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:var(--ink);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif;
-  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-#game-root{position:relative;width:100vw;height:100vh;height:100dvh;overflow:hidden}
-#game{display:block;width:100%;height:100%;touch-action:none}
-button{font-family:inherit;cursor:pointer;color:inherit}
-b{font-family:var(--mono)}
-.layer{position:absolute;left:0;right:0;z-index:10;pointer-events:none}
-.layer button,.layer input{pointer-events:auto}
+#stage { position: absolute; inset: 0; }
+#game {
+  position: absolute; left: 0; top: 0;
+  transform-origin: top left;
+  image-rendering: auto;
+}
+#ui-root {
+  position: absolute; left: 0; top: 0;
+  width: 1152px; height: 648px;
+  transform-origin: top left;
+  pointer-events: none;
+}
+#ui-root button, #ui-root input { pointer-events: auto; }
 
-/* ---------- HUD ---------- */
-#hud{top:0;padding:8px 10px}
-.hud-row{display:flex;align-items:center;gap:10px}
-.hud-coins{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:6px 12px;font-size:15px;color:var(--gold)}
-.hud-coins b{font-size:18px}
-.hud-wave{flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:5px 12px}
-.wave-label{font-size:12px;letter-spacing:1px;color:var(--dim);display:flex;justify-content:space-between}
-.wave-label b{color:var(--blue);font-size:14px}
-.bar{height:8px;background:rgba(0,0,0,.5);border-radius:5px;overflow:hidden;margin-top:4px}
-.wave-bar{margin-top:4px}
-#wave-fill{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--blue));transition:width .12s linear}
-.chip{background:var(--panel);border:1px solid var(--edge);border-radius:10px;color:var(--text);padding:8px 12px;font-weight:700}
-.base-row{display:flex;align-items:center;gap:8px;margin-top:6px}
-.base-label{font-size:10px;letter-spacing:1px;color:var(--dim);font-family:var(--mono)}
-.base-bar{flex:1;height:7px;margin:0}
-#base-fill{height:100%;width:100%;background:linear-gradient(90deg,var(--good),#bfffa0);transition:width .15s}
+/* ---- top slider bar: HBox at (W/2-280, 12), 560 wide ---- */
+#bar {
+  position: absolute; left: 296px; top: 12px; width: 560px; height: 28px;
+  display: flex; align-items: center; gap: 12px; color: #d6dae3;
+}
+.bar-label { font-size: 16px; white-space: nowrap; }
+#slider { width: 320px; height: 22px; flex: 1; accent-color: #5bb8ff; }
+#diff-val { font-size: 16px; min-width: 48px; }
 
-/* ---------- controls ---------- */
-#controls{bottom:0;padding:8px 10px 12px;background:linear-gradient(180deg,transparent,rgba(4,7,13,.92) 30%)}
-.speed-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dim);font-family:var(--mono);margin-bottom:8px}
-#speed{flex:1;accent-color:var(--cyan);height:24px}
-.shop{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.buy{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;
-  padding:9px 11px;text-align:left;transition:transform .05s,border-color .15s,background .15s}
-.buy:active{transform:scale(.97)}
-.buy-ic{font-size:20px}
-.buy-mid{flex:1;display:flex;flex-direction:column;min-width:0}
-.buy-name{font-size:13px;font-weight:700}
-.buy-lv{font-size:11px;color:var(--dim);font-family:var(--mono)}
-.buy-cost{font-size:13px;color:var(--gold);font-family:var(--mono);white-space:nowrap}
-.buy.poor{opacity:.55}
-.buy.poor .buy-cost{color:var(--warn)}
-.buy.maxed{border-color:var(--good)} .buy.maxed .buy-cost{color:var(--good)}
+/* ---- stats (top-left, 18,14) ---- */
+#stats {
+  position: absolute; left: 18px; top: 14px;
+  font-size: 18px; line-height: 1.35; color: #e6e9f0;
+  font-family: inherit; text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
 
-/* ---------- screens ---------- */
-.screen{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:18px;
-  background:radial-gradient(circle at 50% 35%,#0b1a2e,#04070d 75%)}
-.screen.visible{display:flex}
-#pause{background:rgba(4,7,13,.72)}
-.card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:26px 22px;max-width:420px;width:100%;
-  text-align:center;box-shadow:0 18px 60px rgba(0,0,0,.6)}
-.title{font-family:var(--mono);font-size:30px;font-weight:800;letter-spacing:3px;line-height:1;
-  background:linear-gradient(95deg,var(--cyan),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}
-.title span{display:block;font-size:30px;color:transparent}
-.tag{color:var(--dim);font-size:13px;margin:10px 0 20px}
-.card h2{font-family:var(--mono);font-size:22px;color:var(--cyan);margin-bottom:14px;letter-spacing:1px}
-.btn{display:block;width:100%;margin:7px 0;background:rgba(255,255,255,.05);border:1px solid var(--edge);
-  color:var(--text);font-size:15px;font-weight:600;padding:12px;border-radius:11px;transition:transform .06s,border-color .15s,background .15s}
-.btn:hover{border-color:var(--cyan);background:rgba(79,240,208,.08)}
-.btn:active{transform:scale(.97)}
-.btn.primary{background:linear-gradient(95deg,var(--cyan),var(--blue));border:none;color:#04121a;font-weight:800;letter-spacing:1px}
-.btn.ghost{font-size:12px;opacity:.7;padding:8px}
-.toggle{display:flex;justify-content:space-between;align-items:center;padding:11px 4px;font-size:15px;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);margin:6px 0}
-.toggle input{width:20px;height:20px;accent-color:var(--cyan)}
-.how{list-style:none;text-align:left;margin-bottom:16px}
-.how li{font-size:13px;color:var(--dim);padding:5px 0;line-height:1.45}
-.how b{color:var(--blue)}
-.best{margin-top:14px;font-size:13px;color:var(--dim);font-family:var(--mono)}
-.best b{color:var(--gold)}
+/* ---- upgrade panel (right, W-250, 70) ---- */
+#panel {
+  position: absolute; left: 902px; top: 70px; width: 234px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.panel-title { font-size: 16px; color: #d6dae3; text-align: center; }
+.up-btn {
+  min-height: 40px; font-size: 15px; line-height: 1.2; white-space: pre-line;
+  color: #e6e9f0; background: #3a4150; border: 1px solid #4a5363; border-radius: 4px;
+  cursor: pointer; padding: 4px 8px; transition: background .1s;
+}
+.up-btn:hover:not(:disabled) { background: #46506180; background: #465061; }
+.up-btn:active:not(:disabled) { background: #2f3645; }
+.up-btn:disabled { color: #7a818f; background: #2b303b; border-color: #353b47; cursor: default; }
+
+/* ---- game over panel (center) ---- */
+#gameover {
+  position: absolute; left: 366px; top: 194px; width: 420px; height: 260px;
+  background: #1b1f2a; border: 1px solid #353b47; border-radius: 6px;
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px;
+}
+#gameover.show { display: flex; }
+#go-text { font-size: 18px; line-height: 1.4; color: #e6e9f0; text-align: center; font-family: inherit; }
+#btn-restart {
+  min-height: 44px; width: 100%; font-size: 20px; color: #e6e9f0;
+  background: #3a4150; border: 1px solid #4a5363; border-radius: 4px; cursor: pointer;
+}
+#btn-restart:hover { background: #465061; }

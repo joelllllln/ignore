@@ -2,84 +2,43 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>IDLE DOT SHOOTER</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idle Dot Shooter</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="game-root">
-  <canvas id="game"></canvas>
+<div id="stage">
+  <canvas id="game" width="1152" height="648"></canvas>
 
-  <!-- ===================== HUD ===================== -->
-  <div id="hud" class="layer">
-    <div class="hud-row">
-      <div class="hud-coins">◆ <b id="ui-coins">0</b></div>
-      <div class="hud-wave">
-        <div class="wave-label">CITY <b id="ui-city">1</b> · WAVE <b id="ui-wave">1</b> <span id="ui-quota"></span></div>
-        <div class="bar wave-bar"><div id="wave-fill"></div></div>
-      </div>
-      <button class="chip" id="btn-pause">❚❚</button>
+  <!-- UI layer is sized to the logical 1152x648 and scaled to match the canvas -->
+  <div id="ui-root">
+    <!-- top: speed / difficulty slider -->
+    <div id="bar">
+      <span class="bar-label">SPEED / DIFFICULTY</span>
+      <input type="range" id="slider" min="0.5" max="3.0" step="0.1" value="1.0" />
+      <span id="diff-val">1.0x</span>
     </div>
-    <div class="base-row">
-      <span class="base-label">BASE</span>
-      <div class="bar base-bar"><div id="base-fill"></div></div>
-    </div>
-  </div>
 
-  <!-- ===================== CONTROLS ===================== -->
-  <div id="controls" class="layer">
-    <div class="speed-row">
-      <span>SPEED</span>
-      <input type="range" id="speed" min="1" max="5" step="1" value="1" />
-      <b id="speed-val" class="gold">1×</b>
-    </div>
-    <div id="shop" class="shop"></div>
-  </div>
+    <!-- top-left stats -->
+    <pre id="stats"></pre>
 
-  <!-- ===================== START MENU ===================== -->
-  <div id="menu" class="screen visible">
-    <div class="card">
-      <h1 class="title">IDLE&nbsp;DOT<span>SHOOTER</span></h1>
-      <p class="tag">Auto-fire. Crack the dots. Bank coins. Upgrade forever.</p>
-      <button class="btn primary" id="btn-play">▶ PLAY</button>
-      <button class="btn" id="btn-how">❔ How to play</button>
-      <label class="toggle"><span>🔊 Sound</span><input type="checkbox" id="set-sound" checked></label>
-      <button class="btn ghost" id="btn-reset">⟲ Reset save</button>
-      <div class="best">Furthest: City <b id="ui-best">1</b></div>
+    <!-- right-side upgrade panel -->
+    <div id="panel">
+      <div class="panel-title">— UPGRADES —</div>
+      <button class="up-btn" id="btn-dmg"></button>
+      <button class="up-btn" id="btn-rate"></button>
+      <button class="up-btn" id="btn-cannon"></button>
+      <button class="up-btn" id="btn-wall"></button>
     </div>
-  </div>
 
-  <!-- ===================== HOW TO ===================== -->
-  <div id="how" class="screen">
-    <div class="card">
-      <h2>How to play</h2>
-      <ul class="how">
-        <li>🔻 <b>Dots</b> fall from the top. Each has health that grows every wave.</li>
-        <li>🔫 Your <b>cannons</b> auto-fire at the nearest dot. Kills earn <b>◆ coins</b>.</li>
-        <li>🛒 Spend coins on <b>Damage, Fire Rate, +Cannon, Coin Boost</b> — costs rise each level.</li>
-        <li>🌊 Clear a wave's quota to advance. Every 10th wave is a <b>BOSS</b>.</li>
-        <li>🛡️ Dots that reach the bottom hurt your <b>Base</b>. If it falls, you regroup a few waves back — never game over.</li>
-        <li>⏩ <b>Speed</b> fast-forwards the assault (more coins, more pressure).</li>
-        <li>👆 <b>Tap a dot</b> to blast it yourself.</li>
-      </ul>
-      <button class="btn primary" id="btn-how-back">BACK</button>
-    </div>
-  </div>
-
-  <!-- ===================== PAUSE ===================== -->
-  <div id="pause" class="screen">
-    <div class="card">
-      <h2>Paused</h2>
-      <button class="btn primary" id="btn-resume">▶ Resume</button>
-      <label class="toggle"><span>🔊 Sound</span><input type="checkbox" id="set-sound2" checked></label>
-      <button class="btn ghost" id="btn-quit">⟵ Main menu</button>
+    <!-- game over -->
+    <div id="gameover">
+      <pre id="go-text"></pre>
+      <button id="btn-restart">RESTART</button>
     </div>
   </div>
 </div>
-
-<script src="js/engine.js"></script>
-<script src="js/audio.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
