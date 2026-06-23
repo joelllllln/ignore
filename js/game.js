@@ -29,8 +29,10 @@
     { id: "damage",   tab: "def", name: "Damage",    base: 14, mul: 1.18, desc: () => fmt(derived.damage) + " dmg" },
     { id: "crit",     tab: "def", name: "Critical Hits", base: 60, mul: 1.26, desc: () => Math.round(derived.critChance * 100) + "% · ×" + derived.critMult.toFixed(1) },
     { id: "marines",  tab: "def", name: "Marines",   base: 250, mul: 1.55, max: 8, desc: l => l + " / 8 units" },
-    { id: "mortar",   tab: "def", name: "Mortar (splash)", base: 800, mul: 3.2, max: 6, desc: l => l ? "Lv " + l : "Unlock" },
-    { id: "plasma",   tab: "def", name: "Plasma (heavy)", base: 6000, mul: 3.4, max: 6, desc: l => l ? "Lv " + l : "Unlock" },
+    { id: "mortar",   tab: "def", name: "Mortar (splash)", base: 800, mul: 3.2, max: 6, gal: 2, desc: l => l ? "Lv " + l : "Unlock" },
+    { id: "plasma",   tab: "def", name: "Plasma (heavy)", base: 6000, mul: 3.4, max: 6, gal: 3, desc: l => l ? "Lv " + l : "Unlock" },
+    { id: "laser",    tab: "def", name: "Laser (rapid)", base: 45000, mul: 3.4, max: 6, gal: 5, desc: l => l ? "Lv " + l : "Unlock" },
+    { id: "railgun",  tab: "def", name: "Railgun (heavy)", base: 350000, mul: 3.6, max: 6, gal: 7, desc: l => l ? "Lv " + l : "Unlock" },
     // Drone
     { id: "droneSpeed", tab: "drone", name: "Drone Speed", base: 16, mul: 1.17, desc: () => Math.round(derived.droneSpeed) + " px/s" },
     { id: "suction",    tab: "drone", name: "Suction",     base: 22, mul: 1.20, desc: () => Math.round(derived.suction) + " radius" },
@@ -124,6 +126,8 @@
     for (let i = 0; i < S.lv.marines; i++) sources.push({ t: "marine", cd: rnd(0, 0.3) });
     if (S.lv.mortar > 0) sources.push({ t: "mortar", cd: 0 });
     if (S.lv.plasma > 0) sources.push({ t: "plasma", cd: 0 });
+    if (S.lv.laser > 0) sources.push({ t: "laser", cd: 0 });
+    if (S.lv.railgun > 0) sources.push({ t: "railgun", cd: 0 });
   }
   function sourcePos(i, n) {
     if (i === 0) return { x: W / 2, y: H / 2 };           // turret centre
@@ -141,7 +145,7 @@
       x: rnd(40, W - 40), y: rnd(70, H - 150),
       vx: rnd(-18, 18), vy: rnd(-18, 18),
       hp, maxHp: hp, value: val, r, special, hit: 0,
-      color: special ? "#ffd45e" : `hsl(${(g * 47) % 360},70%,62%)`,
+      color: special ? "#ffffff" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)`,
     });
   }
 
@@ -149,10 +153,12 @@
     let target = null, bd = Infinity;
     for (const d of dots) { const q = (d.x - pos.x) ** 2 + (d.y - pos.y) ** 2; if (q < bd) { bd = q; target = d; } }
     if (!target) return;
-    let dmg = derived.damage, color = "#ff4040", aoe = 0;
-    if (src.t === "marine") dmg *= 0.7;
-    else if (src.t === "mortar") { dmg *= 1.2 + 0.4 * S.lv.mortar; aoe = 46 + 8 * S.lv.mortar; color = "#ff8c3a"; }
-    else if (src.t === "plasma") { dmg *= 3 + 0.8 * S.lv.plasma; color = "#c08cff"; }
+    let dmg = derived.damage, color = "#ffffff", aoe = 0;
+    if (src.t === "marine") { dmg *= 0.7; color = "#cccccc"; }
+    else if (src.t === "mortar") { dmg *= 1.2 + 0.4 * S.lv.mortar; aoe = 46 + 8 * S.lv.mortar; color = "#9a9a9a"; }
+    else if (src.t === "plasma") { dmg *= 3 + 0.8 * S.lv.plasma; color = "#ffffff"; }
+    else if (src.t === "laser") { dmg *= 0.45 + 0.15 * S.lv.laser; color = "#ffffff"; }
+    else if (src.t === "railgun") { dmg *= 6 + 1.5 * S.lv.railgun; color = "#ffffff"; }
     if (Math.random() < derived.critChance) dmg *= derived.critMult;
     beams.push({ x1: pos.x, y1: pos.y, x2: target.x, y2: target.y, life: 0.08, color });
     if (aoe > 0) {
@@ -206,7 +212,7 @@
     const n = sources.length;
     for (let i = 0; i < n; i++) {
       const src = sources[i]; src.cd -= dt;
-      const rateMul = src.t === "mortar" ? 0.45 : src.t === "plasma" ? 0.35 : 1;
+      const rateMul = src.t === "mortar" ? 0.45 : src.t === "plasma" ? 0.35 : src.t === "laser" ? 2.2 : src.t === "railgun" ? 0.25 : 1;
       if (src.cd <= 0) { fireSource(src, sourcePos(i, n)); src.cd = 1 / (derived.fireRate * rateMul); }
     }
     for (const b of beams) b.life -= dt;
@@ -248,32 +254,32 @@
   function render() {
     ctx.clearRect(0, 0, W, H);
     const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.7);
-    g.addColorStop(0, `hsl(${(S.galaxy * 47) % 360},40%,9%)`); g.addColorStop(1, "#05070d");
+    g.addColorStop(0, `hsl(0,0%,${7 + ((S.galaxy - 1) % 6) * 2}%)`); g.addColorStop(1, "#000000");
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-    if (blackholeT > 0) { ctx.fillStyle = "rgba(150,90,255,0.10)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, TAU); ctx.fill(); }
+    if (blackholeT > 0) { ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, TAU); ctx.fill(); }
 
     for (const b of beams) { ctx.strokeStyle = b.color; ctx.lineWidth = 2; ctx.globalAlpha = clamp(b.life / 0.08, 0, 1); ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
 
     for (const d of dots) {
       ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill();
-      if (d.special) { ctx.strokeStyle = "#fff8c0"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
-      if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#67e89a"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); }
+      if (d.special) { ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
+      if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#ffffff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); }
     }
     // orbs
-    for (const o of orbs) { ctx.fillStyle = "#ffd45e"; ctx.beginPath(); ctx.arc(o.x, o.y, 4, 0, TAU); ctx.fill(); }
+    for (const o of orbs) { ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(o.x, o.y, 4, 0, TAU); ctx.fill(); }
     // turret + sources
     const n = sources.length;
     for (let i = 0; i < n; i++) {
       const p = sourcePos(i, n), src = sources[i];
-      ctx.fillStyle = src.t === "turret" ? "#7aa8ff" : src.t === "mortar" ? "#ff8c3a" : src.t === "plasma" ? "#c08cff" : "#5bd6ff";
+      ctx.fillStyle = src.t === "turret" ? "#ffffff" : "#aaaaaa";
       ctx.beginPath(); ctx.arc(p.x, p.y, src.t === "turret" ? 14 : 8, 0, TAU); ctx.fill();
     }
     // drone
     if (drone) {
-      ctx.strokeStyle = "rgba(91,214,255,0.25)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(drone.x, drone.y, derived.suction, 0, TAU); ctx.stroke();
-      ctx.fillStyle = "#5bd6ff"; ctx.save(); ctx.translate(drone.x, drone.y); ctx.rotate(Date.now() / 300); ctx.fillRect(-7, -7, 14, 14); ctx.restore();
+      ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(drone.x, drone.y, derived.suction, 0, TAU); ctx.stroke();
+      ctx.fillStyle = "#dddddd"; ctx.save(); ctx.translate(drone.x, drone.y); ctx.rotate(Date.now() / 300); ctx.fillRect(-7, -7, 14, 14); ctx.restore();
     }
   }
 
@@ -301,13 +307,14 @@
       row.desc.textContent = u.desc(lvl);
       if (maxed) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.el.classList.add("maxed"); row.buy.classList.remove("afford"); continue; }
       row.el.classList.remove("maxed");
+      if (u.gal && S.galaxy < u.gal) { row.buy.textContent = "🔒 G" + u.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.desc.textContent = "Unlocks in Galaxy " + u.gal; continue; }
       const r = levelsToBuy(u, buyMode);
       if (r.count <= 0) { row.buy.textContent = "$" + fmt(upCost(u)); row.buy.disabled = true; row.buy.classList.remove("afford"); }
       else { row.buy.textContent = (buyMode === "x1" ? "" : "×" + r.count + " ") + "$" + fmt(r.total); row.buy.disabled = false; row.buy.classList.add("afford"); }
     }
     // tab "affordable" badges
     const aff = { def: false, drone: false, eco: false };
-    for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
+    for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (u.gal && S.galaxy < u.gal) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
     for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
   }
 
@@ -339,10 +346,11 @@
     return { count, total };
   }
   function buyUpgrade(u) {
+    if (u.gal && S.galaxy < u.gal) return;
     const r = levelsToBuy(u, buyMode);
     if (r.count <= 0) return;
     S.cash -= r.total; S.lv[u.id] += r.count;
-    if (u.id === "marines" || u.id === "mortar" || u.id === "plasma") rebuildSources();
+    if (["marines", "mortar", "plasma", "laser", "railgun"].includes(u.id)) rebuildSources();
     const row = listRows[u.id];
     if (row && row.el.animate) row.el.animate([{ filter: "brightness(1.9)" }, { filter: "brightness(1)" }], 220);
     recompute(); syncHUD(); save();
@@ -387,6 +395,27 @@
     }
   }
 
+  // interactive galaxy / progress map
+  function buildGalaxyMap() {
+    const wrap = $("gm-list"); wrap.innerHTML = "";
+    const maxG = Math.max(S.peakGalaxy + 2, S.galaxy + 2, 10);
+    for (let g = 1; g <= maxG; g++) {
+      const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
+      const weps = UPS.filter(u => u.gal === g).map(u => u.name.replace(/ \(.*/, "")).join(", ");
+      const el = document.createElement("div");
+      el.className = "gm " + (current ? "current" : reached ? "done" : next ? "next" : "locked");
+      let right;
+      if (current) right = "<span class='gm-here'>▶ HERE</span>";
+      else if (reached) right = "<span class='gm-chk'>✓</span>";
+      else if (next) { const c = travelCost(S.galaxy); right = "<button class='gm-go'" + (S.cash >= c ? "" : " disabled") + ">$" + fmt(c) + "</button>"; }
+      else right = "<span class='gm-lock'>🔒</span>";
+      el.innerHTML = "<span class='gm-n'>" + g + "</span><div class='gm-mid'><div class='gm-name'>" + galName(g) +
+        "</div><div class='gm-sub'>" + (weps ? "Unlocks: " + weps : current ? "You are here" : next ? "Next galaxy" : "Locked") + "</div></div>" + right;
+      wrap.appendChild(el);
+      if (next) { const b = el.querySelector(".gm-go"); if (b) b.onclick = () => { travel(); buildGalaxyMap(); }; }
+    }
+  }
+
   /* ----------------------------- input / wiring ------------------ */
   for (const t of document.querySelectorAll(".tab[data-tab]")) {
     tabBtns[t.dataset.tab] = t;
@@ -404,6 +433,8 @@
   $("btn-rebirth").onclick = openRebirth;
   $("rb-confirm").onclick = doRebirth;
   $("rb-close").onclick = () => $("rebirth-modal").classList.remove("show");
+  $("galaxy-open").onclick = () => { buildGalaxyMap(); $("galaxy-map").classList.add("show"); };
+  $("gm-close").onclick = () => $("galaxy-map").classList.remove("show");
   $("btn-sd").onclick = () => { buildSD(); $("sd-shop").classList.add("show"); };
   $("sd-close").onclick = () => $("sd-shop").classList.remove("show");
   $("btn-menu").onclick = () => { paused = true; $("menu").classList.add("show"); };

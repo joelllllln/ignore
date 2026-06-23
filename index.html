@@ -14,8 +14,8 @@
   <!-- TOP BAR -->
   <div id="top" class="layer">
     <div class="t-cash">$<b id="ui-cash">0</b><span id="ui-cap"> / 0</span></div>
-    <div class="t-galaxy">
-      <div class="g-label">GALAXY <b id="ui-galaxy">1</b> <span id="ui-gname"></span></div>
+    <div class="t-galaxy" id="galaxy-open">
+      <div class="g-label">GALAXY <b id="ui-galaxy">1</b> <span id="ui-gname"></span> <span class="g-tap">▾</span></div>
       <div class="g-bar"><div id="galaxy-fill"></div></div>
     </div>
     <div class="t-sd" id="sd-wrap">✦ <b id="ui-stardust">0</b></div>
@@ -39,6 +39,14 @@
       <button class="act travel" id="btn-travel">TRAVEL ▸</button>
       <button class="act dust" id="btn-sd">✦ DUST</button>
       <button class="act rebirth hidden" id="btn-rebirth">✦ REBIRTH</button>
+    </div>
+  </div>
+
+  <!-- GALAXY MAP -->
+  <div id="galaxy-map" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>Galaxies &amp; progress</h2><button class="x" id="gm-close">✕</button></div>
+      <div id="gm-list"></div>
     </div>
   </div>
 
