@@ -457,7 +457,7 @@
   }
   // interactive pseudo-3D black & white star map
   const GMap = {
-    open: false, yaw: 0.6, pitch: -0.25, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
+    open: false, yaw: 0.6, pitch: -0.95, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
@@ -476,7 +476,7 @@
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
-    node(g) { const i = g - 1, total = 26, t = i / (total - 1), ang = i * 0.62, rad = 18 + (1 - t) * 150; return { x: Math.cos(ang) * rad, y: (t - 0.5) * 16, z: Math.sin(ang) * rad }; },
+    node(g) { const i = g - 1, total = 26, t = i / (total - 1), ang = i * 0.92, rad = 14 + (1 - t) * 158; return { x: Math.cos(ang) * rad, y: (t - 0.5) * 10, z: Math.sin(ang) * rad }; },
     cluster(cx, cy, scale, bright, rot) {
       const c = this.c, n = 22;
       for (let k = 0; k < n; k++) { const tk = k / n, ang = tk * 6.2 + rot, r = tk * scale, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r * 0.62; c.globalAlpha = bright * (1 - tk * 0.55); c.fillStyle = "#fff"; c.fillRect(x, y, 1.6, 1.6); }
