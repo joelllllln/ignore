@@ -44,10 +44,11 @@
   const keyOn = (type, id) => !!(S.classKeys && S.classKeys[type] && S.classKeys[type][id]);
   const pathCost = (type, k) => Math.floor(DEF_TYPES[type].base * 1.5 * Math.pow(2.6, ct(type)[k]));
   const keyCost = type => Math.floor(DEF_TYPES[type].base * 14);
-  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * (ct(u.type).a >= 5 ? 1.25 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * derived.sdDmg;
-  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * (ct(u.type).b >= 5 ? 1.5 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * derived.sdFire;
-  const uRange = u => DEF_TYPES[u.type].range + 55 * ct(u.type).c;
-  const uCrit = u => (ct(u.type).c >= 5 ? 0.45 : ct(u.type).c >= 3 ? 0.25 : 0) + (keyOn(u.type, "ksbc") ? 0.15 : 0);
+  const kcore = type => keyOn(type, "kscore") ? 1.25 : 1;
+  const uDmg = u => DEF_TYPES[u.type].dmg * Math.pow(1.7, ct(u.type).a) * (ct(u.type).a >= 5 ? 1.25 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * kcore(u.type) * derived.sdDmg;
+  const uRate = u => DEF_TYPES[u.type].rate * Math.pow(1.35, ct(u.type).b) * (ct(u.type).b >= 5 ? 1.5 : 1) * (keyOn(u.type, "ksab") ? 1.2 : 1) * kcore(u.type) * derived.sdFire;
+  const uRange = u => (DEF_TYPES[u.type].range + 55 * ct(u.type).c) * (keyOn(u.type, "ksac") ? 1.25 : 1);
+  const uCrit = u => (ct(u.type).c >= 5 ? 0.45 : ct(u.type).c >= 3 ? 0.25 : 0) + (keyOn(u.type, "ksbc") ? 0.15 : 0) + (keyOn(u.type, "kscore") ? 0.1 : 0);
   const uCritMul = u => 2 + 0.3 * ct(u.type).c;
   const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + 14 * ct(u.type).c : 0;
 
@@ -344,18 +345,49 @@
   function Audio_buy() {}  // (silent build)
 
   /* --------------------- class skill WEB (node graph) ------------ */
-  // a branching web: a central root, three arms (Power/Speed/Optics) of 5
-  // nodes each (each needs the previous), plus keystones that need nodes from
-  // two arms. Rendered on a pan/zoom canvas; nodes unlock only with prereqs.
+  // A genuine web, laid out uniquely per class: a central root, three arms
+  // (Power/Speed/Optics) fanned at 120° and CURVED into a pinwheel, woven
+  // together by cross-links (diagonal prerequisites between arms) and bridge
+  // keystones, all converging on a central capstone that needs all three arms.
+  // Each class has its own rotation, curve, cross-weave and keystone names, so
+  // no two webs look or unlock the same. Nodes light up only with prereqs.
+  const CLASS_WEB = {
+    //         rot (base angle)   curve   cross-links [node, extraReq]            keystone names [ab, bc, ac, core]
+    turret:  { rot: -1.57, curve:  0.13, cross: [["a4", "b2"], ["c3", "a1"]],            keys: ["Twin Cannons", "Marksman", "Heavy Optics", "War Machine"] },
+    mortar:  { rot: -1.10, curve: -0.20, cross: [["b3", "a2"], ["c4", "b1"], ["a3", "c1"]], keys: ["Saturation", "Spotter Net", "Blast Lens", "Annihilation"] },
+    plasma:  { rot: -1.90, curve:  0.24, cross: [["c4", "a2"], ["a3", "b2"]],            keys: ["Ion Storm", "Crit Cascade", "Phase Lens", "Singularity"] },
+    laser:   { rot: -1.30, curve: -0.16, cross: [["b4", "c2"], ["c3", "a2"], ["a4", "b3"]], keys: ["Resonance", "Prism Crit", "Mirror Array", "Death Beam"] },
+    railgun: { rot: -2.10, curve:  0.30, cross: [["a4", "c2"], ["b3", "a1"]],            keys: ["Overrail", "Calibrated", "Long Shot", "Railstorm"] },
+  };
   function webNodes(type) {
+    const cfg = CLASS_WEB[type] || CLASS_WEB.turret, arms = ["a", "b", "c"], pos = { root: { x: 0, y: 0 } };
     const N = [{ id: "root", x: 0, y: 0, kind: "root", name: DEF_TYPES[type].name, req: [] }];
-    const arms = { a: { dx: -1, dy: -0.15 }, b: { dx: 1, dy: -0.15 }, c: { dx: 0, dy: 1 } };
-    for (const k in arms) for (let t = 1; t <= MAXTIER; t++)
-      N.push({ id: k + t, kind: "branch", key: k, tier: t, x: arms[k].dx * t, y: arms[k].dy * t + (k === "c" ? 0 : -t * 0.12), name: SKILLS[type][k][t - 1], fx: nodeEffect(k, t), req: [t === 1 ? "root" : k + (t - 1)] });
-    N.push({ id: "ksab", kind: "key", x: 0, y: -2.1, name: "Twin Link", fx: "+20% dmg & rate", req: ["a3", "b3"] });
-    N.push({ id: "ksbc", kind: "key", x: 1.5, y: 1.5, name: "Keen Optics", fx: "+15% crit", req: ["b3", "c3"] });
+    arms.forEach((k, ai) => {
+      const base = cfg.rot + ai * (Math.PI * 2 / 3);
+      for (let t = 1; t <= MAXTIER; t++) {
+        const ang = base + cfg.curve * t, rad = t * 0.62, x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+        pos[k + t] = { x, y };
+        N.push({ id: k + t, kind: "branch", key: k, tier: t, x, y, name: SKILLS[type][k][t - 1], fx: nodeEffect(k, t), req: [t === 1 ? "root" : k + (t - 1)] });
+      }
+    });
+    // weave the arms together: each cross-link adds a real diagonal prerequisite.
+    const byId = {}; N.forEach(n => byId[n.id] = n);
+    for (const [node, extra] of cfg.cross) if (byId[node] && pos[extra]) byId[node].req.push(extra);
+    // bridge keystones sit between two arms (real cross-arm gates + edges).
+    const mid = (p, q, push) => ({ x: (pos[p].x + pos[q].x) / 2 * push, y: (pos[p].y + pos[q].y) / 2 * push });
+    const mab = mid("a3", "b3", 1.25), mbc = mid("b3", "c3", 1.25), mac = mid("c3", "a3", 1.25);
+    N.push({ id: "ksab", kind: "key", x: mab.x, y: mab.y, name: cfg.keys[0], fx: "+20% dmg & rate", req: ["a3", "b3"] });
+    N.push({ id: "ksbc", kind: "key", x: mbc.x, y: mbc.y, name: cfg.keys[1], fx: "+15% crit", req: ["b3", "c3"] });
+    N.push({ id: "ksac", kind: "key", x: mac.x, y: mac.y, name: cfg.keys[2], fx: "+25% range", req: ["c3", "a3"] });
+    // crowning capstone: needs all three keystones — its edges fan back across
+    // the whole web. Sits out past the bridges so it doesn't cover the root.
+    const cap = cfg.rot + Math.PI, cr = 2.75;
+    N.push({ id: "kscore", kind: "key", x: Math.cos(cap) * cr, y: Math.sin(cap) * cr, name: cfg.keys[3], fx: "+25% dmg & rate · +10% crit", req: ["ksab", "ksbc", "ksac"] });
     return N;
   }
+  // is a web node (by id) already owned for this class? handles root / branch
+  // tiers (a3) / keystones (ksab, kscore — ids starting with 'k').
+  function webOwned(type, id) { return id === "root" ? true : id[0] === "k" ? keyOn(type, id) : ct(type)[id[0]] >= +id.slice(1); }
   const STree = {
     type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
@@ -375,7 +407,7 @@
     open(type) { this.type = type; this.cx = 0; this.cy = 0; this.zoom = 1; this.resize(); },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     owned(n) { return n.kind === "root" ? true : n.kind === "branch" ? ct(this.type)[n.key] >= n.tier : keyOn(this.type, n.id); },
-    buyable(n) { if (this.owned(n)) return false; if (n.kind === "branch") return ct(this.type)[n.key] + 1 === n.tier; if (n.kind === "key") return n.req.every(r => ct(this.type)[r[0]] >= +r.slice(1)); return false; },
+    buyable(n) { if (this.owned(n)) return false; if (!n.req.every(r => webOwned(this.type, r))) return false; if (n.kind === "branch") return ct(this.type)[n.key] + 1 === n.tier; return n.kind === "key"; },
     cost(n) { return n.kind === "key" ? keyCost(this.type) : Math.floor(DEF_TYPES[this.type].base * 1.5 * Math.pow(2.6, n.tier - 1)); },
     sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.11 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h * 0.46 + this.cy + ny * u, u }; },
     render(dt) {
@@ -413,7 +445,7 @@
     S.cash -= c; tt[k]++; recompute(); syncHUD(); save();
   }
   function buyKey(type, n) {
-    if (keyOn(type, n.id)) return; if (!n.req.every(r => ct(type)[r[0]] >= +r.slice(1))) return;
+    if (keyOn(type, n.id)) return; if (!n.req.every(r => webOwned(type, r))) return;
     const c = keyCost(type); if (S.cash < c) return;
     S.cash -= c; S.classKeys[type][n.id] = true; recompute(); syncHUD(); save();
   }
