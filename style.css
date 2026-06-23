@@ -116,6 +116,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #gmap{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
 .map-bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;z-index:2}
 .map-title{font-family:var(--mono);letter-spacing:3px;color:#fff;font-size:14px}
+.map-btns{display:flex;align-items:center;gap:8px}
+.mbtn{background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:9px;padding:7px 11px;font-size:12px;font-weight:700}
+.mbtn:hover{border-color:#fff}
 .map-bar .x{font-size:20px}
 .map-hint{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:var(--dim);font-size:12px;z-index:2;pointer-events:none}
 
@@ -161,7 +164,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #sttree:active{cursor:grabbing}
 .st-foot{padding:12px 16px;display:flex;align-items:center;gap:12px}
 .st-foot .st-tip{flex:1;color:var(--dim);font-size:11px}
-.st-foot #st-sell{flex:0 0 auto;min-width:120px;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:10px;padding:11px 16px;font-weight:700}
+.st-foot #st-reset{flex:0 0 auto;background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:10px;padding:11px 14px;font-weight:700}
+.st-foot #st-reset:hover{border-color:#fff}
+.st-foot #st-sell{flex:0 0 auto;min-width:110px;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:10px;padding:11px 16px;font-weight:700}
 
 /* ---- galaxy info panel ---- */
 .gm-info{position:absolute;left:12px;right:12px;bottom:44px;z-index:3;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;display:none}
