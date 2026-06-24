@@ -35,12 +35,12 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 110, suction: 70,  collect: 16, yield: 1.0, mode: "chase", sides: 4 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 165, suction: 100, collect: 22, yield: 1.2, mode: "swarm", sides: 3 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 120, suction: 135, collect: 34, yield: 1.5, mode: "chase", sides: 6 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 150, suction: 190, collect: 42, yield: 1.9, mode: "chase", sides: 5 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 135, suction: 265, collect: 54, yield: 2.3, mode: "chase", sides: 8 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 50,  suction: 390, collect: 72, yield: 2.8, mode: "hole",  sides: 0 },
+    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, mode: "swarm", sides: 3 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, mode: "chase", sides: 6 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, mode: "chase", sides: 5 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, mode: "chase", sides: 8 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, mode: "hole",  sides: 0 },
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -163,10 +163,11 @@
   const GAL_NAMES = ["The Void", "Azure", "Ember", "Verdant", "Cobalt", "Crimson", "Amber", "Violet", "Frost", "Nova", "Abyss"];
   const galName = g => GAL_NAMES[(g - 1) % GAL_NAMES.length] + (g > GAL_NAMES.length ? " " + g : "");
   const travelCost = g => Math.floor(800 * Math.pow(7, g - 1));
-  const enemyHpMul = g => Math.pow(2.4, g - 1);
-  const galValueMul = g => Math.pow(2.0, g - 1);
-  const galSpawnMul = g => 1 + (g - 1) * 0.85;          // far more dots in later galaxies
-  const galCap = g => Math.min(70 + g * 45, 340);
+  const enemyHpMul = g => Math.pow(2.5, g - 1);
+  const galValueMul = g => Math.pow(2.2, g - 1);
+  const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
+  const galCap = g => Math.min(80 + g * 50, 380);
+  const ORB_LIFE = 13;                                  // orbs vanish fast — collectors must keep up
 
   /* ----------------------------- state --------------------------- */
   let S, derived = {}, META, state = "home";
@@ -178,7 +179,7 @@
   function freshStats() {
     const kills = {}; DEF_ORDER.forEach(t => kills[t] = 0); kills.draw = 0; kills.blackhole = 0;
     const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
-    return { playSec: 0, dotsPopped: 0, specials: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, rebirths: 0 };
+    return { playSec: 0, dotsPopped: 0, specials: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, rebirths: 0, lost: 0, lostCash: 0 };
   }
   function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0, stats: freshStats() }; }
   const stat = () => META.stats;
@@ -231,9 +232,12 @@
   }
 
   function spawnDot(special) {
-    const g = S.galaxy, hp = 5 * enemyHpMul(g) * rnd(0.8, 1.6);
+    const g = S.galaxy, roll = rnd(0.7, 1.9), hp = 6 * enemyHpMul(g) * roll;
     special = special || Math.random() < derived.luck;
-    const val = Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (special ? 9 : 1));
+    // payout scales with the dot's actual toughness (roll/avg), so harder dots
+    // are worth more — and tough rolls drop a real bounty.
+    const hpFactor = roll / 1.3;
+    const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * hpFactor * (special ? 9 : 1)));
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, 7, 24);
     dots.push({ x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-20, 20), vy: rnd(-20, 20),
       hp, maxHp: hp, value: val, r, special, hit: 0, drawCd: 0, color: special ? "#ffffff" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` });
@@ -311,8 +315,8 @@
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
       let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
-      if (nd) { const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 150 : 240; o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > 45) { if (o.t <= 45) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; } orbs.splice(i, 1); } }
-      else if (o.t > 45) orbs.splice(i, 1);
+      if (nd) { const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 150 : 240; o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > ORB_LIFE) { if (o.t <= ORB_LIFE) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; } else { META.stats.lost++; META.stats.lostCash += o.value; } orbs.splice(i, 1); } }
+      else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
@@ -334,7 +338,7 @@
       if (d.special) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
       if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); }
     }
-    for (const o of orbs) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(o.x, o.y, 4, 0, TAU); ctx.fill(); }
+    for (const o of orbs) { const life = clamp(1 - o.t / ORB_LIFE, 0, 1); ctx.globalAlpha = 0.35 + 0.65 * life; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(o.x, o.y, 2.5 + 2 * life, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1;
     const n = S.units.length;
     for (let i = 0; i < n; i++) {
       const u = S.units[i], p = unitPos(i, n);
@@ -684,7 +688,8 @@
       sec("Economy", grid(
         row("Cash / sec", "$" + fmt(cps)) + row("Capacity", "$" + fmt(derived.capacity)) +
         row("Earned this run", "$" + fmt(S.totalRun)) + row("Earned all-time", "$" + fmt(META.totalEver)) +
-        row("Star Dust", "✦ " + fmt(META.starDust)) + row("Skill nodes", nodes))) +
+        row("Star Dust", "✦ " + fmt(META.starDust)) + row("Skill nodes", nodes) +
+        row("Cash lost (uncollected)", "$" + fmt(s.lostCash || 0)))) +
       sec("Combat", grid(
         row("Dots popped", fmt(s.dotsPopped)) + row("Special dots", fmt(s.specials)) +
         row("On screen now", dots.length) + row("Avg pops / min", s.playSec > 1 ? fmt(Math.round(s.dotsPopped / s.playSec * 60)) : "0"))) +
