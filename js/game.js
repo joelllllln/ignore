@@ -54,7 +54,9 @@
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
   const DEF_PRIM = ["dmg", "rate", "range"], COL_PRIM = ["speed", "suction", "yield"];
-  const MAG = { mul: { min: 0.10, maj: 0.22, key: 0.16 }, range: { min: 16, maj: 34, key: 24 }, crit: { min: 0.06, maj: 0.10, key: 0.06 }, collect: { min: 4, maj: 8, key: 5 } };
+  // mul stats COMPOUND per node (so each node is felt, keystones are big spikes);
+  // flat stats (range/crit/collect) add up.
+  const MAG = { mul: { min: 1.16, maj: 1.5, key: 2.0 }, range: { min: 22, maj: 60, key: 130 }, crit: { min: 0.05, maj: 0.10, key: 0.18 }, collect: { min: 5, maj: 13, key: 28 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     const col = isCol(type);
@@ -69,7 +71,7 @@
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
       for (const s of n.slots) { const amt = slotAmt(type, s);
         if (s.p === "x") { if (col) o.collect += amt; else o.crit += amt; }
-        else { const key = prim[s.p - 1]; if (key === "range") o.range += amt; else o[key] += amt; } } }
+        else { const key = prim[s.p - 1]; if (key === "range") o.range += amt; else o[key] *= amt; } } }
     return o;
   }
   const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0 };
@@ -182,7 +184,7 @@
   function freshStats() {
     const kills = {}; DEF_ORDER.forEach(t => kills[t] = 0); kills.draw = 0; kills.blackhole = 0;
     const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
-    return { playSec: 0, dotsPopped: 0, specials: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, rebirths: 0, lost: 0, lostCash: 0 };
+    return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, rebirths: 0, lost: 0, lostCash: 0 };
   }
   function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0, stats: freshStats() }; }
   const stat = () => META.stats;
@@ -234,16 +236,20 @@
     for (let i = 0; i < n; i++) drones[i].type = S.collectors[i].type;
   }
 
+  const armorChance = g => Math.min(0.05 + 0.022 * (g - 1), 0.28);
   function spawnDot(special) {
-    const g = S.galaxy, roll = rnd(0.7, 1.9), hp = 6 * enemyHpMul(g) * roll;
-    special = special || Math.random() < derived.luck;
-    // payout scales with the dot's actual toughness (roll/avg), so harder dots
-    // are worth more — and tough rolls drop a real bounty.
-    const hpFactor = roll / 1.3;
-    const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * hpFactor * (special ? 9 : 1)));
-    const r = clamp(7 + Math.log10(hp + 10) * 2.6, 7, 24);
-    dots.push({ x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-20, 20), vy: rnd(-20, 20),
-      hp, maxHp: hp, value: val, r, special, hit: 0, drawCd: 0, color: special ? "#ffffff" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` });
+    const g = S.galaxy, base = 22 * enemyHpMul(g), avg = base * 1.3;
+    let roll = rnd(0.7, 1.9), armored = false;
+    if (Math.random() < armorChance(g)) { armored = true; roll *= rnd(4, 7); }   // elite, high-defense dot
+    const hp = base * roll, mv = armored ? 9 : 20;
+    special = special || (!armored && Math.random() < derived.luck);
+    // payout scales with the dot's ACTUAL toughness, so tanky/armored dots pay a
+    // real bounty — killing them faster (more damage) earns more.
+    const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (hp / avg) * (special ? 9 : 1)));
+    const r = clamp(7 + Math.log10(hp + 10) * 2.6, 7, armored ? 36 : 24);
+    dots.push({ x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),
+      hp, maxHp: hp, value: val, r, special, armored, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0,
+      color: armored ? "#9a9a9a" : special ? "#ffffff" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` });
   }
 
   function fireUnit(u, p) {
@@ -263,7 +269,7 @@
     if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type); }
     else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
   }
-  function hitDot(d, dmg, src) { if (d.dead) return; d.hp -= dmg; d.hit = 0.08; if (d.hp <= 0) { d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0 }); const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (src) s.kills[src] = (s.kills[src] || 0) + 1; } }
+  function hitDot(d, dmg, src) { if (d.dead) return; d.hp -= dmg; d.hit = 0.08; if (d.hp <= 0) { d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0, weight: d.weight || 1 }); const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (d.armored) s.armored = (s.armored || 0) + 1; if (src) s.kills[src] = (s.kills[src] || 0) + 1; } }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
   function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, dmg, "draw"); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }
 
@@ -318,7 +324,7 @@
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
       let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
-      if (nd) { const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 150 : 240; o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > ORB_LIFE) { if (o.t <= ORB_LIFE) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; } else { META.stats.lost++; META.stats.lostCash += o.value; } orbs.splice(i, 1); } }
+      if (nd) { const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 150 : 240) / (o.weight || 1); o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > ORB_LIFE) { if (o.t <= ORB_LIFE) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; } else { META.stats.lost++; META.stats.lostCash += o.value; } orbs.splice(i, 1); } }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; }
@@ -339,9 +345,10 @@
     for (const d of dots) {
       ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill();
       if (d.special) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
+      if (d.armored) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.x, d.y, d.r - 2, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
       if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); }
     }
-    for (const o of orbs) { const life = clamp(1 - o.t / ORB_LIFE, 0, 1); ctx.globalAlpha = 0.35 + 0.65 * life; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(o.x, o.y, 2.5 + 2 * life, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1;
+    for (const o of orbs) { const life = clamp(1 - o.t / ORB_LIFE, 0, 1); ctx.globalAlpha = 0.35 + 0.65 * life; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(o.x, o.y, 2.5 + 2 * life + (o.weight > 1 ? 2.5 : 0), 0, TAU); ctx.fill(); } ctx.globalAlpha = 1;
     const n = S.units.length;
     for (let i = 0; i < n; i++) {
       const u = S.units[i], p = unitPos(i, n);
@@ -524,7 +531,7 @@
     const col = isCol(type), amt = slotAmt(type, s);
     if (s.p === "x") return col ? "+" + amt + " grab" : "+" + Math.round(amt * 100) + "% crit";
     const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
-    return key === "range" ? "+" + amt + " rng" : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
+    return key === "range" ? "+" + amt + " rng" : "×" + amt.toFixed(2).replace(/\.?0+$/, "") + " " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => (n.slots || []).map(s => slotText(type, s)).join(" · ");
   // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
@@ -552,7 +559,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 6 : n.kind === "major" ? 3 : 1; return Math.floor(TY(type).base * 1.6 * Math.pow(1.26, allocCount(type)) * k); }
+  function nodeCost(type, n) { const k = n.kind === "key" ? 12 : n.kind === "major" ? 4 : 1; return Math.floor(TY(type).base * 2.5 * Math.pow(1.4, allocCount(type)) * k); }
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
@@ -722,7 +729,7 @@
         row("Star Dust", "✦ " + fmt(META.starDust)) + row("Skill nodes", nodes) +
         row("Cash lost (uncollected)", "$" + fmt(s.lostCash || 0)))) +
       sec("Combat", grid(
-        row("Dots popped", fmt(s.dotsPopped)) + row("Special dots", fmt(s.specials)) +
+        row("Dots popped", fmt(s.dotsPopped)) + row("Special dots", fmt(s.specials)) + row("Armored killed", fmt(s.armored || 0)) +
         row("On screen now", dots.length) + row("Avg pops / min", s.playSec > 1 ? fmt(Math.round(s.dotsPopped / s.playSec * 60)) : "0"))) +
       sec("Destroyed by", ke.length ? ke.map(e => bar(e.label, fmt(e.n) + " · " + Math.round(e.n / tk * 100) + "%", e.n / tk * 100)).join("") : empty("No kills yet")) +
       sec("Cash collected by", ce.length ? ce.map(e => bar(e.label, "$" + fmt(e.v) + " · " + Math.round(e.v / tc * 100) + "%", e.v / tc * 100)).join("") : empty("Nothing collected yet")) +
