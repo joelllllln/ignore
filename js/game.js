@@ -65,7 +65,7 @@
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
     const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0 };
-    const A = S.classNodes[type], G = buildTree();
+    const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
       for (const s of n.slots) { const amt = slotAmt(type, s);
         if (s.p === "x") { if (col) o.collect += amt; else o.crit += amt; }
@@ -444,42 +444,59 @@
     tractor:     { keys: ["Singularity Beam", "Tow Yield", "Beam Lock"] },
     singularity: { keys: ["Big Crunch", "Mass Cash", "Tidal Lock"] },
   };
-  let _tree = null;
-  function buildTree() {
-    if (_tree) return _tree;
-    const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1 }], edges = [];
-    const wings = [{ l: 1, r: 2 }, { l: 2, r: 3 }, { l: 3, r: 1 }], cnt = { 1: 0, 2: 0, 3: 0, x: 0 };
-    wings.forEach((w, i) => {
-      const th = -Math.PI / 2 + i * 2 * Math.PI / 3, ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
-      const id = k => "w" + i + k;
-      const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? i : cnt[ns]++; nodes.push({ id: id(k), x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: i, nameSlot: ns, ni }); };
-      add("E", 1.05, 0, "minor", [{ p: w.l, mag: "min" }]);
-      add("L", 1.95, -0.85, "minor", [{ p: w.l, mag: "min" }]);
-      add("R", 1.95, 0.85, "minor", [{ p: w.r, mag: "min" }]);
-      add("Lb", 2.6, -1.05, "minor", [{ p: w.l, mag: "min" }]);
-      add("Rb", 2.6, 1.05, "minor", [{ p: w.r, mag: "min" }]);
-      add("L2", 3.25, -0.72, "major", [{ p: w.l, mag: "maj" }]);
-      add("R2", 3.25, 0.72, "major", [{ p: w.r, mag: "maj" }]);
-      add("K", 4.05, 0, "key", [{ p: w.l, mag: "key" }, { p: w.r, mag: "key" }]);
-      add("S", 4.85, 0, "major", [{ p: "x", mag: "maj" }]);
-      const e = (a, b) => edges.push([id(a), id(b)]);
-      edges.push(["start", id("E")]);
-      e("E", "L"); e("E", "R"); e("L", "Lb"); e("Lb", "L2"); e("R", "Rb"); e("Rb", "R2"); e("L2", "K"); e("R2", "K"); e("K", "S");
-      e("L", "R");   // rung across the diamond — extra internal route to the wing
-    });
-    // weave adjacent wings together at several radii: inner entries, the side
-    // branches and the outer tips — so most nodes are reachable by >1 route.
-    for (let i = 0; i < 3; i++) {
-      const j = (i + 1) % 3;
-      edges.push(["w" + i + "E", "w" + j + "E"]);   // inner triangle
-      edges.push(["w" + i + "R", "w" + j + "L"]);   // lower side link
-      edges.push(["w" + i + "Rb", "w" + j + "Lb"]); // mid side link
-      // (no outer-tip link: it ran almost on top of the Rb->R2 branch line)
+  // Each class gets its OWN tree, generated deterministically from its name:
+  // a START hub with a random number of wings (3-5), each wing a chain or a
+  // diamond loop of varying length, fed by its own stat, with notables and
+  // keystones at the tips and some wings woven to their neighbour. Same rules
+  // (allocate outward by adjacency); only the shape differs per class.
+  const _trees = {};
+  function fnv(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function makeRng(seed) { let s = (seed || 1) >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+  function buildTree(type) {
+    type = type || (typeof STree !== "undefined" && STree.type) || "turret";
+    if (_trees[type]) return _trees[type];
+    const R = makeRng(fnv("ids:" + type)), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
+    const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1, nameSlot: "start", ni: 0 }], edges = [];
+    const cnt = { 1: 0, 2: 0, 3: 0, x: 0 }; let keyN = 0;
+    const stats = [1, 2, 3]; for (let i = 2; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
+    const nW = ri(3, 5), rot = R() * Math.PI * 2;
+    for (let w = 0; w < nW; w++) {
+      const th = rot + w * (Math.PI * 2 / nW), ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
+      const wid = "w" + w, stat = stats[w % 3], stat2 = stats[(w + 1) % 3];
+      const step = 0.66 + R() * 0.16, dx = 0.62 + R() * 0.3, arm = ri(2, 4), loop = R() < 0.55;
+      const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? keyN++ : cnt[ns]++; nodes.push({ id: wid + k, x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: w, nameSlot: ns, ni }); };
+      const e = (a, b) => edges.push([wid + a, wid + b]);
+      add("E", 0.95, 0, "minor", [{ p: stat, mag: "min" }]); edges.push(["start", wid + "E"]);
+      if (loop) {
+        let pL = "E", pR = "E";
+        for (let t = 1; t <= arm; t++) {
+          const r = 0.95 + step * t, last = t === arm;
+          add("L" + t, r, -dx * (0.7 + 0.1 * t), last ? "major" : "minor", [{ p: stat, mag: last ? "maj" : "min" }]);
+          add("R" + t, r, dx * (0.7 + 0.1 * t), last ? "major" : "minor", [{ p: stat2, mag: last ? "maj" : "min" }]);
+          e(pL, "L" + t); e(pR, "R" + t); pL = "L" + t; pR = "R" + t;
+        }
+        const kr = 0.95 + step * (arm + 1.1);
+        add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stat2, mag: "key" }]); e("L" + arm, "K"); e("R" + arm, "K");
+        add("S", kr + 0.85, 0, "major", [{ p: "x", mag: "maj" }]); e("K", "S");
+        if (R() < 0.6) e("L1", "R1"); // rung
+      } else {
+        let prev = "E";
+        for (let t = 1; t <= arm; t++) {
+          const r = 0.95 + step * t, last = t === arm;
+          add("C" + t, r, (R() - 0.5) * 0.5, last ? "major" : "minor", [{ p: stat, mag: last ? "maj" : "min" }]);
+          e(prev, "C" + t); prev = "C" + t;
+          if (R() < 0.5) { add("P" + t, r + 0.15, (R() < 0.5 ? -1 : 1) * (0.8 + 0.12 * t), "minor", [{ p: stat2, mag: "min" }]); e("C" + t, "P" + t); }
+        }
+        if (R() < 0.7) { const kr = 0.95 + step * (arm + 1); add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stats[(w + 2) % 3], mag: "key" }]); e("C" + arm, "K"); }
+        else { add("X", 0.95 + step * (arm + 1), 0, "major", [{ p: "x", mag: "maj" }]); e("C" + arm, "X"); }
+      }
     }
+    for (let w = 0; w < nW; w++) if (R() < 0.7) edges.push(["w" + w + "E", "w" + ((w + 1) % nW) + "E"]); // inner ring weave
     const map = {}, adj = {}; nodes.forEach(n => { map[n.id] = n; adj[n.id] = []; });
-    edges.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
-    _tree = { nodes, edges, map, adj };
-    return _tree;
+    const eds = edges.filter(([a, b]) => map[a] && map[b]);
+    eds.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
+    _trees[type] = { nodes, edges: eds, map, adj };
+    return _trees[type];
   }
   const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", yield: "yield", collect: "grab" };
   function slotText(type, s) {
@@ -501,9 +518,9 @@
   }
   function nodeLabel(type, n) {
     if (n.kind === "start") return TY(type).name;
-    if (n.kind === "key") return (CLASS_WEB[type] || CLASS_WEB.turret).keys[n.wing] || "Keystone";
+    if (n.kind === "key") { const ks = (CLASS_WEB[type] || CLASS_WEB.turret).keys; return ks[n.ni % ks.length] || "Keystone"; }
     const pool = n.nameSlot === "x" ? skillNames(type).x : skillNames(type)[["", "a", "b", "c"][n.nameSlot]];
-    return (pool && pool[n.ni]) || nodeFx(type, n);
+    return (pool && pool[n.ni % pool.length]) || nodeFx(type, n);
   }
   function statLine(tp) {
     const s = { type: tp };
@@ -513,7 +530,7 @@
   }
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
-  const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree().adj[n.id] || []).some(a => nodeAllocated(type, a));
+  const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
   function nodeCost(type, n) { const k = n.kind === "key" ? 5 : n.kind === "major" ? 2.3 : 1; return Math.floor(TY(type).base * 0.6 * Math.pow(1.17, allocCount(type)) * k); }
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
@@ -545,7 +562,7 @@
   const STree = {
     type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null,
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
-    selNode() { return this.sel ? buildTree().map[this.sel] : null; },
+    selNode() { return this.sel ? buildTree(this.type).map[this.sel] : null; },
     init() {
       this.cv = $("sttree"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
@@ -561,15 +578,15 @@
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
     reset() { this.cx = 0; this.cy = 0; this.zoom = 1; },
-    clampPan() { const u = Math.min(this.w, this.h) * 0.085 * this.zoom, m = 5.4 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },
+    clampPan() { const u = Math.min(this.w, this.h) * 0.078 * this.zoom, m = 6.8 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); this.clampPan(); },
     nodeRad(n, u) { return n.kind === "key" ? clamp(u * 0.30, 13, 26) : n.kind === "major" ? clamp(u * 0.22, 10, 18) : n.kind === "start" ? clamp(u * 0.26, 12, 22) : clamp(u * 0.15, 7, 12); },
-    sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.085 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h / 2 + this.cy + ny * u, u }; },
+    sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.078 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h / 2 + this.cy + ny * u, u }; },
     render(dt) {
       if (!this.cv) return; const c = this.c, type = this.type; this.t += dt;
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
-      const G = buildTree();
+      const G = buildTree(type);
       // edges: bright if both allocated, medium if one (the frontier), dim else.
       for (const [ai, bi] of G.edges) {
         const A = G.map[ai], B = G.map[bi], oa = nodeAllocated(type, ai), ob = nodeAllocated(type, bi);
@@ -753,7 +770,7 @@
     allocNode(type, node);
     // keep showing this node (now allocated) so the panel updates; if it leads
     // onward to a single newly-reachable node, hop the selection there.
-    const G = buildTree(), onward = (G.adj[node.id] || []).map(a => G.map[a]).filter(m => nodeAllocatable(type, m));
+    const G = buildTree(type), onward = (G.adj[node.id] || []).map(a => G.map[a]).filter(m => nodeAllocatable(type, m));
     showNodeInfo(onward.length === 1 ? onward[0] : node);
   };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
