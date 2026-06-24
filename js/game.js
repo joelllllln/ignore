@@ -181,6 +181,8 @@
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
     return { cash: 0, galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0 };
   }
+  // trim a unit/collector list down to each type's max (enforces caps on load)
+  function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type, m = TY(t) ? TY(t).max : 99; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }
   function freshStats() {
     const kills = {}; DEF_ORDER.forEach(t => kills[t] = 0); kills.draw = 0; kills.blackhole = 0;
     const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
@@ -209,13 +211,15 @@
 
   /* ----------------------------- save ---------------------------- */
   const KEY = "ids_clone.v2";
-  function save() { try { localStorage.setItem(KEY, JSON.stringify({ S, META, ts: Date.now(), cps })); } catch (e) {} }
+  let wiping = false;
+  function save() { if (wiping) return; try { localStorage.setItem(KEY, JSON.stringify({ S, META, ts: Date.now(), cps })); } catch (e) {} }
+  function wipeSave() { wiping = true; try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
   function load() {
     S = fresh(); META = freshMeta(); let off = null;
     try {
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
-        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classNodes || typeof S.classNodes !== "object") S.classNodes = {}; ALL_TYPES.forEach(t => { if (!S.classNodes[t]) S.classNodes[t] = {}; }); if (!Array.isArray(S.collectors) || !S.collectors.length) { const n = 1 + (d.S.lv && d.S.lv.drones || 0); S.collectors = []; for (let i = 0; i < n; i++) S.collectors.push({ type: "drone" }); } }
+        if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classNodes || typeof S.classNodes !== "object") S.classNodes = {}; ALL_TYPES.forEach(t => { if (!S.classNodes[t]) S.classNodes[t] = {}; }); if (!Array.isArray(S.collectors) || !S.collectors.length) { const n = 1 + (d.S.lv && d.S.lv.drones || 0); S.collectors = []; for (let i = 0; i < n; i++) S.collectors.push({ type: "drone" }); } S.units = capList(S.units); S.collectors = capList(S.collectors); }
         if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {});
           const st = d.META.stats || {}; META.stats = Object.assign(freshStats(), st);
           META.stats.kills = Object.assign(freshStats().kills, st.kills || {});
@@ -908,13 +912,13 @@
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");
   $("menu-resume").onclick = () => $("menu").classList.remove("show");
-  $("menu-reset").onclick = () => { if (confirm("Erase ALL progress (including Star Dust)?")) { localStorage.removeItem(KEY); location.reload(); } };
+  $("menu-reset").onclick = () => { if (confirm("Erase ALL progress (including Star Dust)?")) wipeSave(); };
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
   $("home-play").onclick = () => { renderList(); setScreen("play"); };
   $("home-galaxies").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); };
   $("home-how").onclick = () => $("how").classList.add("show");
   $("how-close").onclick = $("how-back").onclick = () => $("how").classList.remove("show");
-  $("home-reset").onclick = () => { if (confirm("Erase ALL progress?")) { localStorage.removeItem(KEY); location.reload(); } };
+  $("home-reset").onclick = () => { if (confirm("Erase ALL progress?")) wipeSave(); };
 
   /* ----------------------------- loop / boot --------------------- */
   function resize() {
