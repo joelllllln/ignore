@@ -474,7 +474,7 @@
       edges.push(["w" + i + "E", "w" + j + "E"]);   // inner triangle
       edges.push(["w" + i + "R", "w" + j + "L"]);   // lower side link
       edges.push(["w" + i + "Rb", "w" + j + "Lb"]); // mid side link
-      edges.push(["w" + i + "R2", "w" + j + "L2"]); // outer tip link
+      // (no outer-tip link: it ran almost on top of the Rb->R2 branch line)
     }
     const map = {}, adj = {}; nodes.forEach(n => { map[n.id] = n; adj[n.id] = []; });
     edges.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
