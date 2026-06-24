@@ -143,10 +143,10 @@
 
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
-    { id: "capacity",  tab: "eco", name: "Capacity",   base: 10, mul: 1.27, desc: () => "$" + fmt(derived.capacity) },
-    { id: "value",     tab: "eco", name: "Value",      base: 16, mul: 1.22, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 24, mul: 1.21, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
-    { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.24, max: 25, desc: () => Math.round(derived.luck * 100) + "% special" },
+    { id: "capacity",  tab: "eco", name: "Capacity",   base: 14, mul: 1.70, desc: () => "$" + fmt(derived.capacity) },
+    { id: "value",     tab: "eco", name: "Value",      base: 20, mul: 1.60, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 24, mul: 1.33, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
+    { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.35, max: 25, desc: () => Math.round(derived.luck * 100) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const upCost = u => Math.floor(u.base * Math.pow(u.mul, S.lv[u.id] || 0));
@@ -194,9 +194,9 @@
     derived.sdDmg = 1 + 0.25 * m.sd.sdDmg;
     derived.sdFire = (1 + 0.15 * m.sd.sdFire) * (frenzyT > 0 ? 5 : 1);
     derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
-    derived.capacity = 200 * Math.pow(1.7, L.capacity);
-    derived.valueMul = Math.pow(1.25, L.value);
-    derived.spawnPerSec = 0.9 + 0.4 * L.spawnRate;
+    derived.capacity = 200 * Math.pow(1.45, L.capacity);
+    derived.valueMul = Math.pow(1.20, L.value);
+    derived.spawnPerSec = 0.9 + 0.35 * L.spawnRate;
     derived.luck = Math.min(0.5, 0.02 * L.luck);
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
@@ -849,5 +849,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
