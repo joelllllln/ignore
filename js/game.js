@@ -86,22 +86,23 @@
   const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * derived.incomeMul;
   const AGILITY = 0.12;
 
-  // flavour names for notable skill nodes (one pool per stat branch per class).
+  // flavour names: one pool per stat branch (a/b/c) plus the extra 'x' branch.
+  // every node — even the small passives — pulls a distinct name from its pool.
   const SKILLS = {
-    turret:  { a: ["Reinforced Rounds", "Tungsten Core", "Armor Piercing", "Hollow Points", "Overcharge"], b: ["Quick Hands", "Belt Feed", "Rapid Servos", "Hair Trigger", "Double Tap"], c: ["Scope", "Range Finder", "Laser Sight", "Tracking AI", "Eagle Eye"] },
-    mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Cluster Munitions", "Carpet Bomb"], b: ["Fast Fuse", "Auto-Loader", "Twin Tubes", "Rapid Mortar", "Barrage"], c: ["Wider Blast", "Shrapnel", "Spotter", "Precision Strike", "Saturation"] },
-    plasma:  { a: ["Ion Charge", "Superheated", "Fusion Core", "Antimatter", "Singularity Bolt"], b: ["Capacitor", "Coolant Loop", "Overclock", "Rapid Cycle", "Continuous Beam"], c: ["Focusing Lens", "Long Barrel", "Crit Matrix", "Targeting Array", "Lancer"] },
-    laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split"] },
-    railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm"] },
+    turret:  { a: ["Reinforced Rounds", "Tungsten Core", "Armor Piercing", "Hollow Points", "Overcharge", "Heavy Slugs", "Devastator"], b: ["Quick Hands", "Belt Feed", "Rapid Servos", "Hair Trigger", "Double Tap", "Cyclic Bolt", "Gatling Drive"], c: ["Scope", "Range Finder", "Laser Sight", "Tracking AI", "Eagle Eye", "Long Barrel", "Hawkeye"], x: ["Critical Core", "Deadeye", "Killshot"] },
+    mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Cluster Munitions", "Carpet Bomb", "Heavy Ordnance", "Doomshell"], b: ["Fast Fuse", "Auto-Loader", "Twin Tubes", "Rapid Mortar", "Barrage", "Quick Crew", "Drumfire"], c: ["Wider Blast", "Shrapnel", "Spotter", "Precision Strike", "Saturation", "Wide Arc", "Bullseye"], x: ["Shell Shock", "Pinpoint", "Devastation"] },
+    plasma:  { a: ["Ion Charge", "Superheated", "Fusion Core", "Antimatter", "Singularity Bolt", "Plasma Surge", "Star Core"], b: ["Capacitor", "Coolant Loop", "Overclock", "Rapid Cycle", "Continuous Beam", "Supercooled", "Flux Drive"], c: ["Focusing Lens", "Long Barrel", "Crit Matrix", "Targeting Array", "Lancer", "Beam Optics", "Far Sight"], x: ["Crit Core", "Overcharge Cell", "Meltdown"] },
+    laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray", "Hot Lens", "Sunfire"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream", "Fast Cycle", "Lightstorm"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split", "Wide Mirror", "True Aim"], x: ["Crit Focus", "Focal Point", "Vaporize"] },
+    railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator", "Tungsten Rod", "Worldbreaker"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo", "Fast Coil", "Volley"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm", "Extended Rail", "Dead Centre"], x: ["Crit Lock", "Penetrator", "One Shot"] },
   };
-  // collector skill webs: a=Speed, b=Suction, c=Yield
+  // collector skill webs: a=Speed, b=Suction, c=Yield, x=Grab/Collect
   const COL_SKILLS = {
-    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field"], c: ["Bigger Scoop", "Compactor", "Refinery", "Cash Sense", "Midas Touch"] },
-    swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep"], c: ["Many Hands", "Bulk Haul", "Hive Vault", "Pack Bonus", "Golden Swarm"] },
-    collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex"], c: ["Cargo Hold", "Crusher", "Smelter", "Bulk Bonus", "Gold Press"] },
-    magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar"], c: ["Bin", "Pack Rat", "Foundry", "Yield Coil", "Midas Coil"] },
-    tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach"], c: ["Hopper", "Baler", "Processor", "Beam Bonus", "Gold Beam"] },
-    singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach"], c: ["Accretion", "Compression", "Mass Yield", "Hawking Cash", "Quasar"] },
+    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream", "Quick Servos", "Overdrive"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field", "Strong Coil", "Deep Pull"], c: ["Bigger Scoop", "Compactor", "Refinery", "Cash Sense", "Midas Touch", "Smelter", "Gold Logic"], x: ["Wide Scoop", "Cargo Bay", "Vault"] },
+    swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash", "Fast Hive", "Blitz"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep", "Wide Mesh", "Dragnet"], c: ["Many Hands", "Bulk Haul", "Hive Vault", "Pack Bonus", "Golden Swarm", "Rich Hive", "Gold Rush"], x: ["Big Net", "Hive Hold", "Treasury"] },
+    collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame", "Quick Haul", "Blink Drive"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex", "Strong Maw", "Black Maw"], c: ["Cargo Hold", "Crusher", "Smelter", "Bulk Bonus", "Gold Press", "Rich Hold", "Mint"], x: ["Maw Bay", "Cargo Bay", "Strongbox"] },
+    magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash", "Quick Coil", "Overspin"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar", "Strong Dipole", "Pole Reversal"], c: ["Bin", "Pack Rat", "Foundry", "Yield Coil", "Midas Coil", "Rich Bin", "Gold Coil"], x: ["Wide Coil", "Storage Coil", "Bullion"] },
+    tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed", "Quick Beam", "Hyperdrive"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach", "Broad Beam", "Long Reach"], c: ["Hopper", "Baler", "Processor", "Beam Bonus", "Gold Beam", "Rich Hopper", "Goldsmith"], x: ["Wide Cone", "Hold Beam", "Reserve"] },
+    singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift", "Slow Roll", "Free Orbit"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach", "Gravity Sink", "Abyssal Pull"], c: ["Accretion", "Compression", "Mass Yield", "Hawking Cash", "Quasar", "Rich Disk", "Goldhole"], x: ["Event Maw", "Mass Vault", "Singularity Core"] },
   };
   const skillNames = type => isCol(type) ? COL_SKILLS[type] : SKILLS[type];
   const GAL_DESC = [
@@ -409,10 +410,10 @@
   // names its notables differently and resolves its own stat magnitudes.
   const CLASS_WEB = {
     turret:      { keys: ["War Machine", "Marksman", "Heavy Ordnance"] },
-    mortar:      { keys: ["Annihilation", "Spotter Net", "Saturation"] },
+    mortar:      { keys: ["Annihilation", "Spotter Net", "Saturation Field"] },
     plasma:      { keys: ["Overload", "Crit Cascade", "Ion Storm"] },
-    laser:       { keys: ["Death Beam", "Prism Crit", "Resonance"] },
-    railgun:     { keys: ["Railstorm", "Calibrated", "Overrail"] },
+    laser:       { keys: ["Death Beam", "Prism Crit", "Resonant Cascade"] },
+    railgun:     { keys: ["Railstorm Core", "Calibrated", "Overrail"] },
     drone:       { keys: ["Perfect Collector", "Rich Haul", "Swift Magnet"] },
     swarm:       { keys: ["Locust God", "Pack Yield", "Hive Sync"] },
     collector:   { keys: ["Mega Hauler", "Bulk Yield", "Power Magnet"] },
@@ -424,11 +425,11 @@
   function buildTree() {
     if (_tree) return _tree;
     const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1 }], edges = [];
-    const wings = [{ l: 1, r: 2 }, { l: 2, r: 3 }, { l: 3, r: 1 }];
+    const wings = [{ l: 1, r: 2 }, { l: 2, r: 3 }, { l: 3, r: 1 }], cnt = { 1: 0, 2: 0, 3: 0, x: 0 };
     wings.forEach((w, i) => {
       const th = -Math.PI / 2 + i * 2 * Math.PI / 3, ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
       const id = k => "w" + i + k;
-      const add = (k, r, s, kind, slots) => nodes.push({ id: id(k), x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: i });
+      const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? i : cnt[ns]++; nodes.push({ id: id(k), x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: i, nameSlot: ns, ni }); };
       add("E", 1.05, 0, "minor", [{ p: w.l, mag: "min" }]);
       add("L", 1.95, -0.85, "minor", [{ p: w.l, mag: "min" }]);
       add("R", 1.95, 0.85, "minor", [{ p: w.r, mag: "min" }]);
@@ -459,13 +460,8 @@
   function nodeLabel(type, n) {
     if (n.kind === "start") return TY(type).name;
     if (n.kind === "key") return (CLASS_WEB[type] || CLASS_WEB.turret).keys[n.wing] || "Keystone";
-    if (n.kind === "major") {
-      const s = n.slots[0];
-      if (s.p === "x") return isCol(type) ? "Refinery" : "Critical Core";
-      const letter = ["", "a", "b", "c"][s.p], list = skillNames(type)[letter];
-      return list[(n.wing + (n.id.indexOf("R") >= 0 ? 2 : 0)) % list.length];
-    }
-    return "";
+    const pool = n.nameSlot === "x" ? skillNames(type).x : skillNames(type)[["", "a", "b", "c"][n.nameSlot]];
+    return (pool && pool[n.ni]) || nodeFx(type, n);
   }
   function statLine(tp) {
     const s = { type: tp };
@@ -549,12 +545,11 @@
         c.fillStyle = has ? "#fff" : can ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)";
         c.strokeStyle = has || can ? "#fff" : "rgba(255,255,255,0.28)"; c.lineWidth = n.kind === "minor" ? 1.5 : 2.5; c.fill(); c.stroke();
         if (n.kind === "key" || n.kind === "start") { c.fillStyle = has ? "#000" : "#fff"; c.font = "bold " + Math.round(rad * 0.95) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(n.kind === "start" ? "★" : "✦", p.x, p.y + 1); }
-        // labels only for notable nodes (keep the map clean, like a real tree)
-        if (n.kind !== "minor") {
-          c.textAlign = "center"; c.textBaseline = "alphabetic";
-          c.fillStyle = has || can ? "#fff" : "rgba(255,255,255,0.55)"; c.font = Math.round(clamp(p.u * 0.13, 9, 13)) + "px ui-monospace,monospace";
-          c.fillText(nodeLabel(type, n), p.x, p.y - rad - 5);
-        }
+        // every node is named (smaller for the small passives)
+        c.textAlign = "center"; c.textBaseline = "alphabetic";
+        c.fillStyle = has || can ? "#fff" : "rgba(255,255,255,0.5)";
+        c.font = Math.round(n.kind === "minor" ? clamp(p.u * 0.11, 8, 11) : clamp(p.u * 0.13, 9, 13)) + "px ui-monospace,monospace";
+        c.fillText(nodeLabel(type, n), p.x, p.y - rad - 5);
       }
       $("st-title").textContent = TY(type).name.toUpperCase();
       $("st-owned").textContent = "· " + countType(type) + " deployed · " + allocCount(type) + " nodes · affects ALL";
@@ -733,5 +728,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, classStats: t => classStats(t), openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
