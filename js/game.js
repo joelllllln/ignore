@@ -465,8 +465,17 @@
       const e = (a, b) => edges.push([id(a), id(b)]);
       edges.push(["start", id("E")]);
       e("E", "L"); e("E", "R"); e("L", "Lb"); e("Lb", "L2"); e("R", "Rb"); e("Rb", "R2"); e("L2", "K"); e("R2", "K"); e("K", "S");
+      e("L", "R");   // rung across the diamond — extra internal route to the wing
     });
-    for (let i = 0; i < 3; i++) edges.push(["w" + i + "R", "w" + ((i + 1) % 3) + "L"]); // weave wings together
+    // weave adjacent wings together at several radii: inner entries, the side
+    // branches and the outer tips — so most nodes are reachable by >1 route.
+    for (let i = 0; i < 3; i++) {
+      const j = (i + 1) % 3;
+      edges.push(["w" + i + "E", "w" + j + "E"]);   // inner triangle
+      edges.push(["w" + i + "R", "w" + j + "L"]);   // lower side link
+      edges.push(["w" + i + "Rb", "w" + j + "Lb"]); // mid side link
+      edges.push(["w" + i + "R2", "w" + j + "L2"]); // outer tip link
+    }
     const map = {}, adj = {}; nodes.forEach(n => { map[n.id] = n; adj[n.id] = []; });
     edges.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
     _tree = { nodes, edges, map, adj };
