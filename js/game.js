@@ -56,13 +56,13 @@
   const DEF_PRIM = ["dmg", "rate", "range"], COL_PRIM = ["speed", "suction", "yield"];
   // mul stats COMPOUND per node (so each node is felt, keystones are big spikes);
   // flat stats (range/crit/collect) add up.
-  const MAG = { mul: { min: 1.18, maj: 1.65, key: 2.6 }, range: { min: 28, maj: 80, key: 180 }, crit: { min: 0.05, maj: 0.12, key: 0.25 }, collect: { min: 6, maj: 16, key: 34 } };
+  const MAG = { mul: { min: 1.18, maj: 1.65, key: 2.6 }, rate: { min: 1.26, maj: 2.1, key: 4.0 }, range: { min: 28, maj: 80, key: 180 }, crit: { min: 0.05, maj: 0.12, key: 0.25 }, collect: { min: 6, maj: 16, key: 34 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     const col = isCol(type);
     if (s.p === "x") return col ? MAG.collect[s.mag] : MAG.crit[s.mag];
     const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
-    return key === "range" ? MAG.range[s.mag] : MAG.mul[s.mag];
+    return key === "range" ? MAG.range[s.mag] : key === "rate" ? MAG.rate[s.mag] : MAG.mul[s.mag];
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
@@ -283,17 +283,18 @@
   const kindChance = g => Math.min(0.12 + 0.05 * (g - 2), 0.55);
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 8 * enemyHpMul(g) * vscale, avg = base * 1.3;
-    let roll = rnd(0.7, 1.9), armored = false, kind = "normal", cfg = null, mv = 20;
-    if (Math.random() < armorChance(g)) { armored = true; roll *= rnd(4, 7); mv = 9; }
+    const men = clamp(S.lv.value / 35, 0, 1.3);   // "menace": as Value climbs, tougher dots appear more (and pay more)
+    let roll = rnd(0.7, 1.9 + men * 1.6), armored = false, kind = "normal", cfg = null, mv = 20;
+    if (Math.random() < armorChance(g) + men * 0.16) { armored = true; roll *= rnd(4, 7) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
     else { const elig = DOT_ORDER.filter(k => g >= DOT_KINDS[k].gal);
-      if (elig.length && Math.random() < kindChance(g)) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
+      if (elig.length && Math.random() < kindChance(g) + men * 0.12) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
     if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
     const hp = base * roll;
     special = special || (!armored && !cfg && Math.random() < derived.luck);
     const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (hp / avg) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
-    const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" ? 6 : 7, armored ? 36 : 24);
-    // visual tier: the tougher the dot, the more elaborate it's drawn (spikes/rings)
-    const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : 5;
+    const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" ? 6 : 7, armored ? 40 : 24);
+    // visual tier: the tougher the dot, the more elaborate (spikes/rings)
+    const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : roll < 9 ? 5 : 6;
     const d = { x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),
       hp, maxHp: hp, value: val, r, tier, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
       color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` };
@@ -391,7 +392,7 @@
     }
     dots = dots.filter(d => !d.dead);
 
-    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } u.cd -= dt; if (u.cd <= 0) { fireUnit(u, unitPos(i, S.units.length)); u.cd = 1 / uRate(u); } }
+    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
 
     // collectors coordinate: chase-types each claim their nearest orb (so they
