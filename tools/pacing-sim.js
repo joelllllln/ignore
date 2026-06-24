@@ -8,12 +8,13 @@ const fmt = s => s >= DAY ? (s / DAY).toFixed(1) + "d" : s >= 3600 ? (s / 3600).
 
 // --- economy constants (mirror game.js) ---
 const VALUE = { base: 20, mul: 1.6, eff: L => Math.pow(1.20, L) };
-const SPAWN = { base: 24, mul: 1.33, eff: L => 0.9 + 0.35 * L };
+const SPAWN = { base: 24, mul: 1.33, eff: L => 0.9 + 0.45 * L };
 const CAP = { base: 14, mul: 1.5, eff: L => 200 * Math.pow(1.6, L) };
 const LUCK = { base: 70, mul: 1.35, max: 25, eff: L => Math.min(0.5, 0.02 * L) };
 const UNIT = [ { gal: 1, base: 60, dmg: 5, rate: 1.4 }, { gal: 2, base: 500, dmg: 9, rate: 0.6 },
   { gal: 3, base: 4000, dmg: 26, rate: 0.5 }, { gal: 5, base: 30000, dmg: 3, rate: 4.2 }, { gal: 7, base: 250000, dmg: 90, rate: 0.3 } ];
-const NODE = { base: 36, mul: 1.2, step: 0.18 };
+const UNIT_CAP = 4;                                      // max units per defender type
+const NODE = { base: 90, mul: 1.26, step: 0.20 };        // skill-tree nodes: pricier now
 const HPB = 6, HPM = 2.05, GVAL = 2.2, GSPAWN = g => 1 + (g - 1) * 0.95;
 const COLL_EFF = 0.85, YIELD = 1.1, CRIT = 2.1;          // collection + crit/abilities/class-tree baseline
 
@@ -53,7 +54,7 @@ while (S.g < 13 && S.t < TIME_CAP && steps++ < 5e5) {
   if (sustain && S.cash >= tc) { S.cash -= tc; S.g++; if (galTimes[S.g] == null) galTimes[S.g] = S.t; continue; }
   if (!sustain) { // buy best damage-per-cost
     const opts = [{ k: "n", c: nodeCost(), d: (() => { S.nodes++; const x = dps(); S.nodes--; return x - dps(); })() }];
-    for (let i = 0; i < UNIT.length; i++) if (S.g >= UNIT[i].gal) { S.units[i]++; const x = dps(); S.units[i]--; opts.push({ k: i, c: unitCost(i), d: x - dps() }); }
+    for (let i = 0; i < UNIT.length; i++) if (S.g >= UNIT[i].gal && S.units[i] < UNIT_CAP) { S.units[i]++; const x = dps(); S.units[i]--; opts.push({ k: i, c: unitCost(i), d: x - dps() }); }
     opts.sort((a, b) => a.c / b.d - b.c / a.d); const o = opts.sort((a, b) => (a.c / a.d) - (b.c / b.d))[0];
     const r = advanceTo(o.c); if (r === false) break; if (r === "cap") continue;
     if (o.k === "n") S.nodes++; else S.units[o.k]++; continue;

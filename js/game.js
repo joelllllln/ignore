@@ -23,11 +23,11 @@
 
   /* ----------------------- defender unit types ------------------- */
   const DEF_TYPES = {
-    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0 },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55 },
-    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0 },
-    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0 },
-    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0 },
+    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 4 },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 4 },
+    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 4 },
+    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 4 },
+    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 4 },
   };
   const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun"];
   /* ----------------------- collector types ----------------------- */
@@ -35,12 +35,12 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, mode: "swarm", sides: 3 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, mode: "chase", sides: 6 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, mode: "chase", sides: 5 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, mode: "chase", sides: 8 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, mode: "hole",  sides: 0 },
+    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4, max: 2 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, mode: "swarm", sides: 3, max: 2 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, mode: "chase", sides: 6, max: 2 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, mode: "chase", sides: 5, max: 2 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, mode: "chase", sides: 8, max: 2 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, mode: "hole",  sides: 0, max: 2 },
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -49,7 +49,7 @@
   const newUnit = type => ({ type, cd: rnd(0, 0.4) });
   const classList = type => isCol(type) ? S.collectors : S.units;
   const countType = type => classList(type).filter(u => u.type === type).length;
-  const unitBuyCost = type => Math.floor(TY(type).base * Math.pow(1.9, countType(type)));
+  const unitBuyCost = type => Math.floor(TY(type).base * Math.pow(2.4, countType(type)));
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -169,7 +169,7 @@
   const enemyHpMul = g => Math.pow(2.1, g - 1);
   const galValueMul = g => Math.pow(2.2, g - 1);
   const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
-  const galCap = g => Math.min(80 + g * 50, 380);
+  const galCap = g => Math.min(110 + g * 65, 520);
   const ORB_LIFE = 13;                                  // orbs vanish fast — collectors must keep up
 
   /* ----------------------------- state --------------------------- */
@@ -200,7 +200,7 @@
     derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
     derived.capacity = 200 * Math.pow(1.60, L.capacity);
     derived.valueMul = Math.pow(1.20, L.value);
-    derived.spawnPerSec = 0.9 + 0.35 * L.spawnRate;
+    derived.spawnPerSec = 0.9 + 0.45 * L.spawnRate;
     derived.luck = Math.min(0.5, 0.02 * L.luck);
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
@@ -383,10 +383,11 @@
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {
-        const d = TY(id), locked = S.galaxy < d.gal, c = unitBuyCost(id);
-        row.desc.textContent = "owned " + countType(id) + (locked ? "" : " · " + d.name);
-        if (locked) { row.buy.textContent = "🔒 G" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); }
-        else { row.buy.textContent = "$" + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); }
+        const d = TY(id), locked = S.galaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;
+        row.desc.textContent = n + "/" + d.max + (locked ? "" : " · " + d.name);
+        if (locked) { row.buy.textContent = "🔒 G" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
+        else if (full) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.add("maxed"); }
+        else { row.buy.textContent = "$" + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); row.el.classList.remove("maxed"); }
       } else {
         const u = UP[id], lvl = S.lv[id], maxed = u.max != null && lvl >= u.max;
         row.lv.textContent = "Lv " + lvl; row.desc.textContent = u.desc(lvl);
@@ -427,8 +428,8 @@
     syncHUD();
   }
   function buyUnit(type) {
-    const list = classList(type), cap = isCol(type) ? 24 : 40;
-    if (S.galaxy < TY(type).gal || list.length >= cap) return;
+    const list = classList(type);
+    if (S.galaxy < TY(type).gal || countType(type) >= TY(type).max) return;
     const c = unitBuyCost(type); if (S.cash < c) return;
     S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); if (isCol(type)) syncCollectors();
     Audio_buy(); renderList(); save();
@@ -549,7 +550,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 5 : n.kind === "major" ? 2.3 : 1; return Math.floor(TY(type).base * 0.6 * Math.pow(1.17, allocCount(type)) * k); }
+  function nodeCost(type, n) { const k = n.kind === "key" ? 6 : n.kind === "major" ? 3 : 1; return Math.floor(TY(type).base * 1.6 * Math.pow(1.26, allocCount(type)) * k); }
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
