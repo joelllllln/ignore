@@ -623,8 +623,8 @@
   }
   // interactive pseudo-3D black & white star map
   const GMap = {
-    open: false, yaw: 0.6, pitch: -1.15, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
-    reset() { this.yaw = 0.6; this.pitch = -1.15; this.zoom = 1; },
+    open: false, yaw: 0.5, pitch: -0.82, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
+    reset() { this.yaw = 0.5; this.pitch = -0.82; this.zoom = 1; },
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
@@ -643,9 +643,16 @@
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
-    // flat spiral: galaxy 1 on the outer rim, winding ~4.5 turns inward to the
-    // final galaxy at dead centre (the rotation pivot / end of the spiral).
-    node(g) { const i = g - 1, total = 26, t = clamp(i / (total - 1), 0, 1), ang = i * 1.15, rad = (1 - t) * 172; return { x: Math.cos(ang) * rad, y: 0, z: Math.sin(ang) * rad }; },
+    // each galaxy orbits the central black hole on its own ring (XZ plane);
+    // outer galaxies orbit slower. Position depends on this.t so they drift.
+    orbitR(g) { return 34 + g * 15; },
+    node(g) { const R = this.orbitR(g), sp = 0.16 / Math.sqrt(g), ang = g * 2.39963 + this.t * sp; return { x: Math.cos(ang) * R, y: 0, z: Math.sin(ang) * R }; },
+    blackHole(p) {
+      const c = this.c, r = clamp(26 * p.f, 12, 48), rot = this.t * 0.6;
+      for (let k = 0; k < 3; k++) { c.globalAlpha = 0.55 - k * 0.14; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r * (0.55 + k * 0.3), rot + k, rot + k + 4.3); c.stroke(); }
+      c.globalAlpha = 1; c.fillStyle = "#000"; c.beginPath(); c.arc(p.x, p.y, r * 0.5, 0, TAU); c.fill(); c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.stroke();
+      c.globalAlpha = 0.6; c.fillStyle = "#fff"; c.font = "10px ui-monospace,monospace"; c.textAlign = "center"; c.fillText("BLACK HOLE", p.x, p.y - r - 6); c.globalAlpha = 1;
+    },
     cluster(cx, cy, scale, bright, rot) {
       const c = this.c, n = 22;
       for (let k = 0; k < n; k++) { const tk = k / n, ang = tk * 6.2 + rot, r = tk * scale, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r * 0.62; c.globalAlpha = bright * (1 - tk * 0.55); c.fillStyle = "#fff"; c.fillRect(x, y, 1.6, 1.6); }
@@ -658,22 +665,29 @@
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
       c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.2 + 0.35 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
-      const maxG = Math.max(S.peakGalaxy + 2, S.galaxy + 2, 10), pts = [];
-      for (let g = 1; g <= maxG; g++) { const w = this.node(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
-      c.strokeStyle = "#fff"; c.lineWidth = 1;
-      for (let i = 0; i < pts.length - 1; i++) { c.globalAlpha = clamp(pts[i].p.f, 0.15, 1) * 0.4; c.beginPath(); c.moveTo(pts[i].p.x, pts[i].p.y); c.lineTo(pts[i + 1].p.x, pts[i + 1].p.y); c.stroke(); }
+      const maxG = Math.max(10, S.peakGalaxy, S.galaxy);
+      // orbit trajectories (white ellipses) — projected rings in the XZ plane
+      for (let g = 1; g <= maxG; g++) {
+        const R = this.orbitR(g), cur = g === S.galaxy;
+        c.beginPath();
+        for (let k = 0; k <= 72; k++) { const a = k / 72 * TAU, pr = this.proj(Math.cos(a) * R, 0, Math.sin(a) * R); k ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); }
+        c.globalAlpha = cur ? 0.6 : 0.2; c.strokeStyle = "#fff"; c.lineWidth = cur ? 2 : 1; c.stroke();
+      }
       c.globalAlpha = 1;
-      const order = pts.slice().sort((a, b) => b.p.z - a.p.z); this.hit = [];
+      const pts = []; for (let g = 1; g <= maxG; g++) { const w = this.node(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
+      const order = pts.slice().sort((a, b) => b.p.z - a.p.z); this.hit = []; const hole = this.proj(0, 0, 0); let drewHole = false;
       for (const it of order) {
+        if (!drewHole && it.p.z <= 0) { this.blackHole(hole); drewHole = true; }
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-        const scale = clamp(26 * p.f, 8, 64), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.32;
-        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(scale * 0.7, 26) });
+        const scale = clamp(22 * p.f, 7, 54), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.32;
+        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(scale * 0.7, 24) });
         if (current || g === this.sel) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, scale * 0.7 + 6 + pulse * 4, 0, TAU); c.stroke(); }
         this.cluster(p.x, p.y, scale, bright, this.t * 0.3 + g);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(11 * clamp(p.f, 0.65, 1.4)) + "px ui-monospace,monospace";
         c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - scale * 0.7 - 8);
         c.globalAlpha = 1;
       }
+      if (!drewHole) this.blackHole(hole);
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
