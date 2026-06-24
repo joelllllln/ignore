@@ -120,11 +120,26 @@
   ];
   const galDesc = g => GAL_DESC[(g - 1) % GAL_DESC.length];
   const uColor = u => u.type === "mortar" ? "#9a9a9a" : u.type === "turret" ? "#ffffff" : "#cccccc";
-  function unitPos(i, n) {
-    const ring = Math.floor(i / 9), per = 9, idx = i % per;
-    const r = 60 + ring * 56, a = idx / per * TAU + ring * 0.5 - Math.PI / 2;
-    return { x: W / 2 + Math.cos(a) * r, y: H / 2 + Math.sin(a) * r };
+  // Defenders auto-arrange into a tidy, centred formation that re-racks itself
+  // as you buy more — like beer-pong cups: a lone unit sits centre, a handful
+  // form a neat ring, more fill concentric rings (the last ring always spread
+  // evenly), so 5 and 50 read as different but equally organised shapes.
+  let _form = { n: -1, pts: [] };
+  function formation(n) {
+    if (_form.n === n) return _form.pts;
+    const pts = [], GAP = 42;
+    if (n >= 1) pts.push({ x: 0, y: 0 });
+    let placed = 1, ring = 1;
+    while (placed < n) {
+      const radius = ring * 48, cap = Math.max(1, Math.floor(TAU * radius / GAP)), take = Math.min(cap, n - placed);
+      const phase = (ring % 2 ? Math.PI / take : 0) - Math.PI / 2;
+      for (let k = 0; k < take; k++) { const a = k / take * TAU + phase; pts.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius }); }
+      placed += take; ring++;
+    }
+    _form = { n, pts };
+    return pts;
   }
+  function unitPos(i, n) { const p = formation(n)[i] || { x: 0, y: 0 }; return { x: W / 2 + p.x, y: H / 2 + p.y }; }
 
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
@@ -215,14 +230,21 @@
   }
 
   function fireUnit(u, p) {
-    let target = null, bd = uRange(u) ** 2;
-    for (const d of dots) { const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q < bd) { bd = q; target = d; } }
-    if (!target) return;
+    // pick the nearest dot in range that isn't already marked for lethal damage
+    // this frame (so units spread fire instead of overkilling one dot); fall
+    // back to the nearest in range if every candidate is already covered.
+    const rng = uRange(u) ** 2; let target = null, bd = rng, fallback = null, fbd = rng;
+    for (const d of dots) {
+      if (d.dead) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;
+      if (q < fbd) { fbd = q; fallback = d; }
+      if ((d.pending || 0) < d.hp && q < bd) { bd = q; target = d; }
+    }
+    target = target || fallback; if (!target) return;
     let dmg = uDmg(u); if (Math.random() < uCrit(u)) dmg *= uCritMul(u);
     beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: 0.08, color: uColor(u) });
     const aoe = uSplash(u);
-    if (aoe > 0) { for (const d of dots) if ((d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg); }
-    else hitDot(target, dmg);
+    if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg); }
+    else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg); }
   }
   function hitDot(d, dmg) { if (d.dead) return; d.hp -= dmg; d.hit = 0.08; if (d.hp <= 0) { d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0 }); } }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
@@ -250,6 +272,7 @@
     if (spawnAcc > 6) spawnAcc = 6;
 
     for (const d of dots) {
+      d.pending = 0;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt;
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt); }
       else { d.x += d.vx * dt; d.y += d.vy * dt; if (d.x < 30 || d.x > W - 30) d.vx *= -1; if (d.y < 50 || d.y > H - 130) d.vy *= -1; d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130); }
@@ -728,5 +751,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
