@@ -14,9 +14,9 @@ const LUCK = { base: 70, mul: 1.35, max: 25, eff: L => Math.min(0.5, 0.02 * L) }
 const UNIT = [ { gal: 1, base: 60, dmg: 5, rate: 1.4 }, { gal: 2, base: 500, dmg: 9, rate: 0.6 },
   { gal: 3, base: 4000, dmg: 26, rate: 0.5 }, { gal: 5, base: 30000, dmg: 3, rate: 4.2 }, { gal: 7, base: 250000, dmg: 90, rate: 0.3 } ];
 const UNIT_CAP = 4;                                      // max units per defender type
-const NODE = { base: 150, mul: 1.4 };                    // skill-tree nodes: pricey
-const NODE_MUL = 1.31;                                   // each node COMPOUNDS damage (dmg + machine-gun rate)
-const HPB = 8, HPM = 2.1, GVAL = 2.2, GSPAWN = g => 1 + (g - 1) * 0.95;
+const NODE = { base: 240, mul: 1.55 };                   // skill-tree nodes: SO much pricier now (base ~ turret*4)
+const NODE_MUL = 1.33;                                   // each node COMPOUNDS damage (dmg + machine-gun rate + multishot)
+const HPB = 14, HPM = 2.1, GVAL = 2.2, GSPAWN = g => 1 + (g - 1) * 0.95;
 const COLL_EFF = 0.85, YIELD = 1.1, CRIT = 2.1;          // collection + crit/abilities/class-tree baseline
 
 // --- travel curve (the thing we are tuning) ---

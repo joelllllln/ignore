@@ -56,7 +56,7 @@
   const DEF_PRIM = ["dmg", "rate", "range"], COL_PRIM = ["speed", "suction", "yield"];
   // mul stats COMPOUND per node (so each node is felt, keystones are big spikes);
   // flat stats (range/crit/collect) add up.
-  const MAG = { mul: { min: 1.18, maj: 1.65, key: 2.6 }, rate: { min: 1.26, maj: 2.1, key: 4.0 }, range: { min: 28, maj: 80, key: 180 }, crit: { min: 0.05, maj: 0.12, key: 0.25 }, collect: { min: 6, maj: 16, key: 34 } };
+  const MAG = { mul: { min: 1.2, maj: 1.85, key: 3.0 }, rate: { min: 1.28, maj: 2.3, key: 4.5 }, range: { min: 30, maj: 90, key: 220 }, crit: { min: 0.05, maj: 0.16, key: 0.32 }, collect: { min: 6, maj: 18, key: 40 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     const col = isCol(type);
@@ -66,15 +66,18 @@
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0 };
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, multi: 0 };
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
+      if (n.kind === "key") o.multi++;                          // each keystone = +1 multishot target (crazy power)
       for (const s of n.slots) { const amt = slotAmt(type, s);
         if (s.p === "x") { if (col) o.collect += amt; else o.crit += amt; }
         else { const key = prim[s.p - 1]; if (key === "range") o.range += amt; else o[key] *= amt; } } }
+    o.multi = Math.min(o.multi, 5);
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0 };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, multi: 0 };
+  const uMulti = u => cls(u.type).multi || 0;
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
   const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg * derived.sdDmg;
   const uRate = u => DEF_TYPES[u.type].rate * cls(u.type).rate * derived.sdFire;
@@ -282,12 +285,14 @@
   const DOT_ORDER = ["swift", "zigzag", "splitter", "orbiter", "shield", "pulsar", "regen", "phantom"];
   const kindChance = g => Math.min(0.12 + 0.05 * (g - 2), 0.55);
   function spawnDot(special) {
-    const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 8 * enemyHpMul(g) * vscale, avg = base * 1.3;
+    const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 14 * enemyHpMul(g) * vscale, avg = base * 1.3;
     const men = clamp(S.lv.value / 35, 0, 1.3);   // "menace": as Value climbs, tougher dots appear more (and pay more)
-    let roll = rnd(0.7, 1.9 + men * 1.6), armored = false, kind = "normal", cfg = null, mv = 20;
-    if (Math.random() < armorChance(g) + men * 0.16) { armored = true; roll *= rnd(4, 7) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
+    const men01 = Math.min(1, men);               // 0..1 gate — keeps dots BASIC until Value is invested
+    let roll = rnd(0.7, 1.6 + men * 1.9), armored = false, kind = "normal", cfg = null, mv = 20;
+    // armored elites & exotic kinds stay rare until you really pump Value (men01 gate)
+    if (Math.random() < armorChance(g) * (0.12 + 0.88 * men01) + men * 0.1) { armored = true; roll *= rnd(4, 7) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
     else { const elig = DOT_ORDER.filter(k => g >= DOT_KINDS[k].gal);
-      if (elig.length && Math.random() < kindChance(g) + men * 0.12) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
+      if (elig.length && Math.random() < kindChance(g) * (0.1 + 0.9 * men01) + men * 0.08) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
     if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
     const hp = base * roll;
     special = special || (!armored && !cfg && Math.random() < derived.luck);
@@ -309,24 +314,29 @@
   }
 
   function fireUnit(u, p) {
-    // pick the nearest dot in range that isn't already marked for lethal damage
-    // this frame (so units spread fire instead of overkilling one dot); fall
-    // back to the nearest in range if every candidate is already covered.
-    const rng = uRange(u) ** 2; let target = null, bd = rng, fallback = null, fbd = rng;
+    // gather every in-range dot, nearest first, preferring ones not already
+    // marked for lethal damage this frame (so fire spreads instead of overkilling).
+    const rng = uRange(u) ** 2; const cands = [];
     for (const d of dots) {
       if (d.dead) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;
-      if (q < fbd) { fbd = q; fallback = d; }
-      if ((d.pending || 0) < d.hp && q < bd) { bd = q; target = d; }
+      cands.push({ d, q, covered: (d.pending || 0) >= d.hp });
     }
-    target = target || fallback; if (!target) return;
-    let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
-    const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
-    u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4;          // muzzle recoil
-    beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: crit ? 3.5 : 2 });
-    if (crit) burst(target.x, target.y, 5, 90, 2);          // crit pops a little extra
-    const aoe = uSplash(u);
-    if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type); }
-    else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
+    if (!cands.length) return;
+    cands.sort((a, b) => (a.covered - b.covered) || (a.q - b.q));   // uncovered first, then nearest
+    const shots = 1 + uMulti(u);                            // keystone nodes grant extra simultaneous targets
+    const fired = cands.slice(0, shots);
+    let recoiled = false;
+    for (const c of fired) {
+      const target = c.d;
+      let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
+      const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
+      if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; recoiled = true; }   // muzzle recoil (toward first target)
+      beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: crit ? 3.5 : 2 });
+      if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
+      const aoe = uSplash(u);
+      if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type); }
+      else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
+    }
   }
   function hitDot(d, dmg, src) {
     if (d.dead) return;
@@ -678,12 +688,12 @@
     const s = { type: tp };
     return isCol(tp)
       ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> grab · <b>×" + cYield(tp).toFixed(2) + "</b> yield"
-      : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "");
+      : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "");
   }
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 12 : n.kind === "major" ? 4 : 1; return Math.floor(TY(type).base * 2.5 * Math.pow(1.4, allocCount(type)) * k); }
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 4 * Math.pow(1.55, allocCount(type)) * k); }
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
@@ -703,8 +713,11 @@
     const has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost, fx = nodeFx(type, n);
     $("si-name").textContent = nodeIcon(type, n) + "  " + (nodeLabel(type, n) || fx);
     $("si-tag").textContent = n.kind === "key" ? "✦ Notable Keystone" : n.kind === "major" ? "◆ Notable" : "• Passive";
-    $("si-desc").textContent = n.kind === "key" ? "A powerful node joining two stat branches of this wing." : n.kind === "major" ? "A stronger passive on this branch." : "A small passive on the path.";
-    $("si-fx").textContent = "Grants: " + fx;
+    const keyDef = n.kind === "key" && !isCol(type);
+    $("si-desc").textContent = n.kind === "key"
+      ? (keyDef ? "A devastating keystone: joins two stat branches AND lets every unit of this class fire at one EXTRA target each shot (multishot)." : "A powerful node joining two stat branches of this wing.")
+      : n.kind === "major" ? "A stronger passive on this branch." : "A small passive on the path.";
+    $("si-fx").textContent = "Grants: " + fx + (keyDef ? " · +1 simultaneous target" : "");
     const btn = $("st-upgrade");
     if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
     else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = "ALLOCATE · $" + fmt(cost); btn.disabled = !afford; }
