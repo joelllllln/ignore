@@ -62,6 +62,10 @@ interconnected node map per class:
   target per keystone.
 - Costs climb steeply along a tree (keystones cost far more than passives), so
   plan your route. Every unit of a class shares its tree.
+- The **Turret** tree (your first defender) is tuned to feel *transformative*:
+  every node roughly **doubles** its stat — a fire-rate passive is a literal
+  "double barrel" (×2 rate), a damage node ×2 dmg — instead of a small % bump.
+  Later defender classes keep a gentler per-node curve so the roster still matters.
 
 ## Collectors
 
@@ -70,6 +74,10 @@ classes as you travel: **Drone → Drone Swarm → Collector → Magnet → Trac
 Singularity** (a black hole that slowly drags every orb, and nearby dots,
 inward). Each collector class has its **own skill web** (Speed / Suction /
 Yield / Grab).
+
+Like the Turret, the **Drone** tree (your first collector) is tuned to be
+*transformative* — every node roughly **doubles** its Speed / Suction / Yield
+instead of giving a small % bonus. Later collector classes keep the gentler curve.
 
 Big kills drop **heavy loot** a collector must sit on and **consume** (watch the
 ring fill) — small dots are instant, fat ones tie a collector up, so collector

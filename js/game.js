@@ -57,12 +57,22 @@
   // mul stats COMPOUND per node (so each node is felt, keystones are big spikes);
   // flat stats (range/crit/collect) add up.
   const MAG = { mul: { min: 1.2, maj: 1.85, key: 3.0 }, rate: { min: 1.28, maj: 2.3, key: 4.5 }, range: { min: 30, maj: 90, key: 220 }, crit: { min: 0.05, maj: 0.16, key: 0.32 }, collect: { min: 6, maj: 18, key: 40 } };
+  // The turret (first defender) and drone (first collector) trees are tuned to feel
+  // TRANSFORMATIVE rather than incremental: every node roughly DOUBLES its stat —
+  // e.g. a fire-rate passive is "Double Barrel" (×2 rate), a damage node ×2 dmg, not
+  // a small % bump. Keystones spike far harder still. Later classes keep the gentler
+  // default curve so the progression up the roster still matters.
+  const MAG_BOOST = {
+    turret: { mul: { min: 2.0, maj: 3.0, key: 5.0 }, rate: { min: 2.0, maj: 3.2, key: 6.0 }, range: { min: 80, maj: 220, key: 520 }, crit: { min: 0.12, maj: 0.30, key: 0.55 }, collect: { min: 6, maj: 18, key: 40 } },
+    drone:  { mul: { min: 2.0, maj: 3.0, key: 5.0 }, rate: { min: 2.0, maj: 3.2, key: 6.0 }, range: { min: 80, maj: 220, key: 520 }, crit: { min: 0.12, maj: 0.30, key: 0.55 }, collect: { min: 16, maj: 48, key: 110 } },
+  };
+  const magFor = type => MAG_BOOST[type] || MAG;
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
-    const col = isCol(type);
-    if (s.p === "x") return col ? MAG.collect[s.mag] : MAG.crit[s.mag];
+    const col = isCol(type), M = magFor(type);
+    if (s.p === "x") return col ? M.collect[s.mag] : M.crit[s.mag];
     const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
-    return key === "range" ? MAG.range[s.mag] : key === "rate" ? MAG.rate[s.mag] : MAG.mul[s.mag];
+    return key === "range" ? M.range[s.mag] : key === "rate" ? M.rate[s.mag] : M.mul[s.mag];
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
