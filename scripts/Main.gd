@@ -17,6 +17,10 @@ const MAX_CANNONS: int = 10
 
 # --- Tunable balance --------------------------------------------------------
 const START_WALL_HP: int = 20
+const MAX_DRONES: int = 8
+const MAX_MULTISHOT_LEVEL: int = 3   # 1 → 2 → 4 → 8 simultaneous targets
+const DRONE_CENTER: Vector2 = Vector2(W / 2.0, 340.0)
+const DRONE_ORBIT_RADIUS: float = 150.0
 
 # --- Runtime state ----------------------------------------------------------
 var difficulty: float = 1.0
@@ -29,16 +33,26 @@ var wall_hp: int = START_WALL_HP
 var wall_max_hp: int = START_WALL_HP
 var game_over: bool = false
 
-# Upgrade levels
-var dmg_level: int = 0
-var rate_level: int = 0
+# Upgrade levels — TURRET tree
+var dmg_level: int = 0          # Heavy Rounds: ×2 damage per level
+var rate_level: int = 0         # Double Barrel: ×2 fire rate per level
+var multishot_level: int = 0    # Multishot: ×2 simultaneous targets per level
 var cannon_count: int = 1
+
+# Upgrade levels — DRONE tree
+var drone_count: int = 0        # Deploy Drone: +1 autonomous combat drone
+var drone_rate_level: int = 0   # Overclock: ×2 drone fire rate per level
+var drone_dmg_level: int = 0    # Plasma Core: ×2 drone damage per level
+var drone_orbit_phase: float = 0.0
+
+# Wall tree
 var wall_level: int = 0
 
 # Entity pools (children of this node)
 var dots: Array[Dot] = []
 var bullets: Array[Bullet] = []
 var cannons: Array[Cannon] = []
+var drones: Array[Drone] = []
 
 # --- UI references ----------------------------------------------------------
 var slider: HSlider
@@ -46,7 +60,11 @@ var diff_value_label: Label
 var stats_label: Label
 var btn_dmg: Button
 var btn_rate: Button
+var btn_multishot: Button
 var btn_cannon: Button
+var btn_drone: Button
+var btn_drone_rate: Button
+var btn_drone_dmg: Button
 var btn_wall: Button
 var gameover_panel: Panel
 var go_label: Label
@@ -62,21 +80,50 @@ func _ready() -> void:
 # ============================================================================
 #  DERIVED STATS
 # ============================================================================
+# --- TURRET tree ------------------------------------------------------------
 func bullet_damage() -> float:
-	return 2.0 + float(dmg_level) * 1.5
+	# Heavy Rounds — each level DOUBLES turret damage.
+	return 2.0 * pow(2.0, float(dmg_level))
 
 func fire_rate() -> float:
-	# shots per second, capped so it stays sane
-	return minf(1.2 + float(rate_level) * 0.25, 14.0)
+	# Double Barrel — each level DOUBLES the rate of fire (capped for sanity).
+	return minf(1.2 * pow(2.0, float(rate_level)), 24.0)
 
+func multishot_targets() -> int:
+	# Multishot — each level DOUBLES how many dots a turret hits per volley.
+	return int(pow(2.0, float(multishot_level)))
+
+# --- DRONE tree -------------------------------------------------------------
+func drone_damage() -> float:
+	# Plasma Core — each level DOUBLES drone damage.
+	return 3.0 * pow(2.0, float(drone_dmg_level))
+
+func drone_fire_rate() -> float:
+	# Overclock — each level DOUBLES drone fire rate (capped for sanity).
+	return minf(1.0 * pow(2.0, float(drone_rate_level)), 18.0)
+
+# --- Costs ------------------------------------------------------------------
+# Power doubles each level, so costs climb steeply to keep things earned.
 func dmg_cost() -> int:
-	return int(round(15.0 * pow(1.5, dmg_level)))
+	return int(round(25.0 * pow(3.0, dmg_level)))
 
 func rate_cost() -> int:
-	return int(round(20.0 * pow(1.55, rate_level)))
+	return int(round(30.0 * pow(3.0, rate_level)))
+
+func multishot_cost() -> int:
+	return int(round(120.0 * pow(4.0, multishot_level)))
 
 func cannon_cost() -> int:
 	return int(round(50.0 * pow(1.8, float(cannon_count - 1))))
+
+func drone_cost() -> int:
+	return int(round(80.0 * pow(2.2, drone_count)))
+
+func drone_rate_cost() -> int:
+	return int(round(60.0 * pow(3.0, drone_rate_level)))
+
+func drone_dmg_cost() -> int:
+	return int(round(60.0 * pow(3.0, drone_dmg_level)))
 
 func wall_cost() -> int:
 	return int(round(25.0 * pow(1.5, wall_level)))
@@ -94,6 +141,7 @@ func _process(delta: float) -> void:
 		_handle_spawning(delta)
 		_update_dots(delta)
 		_update_cannons(delta)
+		_update_drones(delta)
 		_update_bullets(delta)
 
 	_update_ui()
@@ -127,15 +175,38 @@ func _update_dots(delta: float) -> void:
 
 
 func _update_cannons(delta: float) -> void:
+	var shots := multishot_targets()
 	for c in cannons:
 		c.cooldown -= delta
-		var target := nearest_dot(c.position)
-		if target != null:
-			c.aim_angle = (target.position - c.position).angle()
+		var targets := nearest_dots(c.position, shots)
+		if targets.size() > 0:
+			c.aim_angle = (targets[0].position - c.position).angle()
 			if c.cooldown <= 0.0:
-				fire_bullet(c, target)
+				# Multishot: one bullet at each of the nearest dots.
+				for t in targets:
+					fire_bullet(c.position, t, bullet_damage(),
+						Color(1.0, 0.95, 0.45), Color(1.0, 0.7, 0.2, 0.5))
 				c.cooldown = 1.0 / fire_rate()
 		c.queue_redraw()
+
+
+func _update_drones(delta: float) -> void:
+	# Drones orbit a point above the wall, slowly rotating, and auto-fire.
+	drone_orbit_phase += delta * 0.6
+	var n := drones.size()
+	for i in range(n):
+		var dr := drones[i]
+		var ang := drone_orbit_phase + TAU * float(i) / float(maxi(n, 1))
+		dr.position = DRONE_CENTER + Vector2(cos(ang), sin(ang) * 0.45) * DRONE_ORBIT_RADIUS
+		dr.cooldown -= delta
+		var target := nearest_dot(dr.position)
+		if target != null:
+			dr.aim_angle = (target.position - dr.position).angle()
+			if dr.cooldown <= 0.0:
+				fire_bullet(dr.position, target, drone_damage(),
+					Color(0.55, 1.0, 0.65), Color(0.3, 1.0, 0.5, 0.5))
+				dr.cooldown = 1.0 / drone_fire_rate()
+		dr.queue_redraw()
 
 
 func _update_bullets(delta: float) -> void:
@@ -188,14 +259,16 @@ func spawn_dot() -> void:
 	dots.append(d)
 
 
-func fire_bullet(cannon: Cannon, target: Dot) -> void:
-	var b := Bullet.new()
-	b.position = cannon.position + Vector2.RIGHT.rotated(cannon.aim_angle) * 24.0
-	var dir := (target.position - b.position)
+func fire_bullet(from: Vector2, target: Dot, damage: float, core: Color, glow: Color) -> void:
+	var dir := (target.position - from)
 	if dir.length() < 0.001:
 		dir = Vector2.UP
+	var b := Bullet.new()
+	b.position = from + dir.normalized() * 22.0
 	b.velocity = dir.normalized() * BULLET_SPEED
-	b.damage = bullet_damage()
+	b.damage = damage
+	b.core_color = core
+	b.glow_color = glow
 	add_child(b)
 	bullets.append(b)
 
@@ -211,11 +284,34 @@ func nearest_dot(from: Vector2) -> Dot:
 	return best
 
 
+func nearest_dots(from: Vector2, count: int) -> Array[Dot]:
+	# The `count` closest dots, nearest first. Used for turret multishot.
+	var result: Array[Dot] = []
+	if count <= 1 or dots.size() <= 1:
+		var single := nearest_dot(from)
+		if single != null:
+			result.append(single)
+		return result
+	var sorted := dots.duplicate()
+	sorted.sort_custom(func(a, b):
+		return from.distance_squared_to(a.position) < from.distance_squared_to(b.position))
+	for i in range(mini(count, sorted.size())):
+		result.append(sorted[i])
+	return result
+
+
 func add_cannon() -> void:
 	var c := Cannon.new()
 	add_child(c)
 	cannons.append(c)
 	_reposition_cannons()
+
+
+func add_drone() -> void:
+	var dr := Drone.new()
+	dr.position = DRONE_CENTER
+	add_child(dr)
+	drones.append(dr)
 
 
 func _reposition_cannons() -> void:
@@ -256,6 +352,14 @@ func _on_buy_rate() -> void:
 		coins -= cost
 		rate_level += 1
 
+func _on_buy_multishot() -> void:
+	if multishot_level >= MAX_MULTISHOT_LEVEL:
+		return
+	var cost := multishot_cost()
+	if coins >= cost:
+		coins -= cost
+		multishot_level += 1
+
 func _on_buy_cannon() -> void:
 	if cannon_count >= MAX_CANNONS:
 		return
@@ -264,6 +368,27 @@ func _on_buy_cannon() -> void:
 		coins -= cost
 		cannon_count += 1
 		add_cannon()
+
+func _on_buy_drone() -> void:
+	if drone_count >= MAX_DRONES:
+		return
+	var cost := drone_cost()
+	if coins >= cost:
+		coins -= cost
+		drone_count += 1
+		add_drone()
+
+func _on_buy_drone_rate() -> void:
+	var cost := drone_rate_cost()
+	if coins >= cost:
+		coins -= cost
+		drone_rate_level += 1
+
+func _on_buy_drone_dmg() -> void:
+	var cost := drone_dmg_cost()
+	if coins >= cost:
+		coins -= cost
+		drone_dmg_level += 1
 
 func _on_buy_wall() -> void:
 	var cost := wall_cost()
@@ -292,9 +417,12 @@ func _on_restart() -> void:
 		b.queue_free()
 	for c in cannons:
 		c.queue_free()
+	for dr in drones:
+		dr.queue_free()
 	dots.clear()
 	bullets.clear()
 	cannons.clear()
+	drones.clear()
 
 	elapsed = 0.0
 	spawn_timer = 0.0
@@ -302,7 +430,12 @@ func _on_restart() -> void:
 	kills = 0
 	dmg_level = 0
 	rate_level = 0
+	multishot_level = 0
 	cannon_count = 1
+	drone_count = 0
+	drone_rate_level = 0
+	drone_dmg_level = 0
+	drone_orbit_phase = 0.0
 	wall_level = 0
 	wall_max_hp = START_WALL_HP
 	wall_hp = START_WALL_HP
@@ -355,19 +488,23 @@ func _build_ui() -> void:
 
 	# --- Upgrade panel (right side) ---
 	var panel := VBoxContainer.new()
-	panel.position = Vector2(W - 250.0, 70.0)
+	panel.position = Vector2(W - 250.0, 54.0)
 	panel.custom_minimum_size = Vector2(234.0, 0.0)
-	panel.add_theme_constant_override("separation", 8)
+	panel.add_theme_constant_override("separation", 5)
 	ui.add_child(panel)
 
-	var title := Label.new()
-	title.text = "— UPGRADES —"
-	title.add_theme_font_size_override("font_size", 16)
-	panel.add_child(title)
-
+	_make_header(panel, "▼ TURRETS")
 	btn_dmg = _make_button(panel, _on_buy_dmg)
 	btn_rate = _make_button(panel, _on_buy_rate)
+	btn_multishot = _make_button(panel, _on_buy_multishot)
 	btn_cannon = _make_button(panel, _on_buy_cannon)
+
+	_make_header(panel, "▼ DRONES")
+	btn_drone = _make_button(panel, _on_buy_drone)
+	btn_drone_rate = _make_button(panel, _on_buy_drone_rate)
+	btn_drone_dmg = _make_button(panel, _on_buy_drone_dmg)
+
+	_make_header(panel, "▼ DEFENSE")
 	btn_wall = _make_button(panel, _on_buy_wall)
 
 	# --- Game over panel ---
@@ -396,10 +533,18 @@ func _build_ui() -> void:
 	gv.add_child(restart_btn)
 
 
+func _make_header(parent: Node, text: String) -> void:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.add_theme_color_override("font_color", Color(0.65, 0.82, 1.0))
+	parent.add_child(lbl)
+
+
 func _make_button(parent: Node, handler: Callable) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0.0, 40.0)
-	b.add_theme_font_size_override("font_size", 15)
+	b.custom_minimum_size = Vector2(0.0, 38.0)
+	b.add_theme_font_size_override("font_size", 13)
 	b.pressed.connect(handler)
 	parent.add_child(b)
 	return b
@@ -408,28 +553,60 @@ func _make_button(parent: Node, handler: Callable) -> Button:
 func _update_ui() -> void:
 	diff_value_label.text = "%.1fx" % difficulty
 
-	stats_label.text = "Coins: %d\nWall: %d / %d\nWave: %d\nKills: %d\nCannons: %d" % [
-		coins, wall_hp, wall_max_hp, int(elapsed / 12.0) + 1, kills, cannon_count
+	stats_label.text = "Coins: %d\nWall: %d / %d\nWave: %d\nKills: %d\nTurrets: %d   Drones: %d" % [
+		coins, wall_hp, wall_max_hp, int(elapsed / 12.0) + 1, kills, cannon_count, drone_count
 	]
 
+	# --- Turret tree ---
 	var dc := dmg_cost()
-	btn_dmg.text = "⬆ Damage  Lv.%d\n(%.1f → %.1f)  [%dc]" % [dmg_level, bullet_damage(), bullet_damage() + 1.5, dc]
+	btn_dmg.text = "Heavy Rounds  Lv.%d  ⟶ x2 dmg\n%.0f → %.0f dmg   [%dc]" % [
+		dmg_level, bullet_damage(), bullet_damage() * 2.0, dc]
 	btn_dmg.disabled = coins < dc
 
 	var rc := rate_cost()
-	btn_rate.text = "⬆ Fire Rate  Lv.%d\n(%.2f/s)  [%dc]" % [rate_level, fire_rate(), rc]
+	btn_rate.text = "Double Barrel  Lv.%d  ⟶ x2 rate\n%.1f → %.1f /s   [%dc]" % [
+		rate_level, fire_rate(), minf(fire_rate() * 2.0, 24.0), rc]
 	btn_rate.disabled = coins < rc
 
+	if multishot_level >= MAX_MULTISHOT_LEVEL:
+		btn_multishot.text = "Multishot MAXED  (x%d targets)" % multishot_targets()
+		btn_multishot.disabled = true
+	else:
+		var mc := multishot_cost()
+		btn_multishot.text = "Multishot  Lv.%d  ⟶ x2 targets\nhits %d → %d dots   [%dc]" % [
+			multishot_level, multishot_targets(), multishot_targets() * 2, mc]
+		btn_multishot.disabled = coins < mc
+
 	if cannon_count >= MAX_CANNONS:
-		btn_cannon.text = "Cannons MAXED (%d)" % MAX_CANNONS
+		btn_cannon.text = "Turrets MAXED  (%d)" % MAX_CANNONS
 		btn_cannon.disabled = true
 	else:
 		var cc := cannon_cost()
-		btn_cannon.text = "➕ Add Cannon  (%d/%d)\n[%dc]" % [cannon_count, MAX_CANNONS, cc]
+		btn_cannon.text = "Add Turret  (%d/%d)   [%dc]" % [cannon_count, MAX_CANNONS, cc]
 		btn_cannon.disabled = coins < cc
 
+	# --- Drone tree ---
+	if drone_count >= MAX_DRONES:
+		btn_drone.text = "Drones MAXED  (%d)" % MAX_DRONES
+		btn_drone.disabled = true
+	else:
+		var drc := drone_cost()
+		btn_drone.text = "Deploy Drone  (%d/%d)\n+1 orbiting gun   [%dc]" % [drone_count, MAX_DRONES, drc]
+		btn_drone.disabled = coins < drc
+
+	var drr := drone_rate_cost()
+	btn_drone_rate.text = "Overclock  Lv.%d  ⟶ x2 rate\n%.1f → %.1f /s   [%dc]" % [
+		drone_rate_level, drone_fire_rate(), minf(drone_fire_rate() * 2.0, 18.0), drr]
+	btn_drone_rate.disabled = coins < drr or drone_count == 0
+
+	var drd := drone_dmg_cost()
+	btn_drone_dmg.text = "Plasma Core  Lv.%d  ⟶ x2 dmg\n%.0f → %.0f dmg   [%dc]" % [
+		drone_dmg_level, drone_damage(), drone_damage() * 2.0, drd]
+	btn_drone_dmg.disabled = coins < drd or drone_count == 0
+
+	# --- Defense ---
 	var wc := wall_cost()
-	btn_wall.text = "🛡 Reinforce Wall  Lv.%d\n(+10 HP, full repair)  [%dc]" % [wall_level, wc]
+	btn_wall.text = "Reinforce Wall  Lv.%d\n+10 HP, full repair   [%dc]" % [wall_level, wc]
 	btn_wall.disabled = coins < wc
 
 
