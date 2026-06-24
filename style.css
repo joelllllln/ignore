@@ -31,6 +31,12 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #btn-metrics{top:52px;right:8px;width:38px;height:38px;background:var(--panel);border:1px solid var(--edge);
   border-radius:10px;color:var(--text);font-size:12px;letter-spacing:-1px;line-height:1;font-family:var(--mono)}
 
+/* reactive button feel */
+.u-buy,.u-up,.u-info,.act,.ab,.big,.tab,.si-btn,.gm-go,.mbtn,#buymode,.x{transition:transform .08s ease, box-shadow .12s ease, opacity .12s ease}
+.u-buy:active,.u-up:active,.u-info:active,.act:active,.ab:active,.big:active,.tab:active,.si-btn:active,.gm-go:active,.mbtn:active,#buymode:active{transform:scale(.9)}
+.u-buy.afford{box-shadow:0 0 0 0 rgba(255,255,255,.5);animation:affordpulse 1.3s infinite}
+@keyframes affordpulse{0%,100%{box-shadow:0 0 6px rgba(255,255,255,.25)}50%{box-shadow:0 0 13px rgba(255,255,255,.6)}}
+
 /* info buttons */
 .u-info{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--edge);
   color:var(--text);font-family:var(--mono);font-style:italic;font-weight:700;font-size:13px;margin-right:6px;line-height:1}
