@@ -668,10 +668,10 @@
       const maxG = Math.max(10, S.peakGalaxy, S.galaxy);
       // orbit trajectories (white ellipses) — projected rings in the XZ plane
       for (let g = 1; g <= maxG; g++) {
-        const R = this.orbitR(g), cur = g === S.galaxy;
+        const R = this.orbitR(g), cur = g === S.galaxy, seld = g === this.sel;
         c.beginPath();
         for (let k = 0; k <= 72; k++) { const a = k / 72 * TAU, pr = this.proj(Math.cos(a) * R, 0, Math.sin(a) * R); k ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); }
-        c.globalAlpha = cur ? 0.6 : 0.2; c.strokeStyle = "#fff"; c.lineWidth = cur ? 2 : 1; c.stroke();
+        c.globalAlpha = seld ? 0.95 : cur ? 0.55 : 0.18; c.strokeStyle = "#fff"; c.lineWidth = seld ? 3 : cur ? 2 : 1; c.stroke();
       }
       c.globalAlpha = 1;
       const pts = []; for (let g = 1; g <= maxG; g++) { const w = this.node(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
