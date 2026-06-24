@@ -238,13 +238,16 @@
 
   const armorChance = g => Math.min(0.05 + 0.022 * (g - 1), 0.28);
   function spawnDot(special) {
-    const g = S.galaxy, base = 22 * enemyHpMul(g), avg = base * 1.3;
+    // dot HP scales with the galaxy AND with your own Value level (√), so dots
+    // get tougher as you get richer — early dots are weak (fast start), and
+    // pumping Value means you must out-damage higher-HP dots to keep killing.
+    const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 8 * enemyHpMul(g) * vscale, avg = base * 1.3;
     let roll = rnd(0.7, 1.9), armored = false;
     if (Math.random() < armorChance(g)) { armored = true; roll *= rnd(4, 7); }   // elite, high-defense dot
     const hp = base * roll, mv = armored ? 9 : 20;
     special = special || (!armored && Math.random() < derived.luck);
-    // payout scales with the dot's ACTUAL toughness, so tanky/armored dots pay a
-    // real bounty — killing them faster (more damage) earns more.
+    // payout scales with the dot's ACTUAL toughness (vscale cancels here, so
+    // Value still fully multiplies cash) — tanky/armored dots pay a real bounty.
     const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (hp / avg) * (special ? 9 : 1)));
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, 7, armored ? 36 : 24);
     dots.push({ x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),

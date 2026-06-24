@@ -16,7 +16,7 @@ const UNIT = [ { gal: 1, base: 60, dmg: 5, rate: 1.4 }, { gal: 2, base: 500, dmg
 const UNIT_CAP = 4;                                      // max units per defender type
 const NODE = { base: 150, mul: 1.4 };                    // skill-tree nodes: pricey
 const NODE_MUL = 1.22;                                   // each node COMPOUNDS damage
-const HPB = 22, HPM = 2.1, GVAL = 2.2, GSPAWN = g => 1 + (g - 1) * 0.95;
+const HPB = 8, HPM = 2.1, GVAL = 2.2, GSPAWN = g => 1 + (g - 1) * 0.95;
 const COLL_EFF = 0.85, YIELD = 1.1, CRIT = 2.1;          // collection + crit/abilities/class-tree baseline
 
 // --- travel curve (the thing we are tuning) ---
@@ -32,7 +32,7 @@ const nodeCost = () => Math.floor(NODE.base * Math.pow(NODE.mul, S.nodes));
 const cap = () => CAP.eff(S.lv.cap);
 const dmgMul = () => Math.pow(NODE_MUL, S.nodes) * CRIT;
 const dps = () => { let d = 0; for (let i = 0; i < UNIT.length; i++) d += S.units[i] * UNIT[i].dmg * UNIT[i].rate; return d * dmgMul(); };
-const avgHp = g => HPB * Math.pow(HPM, g - 1) * 1.3;
+const avgHp = g => HPB * Math.pow(HPM, g - 1) * 1.3 * Math.sqrt(VALUE.eff(S.lv.value));
 const spawn = g => SPAWN.eff(S.lv.spawn) * GSPAWN(g);
 const kills = g => Math.min(spawn(g), dps() / avgHp(g));
 const valDot = g => 2 * Math.pow(GVAL, g - 1) * VALUE.eff(S.lv.value) * (1 + 8 * LUCK.eff(S.lv.luck)) * COLL_EFF * YIELD;
