@@ -173,9 +173,15 @@
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
-    return { cash: 0, galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1 };
+    return { cash: 0, galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0 };
   }
-  function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0 }; }
+  function freshStats() {
+    const kills = {}; DEF_ORDER.forEach(t => kills[t] = 0); kills.draw = 0; kills.blackhole = 0;
+    const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
+    return { playSec: 0, dotsPopped: 0, specials: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, rebirths: 0 };
+  }
+  function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0, stats: freshStats() }; }
+  const stat = () => META.stats;
 
   let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
@@ -204,7 +210,11 @@
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
         if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classNodes || typeof S.classNodes !== "object") S.classNodes = {}; ALL_TYPES.forEach(t => { if (!S.classNodes[t]) S.classNodes[t] = {}; }); if (!Array.isArray(S.collectors) || !S.collectors.length) { const n = 1 + (d.S.lv && d.S.lv.drones || 0); S.collectors = []; for (let i = 0; i < n; i++) S.collectors.push({ type: "drone" }); } }
-        if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {}); }
+        if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {});
+          const st = d.META.stats || {}; META.stats = Object.assign(freshStats(), st);
+          META.stats.kills = Object.assign(freshStats().kills, st.kills || {});
+          META.stats.collected = Object.assign(freshStats().collected, st.collected || {});
+          META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {}); }
         if (d.ts && d.cps > 0) { const e = clamp((Date.now() - d.ts) / 1000, 0, 8 * 3600); if (e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; } }
       }
     } catch (e) {}
@@ -243,16 +253,16 @@
     let dmg = uDmg(u); if (Math.random() < uCrit(u)) dmg *= uCritMul(u);
     beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: 0.08, color: uColor(u) });
     const aoe = uSplash(u);
-    if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg); }
-    else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg); }
+    if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type); }
+    else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
   }
-  function hitDot(d, dmg) { if (d.dead) return; d.hp -= dmg; d.hit = 0.08; if (d.hp <= 0) { d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0 }); } }
+  function hitDot(d, dmg, src) { if (d.dead) return; d.hp -= dmg; d.hit = 0.08; if (d.hp <= 0) { d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0 }); const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (src) s.kills[src] = (s.kills[src] || 0) + 1; } }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
-  function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, dmg); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }
+  function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, dmg, "draw"); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }
 
   function useAbility(k) {
     if (abil[k] > 0 || state !== "play") return;
-    abil[k] = ABIL_CD[k];
+    abil[k] = ABIL_CD[k]; META.stats.abilities[k] = (META.stats.abilities[k] || 0) + 1;
     if (k === "frenzy") frenzyT = 6;
     else if (k === "dotrain") { const n = 30 + S.galaxy * 8; for (let i = 0; i < n; i++) spawnDot(Math.random() < 0.3); }
     else if (k === "blackhole") blackholeT = 5;
@@ -262,6 +272,7 @@
   function update(dt) {
     if (state !== "play") return;
     recompute();
+    META.stats.playSec += dt; S.runSec += dt;
     if (frenzyT > 0) frenzyT -= dt;
     if (blackholeT > 0) blackholeT -= dt;
     for (const k in abil) if (abil[k] > 0) abil[k] = Math.max(0, abil[k] - dt);
@@ -274,7 +285,7 @@
     for (const d of dots) {
       d.pending = 0;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt;
-      if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt); }
+      if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
       else { d.x += d.vx * dt; d.y += d.vy * dt; if (d.x < 30 || d.x > W - 30) d.vx *= -1; if (d.y < 50 || d.y > H - 130) d.vy *= -1; d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130); }
     }
     dots = dots.filter(d => !d.dead);
@@ -300,7 +311,7 @@
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
       let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
-      if (nd) { const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 150 : 240; o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > 45) { if (o.t <= 45) earned += Math.round(o.value * cYield(nd.type)); orbs.splice(i, 1); } }
+      if (nd) { const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 150 : 240; o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > 45) { if (o.t <= 45) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; } orbs.splice(i, 1); } }
       else if (o.t > 45) orbs.splice(i, 1);
     }
     if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; }
@@ -650,6 +661,38 @@
       b.onclick = () => { if (META.starDust < sdCost(u)) return; META.starDust -= sdCost(u); META.sd[u.id]++; recompute(); buildSD(); syncHUD(); save(); };
     }
   }
+  function buildMetrics() {
+    const s = stat();
+    const sec = (t, h) => `<div class="met-sec"><h3>${t}</h3>${h}</div>`;
+    const grid = h => `<div class="met-grid">${h}</div>`;
+    const row = (k, v) => `<div class="met-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+    const bar = (k, v, pct) => `<div class="met-bar"><div class="bl"><span class="k">${k}</span><span class="v">${v}</span></div><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>`;
+    const empty = t => `<div class="met-empty">${t}</div>`;
+    const killNames = { draw: "Draw-to-pop", blackhole: "Black Hole ability" };
+    const ke = Object.keys(s.kills).filter(k => s.kills[k] > 0).map(k => ({ n: s.kills[k], label: TY(k) ? TY(k).name : (killNames[k] || k) })).sort((a, b) => b.n - a.n);
+    const tk = ke.reduce((a, e) => a + e.n, 0) || 1;
+    const ce = COL_ORDER.filter(t => s.collected[t] > 0).map(t => ({ v: s.collected[t], label: TY(t).name })).sort((a, b) => b.v - a.v);
+    const tc = ce.reduce((a, e) => a + e.v, 0) || 1;
+    const defFleet = DEF_ORDER.filter(t => countType(t) > 0).map(t => `${TY(t).name} ×${countType(t)}`).join(" · ") || "—";
+    const colFleet = COL_ORDER.filter(t => countType(t) > 0).map(t => `${TY(t).name} ×${countType(t)}`).join(" · ") || "—";
+    let nodes = 0; ALL_TYPES.forEach(t => nodes += allocCount(t));
+    $("metrics-body").innerHTML =
+      sec("Time &amp; progress", grid(
+        row("Played (total)", fmtTime(s.playSec)) + row("This run", fmtTime(S.runSec)) +
+        row("Galaxy", S.galaxy + " · " + galName(S.galaxy)) + row("Peak galaxy", S.peakGalaxy) +
+        row("Travels", s.travels) + row("Rebirths", s.rebirths))) +
+      sec("Economy", grid(
+        row("Cash / sec", "$" + fmt(cps)) + row("Capacity", "$" + fmt(derived.capacity)) +
+        row("Earned this run", "$" + fmt(S.totalRun)) + row("Earned all-time", "$" + fmt(META.totalEver)) +
+        row("Star Dust", "✦ " + fmt(META.starDust)) + row("Skill nodes", nodes))) +
+      sec("Combat", grid(
+        row("Dots popped", fmt(s.dotsPopped)) + row("Special dots", fmt(s.specials)) +
+        row("On screen now", dots.length) + row("Avg pops / min", s.playSec > 1 ? fmt(Math.round(s.dotsPopped / s.playSec * 60)) : "0"))) +
+      sec("Destroyed by", ke.length ? ke.map(e => bar(e.label, fmt(e.n) + " · " + Math.round(e.n / tk * 100) + "%", e.n / tk * 100)).join("") : empty("No kills yet")) +
+      sec("Cash collected by", ce.length ? ce.map(e => bar(e.label, "$" + fmt(e.v) + " · " + Math.round(e.v / tc * 100) + "%", e.v / tc * 100)).join("") : empty("Nothing collected yet")) +
+      sec("Abilities used", grid(row("⚡ Frenzy", s.abilities.frenzy) + row("▽ Dot Rain", s.abilities.dotrain) + row("◉ Black Hole", s.abilities.blackhole))) +
+      sec("Fleet", empty("<b style='color:#fff'>Defenders:</b> " + defFleet) + empty("<b style='color:#fff'>Collectors:</b> " + colFleet));
+  }
   // interactive pseudo-3D black & white star map
   const GMap = {
     open: false, yaw: 0.5, pitch: -0.82, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
@@ -720,11 +763,11 @@
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
-  function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; recompute(); syncHUD(); save(); }
+  function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; recompute(); syncHUD(); save(); }
   function rebirthGain() { return Math.floor(5 + Math.max(0, S.peakGalaxy - 9) * 6 + Math.cbrt(S.totalRun + 1) * 0.5); }
   function openRebirth() { if (S.galaxy < 10 && S.peakGalaxy < 10) return; $("rb-text").textContent = "Reset this run (cash, defenders & upgrades wiped) to bank Star Dust for permanent upgrades."; $("rb-gain").textContent = "✦ +" + fmt(rebirthGain()) + " Star Dust"; $("rebirth-modal").classList.add("show"); }
   function doRebirth() {
-    META.starDust += rebirthGain(); const keep = META; S = fresh(); META = keep;
+    META.starDust += rebirthGain(); META.stats.rebirths++; const keep = META; S = fresh(); META = keep;
     if (META.sd.sdStart > 0) S.cash = 50 * Math.pow(6, META.sd.sdStart);
     dots = []; orbs = []; beams = []; spawnAcc = 0; cps = 0; drones = []; selUnit = -1;
     syncCollectors(); recompute(); $("rebirth-modal").classList.remove("show"); renderList(); buildSD(); syncHUD(); save();
@@ -737,6 +780,7 @@
     $("top").style.display = (s === "play") ? "flex" : "none";
     $("dock").style.display = (s === "play") ? "block" : "none";
     $("btn-menu").style.display = (s === "play") ? "block" : "none";
+    $("btn-metrics").style.display = (s === "play") ? "block" : "none";
     if (s === "home") { $("home-gal").textContent = S.peakGalaxy; $("home-sd").textContent = fmt(META.starDust); }
   }
 
@@ -774,6 +818,8 @@
     showNodeInfo(onward.length === 1 ? onward[0] : node);
   };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
+  $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
+  $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");
