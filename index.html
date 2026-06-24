@@ -25,9 +25,9 @@
   <div id="dock" class="layer">
     <div id="dock-toggle">▾ Minimise</div>
     <div id="abilities">
-      <button class="ab" id="ab-frenzy"><span class="ab-n">⚡ Frenzy</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
-      <button class="ab" id="ab-dotrain"><span class="ab-n">▽ Dot Rain</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
-      <button class="ab" id="ab-blackhole"><span class="ab-n">◉ Black Hole</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
+      <button class="ab" id="ab-frenzy"><i class="ab-i" data-info="frenzy">i</i><span class="ab-n">⚡ Frenzy</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
+      <button class="ab" id="ab-dotrain"><i class="ab-i" data-info="dotrain">i</i><span class="ab-n">▽ Dot Rain</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
+      <button class="ab" id="ab-blackhole"><i class="ab-i" data-info="blackhole">i</i><span class="ab-n">◉ Black Hole</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
     </div>
     <div id="tabs">
       <button class="tab sel" data-tab="def">DEFENCE</button>
@@ -120,6 +120,15 @@
       <p id="welcome-text" class="muted"></p>
       <div class="rb-gain" id="welcome-cash"></div>
       <button class="big" id="welcome-ok">COLLECT</button>
+    </div>
+  </div>
+
+  <!-- INFO -->
+  <div id="info-modal" class="modal">
+    <div class="card">
+      <div class="card-head"><h2 id="info-title">Info</h2><button class="x" id="info-close">✕</button></div>
+      <p id="info-text" class="muted"></p>
+      <button class="big" id="info-back">GOT IT</button>
     </div>
   </div>
 

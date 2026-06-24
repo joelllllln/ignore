@@ -409,8 +409,9 @@
       const order = activeTab === "def" ? DEF_ORDER : COL_ORDER, col = activeTab === "def" ? "#fff" : "var(--drone)";
       for (const type of order) {
         const el = document.createElement("div"); el.className = "up";
-        el.innerHTML = `<span class="u-dot" style="background:${col}"></span><div class="u-mid"><div class="u-name">${TY(type).name}</div><div class="u-desc"></div></div><button class="u-up" title="Upgrade class">⬆ Tree</button><button class="u-buy"></button>`;
+        el.innerHTML = `<span class="u-dot" style="background:${col}"></span><div class="u-mid"><div class="u-name">${TY(type).name}</div><div class="u-desc"></div></div><button class="u-info" title="Info">i</button><button class="u-up" title="Upgrade class">⬆ Tree</button><button class="u-buy"></button>`;
         wrap.appendChild(el);
+        el.querySelector(".u-info").onclick = () => showInfo(TY(type).name, type);
         el.querySelector(".u-up").onclick = () => openSkillTree(type);
         el.querySelector(".u-buy").onclick = () => buyUnit(type);
         listRows[type] = { kind: "unit", el, desc: el.querySelector(".u-desc"), buy: el.querySelector(".u-buy") };
@@ -419,8 +420,9 @@
       const col = activeTab === "drone" ? "var(--drone)" : "var(--eco)";
       for (const u of UPS) { if (u.tab !== activeTab) continue;
         const el = document.createElement("div"); el.className = "up";
-        el.innerHTML = `<span class="u-dot" style="background:${col}"></span><div class="u-mid"><div class="u-name">${u.name}<span class="lv"></span></div><div class="u-desc"></div></div><button class="u-buy"></button>`;
+        el.innerHTML = `<span class="u-dot" style="background:${col}"></span><div class="u-mid"><div class="u-name">${u.name}<span class="lv"></span></div><div class="u-desc"></div></div><button class="u-info" title="Info">i</button><button class="u-buy"></button>`;
         wrap.appendChild(el);
+        el.querySelector(".u-info").onclick = () => showInfo(u.name, u.id);
         el.querySelector(".u-buy").onclick = () => buyUpgrade(u);
         listRows[u.id] = { el, lv: el.querySelector(".lv"), desc: el.querySelector(".u-desc"), buy: el.querySelector(".u-buy") };
       }
@@ -664,11 +666,36 @@
     const wrap = $("sd-list"); wrap.innerHTML = "";
     for (const u of SDS) { const lvl = META.sd[u.id], c = sdCost(u);
       const el = document.createElement("div"); el.className = "up";
-      el.innerHTML = `<span class="u-dot" style="background:var(--sd)"></span><div class="u-mid"><div class="u-name">${u.name}<span class="lv">Lv ${lvl}</span></div><div class="u-desc">${u.desc(lvl)}</div></div><button class="u-buy">✦ ${c}</button>`;
-      wrap.appendChild(el); const b = el.querySelector(".u-buy"); b.disabled = META.starDust < c;
+      el.innerHTML = `<span class="u-dot" style="background:var(--sd)"></span><div class="u-mid"><div class="u-name">${u.name}<span class="lv">Lv ${lvl}</span></div><div class="u-desc">${u.desc(lvl)}</div></div><button class="u-info" title="Info">i</button><button class="u-buy">✦ ${c}</button>`;
+      wrap.appendChild(el); el.querySelector(".u-info").onclick = () => showInfo(u.name, u.id); const b = el.querySelector(".u-buy"); b.disabled = META.starDust < c;
       b.onclick = () => { if (META.starDust < sdCost(u)) return; META.starDust -= sdCost(u); META.sd[u.id]++; recompute(); buildSD(); syncHUD(); save(); };
     }
   }
+  const INFO = {
+    turret: "Cheap, fast single-target fire — your reliable backbone. Stack its skill tree early.",
+    mortar: "Lobs explosive shells with SPLASH damage — great against clustered dots. Slow fire rate.",
+    plasma: "Heavy long-range bolts. High damage per hit; melts tanky dots.",
+    laser: "Rapid low-damage beam. Enormous fire rate shreds swarms and scales hard with crit.",
+    railgun: "Slow, devastating shots with the longest range and the biggest single hit.",
+    drone: "Basic collector — chases the nearest cash orb. Small pull & grab; you can field 2.",
+    swarm: "Faster with a wider net — covers more of the field than a lone drone.",
+    collector: "Heavy hauler: big pull radius & grab size, higher yield per orb.",
+    magnet: "Strong long-range magnetic pull and high yield.",
+    tractor: "Very wide tractor beam that sweeps huge areas of orbs.",
+    singularity: "Black hole — hovers centre-field and slowly drags EVERY orb (and nearby dots) inward. Huge reach & yield.",
+    capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
+    value: "Multiplies the cash every dot drops. Your core income multiplier.",
+    spawnRate: "More dots appear per second = more targets and income, up to the on-screen cap.",
+    luck: "Chance for rare SPECIAL dots worth about 9× normal cash.",
+    frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
+    dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
+    blackhole: "Drags every dot to the centre and crushes them over 5s. Cooldown 60s.",
+    sdDmg: "+25% damage per level — kept forever across every run (survives Rebirth).",
+    sdInc: "+25% cash income per level — permanent across runs.",
+    sdFire: "+15% fire rate per level — permanent across runs.",
+    sdStart: "Begin each new run with a chunk of starting cash.",
+  };
+  function showInfo(title, id) { $("info-title").textContent = title; $("info-text").textContent = INFO[id] || ""; $("info-modal").classList.add("show"); }
   function buildMetrics() {
     const s = stat();
     const sec = (t, h) => `<div class="met-sec"><h3>${t}</h3>${h}</div>`;
@@ -814,6 +841,8 @@
   /* ----------------------------- wiring -------------------------- */
   for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); renderList(); }; }
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
+  for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
+  $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
   $("btn-travel").onclick = travel; $("btn-rebirth").onclick = openRebirth; $("rb-confirm").onclick = doRebirth; $("rb-close").onclick = () => $("rebirth-modal").classList.remove("show");
   $("btn-sd").onclick = () => { buildSD(); $("sd-shop").classList.add("show"); }; $("sd-close").onclick = () => $("sd-shop").classList.remove("show");
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
@@ -858,5 +887,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
