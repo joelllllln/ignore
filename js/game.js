@@ -143,7 +143,7 @@
 
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
-    { id: "capacity",  tab: "eco", name: "Capacity",   base: 14, mul: 1.70, desc: () => "$" + fmt(derived.capacity) },
+    { id: "capacity",  tab: "eco", name: "Capacity",   base: 14, mul: 1.50, desc: () => "$" + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 20, mul: 1.60, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
     { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 24, mul: 1.33, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.35, max: 25, desc: () => Math.round(derived.luck * 100) + "% special" },
@@ -162,8 +162,11 @@
 
   const GAL_NAMES = ["The Void", "Azure", "Ember", "Verdant", "Cobalt", "Crimson", "Amber", "Violet", "Frost", "Nova", "Abyss"];
   const galName = g => GAL_NAMES[(g - 1) % GAL_NAMES.length] + (g > GAL_NAMES.length ? " " + g : "");
-  const travelCost = g => Math.floor(800 * Math.pow(7, g - 1));
-  const enemyHpMul = g => Math.pow(2.5, g - 1);
+  // Travel is a hard, escalating wall: ~half a day for the first jump, ramping
+  // super-exponentially to days then weeks per galaxy (rebirth/Star Dust is how
+  // you eventually outpace it). The grind — not an unkillable HP wall — is the gate.
+  const travelCost = g => Math.floor(1.2e10 * Math.pow(6, Math.pow(g - 1, 1.17)));
+  const enemyHpMul = g => Math.pow(2.1, g - 1);
   const galValueMul = g => Math.pow(2.2, g - 1);
   const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
   const galCap = g => Math.min(80 + g * 50, 380);
@@ -195,7 +198,7 @@
     derived.sdDmg = 1 + 0.25 * m.sd.sdDmg;
     derived.sdFire = (1 + 0.15 * m.sd.sdFire) * (frenzyT > 0 ? 5 : 1);
     derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
-    derived.capacity = 200 * Math.pow(1.45, L.capacity);
+    derived.capacity = 200 * Math.pow(1.60, L.capacity);
     derived.valueMul = Math.pow(1.20, L.value);
     derived.spawnPerSec = 0.9 + 0.35 * L.spawnRate;
     derived.luck = Math.min(0.5, 0.02 * L.luck);

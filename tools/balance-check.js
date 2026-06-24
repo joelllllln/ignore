@@ -41,27 +41,31 @@ function probe(id, effectKey, additive) {
 }
 
 const checks = [
-  { id: "value", eff: "valueMul", add: false, label: "Value (cash/dot)" },
-  { id: "capacity", eff: "capacity", add: false, label: "Capacity (ceiling)" },
-  { id: "spawnRate", eff: "spawnPerSec", add: true, label: "Spawn Rate" },
-  { id: "luck", eff: "luck", add: true, label: "Luck" },
+  { id: "value", eff: "valueMul", kind: "income", label: "Value (cash/dot)" },
+  { id: "capacity", eff: "capacity", kind: "ceiling", label: "Capacity (ceiling)" },
+  { id: "spawnRate", eff: "spawnPerSec", kind: "additive", label: "Spawn Rate" },
+  { id: "luck", eff: "luck", kind: "additive", label: "Luck" },
 ];
 
 console.log("ECONOMY BALANCE AUDIT (cost growth vs effect growth per level)\n");
 let bad = 0;
 for (const c of checks) {
-  const r = probe(c.id, c.eff, c.add);
-  let verdict;
-  if (c.add) verdict = r.costMul > 1.05 ? "healthy (additive)" : "TOO CHEAP";
-  else if (r.ratio < 1.0) { verdict = "RUNAWAY — infinite money"; bad++; }
-  else if (r.ratio < 1.1) { verdict = "too cheap"; bad++; }
-  else verdict = "healthy";
-  console.log(
-    c.label.padEnd(20),
-    "cost ×" + r.costMul.toFixed(2),
-    c.add ? "(flat bonus/level)" : "effect ×" + r.effMul.toFixed(2) + "  ratio " + r.ratio.toFixed(3),
-    " -> " + verdict
-  );
+  const r = probe(c.id, c.eff, c.kind === "additive");
+  let verdict, detail;
+  if (c.kind === "additive") { detail = "(flat bonus/level)"; verdict = r.costMul > 1.05 ? "healthy (additive)" : "TOO CHEAP"; if (r.costMul <= 1.05) bad++; }
+  else if (c.kind === "ceiling") {
+    // a cash CEILING (not income): cost must NOT outgrow the ceiling it grants,
+    // or the next level becomes unaffordable forever (soft-lock).
+    detail = "effect ×" + r.effMul.toFixed(2) + "  ratio " + r.ratio.toFixed(3);
+    if (r.costMul > r.effMul) { verdict = "SOFT-LOCK — cost outgrows ceiling"; bad++; }
+    else verdict = "healthy (scalable)";
+  } else { // income multiplier: cost must outgrow effect or it prints infinite money
+    detail = "effect ×" + r.effMul.toFixed(2) + "  ratio " + r.ratio.toFixed(3);
+    if (r.ratio < 1.0) { verdict = "RUNAWAY — infinite money"; bad++; }
+    else if (r.ratio < 1.1) { verdict = "too cheap"; bad++; }
+    else verdict = "healthy";
+  }
+  console.log(c.label.padEnd(20), "cost ×" + r.costMul.toFixed(2), detail, " -> " + verdict);
 }
 console.log("\n" + (bad ? "FAIL: " + bad + " upgrade(s) need rebalancing" : "PASS: no infinite-money exploits"));
 process.exit(bad ? 1 : 0);
