@@ -237,22 +237,33 @@
   }
 
   const armorChance = g => Math.min(0.05 + 0.022 * (g - 1), 0.28);
+  // enemy archetypes that appear in later galaxies — each with its own twist.
+  const DOT_KINDS = {
+    swift:    { gal: 2, weight: 1.0, hp: 0.55, val: 1.7, speed: 3.0 },                 // fast, fragile, pays extra
+    splitter: { gal: 3, weight: 0.9, hp: 1.1,  val: 1.0, splits: 2 },                  // bursts into 2 smaller dots
+    shield:   { gal: 4, weight: 0.8, hp: 1.0,  val: 1.5, shield: 0.7, reflect: 0.3 },  // shield soaks/reflects shots
+    regen:    { gal: 5, weight: 0.7, hp: 1.4,  val: 1.6, regen: 0.07 },                // heals unless under fire
+  };
+  const DOT_ORDER = ["swift", "splitter", "shield", "regen"];
+  const kindChance = g => Math.min(0.12 + 0.05 * (g - 2), 0.55);
   function spawnDot(special) {
-    // dot HP scales with the galaxy AND with your own Value level (√), so dots
-    // get tougher as you get richer — early dots are weak (fast start), and
-    // pumping Value means you must out-damage higher-HP dots to keep killing.
     const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 8 * enemyHpMul(g) * vscale, avg = base * 1.3;
-    let roll = rnd(0.7, 1.9), armored = false;
-    if (Math.random() < armorChance(g)) { armored = true; roll *= rnd(4, 7); }   // elite, high-defense dot
-    const hp = base * roll, mv = armored ? 9 : 20;
-    special = special || (!armored && Math.random() < derived.luck);
-    // payout scales with the dot's ACTUAL toughness (vscale cancels here, so
-    // Value still fully multiplies cash) — tanky/armored dots pay a real bounty.
-    const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (hp / avg) * (special ? 9 : 1)));
-    const r = clamp(7 + Math.log10(hp + 10) * 2.6, 7, armored ? 36 : 24);
-    dots.push({ x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),
-      hp, maxHp: hp, value: val, r, special, armored, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0,
-      color: armored ? "#9a9a9a" : special ? "#ffffff" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` });
+    let roll = rnd(0.7, 1.9), armored = false, kind = "normal", cfg = null, mv = 20;
+    if (Math.random() < armorChance(g)) { armored = true; roll *= rnd(4, 7); mv = 9; }
+    else { const elig = DOT_ORDER.filter(k => g >= DOT_KINDS[k].gal);
+      if (elig.length && Math.random() < kindChance(g)) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
+    if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
+    const hp = base * roll;
+    special = special || (!armored && !cfg && Math.random() < derived.luck);
+    const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (hp / avg) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
+    const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" ? 6 : 7, armored ? 36 : 24);
+    const d = { x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),
+      hp, maxHp: hp, value: val, r, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0,
+      color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` };
+    if (cfg && cfg.shield) { d.shieldMax = hp * cfg.shield; d.shield = d.shieldMax; d.reflect = cfg.reflect; }
+    if (cfg && cfg.regen) d.regen = cfg.regen;
+    if (cfg && cfg.splits) { d.splits = cfg.splits; d.gen = 0; }
+    dots.push(d);
   }
 
   function fireUnit(u, p) {
@@ -272,7 +283,26 @@
     if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type); }
     else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
   }
-  function hitDot(d, dmg, src) { if (d.dead) return; d.hp -= dmg; d.hit = 0.08; if (d.hp <= 0) { d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0, weight: d.weight || 1 }); const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (d.armored) s.armored = (s.armored || 0) + 1; if (src) s.kills[src] = (s.kills[src] || 0) + 1; } }
+  function hitDot(d, dmg, src) {
+    if (d.dead) return;
+    if (d.shield > 0) {
+      if (Math.random() < d.reflect) { d.refl = 0.14; return; }   // shield reflects the shot
+      d.shield -= dmg; d.hit = 0.08;
+      if (d.shield > 0) return;                                   // fully absorbed
+      dmg = -d.shield; d.shield = 0;                              // overflow spills to hp
+    }
+    d.hp -= dmg; d.hit = 0.08;
+    if (d.hp <= 0) {
+      d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0, weight: d.weight || 1 });
+      const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (d.armored) s.armored = (s.armored || 0) + 1; if (src) s.kills[src] = (s.kills[src] || 0) + 1;
+      if (d.splits && (d.gen || 0) < 1) for (let i = 0; i < d.splits; i++) {
+        const hp = d.maxHp * 0.4;
+        dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-40, 40), vy: rnd(-40, 40), hp, maxHp: hp,
+          value: Math.max(1, Math.round(d.value * 0.4)), r: Math.max(6, d.r * 0.66), special: false, armored: false,
+          kind: "splitter", splits: 0, gen: 1, weight: 1, hit: 0, drawCd: 0, refl: 0, color: d.color });
+      }
+    }
+  }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
   function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, dmg, "draw"); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }
 
@@ -300,7 +330,8 @@
 
     for (const d of dots) {
       d.pending = 0;
-      if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt;
+      if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
+      if (d.regen && d.hit <= 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.maxHp * d.regen * dt);  // heals unless under fire
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
       else { d.x += d.vx * dt; d.y += d.vy * dt; if (d.x < 30 || d.x > W - 30) d.vx *= -1; if (d.y < 50 || d.y > H - 130) d.vy *= -1; d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130); }
     }
@@ -346,9 +377,14 @@
     for (const b of beams) { ctx.strokeStyle = b.color; ctx.lineWidth = 2; ctx.globalAlpha = clamp(b.life / 0.08, 0, 1); ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
     for (const d of dots) {
+      if (d.kind === "swift") { ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.vx * 0.12, d.y - d.vy * 0.12); ctx.stroke(); }  // motion streak
       ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill();
       if (d.special) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
       if (d.armored) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.x, d.y, d.r - 2, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
+      if (d.kind === "splitter") { ctx.fillStyle = "#000"; for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.arc(d.x + (k ? d.r * 0.35 : -d.r * 0.35), d.y, d.r * 0.28, 0, TAU); ctx.fill(); } }  // cell-division look
+      if (d.kind === "regen") { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x - d.r * 0.45, d.y); ctx.lineTo(d.x + d.r * 0.45, d.y); ctx.moveTo(d.x, d.y - d.r * 0.45); ctx.lineTo(d.x, d.y + d.r * 0.45); ctx.stroke(); }  // + cross
+      if (d.shield > 0) { ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2.5; ctx.globalAlpha = clamp(d.shield / d.shieldMax, 0.25, 1); ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5, -0.9, 0.9); ctx.stroke(); ctx.globalAlpha = 1; }  // front shield arc
+      if (d.refl > 0) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 8, 0, TAU); ctx.stroke(); }  // reflect flash
       if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); }
     }
     for (const o of orbs) { const life = clamp(1 - o.t / ORB_LIFE, 0, 1); ctx.globalAlpha = 0.35 + 0.65 * life; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(o.x, o.y, 2.5 + 2 * life + (o.weight > 1 ? 2.5 : 0), 0, TAU); ctx.fill(); } ctx.globalAlpha = 1;
