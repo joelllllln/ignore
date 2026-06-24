@@ -15,7 +15,7 @@ const UNIT = [ { gal: 1, base: 60, dmg: 5, rate: 1.4 }, { gal: 2, base: 500, dmg
   { gal: 3, base: 4000, dmg: 26, rate: 0.5 }, { gal: 5, base: 30000, dmg: 3, rate: 4.2 }, { gal: 7, base: 250000, dmg: 90, rate: 0.3 } ];
 const UNIT_CAP = 4;                                      // max units per defender type
 const NODE = { base: 150, mul: 1.4 };                    // skill-tree nodes: pricey
-const NODE_MUL = 1.22;                                   // each node COMPOUNDS damage
+const NODE_MUL = 1.27;                                   // each node COMPOUNDS damage (stronger now)
 const HPB = 8, HPM = 2.1, GVAL = 2.2, GSPAWN = g => 1 + (g - 1) * 0.95;
 const COLL_EFF = 0.85, YIELD = 1.1, CRIT = 2.1;          // collection + crit/abilities/class-tree baseline
 

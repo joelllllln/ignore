@@ -56,7 +56,7 @@
   const DEF_PRIM = ["dmg", "rate", "range"], COL_PRIM = ["speed", "suction", "yield"];
   // mul stats COMPOUND per node (so each node is felt, keystones are big spikes);
   // flat stats (range/crit/collect) add up.
-  const MAG = { mul: { min: 1.16, maj: 1.5, key: 2.0 }, range: { min: 22, maj: 60, key: 130 }, crit: { min: 0.05, maj: 0.10, key: 0.18 }, collect: { min: 5, maj: 13, key: 28 } };
+  const MAG = { mul: { min: 1.18, maj: 1.65, key: 2.6 }, range: { min: 28, maj: 80, key: 180 }, crit: { min: 0.05, maj: 0.12, key: 0.25 }, collect: { min: 6, maj: 16, key: 34 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     const col = isCol(type);
@@ -196,14 +196,16 @@
   // ---- juice: particles, screen shake, flash, floating cash ----
   let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0;
   const MAXP = 440;
-  function burst(x, y, n, spd, sz) { if (parts.length > MAXP) return; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = spd * (0.35 + Math.random() * 0.9); parts.push({ t: 0, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.32 + Math.random() * 0.36, max: 0.7, r: sz * (0.5 + Math.random()) }); } }
+  function burst(x, y, n, spd, sz) { if (parts.length > MAXP) return; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = spd * (0.35 + Math.random() * 0.9);
+    if (Math.random() < 0.4) parts.push({ t: 4, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.3 + Math.random() * 0.35, max: 0.65, ang: a, len: sz * 2 + Math.random() * sz * 2, spin: (Math.random() - 0.5) * 12 });  // shard
+    else parts.push({ t: 0, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.32 + Math.random() * 0.36, max: 0.7, r: sz * (0.5 + Math.random()) }); } }
   function ring(x, y, r0, r1, life) { if (parts.length > MAXP) return; parts.push({ t: 1, x, y, r: r0, r1, life, max: life }); }
   function floatTxt(x, y, txt) { if (parts.length > MAXP) return; parts.push({ t: 2, x, y, vy: -40, life: 0.95, max: 0.95, txt }); }
   function spark(x, y) { if (parts.length > MAXP) return; parts.push({ t: 3, x, y, life: 0.22, max: 0.22 }); }
   function shakeAdd(a) { shake = Math.min(16, shake + a); }
   function flashAdd(a) { flash = Math.min(0.9, flash + a); }
   function stepFx(dt) {
-    for (const p of parts) { p.life -= dt; if (p.t === 0) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; } else if (p.t === 2) { p.y += p.vy * dt; p.vy *= 0.9; } }
+    for (const p of parts) { p.life -= dt; if (p.t === 0 || p.t === 4) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; if (p.t === 4) p.ang += p.spin * dt; } else if (p.t === 2) { p.y += p.vy * dt; p.vy *= 0.9; } }
     if (parts.length) parts = parts.filter(p => p.life > 0);
     shake *= Math.exp(-dt * 9); if (shake < 0.2) shake = 0;
     flash = Math.max(0, flash - dt * 3.2);
@@ -213,6 +215,7 @@
       if (p.t === 0) { ctx.globalAlpha = k; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * k + 0.5, 0, TAU); ctx.fill(); }
       else if (p.t === 1) { const rr = p.r + (p.r1 - p.r) * (1 - k); ctx.globalAlpha = k * 0.55; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, rr), 0, TAU); ctx.stroke(); }
       else if (p.t === 2) { ctx.globalAlpha = k; ctx.fillStyle = "#fff"; ctx.font = "bold 13px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText(p.txt, p.x, p.y); }
+      else if (p.t === 4) { ctx.globalAlpha = k; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.4; const dx = Math.cos(p.ang) * p.len * k * 0.5, dy = Math.sin(p.ang) * p.len * k * 0.5; ctx.beginPath(); ctx.moveTo(p.x - dx, p.y - dy); ctx.lineTo(p.x + dx, p.y + dy); ctx.stroke(); }  // shard
       else { ctx.globalAlpha = k; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 6 * (1 - k) + 2, 0, TAU); ctx.stroke(); }
     }
     ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
@@ -268,11 +271,15 @@
   // enemy archetypes that appear in later galaxies — each with its own twist.
   const DOT_KINDS = {
     swift:    { gal: 2, weight: 1.0, hp: 0.55, val: 1.7, speed: 3.0 },                 // fast, fragile, pays extra
+    zigzag:   { gal: 2, weight: 0.9, hp: 0.7,  val: 1.5, speed: 2.2, zig: 1 },         // erratic, jukes around
     splitter: { gal: 3, weight: 0.9, hp: 1.1,  val: 1.0, splits: 2 },                  // bursts into 2 smaller dots
+    orbiter:  { gal: 3, weight: 0.8, hp: 1.3,  val: 1.4, sat: 3 },                     // ringed by orbiting satellites
     shield:   { gal: 4, weight: 0.8, hp: 1.0,  val: 1.5, shield: 0.7, reflect: 0.3 },  // shield soaks/reflects shots
+    pulsar:   { gal: 4, weight: 0.7, hp: 1.5,  val: 1.7, pulse: 1 },                   // throbs, emits shock rings
     regen:    { gal: 5, weight: 0.7, hp: 1.4,  val: 1.6, regen: 0.07 },                // heals unless under fire
+    phantom:  { gal: 6, weight: 0.6, hp: 1.2,  val: 2.0, phase: 1 },                   // phases out, dodges damage
   };
-  const DOT_ORDER = ["swift", "splitter", "shield", "regen"];
+  const DOT_ORDER = ["swift", "zigzag", "splitter", "orbiter", "shield", "pulsar", "regen", "phantom"];
   const kindChance = g => Math.min(0.12 + 0.05 * (g - 2), 0.55);
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 8 * enemyHpMul(g) * vscale, avg = base * 1.3;
@@ -285,12 +292,18 @@
     special = special || (!armored && !cfg && Math.random() < derived.luck);
     const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (hp / avg) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" ? 6 : 7, armored ? 36 : 24);
+    // visual tier: the tougher the dot, the more elaborate it's drawn (spikes/rings)
+    const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : 5;
     const d = { x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),
-      hp, maxHp: hp, value: val, r, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
+      hp, maxHp: hp, value: val, r, tier, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
       color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` };
     if (cfg && cfg.shield) { d.shieldMax = hp * cfg.shield; d.shield = d.shieldMax; d.reflect = cfg.reflect; }
     if (cfg && cfg.regen) d.regen = cfg.regen;
     if (cfg && cfg.splits) { d.splits = cfg.splits; d.gen = 0; }
+    if (cfg && cfg.sat) d.sat = cfg.sat;
+    if (cfg && cfg.pulse) d.pulse = 0;
+    if (cfg && cfg.phase) { d.phase = 0; d.phased = false; }
+    if (cfg && cfg.zig) d.zig = 0;
     dots.push(d);
   }
 
@@ -316,6 +329,7 @@
   }
   function hitDot(d, dmg, src) {
     if (d.dead) return;
+    if (d.phased) dmg *= 0.45;                                   // phantom shrugs off most damage while phased
     if (d.shield > 0) {
       if (Math.random() < d.reflect) { d.refl = 0.14; return; }   // shield reflects the shot
       d.shield -= dmg; d.hit = 0.08;
@@ -324,15 +338,19 @@
     }
     d.hp -= dmg; d.hit = 0.08;
     if (d.hp <= 0) {
-      d.dead = true; orbs.push({ x: d.x, y: d.y, value: d.value, t: 0, weight: d.weight || 1 });
+      d.dead = true;
+      // bigger / tougher kills drop heavier loot that takes longer to consume
+      const big = d.armored || (d.tier || 0) >= 3, cmax = big ? 1.6 : ((d.tier || 0) >= 1 || d.r > 12 ? 0.55 : 0.1);
+      orbs.push({ x: d.x, y: d.y, value: d.value, t: 0, weight: d.weight || 1, consume: 0, consumeMax: cmax, r0: big ? 6.5 : ((d.tier || 0) >= 1 ? 4 : 2.6), big });
       const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (d.armored) s.armored = (s.armored || 0) + 1; if (src) s.kills[src] = (s.kills[src] || 0) + 1;
-      burst(d.x, d.y, d.armored ? 16 : d.special ? 12 : 7, d.armored ? 150 : 110, d.armored ? 3 : 2.2);
-      ring(d.x, d.y, d.r, d.r + (d.armored ? 46 : 22), 0.3); if (d.armored) shakeAdd(5);
+      const nb = Math.min(28, 6 + (d.tier || 0) * 4 + (d.armored ? 8 : 0));
+      burst(d.x, d.y, nb, 90 + (d.tier || 0) * 24 + (d.armored ? 60 : 0), 2 + (d.tier || 0) * 0.3);
+      ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored || (d.tier || 0) >= 4) shakeAdd(d.armored ? 5 : 3);
       if (d.splits && (d.gen || 0) < 1) for (let i = 0; i < d.splits; i++) {
         const hp = d.maxHp * 0.4;
         dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-40, 40), vy: rnd(-40, 40), hp, maxHp: hp,
-          value: Math.max(1, Math.round(d.value * 0.4)), r: Math.max(6, d.r * 0.66), special: false, armored: false,
-          kind: "splitter", splits: 0, gen: 1, weight: 1, hit: 0, drawCd: 0, refl: 0, color: d.color });
+          value: Math.max(1, Math.round(d.value * 0.4)), r: Math.max(6, d.r * 0.66), tier: 0, spin: 0, special: false, armored: false,
+          kind: "splitter", splits: 0, gen: 1, weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: d.color });
       }
     }
   }
@@ -362,9 +380,12 @@
     if (spawnAcc > 6) spawnAcc = 6;
 
     for (const d of dots) {
-      d.pending = 0; if (d.born < 0.2) d.born += dt;
+      d.pending = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
       if (d.regen && d.hit <= 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.maxHp * d.regen * dt);  // heals unless under fire
+      if (d.pulse !== undefined) { d.pulse += dt; if (d.pulse > 1.5) { d.pulse = 0; ring(d.x, d.y, d.r, d.r + 26, 0.45); } }
+      if (d.phase !== undefined) { d.phase += dt; d.phased = (d.phase % 2.4) < 1.0; }
+      if (d.zig !== undefined) { d.zig += dt; if (d.zig > 0.35) { d.zig = 0; const sp = Math.hypot(d.vx, d.vy) || 1, a = Math.random() * TAU; d.vx = Math.cos(a) * sp; d.vy = Math.sin(a) * sp; } }
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
       else { d.x += d.vx * dt; d.y += d.vy * dt; if (d.x < 30 || d.x > W - 30) d.vx *= -1; if (d.y < 50 || d.y > H - 130) d.vy *= -1; d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130); }
     }
@@ -381,9 +402,11 @@
     for (const dr of drones) {
       const hole = COL_TYPES[dr.type].mode === "hole", tgt = dr.cand;
       if (hole) { const dx = W / 2 - dr.x, dy = H * 0.42 - dr.y; dr.vx += (dx * 0.6 - dr.vx) * 0.04; dr.vy += (dy * 0.6 - dr.vy) * 0.04; }   // hovers near centre
+      else if (dr.parking) { dr.vx *= 0.55; dr.vy *= 0.55; }                                  // parked, consuming big loot
       else if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1, sp = cSpeed(dr.type); dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; }
       else { dr.vx *= 0.9; dr.vy *= 0.9; }
       dr.x = clamp(dr.x + dr.vx * dt, 0, W); dr.y = clamp(dr.y + dr.vy * dt, 0, H);
+      dr.parking = false;
     }
     // black holes also drag nearby dots gently toward them (the "suck in" feel)
     for (const dr of drones) { if (COL_TYPES[dr.type].mode !== "hole") continue; const R = cSuction(dr.type) * 1.5; for (const d of dots) { const dx = dr.x - d.x, dy = dr.y - d.y, dl = Math.hypot(dx, dy) || 1; if (dl < R) { d.x += dx / dl * 60 * dt; d.y += dy / dl * 60 * dt; } } }
@@ -391,7 +414,14 @@
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
       let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
-      if (nd) { const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 150 : 240) / (o.weight || 1); o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (dl < cCollect(nd.type) + 6 || o.t > ORB_LIFE) { if (o.t <= ORB_LIFE) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y; if (Math.random() < 0.5) spark(nd.x, nd.y); } else { META.stats.lost++; META.stats.lostCash += o.value; } orbs.splice(i, 1); } }
+      if (nd) {
+        const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 150 : 240) / (o.weight || 1);
+        if (dl < cCollect(nd.type) + 6) {                         // reached: consume over time (big loot = longer; collector parks)
+          o.consume += dt; o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
+          if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
+          if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) burst(o.x, o.y, 8, 70, 2); orbs.splice(i, 1); }
+        } else { o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); } }
+      }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; }
@@ -414,18 +444,31 @@
     for (const b of beams) { const a = clamp(b.life / (b.w > 2 ? 0.13 : 0.08), 0, 1); ctx.strokeStyle = b.color; ctx.globalAlpha = a * 0.25; ctx.lineWidth = (b.w || 2) * 2.4; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.globalAlpha = a; ctx.lineWidth = b.w || 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
     for (const d of dots) {
-      const dr2 = d.r * (d.born < 0.2 ? clamp(d.born / 0.18, 0.2, 1) : 1) * (d.hit > 0 ? 1 + d.hit / 0.08 * 0.28 : 1);  // pop-in + hit punch
-      if (d.kind === "swift") { ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.vx * 0.12, d.y - d.vy * 0.12); ctx.stroke(); }  // motion streak
-      ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, dr2, 0, TAU); ctx.fill();
+      const pulse = d.pulse !== undefined ? 1 + 0.12 * Math.sin(d.born * 0.1 + d.pulse * 4) : 1;
+      const dr2 = d.r * (d.born < 0.2 ? clamp(d.born / 0.18, 0.2, 1) : 1) * (d.hit > 0 ? 1 + d.hit / 0.08 * 0.28 : 1) * pulse;
+      const ga = d.phased ? 0.4 : 1;
+      if (d.kind === "swift" || d.kind === "zigzag") { ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.vx * 0.12, d.y - d.vy * 0.12); ctx.stroke(); }  // motion streak
+      // HP-tier spikes: tougher dots grow rotating spikes around the core
+      if (d.tier >= 1) { ctx.globalAlpha = ga; ctx.strokeStyle = d.color; ctx.lineWidth = 1.5 + d.tier * 0.3; const ns = 3 + d.tier * 2; for (let k = 0; k < ns; k++) { const a = d.spin + k / ns * TAU, i0 = dr2 * 0.9, o0 = dr2 + 3 + d.tier * 1.6; ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * i0, d.y + Math.sin(a) * i0); ctx.lineTo(d.x + Math.cos(a) * o0, d.y + Math.sin(a) * o0); ctx.stroke(); } ctx.globalAlpha = 1; }
+      ctx.globalAlpha = ga; ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, dr2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      // tier rings inside (segmented core)
+      if (d.tier >= 2) { ctx.globalAlpha = ga * 0.8; ctx.strokeStyle = "#000"; ctx.lineWidth = 1; for (let k = 1; k < d.tier; k++) { ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * (k / d.tier), 0, TAU); ctx.stroke(); } ctx.globalAlpha = 1; }
       if (d.special) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
-      if (d.armored) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.x, d.y, d.r - 2, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
-      if (d.kind === "splitter") { ctx.fillStyle = "#000"; for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.arc(d.x + (k ? d.r * 0.35 : -d.r * 0.35), d.y, d.r * 0.28, 0, TAU); ctx.fill(); } }  // cell-division look
-      if (d.kind === "regen") { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x - d.r * 0.45, d.y); ctx.lineTo(d.x + d.r * 0.45, d.y); ctx.moveTo(d.x, d.y - d.r * 0.45); ctx.lineTo(d.x, d.y + d.r * 0.45); ctx.stroke(); }  // + cross
+      if (d.armored) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 - 2, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 3, 0, TAU); ctx.stroke(); }
+      if (d.kind === "splitter") { ctx.fillStyle = "#000"; for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.arc(d.x + (k ? dr2 * 0.35 : -dr2 * 0.35), d.y, dr2 * 0.28, 0, TAU); ctx.fill(); } }  // cell-division look
+      if (d.kind === "regen") { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x - dr2 * 0.45, d.y); ctx.lineTo(d.x + dr2 * 0.45, d.y); ctx.moveTo(d.x, d.y - dr2 * 0.45); ctx.lineTo(d.x, d.y + dr2 * 0.45); ctx.stroke(); }  // + cross
+      if (d.kind === "orbiter") { ctx.fillStyle = "#fff"; const sc = d.sat || 3; for (let k = 0; k < sc; k++) { const a = d.spin * 2 + k / sc * TAU, rr = d.r + 9; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, 2.4, 0, TAU); ctx.fill(); } }  // orbiting satellites
+      if (d.kind === "pulsar") { ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 4, 0, TAU); ctx.stroke(); }
+      if (d.phase !== undefined) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5, d.spin, d.spin + TAU); ctx.stroke(); ctx.setLineDash([]); }  // phantom dashed ring
       if (d.shield > 0) { ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2.5; ctx.globalAlpha = clamp(d.shield / d.shieldMax, 0.25, 1); ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5, -0.9, 0.9); ctx.stroke(); ctx.globalAlpha = 1; }  // front shield arc
       if (d.refl > 0) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 8, 0, TAU); ctx.stroke(); }  // reflect flash
       if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); }
     }
-    for (const o of orbs) { const life = clamp(1 - o.t / ORB_LIFE, 0, 1); ctx.globalAlpha = 0.35 + 0.65 * life; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(o.x, o.y, 2.5 + 2 * life + (o.weight > 1 ? 2.5 : 0), 0, TAU); ctx.fill(); } ctx.globalAlpha = 1;
+    for (const o of orbs) {
+      const life = clamp(1 - o.t / ORB_LIFE, 0, 1), rr = (o.r0 || 3) + (o.consume > 0 ? Math.sin(o.consume * 30) * 1.2 : 0);
+      ctx.globalAlpha = 0.35 + 0.65 * life; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(o.x, o.y, rr, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      if (o.consume > 0 && o.consumeMax > 0.2) { const f = clamp(o.consume / o.consumeMax, 0, 1); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(o.x, o.y, rr + 4, -Math.PI / 2, -Math.PI / 2 + f * TAU); ctx.stroke(); }  // consume progress
+    }
     const n = S.units.length;
     for (let i = 0; i < n; i++) {
       const u = S.units[i], p = unitPos(i, n); p.x += u.rx || 0; p.y += u.ry || 0;
