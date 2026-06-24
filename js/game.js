@@ -489,6 +489,16 @@
     return key === "range" ? "+" + amt + " rng" : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => (n.slots || []).map(s => slotText(type, s)).join(" · ");
+  // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
+  // speed / suction / yield / grab), plus class & keystone markers.
+  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", speed: "➤", suction: "◉", yield: "❖", collect: "▣" };
+  function nodeIcon(type, n) {
+    if (n.kind === "start") return "★";
+    if (n.kind === "key") return "✦";
+    const s = n.slots[0];
+    if (s.p === "x") return isCol(type) ? STAT_ICON.collect : STAT_ICON.crit;
+    return STAT_ICON[(isCol(type) ? COL_PRIM : DEF_PRIM)[s.p - 1]] || "•";
+  }
   function nodeLabel(type, n) {
     if (n.kind === "start") return TY(type).name;
     if (n.kind === "key") return (CLASS_WEB[type] || CLASS_WEB.turret).keys[n.wing] || "Keystone";
@@ -522,7 +532,7 @@
     if (!n || n.kind === "start") { panel.classList.remove("show"); STree.sel = n ? n.id : null; return; }
     STree.sel = n.id;
     const has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost, fx = nodeFx(type, n);
-    $("si-name").textContent = nodeLabel(type, n) || fx;
+    $("si-name").textContent = nodeIcon(type, n) + "  " + (nodeLabel(type, n) || fx);
     $("si-tag").textContent = n.kind === "key" ? "✦ Notable Keystone" : n.kind === "major" ? "◆ Notable" : "• Passive";
     $("si-desc").textContent = n.kind === "key" ? "A powerful node joining two stat branches of this wing." : n.kind === "major" ? "A stronger passive on this branch." : "A small passive on the path.";
     $("si-fx").textContent = "Grants: " + fx;
@@ -576,7 +586,9 @@
         c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
         c.fillStyle = has ? "#fff" : can ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)";
         c.strokeStyle = has || can ? "#fff" : "rgba(255,255,255,0.28)"; c.lineWidth = n.kind === "minor" ? 1.5 : 2.5; c.fill(); c.stroke();
-        if (n.kind === "key" || n.kind === "start") { c.fillStyle = has ? "#000" : "#fff"; c.font = "bold " + Math.round(rad * 0.95) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(n.kind === "start" ? "★" : "✦", p.x, p.y + 1); }
+        // icon of what this node upgrades, centred in the node
+        c.fillStyle = has ? "#000" : can ? "#fff" : "rgba(255,255,255,0.55)"; c.textAlign = "center"; c.textBaseline = "middle";
+        c.font = "bold " + Math.round(rad * (n.kind === "minor" ? 1.1 : 0.95)) + "px serif"; c.fillText(nodeIcon(type, n), p.x, p.y + 1);
         // every node is named (smaller for the small passives)
         c.textAlign = "center"; c.textBaseline = "alphabetic";
         c.fillStyle = has || can ? "#fff" : "rgba(255,255,255,0.5)";
@@ -632,7 +644,7 @@
       this.cv.addEventListener("pointermove", e => {
         if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
         if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.4, 3.5); this.pinchD = d; this.moved = true; this.lx = p.x; this.ly = p.y; return; }
-        const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 6) this.moved = true; this.yaw += dx * 0.01; this.pitch = clamp(this.pitch + dy * 0.01, -1.2, 1.2); this.lx = p.x; this.ly = p.y;
+        const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 6) this.moved = true; this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.2, 1.2); this.lx = p.x; this.ly = p.y;
       });
       const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; } if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
       this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; });
