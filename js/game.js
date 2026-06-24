@@ -288,11 +288,12 @@
     const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 14 * enemyHpMul(g) * vscale, avg = base * 1.3;
     const men = clamp(S.lv.value / 35, 0, 1.3);   // "menace": as Value climbs, tougher dots appear more (and pay more)
     const men01 = Math.min(1, men);               // 0..1 gate — keeps dots BASIC until Value is invested
-    let roll = rnd(0.7, 1.6 + men * 1.9), armored = false, kind = "normal", cfg = null, mv = 20;
-    // armored elites & exotic kinds stay rare until you really pump Value (men01 gate)
-    if (Math.random() < armorChance(g) * (0.12 + 0.88 * men01) + men * 0.1) { armored = true; roll *= rnd(4, 7) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
+    let roll = rnd(0.7, 1.0 + men * 2.8), armored = false, kind = "normal", cfg = null, mv = 20;
+    // difficulty & craziness are bought with VALUE: at Value 0 every dot is the
+    // plainest tier-0 grey. armored elites & exotic kinds only appear once you invest.
+    if (Math.random() < armorChance(g) * men01 + men * 0.08) { armored = true; roll *= rnd(4, 7) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
     else { const elig = DOT_ORDER.filter(k => g >= DOT_KINDS[k].gal);
-      if (elig.length && Math.random() < kindChance(g) * (0.1 + 0.9 * men01) + men * 0.08) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
+      if (elig.length && Math.random() < kindChance(g) * men01 + men * 0.06) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
     if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
     const hp = base * roll;
     special = special || (!armored && !cfg && Math.random() < derived.luck);
