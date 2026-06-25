@@ -49,14 +49,31 @@ Dot difficulty and craziness are driven by how much you invest in **Value**:
   rewarding** ones — not a flat cash multiplier. That demand pulls stronger turrets
   (to kill the tanky ones) and stronger drones (to haul the bigger drops).
 - High Value unlocks **armored elites** (double-ringed, huge defense, heavy slow
-  loot) and a roster of **exotic dot kinds** — each also gated by galaxy:
-  - **Swift** / **Zigzag** — fast & erratic
-  - **Splitter** — bursts into two on death
-  - **Orbiter** — ringed by satellites
-  - **Shielded** — soaks & reflects shots (keep firing)
-  - **Pulsar** — throbs and emits shock rings
-  - **Regenerator** — heals unless under fire
-  - **Phantom** — phases out to dodge damage
+  loot) and each planet's **native enemy race** — every one of the 18 planets has
+  its *own* race with a unique ability and look (and they get tougher in tiers).
+  Earlier planets' races still show up as variety, but the planet you're on is
+  dominated by its signature race:
+
+  | Planet | Race | Ability |
+  |---|---|---|
+  | Vesta | Vesta Motes | fast & fragile, pays extra |
+  | Ember | Ember Sparks | jukes around erratically |
+  | Cinder | Cinder Brood | splits again and again across generations |
+  | Hearth | Hearth Bloat | swells bigger & richer the longer it lives |
+  | Azure | Azure Bastion | front shield soaks & reflects shots |
+  | Verdant | Verdant Mender | heals itself **and** nearby dots |
+  | Cobalt | Cobalt Sentinel | orbiting satellites shield its core |
+  | Mistral | Mistral Gale | swarms together in a flock (boids) |
+  | Halcyon | Halcyon Mirage | cloaks invisible & untargetable in bursts |
+  | Tempest | Tempest Cell | shock rings shove your collectors away |
+  | Umbra | Umbral Shade | phases out, dodging most damage |
+  | Frost | Frost Glacian | slow tank that regrows its armor |
+  | Onyx | Onyx Warden | mirror facets deflect a share of every shot |
+  | Wraith | Wraith | teleports around to dodge fire |
+  | Pyre | Pyreling | detonates on death, scattering your loot |
+  | Abyss | Abyssal Pull | drags loot orbs away from your collectors |
+  | Maw | Devourer | eats your loot orbs and heals from them |
+  | Oblivion | Null Spawn | endlessly births minion dots |
 
 The tougher a dot, the more spikes and rings it grows, so you can read its
 threat at a glance.

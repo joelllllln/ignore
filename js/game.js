@@ -351,18 +351,43 @@
 
   const armorChance = g => Math.min(0.05 + 0.022 * (g - 1), 0.28);
   // enemy archetypes that appear in later galaxies — each with its own twist.
-  const DOT_KINDS = {
-    swift:    { gal: 2, weight: 1.0, hp: 0.55, val: 1.7, speed: 3.0 },                 // fast, fragile, pays extra
-    zigzag:   { gal: 2, weight: 0.9, hp: 0.7,  val: 1.5, speed: 2.2, zig: 1 },         // erratic, jukes around
-    splitter: { gal: 3, weight: 0.9, hp: 1.1,  val: 1.0, splits: 2 },                  // bursts into 2 smaller dots
-    orbiter:  { gal: 3, weight: 0.8, hp: 1.3,  val: 1.4, sat: 3 },                     // ringed by orbiting satellites
-    shield:   { gal: 4, weight: 0.8, hp: 1.0,  val: 1.5, shield: 0.7, reflect: 0.3 },  // shield soaks/reflects shots
-    pulsar:   { gal: 4, weight: 0.7, hp: 1.5,  val: 1.7, pulse: 1 },                   // throbs, emits shock rings
-    regen:    { gal: 5, weight: 0.7, hp: 1.4,  val: 1.6, regen: 0.07 },                // heals unless under fire
-    phantom:  { gal: 6, weight: 0.6, hp: 1.2,  val: 2.0, phase: 1 },                   // phases out, dodges damage
+  // --- DOT RACES: every PLANET has its OWN native race (a unique ability + look).
+  // RACES[g] is the signature race that debuts on planet g; on planet g the exotic
+  // spawns are mostly that race, mixed with earlier planets' races (you've seen them).
+  // A race's toughness still ramps with the normal tier system, so each race has tiers.
+  const RACES = [
+    null,
+    { p: 1,  key: "swift",     name: "Vesta Motes",      hp: 0.55, val: 1.7, weight: 1.0, speed: 3.0 },                    // fast, fragile, pays extra
+    { p: 2,  key: "zigzag",    name: "Ember Sparks",     hp: 0.7,  val: 1.5, weight: 1.0, speed: 2.2, zig: 1 },            // erratic, jukes around
+    { p: 3,  key: "splitter",  name: "Cinder Brood",     hp: 1.1,  val: 1.0, weight: 1.0, splits: 2, maxGen: 3 },          // splits again and again across generations
+    { p: 4,  key: "grower",    name: "Hearth Bloat",     hp: 1.2,  val: 1.3, weight: 0.9, grow: 1 },                       // swells bigger & richer the longer it lives
+    { p: 5,  key: "shield",    name: "Azure Bastion",    hp: 1.0,  val: 1.5, weight: 0.9, shield: 0.7, reflect: 0.3 },     // front shield soaks/reflects shots
+    { p: 6,  key: "healer",    name: "Verdant Mender",   hp: 1.3,  val: 1.6, weight: 0.8, regen: 0.05, healAura: 1 },      // heals itself AND nearby dots
+    { p: 7,  key: "orbiter",   name: "Cobalt Sentinel",  hp: 1.3,  val: 1.5, weight: 0.8, sat: 3, satGuard: 1 },           // orbiting satellites shield the core
+    { p: 8,  key: "flock",     name: "Mistral Gale",     hp: 0.7,  val: 1.4, weight: 1.0, speed: 1.7, flock: 1 },          // flocks together (boids)
+    { p: 9,  key: "cloak",     name: "Halcyon Mirage",   hp: 1.0,  val: 1.9, weight: 0.8, cloak: 1 },                      // cloaks invisible & untargetable in bursts
+    { p: 10, key: "pulsar",    name: "Tempest Cell",     hp: 1.5,  val: 1.7, weight: 0.7, pulse: 1, shock: 1 },            // throbs, shock rings shove your collectors
+    { p: 11, key: "phantom",   name: "Umbral Shade",     hp: 1.2,  val: 2.0, weight: 0.7, phase: 1 },                      // phases out, dodges most damage
+    { p: 12, key: "juggernaut",name: "Frost Glacian",    hp: 1.9,  val: 1.8, weight: 0.7, speed: 0.7, armorUp: 1 },        // slow tank that regrows armor over time
+    { p: 13, key: "reflector", name: "Onyx Warden",      hp: 1.4,  val: 1.9, weight: 0.7, deflect: 0.45 },                 // mirror facets deflect a share of every shot
+    { p: 14, key: "blink",     name: "Wraith",           hp: 1.1,  val: 2.2, weight: 0.7, blink: 1 },                      // teleports around, hard to pin
+    { p: 15, key: "bomber",    name: "Pyreling",         hp: 1.3,  val: 1.8, weight: 0.7, bomb: 1 },                       // detonates on death, scattering your loot
+    { p: 16, key: "gravity",   name: "Abyssal Pull",     hp: 1.6,  val: 2.0, weight: 0.7, gravity: 1 },                    // drags loot orbs away from your collectors
+    { p: 17, key: "leech",     name: "Devourer",         hp: 1.5,  val: 1.9, weight: 0.7, leech: 1 },                      // eats nearby loot orbs and heals from them
+    { p: 18, key: "spawner",   name: "Null Spawn",       hp: 2.0,  val: 2.2, weight: 0.6, spawner: 1 },                    // endlessly births minion dots
+  ];
+  const raceAt = g => RACES[Math.min(Math.max(g, 1), RACES.length - 1)];
+  const RACE_FX = {
+    swift: "fast & fragile, pays extra", zigzag: "jukes around erratically", splitter: "splits again and again",
+    grower: "swells bigger & richer the longer it lives", shield: "front shield soaks & reflects shots",
+    healer: "heals itself and nearby dots", orbiter: "orbiting satellites shield its core", flock: "swarms together in a flock",
+    cloak: "cloaks invisible & untargetable in bursts", pulsar: "shock rings shove your collectors away",
+    phantom: "phases out, dodging most damage", juggernaut: "slow tank that regrows its armor",
+    reflector: "mirror facets deflect a share of shots", blink: "teleports around to dodge fire",
+    bomber: "detonates on death, scattering your loot", gravity: "drags loot orbs away from your collectors",
+    leech: "devours loot orbs and heals from them", spawner: "endlessly births minion dots",
   };
-  const DOT_ORDER = ["swift", "zigzag", "splitter", "orbiter", "shield", "pulsar", "regen", "phantom"];
-  const kindChance = g => Math.min(0.12 + 0.05 * (g - 2), 0.55);
+  const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 14 * enemyHpMul(g) * vscale, avg = base * 1.3;
     const men = clamp(S.lv.value / 35, 0, 1.3);   // "menace": as Value climbs, tougher dots appear more (and pay more)
@@ -371,25 +396,42 @@
     // difficulty & craziness are bought with VALUE: at Value 0 every dot is the
     // plainest tier-0 grey. armored elites & exotic kinds only appear once you invest.
     if (Math.random() < armorChance(g) * men01 + men * 0.08) { armored = true; roll *= rnd(4, 7) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
-    else { const elig = DOT_ORDER.filter(k => g >= DOT_KINDS[k].gal);
-      if (elig.length && Math.random() < kindChance(g) * men01 + men * 0.06) { let tot = 0; elig.forEach(k => tot += DOT_KINDS[k].weight); let r2 = Math.random() * tot; for (const k of elig) { r2 -= DOT_KINDS[k].weight; if (r2 <= 0) { kind = k; cfg = DOT_KINDS[k]; break; } } } }
+    else if (Math.random() < kindChance(g) * men01 + men * 0.06) {
+      // mostly THIS planet's native race, sometimes an earlier planet's race (variety)
+      const gi = Math.min(g, RACES.length - 1);
+      cfg = (Math.random() < 0.72 || gi <= 1) ? RACES[gi] : RACES[1 + Math.floor(Math.random() * gi)];
+      kind = cfg.key;
+    }
     if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
     const hp = base * roll;
     special = special || (!armored && !cfg && Math.random() < derived.luck);
     const val = Math.max(1, Math.round(DROP_BASE * galValueMul(g) * derived.valueMul * derived.incomeMul * Math.pow(hp / avg, TOUGH_POW) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
-    const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" ? 6 : 7, armored ? 40 : 24);
+    const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" || kind === "flock" ? 6 : 7, armored ? 40 : 24);
     // visual tier: the tougher the dot, the more elaborate (spikes/rings)
     const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : roll < 9 ? 5 : 6;
     const d = { x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),
-      hp, maxHp: hp, value: val, r, tier, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
+      hp, maxHp: hp, value: val, value0: val, r, r0: r, tier, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
       color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` };
-    if (cfg && cfg.shield) { d.shieldMax = hp * cfg.shield; d.shield = d.shieldMax; d.reflect = cfg.reflect; }
-    if (cfg && cfg.regen) d.regen = cfg.regen;
-    if (cfg && cfg.splits) { d.splits = cfg.splits; d.gen = 0; }
-    if (cfg && cfg.sat) d.sat = cfg.sat;
-    if (cfg && cfg.pulse) d.pulse = 0;
-    if (cfg && cfg.phase) { d.phase = 0; d.phased = false; }
-    if (cfg && cfg.zig) d.zig = 0;
+    if (cfg) {
+      if (cfg.shield) { d.shieldMax = hp * cfg.shield; d.shield = d.shieldMax; d.reflect = cfg.reflect; }
+      if (cfg.regen) d.regen = cfg.regen;
+      if (cfg.healAura) d.healAura = 0;
+      if (cfg.splits) { d.splits = cfg.splits; d.gen = 0; d.maxGen = cfg.maxGen || 1; }
+      if (cfg.sat) { d.sat = cfg.sat; if (cfg.satGuard) { d.satGuard = 1; d.satAcc = 0; } }
+      if (cfg.pulse) { d.pulse = 0; if (cfg.shock) d.shock = 1; }
+      if (cfg.phase) { d.phase = 0; d.phased = false; }
+      if (cfg.zig) d.zig = 0;
+      if (cfg.grow) d.grow = 0;
+      if (cfg.flock) d.flock = 1;
+      if (cfg.cloak) { d.cloak = Math.random() * 3; d.cloaked = false; }
+      if (cfg.armorUp) { d.armorUp = 0; d.shieldMax = hp; d.shield = 0; }
+      if (cfg.deflect) d.deflect = cfg.deflect;
+      if (cfg.blink) d.blink = Math.random();
+      if (cfg.bomb) d.bomb = 1;
+      if (cfg.gravity) d.gravity = 1;
+      if (cfg.leech) d.leech = 1;
+      if (cfg.spawner) d.spawner = 0;
+    }
     dots.push(d);
   }
 
@@ -399,7 +441,7 @@
     const rng = uRange(u) ** 2; const cands = [];
     const iq = Math.min(1, uInt(u));   // 0 = dumb (nearest-first), ~1 = perfect coordination
     for (const d of dots) {
-      if (d.dead) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;
+      if (d.dead || d.cloaked) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;   // Halcyon Mirage can't be targeted while cloaked
       // a smarter unit "reads" lethal damage already inbound (pending kills + a margin
       // for shots that haven't resolved yet) and won't waste a bolt on a doomed dot.
       const inbound = (d.pending || 0) + (d.aimed || 0);
@@ -462,6 +504,8 @@
     const ty = DEF_TYPES[src];                                  // class NICHE: anti-armor vs anti-swarm
     if (ty) { if (d.armored || (d.tier || 0) >= 3) dmg *= ty.vsBig; else if (!d.armored && (d.tier || 0) <= 1) dmg *= ty.vsSwarm; }
     if (d.phased) dmg *= 0.45;                                   // phantom shrugs off most damage while phased
+    if (d.deflect && Math.random() < d.deflect) { d.refl = 0.14; return; }   // Onyx mirror facets deflect a share of every shot
+    if (d.sat > 0 && d.satGuard) { d.satAcc += dmg; const per = d.maxHp * 0.14; while (d.satAcc >= per && d.sat > 0) { d.satAcc -= per; d.sat--; burst(d.x, d.y, 4, 60, 1.4); } dmg *= 0.4; }   // Cobalt satellites shield the core until stripped
     if (d.shield > 0) {
       if (Math.random() < d.reflect) { d.refl = 0.14; return; }   // shield reflects the shot
       d.shield -= dmg; d.hit = 0.08;
@@ -478,11 +522,14 @@
       const nb = Math.min(28, 6 + (d.tier || 0) * 4 + (d.armored ? 8 : 0));
       burst(d.x, d.y, nb, 90 + (d.tier || 0) * 24 + (d.armored ? 60 : 0), 2 + (d.tier || 0) * 0.3);
       ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored || (d.tier || 0) >= 4) shakeAdd(d.armored ? 1.8 : 1);
-      if (d.splits && (d.gen || 0) < 1) for (let i = 0; i < d.splits; i++) {
-        const hp = d.maxHp * 0.4;
-        dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-40, 40), vy: rnd(-40, 40), hp, maxHp: hp,
-          value: Math.max(1, Math.round(d.value * 0.4)), r: Math.max(6, d.r * 0.66), tier: 0, spin: 0, special: false, armored: false,
-          kind: "splitter", splits: 0, gen: 1, weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: d.color });
+      if (d.splits && (d.gen || 0) < (d.maxGen || 1)) for (let i = 0; i < d.splits; i++) {
+        const hp = d.maxHp * 0.42, cv = Math.max(1, Math.round(d.value * 0.4)), cr = Math.max(6, d.r * 0.66);
+        dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-50, 50), vy: rnd(-50, 50), hp, maxHp: hp,
+          value: cv, value0: cv, r: cr, r0: cr, tier: 0, spin: 0, special: false, armored: false,
+          kind: "splitter", splits: d.splits, maxGen: d.maxGen, gen: (d.gen || 0) + 1, weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: d.color });
+      }
+      if (d.bomb) { ring(d.x, d.y, d.r, d.r + 75, 0.5); burst(d.x, d.y, 18, 170, 2.6); shakeAdd(2.5); flashAdd(0.12);
+        for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = o.x - d.x, dy = o.y - d.y, q = dx * dx + dy * dy; if (q < 8100) { const dl = Math.sqrt(q) || 1; o.x = clamp(o.x + dx / dl * 70, 20, W - 20); o.y = clamp(o.y + dy / dl * 70, 40, H - 110); o.t += 3.5; } }   // Pyreling detonation scatters & ages your loot
       }
     }
   }
@@ -525,9 +572,18 @@
       d.pending = 0; d.aimed = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
       if (d.regen && d.hit <= 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.maxHp * d.regen * dt);  // heals unless under fire
-      if (d.pulse !== undefined) { d.pulse += dt; if (d.pulse > 1.5) { d.pulse = 0; ring(d.x, d.y, d.r, d.r + 26, 0.45); } }
+      if (d.pulse !== undefined) { d.pulse += dt; if (d.pulse > 1.5) { d.pulse = 0; ring(d.x, d.y, d.r, d.r + 26, 0.45); if (d.shock) for (const dr of drones) { const dx = dr.x - d.x, dy = dr.y - d.y, dl = Math.hypot(dx, dy); if (dl < 115) { dr.vx += dx / (dl || 1) * 210; dr.vy += dy / (dl || 1) * 210; } } } }   // Tempest shock shoves collectors off
       if (d.phase !== undefined) { d.phase += dt; d.phased = (d.phase % 2.4) < 1.0; }
       if (d.zig !== undefined) { d.zig += dt; if (d.zig > 0.35) { d.zig = 0; const sp = Math.hypot(d.vx, d.vy) || 1, a = Math.random() * TAU; d.vx = Math.cos(a) * sp; d.vy = Math.sin(a) * sp; } }
+      if (d.grow !== undefined) { d.grow += dt; const f = 1 + Math.min(d.grow * 0.05, 1.4); d.r = d.r0 * f; d.value = Math.round(d.value0 * f * f); }                                                       // Hearth swells bigger & richer
+      if (d.healAura !== undefined) { d.healAura += dt; if (d.healAura > 0.6) { d.healAura = 0; for (const o of dots) { if (o === d || o.dead) continue; if ((o.x - d.x) ** 2 + (o.y - d.y) ** 2 < 9025 && o.hp < o.maxHp) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.06); } } }   // Verdant mends nearby dots
+      if (d.armorUp !== undefined) { d.armorUp += dt; if (d.hit <= 0) d.shield = Math.min(d.shieldMax, d.shield + d.shieldMax * 0.2 * dt); }                                                              // Frost regrows armor
+      if (d.cloak !== undefined) { d.cloak += dt; d.cloaked = (d.cloak % 3.0) < 1.4; }                                                                                                                    // Halcyon cloaks invisible
+      if (d.blink !== undefined) { d.blink += dt; if (d.blink > 1.6) { d.blink = 0; burst(d.x, d.y, 5, 50, 1.5); d.bx = d.x; d.by = d.y; d.x = clamp(d.x + rnd(-95, 95), 30, W - 30); d.y = clamp(d.y + rnd(-95, 95), 50, H - 130); } }   // Wraith teleports
+      if (d.flock) { let ax = 0, ay = 0, cx = 0, cy = 0, n = 0; for (const o of dots) { if (o === d || !o.flock) continue; const dx = o.x - d.x, dy = o.y - d.y, q = dx * dx + dy * dy; if (q < 8100) { ax += o.vx; ay += o.vy; cx += o.x; cy += o.y; n++; if (q < 676) { d.vx -= dx * 0.05; d.vy -= dy * 0.05; } } } if (n) { d.vx += (ax / n - d.vx) * 0.02 + (cx / n - d.x) * 0.004; d.vy += (ay / n - d.vy) * 0.02 + (cy / n - d.y) * 0.004; } }   // Mistral flocks (boids)
+      if (d.gravity) for (const o of orbs) { const dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 19600) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 95 * dt; o.y += dy / dl * 95 * dt; } }   // Abyss drags loot away from collectors
+      if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 22500) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 135 * dt; o.y += dy / dl * 135 * dt; if (q < (d.r + 9) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.14); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals
+      if (d.spawner !== undefined) { d.spawner += dt; if (d.spawner > 2.6 && dots.length < cap) { d.spawner = 0; const hp = d.maxHp * 0.18, mr = Math.max(5, d.r0 * 0.5); dots.push({ x: d.x + rnd(-14, 14), y: d.y + rnd(-14, 14), vx: rnd(-55, 55), vy: rnd(-55, 55), hp, maxHp: hp, value: Math.max(1, Math.round((d.value0 || d.value) * 0.18)), value0: 1, r: mr, r0: mr, tier: 0, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" }); burst(d.x, d.y, 4, 40, 1.2); } }   // Null Spawn births minions
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
       else { d.x += d.vx * dt; d.y += d.vy * dt; if (d.x < 30 || d.x > W - 30) d.vx *= -1; if (d.y < 50 || d.y > H - 130) d.vy *= -1; d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130); }
     }
@@ -599,8 +655,9 @@
     for (const d of dots) {
       const pulse = d.pulse !== undefined ? 1 + 0.12 * Math.sin(d.born * 0.1 + d.pulse * 4) : 1;
       const dr2 = d.r * (d.born < 0.2 ? clamp(d.born / 0.18, 0.2, 1) : 1) * (d.hit > 0 ? 1 + d.hit / 0.08 * 0.28 : 1) * pulse;
-      const ga = d.phased ? 0.4 : 1;
+      const ga = d.phased ? 0.4 : d.cloaked ? 0.12 : 1;
       if (d.kind === "swift" || d.kind === "zigzag") { ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.vx * 0.12, d.y - d.vy * 0.12); ctx.stroke(); }  // motion streak
+      if (d.blink !== undefined && d.bx !== undefined) { ctx.globalAlpha = clamp(0.35 - d.blink * 0.22, 0, 0.35); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.bx, d.by, dr2 * 0.8, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }  // Wraith after-image
       // HP-tier spikes: tougher dots grow rotating spikes around the core
       if (d.tier >= 1) { ctx.globalAlpha = ga; ctx.strokeStyle = d.color; ctx.lineWidth = 1.5 + d.tier * 0.3; const ns = 3 + d.tier * 2; for (let k = 0; k < ns; k++) { const a = d.spin + k / ns * TAU, i0 = dr2 * 0.9, o0 = dr2 + 3 + d.tier * 1.6; ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * i0, d.y + Math.sin(a) * i0); ctx.lineTo(d.x + Math.cos(a) * o0, d.y + Math.sin(a) * o0); ctx.stroke(); } ctx.globalAlpha = 1; }
       ctx.globalAlpha = ga; ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, dr2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
@@ -615,6 +672,17 @@
       if (d.phase !== undefined) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5, d.spin, d.spin + TAU); ctx.stroke(); ctx.setLineDash([]); }  // phantom dashed ring
       if (d.shield > 0) { ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2.5; ctx.globalAlpha = clamp(d.shield / d.shieldMax, 0.25, 1); ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5, -0.9, 0.9); ctx.stroke(); ctx.globalAlpha = 1; }  // front shield arc
       if (d.refl > 0) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 8, 0, TAU); ctx.stroke(); }  // reflect flash
+      // --- planet-native race visuals ---
+      if (d.grow !== undefined) { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * 0.55, 0, TAU); ctx.stroke(); ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 3 + Math.sin(d.grow * 2) * 2, 0, TAU); ctx.stroke(); }   // Hearth bloat
+      if (d.healAura !== undefined) { ctx.globalAlpha = 0.18 + 0.18 * Math.sin(d.healAura * 9); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(d.x, d.y, 62, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; ctx.strokeStyle = "#000"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(d.x - dr2 * 0.5, d.y); ctx.lineTo(d.x + dr2 * 0.5, d.y); ctx.moveTo(d.x, d.y - dr2 * 0.5); ctx.lineTo(d.x, d.y + dr2 * 0.5); ctx.stroke(); }   // Verdant mender (+ halo)
+      if (d.flock) { const a = Math.atan2(d.vy, d.vx); ctx.fillStyle = "#000"; ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * dr2 * 0.9, d.y + Math.sin(a) * dr2 * 0.9); ctx.lineTo(d.x + Math.cos(a + 2.5) * dr2 * 0.6, d.y + Math.sin(a + 2.5) * dr2 * 0.6); ctx.lineTo(d.x + Math.cos(a - 2.5) * dr2 * 0.6, d.y + Math.sin(a - 2.5) * dr2 * 0.6); ctx.closePath(); ctx.fill(); }   // Mistral chevron
+      if (d.cloak !== undefined) { ctx.strokeStyle = "rgba(255,255,255," + (d.cloaked ? 0.25 : 0.6) + ")"; ctx.lineWidth = 1; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 4, d.spin, d.spin + TAU); ctx.stroke(); ctx.setLineDash([]); }   // Halcyon shimmer
+      if (d.armorUp !== undefined) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); for (let k = 0; k < 6; k++) { const a = d.spin * 0.3 + k / 6 * TAU, rr = dr2 + 3, px = d.x + Math.cos(a) * rr, py = d.y + Math.sin(a) * rr; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.closePath(); ctx.stroke(); }   // Frost hex armor
+      if (d.deflect) { ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 1.5; ctx.beginPath(); for (let k = 0; k < 4; k++) { const a = d.spin + k / 4 * TAU, rr = dr2 + 4, px = d.x + Math.cos(a) * rr, py = d.y + Math.sin(a) * rr; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.closePath(); ctx.stroke(); }   // Onyx mirror facets
+      if (d.bomb) { const fl = 0.5 + 0.5 * Math.sin(d.spin * 7); ctx.fillStyle = "rgba(255,255,255," + (0.4 + fl * 0.6) + ")"; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * 0.4, 0, TAU); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 5, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }   // Pyreling fuse
+      if (d.gravity) { ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const rr = dr2 + 6 + k * 5, a0 = d.spin * 1.6 + k * 2; ctx.beginPath(); ctx.arc(d.x, d.y, rr, a0, a0 + 3.4); ctx.stroke(); } ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * 0.5, 0, TAU); ctx.fill(); }   // Abyss accretion swirl
+      if (d.leech) { const op = 0.25 + 0.3 * Math.abs(Math.sin(d.spin * 4)); ctx.strokeStyle = "#000"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * 0.7, op, Math.PI - op); ctx.stroke(); ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * 0.7, Math.PI + op, TAU - op); ctx.stroke(); }   // Devourer maw
+      if (d.spawner !== undefined) { ctx.fillStyle = "#fff"; for (let k = 0; k < 4; k++) { const a = d.spin * 1.5 + k / 4 * TAU, rr = dr2 * 0.55; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, dr2 * 0.22, 0, TAU); ctx.fill(); } ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * 0.3, 0, TAU); ctx.fill(); }   // Null Spawn brood-core
       if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); }
     }
     for (const o of orbs) {
@@ -1022,9 +1090,10 @@
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span>" : reached ? "<span class='gi-tag'>Conquered ✓</span>"
       : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
-    const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets;
+    const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g);
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
+      "<div class='gi-unlock'>☣ Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
     $("gm-info").classList.add("show");
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
