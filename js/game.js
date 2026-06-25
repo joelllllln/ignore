@@ -598,8 +598,11 @@
       }
       ctx.restore();
       // --- body (size = damage) ---
-      ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 3.5, 0, TAU); ctx.fill();
-      ctx.fillStyle = uColor(u); ctx.beginPath(); ctx.arc(p.x, p.y, bodyR, 0, TAU); ctx.fill();
+      // distinct per-class silhouette: turret circle · mortar hexagon · plasma diamond · laser triangle · railgun square
+      const shp = { mortar: [6, 0], plasma: [4, Math.PI / 4], laser: [3, -Math.PI / 2], railgun: [4, 0] }[u.type];
+      const body = r => { if (!shp) { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill(); } else { ctx.beginPath(); for (let k = 0; k < shp[0]; k++) { const a = shp[1] + k / shp[0] * TAU, x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.fill(); } };
+      ctx.fillStyle = "#222"; body(bodyR + 3.5);
+      ctx.fillStyle = uColor(u); body(bodyR);
       if (uCrit(u) > 0.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(uCrit(u), 0.9) + ")"; ctx.beginPath(); ctx.arc(p.x - bodyR * 0.32, p.y - bodyR * 0.32, 2.3, 0, TAU); ctx.fill(); }   // crit glint
       if (c.multi) { const t2 = Date.now() / 760; for (let k = 0; k < c.multi; k++) { const a = t2 + k / c.multi * TAU; ctx.fillStyle = "rgba(255,255,255,0.65)"; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * (bodyR + 6), p.y + Math.sin(a) * (bodyR + 6), 1.6, 0, TAU); ctx.fill(); } }   // orbiting ticks = keystones (specialization level)
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
@@ -634,6 +637,7 @@
   /* ----------------------------- HUD ----------------------------- */
   function syncHUD() {
     $("ui-cash").textContent = fmt(S.cash); $("ui-cap").textContent = " / " + fmt(derived.capacity);
+    $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the cash ceiling
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy); $("ui-stardust").textContent = fmt(META.starDust);
     const tc = travelCost(S.galaxy);
     $("galaxy-fill").style.width = clamp(S.cash / tc, 0, 1) * 100 + "%";
