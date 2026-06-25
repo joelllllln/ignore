@@ -264,7 +264,13 @@
   const curName = g => CUR_NAMES[Math.min(Math.max(g,1),CUR_NAMES.length)-1] || "Null";
   const curSym  = g => CUR_SYM[Math.min(Math.max(g,1),CUR_SYM.length)-1] || "✦";
   const curWorth = g => eco(g);                                      // exchange value of one unit of planet g's currency
-  const conquerTarget = g => Math.ceil(eco(g) * 80);               // currency you must EARN on a planet to conquer it (unlock travel + background) — reached in a few min as you upgrade
+  // Conquering a planet is a ~day-long active grind (proper idle pacing), escalating per planet.
+  // Income on each planet plateaus near ~17 eco-units/sec (planet-local & self-similar), so a target
+  // of eco*1.5M eco-units ≈ ~25h of active play on planet 1; ×1.2 per planet makes later worlds take
+  // progressively longer (planet 18 is a months-long journey). EXCHANGE only adds spending power
+  // (S.cash), never conquer progress (curEarned), so this day-per-planet floor can't be bought past.
+  const CONQUER_BASE = 1.5e6, CONQUER_ESCALATE = 1.2;
+  const conquerTarget = g => Math.ceil(eco(g) * CONQUER_BASE * Math.pow(CONQUER_ESCALATE, Math.max(1, g) - 1));
   const BG_EFF = 0.4;                                                // a conquered planet earns at this fraction of its live rate, idle
   // EXCHANGE is deliberately HARSH — you really start fresh on each world (AdCap "moon" style).
   // You keep only ~8% of value, and currency from FAR-behind worlds is "stale" (decays per planet
