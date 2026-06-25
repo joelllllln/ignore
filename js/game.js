@@ -22,12 +22,14 @@
   function fmtTime(s) { s |= 0; const h = s / 3600 | 0, m = s % 3600 / 60 | 0, x = s % 60; return h ? h + "h " + m + "m" : m ? m + "m " + x + "s" : x + "s"; }
 
   /* ----------------------- defender unit types ------------------- */
+  // Each class has a NICHE: vsBig = bonus damage to armored/tanky dots, vsSwarm =
+  // bonus to weak/small/fast dots. So mixing classes beats stacking one.
   const DEF_TYPES = {
-    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 4 },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 4 },
-    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 4 },
-    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 4 },
-    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 4 },
+    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
+    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
+    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
+    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
   };
   const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun"];
   /* ----------------------- collector types ----------------------- */
@@ -70,9 +72,10 @@
   // nodes feel strong, late nodes are incremental.
   // mul/rate/speed/suction/ingest bonuses are FRACTIONS (0.4 = +40%); range/collect
   // are flat distances; crit is flat chance.
-  const MAG = { mul: { min: 1.8, maj: 4.5, key: 11 }, rate: { min: 1.3, maj: 3.2, key: 8 }, range: { min: 40, maj: 110, key: 260 }, crit: { min: 0.06, maj: 0.18, key: 0.36 }, collect: { min: 6, maj: 18, key: 40 } };
-  // Turret tree (first defender) — slightly bigger early bonuses for an easier start.
-  const MAG_TURRET = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 2.0, maj: 4.5, key: 11 }, range: { min: 60, maj: 160, key: 360 }, crit: { min: 0.10, maj: 0.25, key: 0.50 } };
+  // Defender baseline (turret = tier 1). Later classes scale UP via DEF_SCALE, so a
+  // gal-7 Railgun tree is FAR stronger per node than a gal-1 Turret — "scaled correctly."
+  const MAG_DEF = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 2.0, maj: 4.5, key: 11 }, range: { min: 60, maj: 160, key: 360 }, crit: { min: 0.10, maj: 0.25, key: 0.50 } };
+  const DEF_SCALE = { turret: 1.0, mortar: 1.35, plasma: 1.8, laser: 2.4, railgun: 3.2 };
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
@@ -83,10 +86,11 @@
       if (s.p === "x") return MAG_COL.ingest[s.mag];                 // x branch = ingestion speed
       return MAG_COL[COL_PRIM[s.p - 1]][s.mag];                      // speed / suction / collect (reach)
     }
-    const M = type === "turret" ? MAG_TURRET : MAG;
-    if (s.p === "x") return M.crit[s.mag];
+    const sc = DEF_SCALE[type] || 1;
+    if (s.p === "x") return MAG_DEF.crit[s.mag];                        // crit = flat chance, not tier-scaled
     const key = DEF_PRIM[s.p - 1];
-    return key === "range" ? M.range[s.mag] : key === "rate" ? M.rate[s.mag] : M.mul[s.mag];
+    if (key === "range") return MAG_DEF.range[s.mag];                   // range = flat distance, not scaled
+    return (key === "rate" ? MAG_DEF.rate[s.mag] : MAG_DEF.mul[s.mag]) * sc;   // dmg/rate bonuses scale by class tier
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
@@ -116,6 +120,9 @@
   const uPierce  = u => cls(u.type).pierce || 0;        // shot becomes a piercing beam — "laser lance"
   const SPEC_NAME = { explosive: "Explosive Rounds", chain: "Chain Lightning", pierce: "Piercing Laser" };
   const SPECS = ["explosive", "chain", "pierce"];
+  // Each defender has a SIGNATURE specialization its keystones all reinforce (stacking
+  // = stronger), matching its niche: bombs for the splash class, beams for the snipers…
+  const CLASS_SPEC = { turret: "chain", mortar: "explosive", plasma: "chain", laser: "pierce", railgun: "pierce" };
   // Speed is capped so a maxed Speed tree makes collectors fast & agile, not so
   // fast they teleport PAST orbs (which used to zero out collection). Suction
   // (the pull/ring radius) is capped well under the field so collectors must keep
@@ -414,6 +421,8 @@
   }
   function hitDot(d, dmg, src) {
     if (d.dead) return;
+    const ty = DEF_TYPES[src];                                  // class NICHE: anti-armor vs anti-swarm
+    if (ty) { if (d.armored || (d.tier || 0) >= 3) dmg *= ty.vsBig; else if (!d.armored && (d.tier || 0) <= 1) dmg *= ty.vsSwarm; }
     if (d.phased) dmg *= 0.45;                                   // phantom shrugs off most damage while phased
     if (d.shield > 0) {
       if (Math.random() < d.reflect) { d.refl = 0.14; return; }   // shield reflects the shot
@@ -707,14 +716,14 @@
     const R = makeRng(fnv("ids:" + type)), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
     const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1, nameSlot: "start", ni: 0 }], edges = [];
     const cnt = { 1: 0, 2: 0, 3: 0, x: 0 }; let keyN = 0;
-    const specBase = fnv("spec:" + type) % 3;   // each class leads with a different ✦ specialization
-    const setSpec = w => { if (!isCol(type)) nodes[nodes.length - 1].spec = SPECS[(w + specBase) % 3]; };   // defenders only; call right after an add("K",…)
+    const setSpec = () => { if (CLASS_SPEC[type]) nodes[nodes.length - 1].spec = CLASS_SPEC[type]; };   // defenders only; call right after an add("K",…)
     const stats = [1, 2, 3]; for (let i = 2; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
-    const nW = ri(5, 7), rot = R() * Math.PI * 2;     // far more wings — bigger trees
+    const deep = { turret: 0, mortar: 0, plasma: 1, laser: 1, railgun: 2 }[type] || 0;   // later classes get deeper trees
+    const nW = ri(5, 7) + deep, rot = R() * Math.PI * 2;     // far more wings — bigger trees
     for (let w = 0; w < nW; w++) {
       const th = rot + w * (Math.PI * 2 / nW), ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
       const wid = "w" + w, stat = stats[w % 3], stat2 = stats[(w + 1) % 3];
-      const step = 0.66 + R() * 0.16, dx = 0.62 + R() * 0.3, arm = ri(4, 6), loop = R() < 0.55;   // longer arms — far more nodes per wing
+      const step = 0.66 + R() * 0.16, dx = 0.62 + R() * 0.3, arm = ri(4, 6) + deep, loop = R() < 0.55;   // longer arms — far more nodes per wing (deeper for later classes)
       const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? keyN++ : cnt[ns]++; nodes.push({ id: wid + k, x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: w, nameSlot: ns, ni }); };
       const e = (a, b) => edges.push([wid + a, wid + b]);
       add("E", 0.95, 0, "minor", [{ p: stat, mag: "min" }]); edges.push(["start", wid + "E"]);
@@ -933,11 +942,11 @@
     }
   }
   const INFO = {
-    turret: "Cheap, fast single-target fire — your reliable backbone. Stack its skill tree early.",
-    mortar: "Lobs explosive shells with SPLASH damage — great against clustered dots. Slow fire rate.",
-    plasma: "Heavy long-range bolts. High damage per hit; melts tanky dots.",
-    laser: "Rapid low-damage beam. Enormous fire rate shreds swarms and scales hard with crit.",
-    railgun: "Slow, devastating shots with the longest range and the biggest single hit.",
+    turret: "ALL-ROUNDER backbone — cheap, fast single-target. Even damage vs everything. Signature keystone: ✦ Chain Lightning. Smallest tree.",
+    mortar: "SWARM-CLEARER — splash shells, ×2.2 damage to weak/small dots (but barely scratches armor). Signature: ✦ Explosive Rounds. Deeper tree than turret.",
+    plasma: "ANTI-TANK — heavy bolts, ×2.4 vs armored/tanky dots. Signature: ✦ Chain Lightning. Deep, strong tree.",
+    laser: "SWARM-SHREDDER — rapid beam, ×2.6 vs fast/weak swarms (weak vs armor). Signature: ✦ Piercing Laser. Deep tree, scales hard with crit.",
+    railgun: "ARMOR SNIPER — devastating ×4 damage to armored/tanky dots (weak vs swarms). Signature: ✦ Piercing Laser. Huge, top-tier tree.",
     drone: "Fast, agile collector — chases the nearest cash orb. Its tree is about Speed & Ingest (how quickly it swallows loot), not a big magnet pull. Field up to 4.",
     swarm: "Faster with a wider net — covers more of the field than a lone drone.",
     collector: "Heavy hauler: big pull radius & grab size, higher yield per orb.",

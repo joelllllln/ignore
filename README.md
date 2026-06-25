@@ -49,10 +49,19 @@ threat at a glance.
 
 ## Defenders & per-class skill trees
 
-Buy multiple defender classes (each capped, galaxy-gated) in the **DEFENCE** tab:
-**Turret → Mortar (splash) → Plasma (heavy) → Laser (rapid) → Railgun (huge
-single hits)**. Units auto-rack into a tidy formation that re-arranges as the
-count grows, and fire simultaneously.
+Buy multiple defender classes (each capped, galaxy-gated) in the **DEFENCE** tab.
+Each has a distinct **niche**, a **signature specialization**, and a **deeper,
+stronger tree** than the last (a gal-7 Railgun tree is ~140 nodes and *far*
+stronger per node than a gal-1 Turret — so mixing classes beats spamming one):
+
+- **Turret** — all-rounder backbone, even vs everything · ✦Chain · smallest tree
+- **Mortar** — splash, **×2.2 vs swarms** · ✦Explosive (bombs) · deeper tree
+- **Plasma** — **×2.4 vs armored/tanky** · ✦Chain · deep tree
+- **Laser** — rapid, **×2.6 vs fast/weak swarms** · ✦Piercing Laser · deep tree
+- **Railgun** — **×4 vs armored** (weak vs swarms) · ✦Piercing Laser · huge tree
+
+Units auto-rack into a tidy formation that re-arranges as the count grows, and
+fire simultaneously.
 
 Tap any defender (or **⬆ Tree**) to open its **skill tree** — a unique,
 interconnected node map per class:
