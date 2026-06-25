@@ -41,6 +41,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .u-info{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--edge);
   color:var(--text);font-family:var(--mono);font-style:italic;font-weight:700;font-size:13px;margin-right:6px;line-height:1}
 .u-info:hover{border-color:#fff}
+.si-info{width:17px;height:17px;font-size:10px;margin:0 0 0 5px;vertical-align:middle;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .ab-i{position:absolute;top:3px;left:4px;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid var(--edge);
   color:var(--text);font-family:var(--mono);font-style:italic;font-size:10px;line-height:13px;text-align:center}
 #info-text{font-size:14px;line-height:1.6}

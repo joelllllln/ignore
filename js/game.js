@@ -698,6 +698,26 @@
     return key === "range" ? "+" + amt + " rng" : "×" + amt.toFixed(2).replace(/\.?0+$/, "") + " " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => (n.slots || []).map(s => slotText(type, s)).join(" · ");
+  // Plain-language glossary for every stat a tree node can grant — surfaced by an
+  // ⓘ button in the node panel so you always know what a boost actually does.
+  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", multi: "Multishot", speed: "Speed", suction: "Pull", yield: "Yield", ingest: "Ingest" };
+  const STAT_INFO = {
+    dmg: "Damage per shot. Kills come faster, and since kills ARE your income, raw damage is your economy.",
+    rate: "Fire rate (shots/sec). High enough and a unit machine-guns, firing several shots per frame.",
+    range: "Targeting range (flat bonus). Wider range keeps more dots in reach, so units idle less.",
+    crit: "Crit chance. A critical shot deals ~2.2× damage and pops a little extra.",
+    multi: "Multishot. Each keystone lets EVERY unit of this class fire at one extra dot at the same time.",
+    speed: "Movement speed — how fast this collector chases orbs. Capped so it stays agile instead of flying straight past loot.",
+    suction: "Pull radius — how far it drags orbs in toward itself. Capped below the field, so it must keep roaming; it never becomes a stationary field-wide magnet.",
+    yield: "A CASH MULTIPLIER on every orb this collector banks. ×2 yield = double the money from each orb — it doesn't gather faster, each gather is simply worth more.",
+    ingest: "Ingest speed — how fast loot is swallowed once a collector reaches it. Big/heavy loot takes longer to eat, so this matters most for fat dots and armored elites.",
+  };
+  function nodeStats(type, n) {
+    const col = isCol(type), keys = [];
+    for (const s of (n.slots || [])) { const k = s.p === "x" ? (col ? "ingest" : "crit") : (col ? COL_PRIM : DEF_PRIM)[s.p - 1]; if (!keys.includes(k)) keys.push(k); }
+    if (n.kind === "key" && !col && !keys.includes("multi")) keys.push("multi");
+    return keys;
+  }
   // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
   // speed / suction / yield / ingest), plus class & keystone markers.
   const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", speed: "➤", suction: "◉", yield: "❖", collect: "▣", ingest: "⊛" };
@@ -747,7 +767,11 @@
     $("si-desc").textContent = n.kind === "key"
       ? (keyDef ? "A devastating keystone: joins two stat branches AND lets every unit of this class fire at one EXTRA target each shot (multishot)." : "A powerful node joining two stat branches of this wing.")
       : n.kind === "major" ? "A stronger passive on this branch." : "A small passive on the path.";
-    $("si-fx").textContent = "Grants: " + fx + (keyDef ? " · +1 simultaneous target" : "");
+    const sk = nodeStats(type, n);
+    $("si-fx").innerHTML = "Grants: " + fx + (keyDef ? " · +1 simultaneous target" : "") +
+      " <button class='u-info si-info' id='si-info-btn' title='What does this boost?'>i</button>";
+    $("si-info-btn").onclick = () => showInfoText("What this node boosts",
+      sk.map(k => "<b>" + STAT_TITLE[k] + "</b> — " + STAT_INFO[k]).join("<br><br>"));
     const btn = $("st-upgrade");
     if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
     else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = "ALLOCATE · $" + fmt(cost); btn.disabled = !afford; }
@@ -870,6 +894,7 @@
     sdStart: "Begin each new run with a chunk of starting cash.",
   };
   function showInfo(title, id) { $("info-title").textContent = title; $("info-text").textContent = INFO[id] || ""; $("info-modal").classList.add("show"); }
+  function showInfoText(title, html) { $("info-title").textContent = title; $("info-text").innerHTML = html; $("info-modal").classList.add("show"); }
   function buildMetrics() {
     const s = stat();
     const sec = (t, h) => `<div class="met-sec"><h3>${t}</h3>${h}</div>`;

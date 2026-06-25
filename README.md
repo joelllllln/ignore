@@ -138,8 +138,11 @@ Each runs on a cooldown — save them for dense or high-value screens.
   coins-per-second, shown on a Welcome-back screen.
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
 - **Draw across the field** to blast dots yourself.
-- Info (ⓘ) buttons sit on nearly every system, and the **▁▄█ Metrics** panel
-  tracks economy, combat, kills, armored killed, cash lost, and more.
+- Info (ⓘ) buttons sit on nearly every system — including **every skill-tree
+  node**, where an ⓘ on the detail panel explains exactly what that boost does
+  (Damage, Fire Rate, Range, Crit, Multishot, Speed, Pull, Yield, Ingest). The
+  **▁▄█ Metrics** panel tracks economy, combat, kills, armored killed, cash lost,
+  and more.
 
 ## Project layout
 
