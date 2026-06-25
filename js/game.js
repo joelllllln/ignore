@@ -25,11 +25,11 @@
   // Each class has a NICHE: vsBig = bonus damage to armored/tanky dots, vsSwarm =
   // bonus to weak/small/fast dots. So mixing classes beats stacking one.
   const DEF_TYPES = {
-    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
-    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
-    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
-    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
+    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 20, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 20, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
+    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 20, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
+    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 20, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
+    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 16, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
   };
   const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun"];
   /* ----------------------- collector types ----------------------- */
@@ -37,12 +37,12 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5, mode: "chase", sides: 4, max: 4 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7, mode: "swarm", sides: 3, max: 2 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7, mode: "chase", sides: 6, max: 2 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8, mode: "chase", sides: 5, max: 2 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9, mode: "chase", sides: 8, max: 2 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 2 },
+    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5, mode: "chase", sides: 4, max: 16 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7, mode: "swarm", sides: 3, max: 12 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7, mode: "chase", sides: 6, max: 10 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8, mode: "chase", sides: 5, max: 9 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9, mode: "chase", sides: 8, max: 8 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 6 },
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -57,7 +57,8 @@
   // cheap (~$1k in G1) and scales the 4th up into the mid-galaxy ($100k+), all well
   // under the travel wall — instead of the nonsensical flat 15%·12B = $1.8B.
   const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
-  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * Math.pow(1.5, countType(type)));   // planet-local, geometric in count
+  const BUY_MUL = 5;   // global ~5× slowdown on buying units/upgrades/nodes — army-building is a long arc, not a 40-min sprint
+  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * BUY_MUL * Math.pow(1.5, countType(type)));   // planet-local, geometric in count — ~5× the old cost, so the LAST unit lands only when you're in the billions
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -209,13 +210,13 @@
   let _form = { n: -1, pts: [] };
   function formation(n) {
     if (_form.n === n) return _form.pts;
-    const pts = [], GAP = 42;
+    const pts = [], GAP = 36;
     if (n >= 1) pts.push({ x: 0, y: 0 });
     let placed = 1, ring = 1;
     while (placed < n) {
-      const radius = ring * 48, cap = Math.max(1, Math.floor(TAU * radius / GAP)), take = Math.min(cap, n - placed);
+      const radius = ring * 40, cap = Math.max(1, Math.floor(TAU * radius / GAP)), take = Math.min(cap, n - placed);
       const phase = (ring % 2 ? Math.PI / take : 0) - Math.PI / 2;
-      for (let k = 0; k < take; k++) { const a = k / take * TAU + phase; pts.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius }); }
+      for (let k = 0; k < take; k++) { const a = k / take * TAU + phase; pts.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius * 1.35 }); }   // stretch vertically to use the tall portrait field & keep units off the side edges
       placed += take; ring++;
     }
     _form = { n, pts };
@@ -231,7 +232,7 @@
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
-  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * Math.pow(u.mul, S.lv[u.id] || 0));   // planet-local: ~2 plain-dot drops to start, grows by mul
+  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0));   // planet-local: ~5× slower than before, grows by mul
 
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
@@ -1037,7 +1038,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 1.5 * Math.pow(1.33, allocCount(type)) * k); }   // planet-local: cheap early, STEEP growth (the in-planet grind)
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 1.5 * BUY_MUL * Math.pow(1.33, allocCount(type)) * k); }   // planet-local: ~5× slower; cheap early, STEEP growth (the in-planet grind)
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (!S.free && S.cash < c) return;
     if (!S.free) S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
