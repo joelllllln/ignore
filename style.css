@@ -164,6 +164,12 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .big.alt{background:transparent;border:1px solid var(--edge);color:var(--text);font-weight:700}
 .big.alt:hover{border-color:#fff}
 .big.alt.danger{color:var(--dim)}
+.home-codes{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:16px;font-size:12px;color:var(--dim)}
+.home-codes label{letter-spacing:2px}
+.home-codes input{flex:0 1 120px;background:#000;border:1px solid var(--edge);color:#fff;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px}
+.home-codes button{background:transparent;border:1px solid var(--edge);color:var(--text);border-radius:6px;padding:6px 10px;font:inherit;font-weight:700;cursor:pointer}
+.home-codes button:hover{border-color:#fff}
+.home-codes #code-msg{min-width:70px;text-align:left}
 .how-list{list-style:none;text-align:left;margin-bottom:14px}
 .how-list li{font-size:13px;color:var(--dim);padding:5px 0;line-height:1.45}
 .how-list b{color:#fff}

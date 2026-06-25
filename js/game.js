@@ -1086,9 +1086,10 @@
     renderList(); syncHUD(); save();
   }
   function showGalaxyInfo(g) {
-    const current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
+    const current = g === S.galaxy, reached = g <= S.peakGalaxy && !current, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
-    const action = current ? "<span class='gi-tag'>▶ You are here</span>" : reached ? "<span class='gi-tag'>Conquered ✓</span>"
+    const action = current ? "<span class='gi-tag'>▶ You are here</span>"
+      : reached ? "<button id='gi-jump'>↩ Jump here</button>"   // revisit an unlocked planet (free)
       : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
     const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g);
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
@@ -1097,6 +1098,7 @@
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
     $("gm-info").classList.add("show");
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
+    const j = $("gi-jump"); if (j) j.onclick = () => { jumpTo(g); $("gm-info").classList.remove("show"); };
   }
 
   const INFO = {
@@ -1239,6 +1241,18 @@
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
   function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
+  // jump to an ALREADY-reached planet (revisit, free) — lets you hop back to test/farm any planet you've unlocked
+  function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; S.galaxy = g; dots = []; orbs = []; parts = []; flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); recompute(); syncHUD(); save(); }
+  // CODES: cheat to unlock everything for testing each planet's native race
+  function unlockAll() {
+    S.peakGalaxy = TOTAL_PLANETS;                          // every planet reachable/jumpable on the map
+    S.cash = Math.min(1e15, 1e15);                          // tons of cash for any purchase
+    S.lv.value = 60; S.lv.spawnRate = 20; S.lv.capacity = 40; S.lv.luck = 25;   // max the economy upgrades
+    S.units = []; DEF_ORDER.forEach(t => { for (let i = 0; i < DEF_TYPES[t].max; i++) S.units.push(newUnit(t)); });          // all defenders, maxed count
+    S.collectors = []; COL_ORDER.forEach(t => { for (let i = 0; i < COL_TYPES[t].max; i++) S.collectors.push({ type: t }); }); // all collectors, maxed count
+    S.units = capList(S.units); S.collectors = capList(S.collectors);
+    syncCollectors(); recompute(); renderList(); syncHUD(); save();
+  }
   /* ----------------------------- screens ------------------------- */
   function setScreen(s) {
     state = s;
@@ -1299,6 +1313,16 @@
   $("home-how").onclick = () => $("how").classList.add("show");
   $("how-close").onclick = $("how-back").onclick = () => $("how").classList.remove("show");
   $("home-reset").onclick = () => { if (confirm("Erase ALL progress?")) wipeSave(); };
+  // CODES box — "test" unlocks all planets, upgrades, collectors & defenders
+  const CODES = { test: { msg: "✓ ALL UNLOCKED", run: unlockAll } };
+  function applyCode() {
+    const v = ($("code-input").value || "").trim().toLowerCase(), c = CODES[v];
+    const msg = $("code-msg");
+    if (c) { c.run(); msg.textContent = c.msg; msg.style.color = "#fff"; $("code-input").value = ""; $("home-gal").textContent = S.peakGalaxy; }
+    else { msg.textContent = v ? "✗ invalid code" : ""; msg.style.color = "var(--warn)"; }
+  }
+  if ($("code-go")) $("code-go").onclick = applyCode;
+  if ($("code-input")) $("code-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); applyCode(); } });
 
   /* ----------------------------- loop / boot --------------------- */
   function resize() {
