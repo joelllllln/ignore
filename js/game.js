@@ -387,7 +387,7 @@
       const target = c.d;
       let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
       const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
-      if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; recoiled = true; }   // muzzle recoil (toward first target)
+      if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; recoiled = true; }   // muzzle recoil + aim + muzzle-flash (toward first target)
       beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: crit ? 3.5 : 2 });
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
       const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
@@ -494,7 +494,7 @@
     }
     dots = dots.filter(d => !d.dead);
 
-    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
+    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
 
     // collectors coordinate: chase-types each claim their nearest orb (so they
@@ -578,17 +578,38 @@
     const n = S.units.length;
     for (let i = 0; i < n; i++) {
       const u = S.units[i], p = unitPos(i, n); p.x += u.rx || 0; p.y += u.ry || 0;
+      const c = cls(u.type);
       if (i === selUnit) { ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, uRange(u), 0, TAU); ctx.stroke(); }
-      ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, TAU); ctx.fill();
-      ctx.fillStyle = uColor(u); ctx.beginPath(); ctx.arc(p.x, p.y, u.type === "turret" ? 11 : 9, 0, TAU); ctx.fill();
+      // --- build-reflecting visuals: barrels=fire rate (+multishot), length=range, thickness/size=damage, colour=specialization ---
+      const barrels = clamp(Math.max(1 + Math.floor(Math.log(Math.max(c.rate, 1)) / Math.log(2.2)), 1 + (c.multi || 0)), 1, 6);
+      const blen = 13 + Math.min(uRange(u) - DEF_TYPES[u.type].range, 260) * 0.04;
+      const bw = 2.6 + Math.min(Math.log10(c.dmg + 1) * 1.7, 6.5);
+      const bodyR = (u.type === "turret" ? 11 : 9) + Math.min(Math.log10(c.dmg + 1) * 1.4, 6);
+      const specCol = c.explosive ? "#ffb060" : c.chain ? "#a9d6ff" : c.pierce ? "#ffffff" : "#c8d2e6";
+      const aim = u.aim != null ? u.aim : -Math.PI / 2;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(aim); ctx.lineCap = "round";
+      for (let b = 0; b < barrels; b++) {
+        const off = (b - (barrels - 1) / 2) * (bw + 2.4);
+        ctx.strokeStyle = "#3a4150"; ctx.lineWidth = bw + 1.6; ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
+        ctx.strokeStyle = specCol; ctx.lineWidth = Math.max(1, bw * 0.5); ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
+        if (u.flash > 0) { const a = u.flash / 0.08; ctx.fillStyle = "rgba(255,238,170," + a + ")"; ctx.beginPath(); ctx.arc(blen + 1, off, bw * 0.8 + 3 * a, 0, TAU); ctx.fill(); }
+      }
+      ctx.restore();
+      // --- body (size = damage) ---
+      ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 3.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = uColor(u); ctx.beginPath(); ctx.arc(p.x, p.y, bodyR, 0, TAU); ctx.fill();
+      if (uCrit(u) > 0.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(uCrit(u), 0.9) + ")"; ctx.beginPath(); ctx.arc(p.x - bodyR * 0.32, p.y - bodyR * 0.32, 2.3, 0, TAU); ctx.fill(); }   // crit glint
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
-      const tot = allocCount(u.type); if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - 21); }
+      const tot = allocCount(u.type); if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - bodyR - 11); }
     }
     ctx.textBaseline = "alphabetic";
     for (const dr of drones) {
       const mode = COL_TYPES[dr.type].mode, sr = cSuction(dr.type);
       ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, sr, 0, TAU); ctx.stroke();
-      ctx.save(); ctx.translate(dr.x, dr.y);
+      const sp = Math.hypot(dr.vx || 0, dr.vy || 0);
+      if (mode !== "hole" && sp > 40) { ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(dr.x - (dr.vx || 0) * 0.1, dr.y - (dr.vy || 0) * 0.1); ctx.lineTo(dr.x, dr.y); ctx.stroke(); }   // speed trail
+      const cs = 1 + Math.min(Math.log10(cIngest(dr.type)) * 0.5, 1.4);   // Process -> bigger maw
+      ctx.save(); ctx.translate(dr.x, dr.y); ctx.scale(cs, cs);
       if (mode === "hole") {
         const rot = Date.now() / 600;
         for (let k = 0; k < 3; k++) { ctx.strokeStyle = "rgba(255,255,255," + (0.5 - k * 0.13) + ")"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 7 + k * 5, rot + k, rot + k + 4.2); ctx.stroke(); }

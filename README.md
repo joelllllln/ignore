@@ -60,6 +60,11 @@ stronger per node than a gal-1 Turret — so mixing classes beats spamming one):
 - **Laser** — rapid, **×2.6 vs fast/weak swarms** · ✦Piercing Laser · deep tree
 - **Railgun** — **×4 vs armored** (weak vs swarms) · ✦Piercing Laser · huge tree
 
+Units **visibly reflect their build**: more fire rate grows more **barrels** (one
+rate node → a double-barrel), range lengthens them, damage fattens the barrels &
+body, the specialization tints them, high crit adds a glint, and they muzzle-flash
+as they fire. Collectors scale with Process (bigger maw) and trail when fast.
+
 Units auto-rack into a tidy formation that re-arranges as the count grows, and
 fire simultaneously.
 
