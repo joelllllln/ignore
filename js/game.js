@@ -59,7 +59,7 @@
   const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
   const unitBuyCost = type => {
     const t = TY(type), f = UNIT_FRAC[Math.min(countType(type), UNIT_FRAC.length - 1)];
-    return Math.floor(t.base * Math.pow(travelCost(t.gal) / t.base, f));
+    return Math.floor(2 * t.base * Math.pow(travelCost(t.gal) / t.base, f));   // ×2: units cost twice as much
   };
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
@@ -79,7 +79,7 @@
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
-  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 1.8, maj: 3.5, key: 7 } };
+  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 2.6, maj: 5.5, key: 11 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -192,10 +192,10 @@
 
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
-    { id: "capacity",  tab: "eco", name: "Capacity",   base: 14, mul: 1.50, desc: () => "$" + fmt(derived.capacity) },
-    { id: "value",     tab: "eco", name: "Value",      base: 20, mul: 1.30, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 24, mul: 1.33, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
-    { id: "luck",      tab: "eco", name: "Luck",       base: 60, mul: 1.18, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
+    { id: "capacity",  tab: "eco", name: "Capacity",   base: 28, mul: 1.50, desc: () => "$" + fmt(derived.capacity) },
+    { id: "value",     tab: "eco", name: "Value",      base: 40, mul: 1.30, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 96, mul: 1.33, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
+    { id: "luck",      tab: "eco", name: "Luck",       base: 120, mul: 1.18, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const upCost = u => Math.floor(u.base * Math.pow(u.mul, S.lv[u.id] || 0));
@@ -758,17 +758,17 @@
     _trees[type] = { nodes, edges: eds, map, adj };
     return _trees[type];
   }
-  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", collect: "reach", ingest: "ingest" };
+  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", collect: "reach", ingest: "process" };
   function slotText(type, s) {
     const col = isCol(type), amt = slotAmt(type, s);
-    if (s.p === "x") return "+" + Math.round(amt * 100) + "% " + (col ? "ingest" : "crit");
+    if (s.p === "x") return "+" + Math.round(amt * 100) + "% " + (col ? "process" : "crit");
     const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
     return key === "range" || key === "collect" ? "+" + amt + " " + STAT_LBL[key] : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => { let s = (n.slots || []).map(sl => slotText(type, sl)).join(" · "); if (n.spec) s += (s ? " · " : "") + "✦ " + SPEC_NAME[n.spec]; return s; };
   // Plain-language glossary for every stat a tree node can grant — surfaced by an
   // ⓘ button in the node panel so you always know what a boost actually does.
-  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", ingest: "Ingest", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
+  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", ingest: "Process", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
   const STAT_INFO = {
     explosive: "✦ SPECIALIZATION — every shot DETONATES, dealing its full damage to all dots in a blast radius (turns the unit into a bomb tower). Each Explosive keystone makes the blast bigger.",
     chain: "✦ SPECIALIZATION — every shot ARCS like lightning from the dot it hits to nearby dots, jumping one extra time per keystone (damage fades a little each jump). Shreds clusters.",
@@ -781,7 +781,7 @@
     speed: "Movement speed — how fast this collector chases orbs. Capped so it stays agile instead of flying straight past loot.",
     suction: "Pull radius — how far it drags orbs in toward itself. Capped below the field, so it must keep roaming; it never becomes a stationary field-wide magnet.",
     collect: "Reach — how close a collector must get to an orb before it grabs and starts consuming it. More reach = it snags loot from a little further out, so less precise chasing. Collectors carry NO cash multiplier — income lives in the Economy tab.",
-    ingest: "Ingest speed — how fast loot is swallowed once a collector reaches it. Big/heavy loot takes longer to eat, so this matters most for fat dots and armored elites.",
+    ingest: "Process speed — how quickly a collector consumes the loot a dot drops once it reaches it. Big/heavy loot takes longer to process, so this matters most for fat dots and armored elites — a key drone lever.",
   };
   function nodeStats(type, n) {
     const col = isCol(type), keys = [];
@@ -809,13 +809,13 @@
   function statLine(tp) {
     const s = { type: tp };
     return isCol(tp)
-      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> reach · <b>×" + cIngest(tp).toFixed(2) + "</b> ingest"
+      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> reach · <b>×" + cIngest(tp).toFixed(2) + "</b> process"
       : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "") + (uExplode(s) ? " · <b>✦bombs</b>" : "") + (uChain(s) ? " · <b>✦chain</b>" : "") + (uPierce(s) ? " · <b>✦laser</b>" : "");
   }
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 4 * Math.pow(1.25, allocCount(type)) * k); }   // gentler growth so the (now much bigger) trees stay fillable over the long game
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 8 * Math.pow(1.25, allocCount(type)) * k); }   // ×2 cost; gentle growth so the big trees stay fillable over the long game
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
