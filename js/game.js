@@ -227,7 +227,7 @@
   const UPS = [
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 20, mul: 1.55, desc: () => curSym(S.galaxy) + " " + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 30, mul: 1.42, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" + (derived.spawnMenace > 1.001 ? "  ·  +" + Math.round((derived.spawnMenace - 1) * 100) + "% menace" : "") },
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
@@ -348,7 +348,15 @@
     derived.incomeMul = 1;
     derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity);   // planet-local cash ceiling (scales with the planet's currency)
     derived.valueMul = 1 + 0.08 * L.value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace"
-    derived.spawnPerSec = 0.9 + 2.0 * L.spawnRate;   // beefed: spawn is now a primary income lever (covers the softer Value)
+    // Spawn Rate: each level wants +2 dots/sec. But the field caps at galCap (400) dots, so past a
+    // soft cap the screen can't hold more — instead of wasting the upgrade, the surplus "spills over"
+    // into MENACE: every dot spawns tougher & (via TOUGH_POW) worth disproportionately more. So Spawn
+    // Rate keeps paying off even with a full screen, exactly like Value never caps out.
+    const rawSpawn = 0.9 + 2.0 * L.spawnRate;
+    const SPAWN_SOFTCAP = 12;                                                  // ~where a busy field saturates the 400 cap
+    derived.spawnPerSec = rawSpawn <= SPAWN_SOFTCAP ? rawSpawn               // below saturation: pure dots/sec
+      : SPAWN_SOFTCAP + (rawSpawn - SPAWN_SOFTCAP) * 0.3;                      // above: count still creeps up if there's room
+    derived.spawnMenace = 1 + 0.05 * Math.max(0, rawSpawn - SPAWN_SOFTCAP);   // surplus → tougher, richer dots (income rises since TOUGH_POW>1)
     derived.luck = Math.min(0.5, 0.001 * L.luck);    // +0.1% chance of a rare 9× SPECIAL dot per Luck level
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
@@ -444,7 +452,7 @@
       kind = cfg.key;
     }
     if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
-    const hp = base * roll;
+    const hp = base * roll * (derived.spawnMenace || 1);   // surplus Spawn Rate (past the field cap) makes every dot tougher & richer
     special = special || (!armored && !cfg && Math.random() < derived.luck);
     const val = Math.max(1, Math.round(DROP_BASE * galValueMul(g) * derived.valueMul * derived.incomeMul * Math.pow(hp / avg, TOUGH_POW) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" || kind === "flock" ? 6 : 7, armored ? 40 : 24);
@@ -1176,7 +1184,7 @@
     singularity: "Black hole — hovers centre-field and slowly drags EVERY orb (and nearby dots) inward. Huge reach & yield.",
     capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
     value: "A FLAT +8% cash per dot per level (additive — it doesn't compound, so no runaway). Also ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
-    spawnRate: "More dots appear per second = more targets and income, up to the on-screen cap.",
+    spawnRate: "More dots per second. The field holds a few hundred dots at once — once it's that full, extra Spawn Rate instead makes every dot TOUGHER and worth far more (it spills into 'menace'), so it never goes to waste even on a packed screen.",
     luck: "Chance for rare SPECIAL dots worth about 9× normal cash. A slow +0.1% per level.",
     frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
     dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
