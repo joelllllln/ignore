@@ -265,11 +265,12 @@
   const curSym  = g => CUR_SYM[Math.min(Math.max(g,1),CUR_SYM.length)-1] || "✦";
   const curWorth = g => eco(g);                                      // exchange value of one unit of planet g's currency
   // Conquering a planet is a ~day-long active grind (proper idle pacing), escalating per planet.
-  // Income on each planet plateaus near ~17 eco-units/sec (planet-local & self-similar), so a target
-  // of eco*1.5M eco-units ≈ ~25h of active play on planet 1; ×1.2 per planet makes later worlds take
-  // progressively longer (planet 18 is a months-long journey). EXCHANGE only adds spending power
-  // (S.cash), never conquer progress (curEarned), so this day-per-planet floor can't be bought past.
-  const CONQUER_BASE = 1.5e6, CONQUER_ESCALATE = 1.2;
+  // CALIBRATED TO REAL ACTIVE PLAY: a skilled player (drawing to kill + abilities + the Spawn-Rate
+  // menace buff) banks ~40× faster than a passive upgrade-only sim, finishing the old eco*1.5M target
+  // in ~40 min. So the base is eco*6e7 ≈ ~27h of active play on planet 1; ×1.2 per planet makes later
+  // worlds progressively longer (planet 18 is a months-long journey). EXCHANGE only adds spending
+  // power (S.cash), never conquer progress (curEarned), so the day-per-planet floor can't be bought past.
+  const CONQUER_BASE = 6e7, CONQUER_ESCALATE = 1.2;
   const conquerTarget = g => Math.ceil(eco(g) * CONQUER_BASE * Math.pow(CONQUER_ESCALATE, Math.max(1, g) - 1));
   const BG_EFF = 0.4;                                                // a conquered planet earns at this fraction of its live rate, idle
   // EXCHANGE is deliberately HARSH — you really start fresh on each world (AdCap "moon" style).
