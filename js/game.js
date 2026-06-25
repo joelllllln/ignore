@@ -237,10 +237,15 @@
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
   // days each by the late planets.
   const travelCost = g => Math.floor(5e9 * Math.pow(3.2, Math.pow(g - 1, 1.12)));
-  const enemyHpMul = g => Math.pow(2.1, g - 1);
-  const galValueMul = g => Math.pow(2.2, g - 1);
-  const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
-  const galCap = g => Math.min(150 + g * 90, 720);     // more dots allowed on-field to feed the higher spawn rate
+  // PLANET LAYERS: every planet is a self-contained run of the SAME base difficulty —
+  // its identity comes from its native RACE and your in-planet Value ramp, not raw HP.
+  // So base HP/spawn are FLAT across planets (a fresh army can always start killing);
+  // only the CURRENCY scale (galValueMul) grows, and costs scale with it (eco), so each
+  // planet plays identically in bigger numbers and conquer time stays constant.
+  const enemyHpMul = g => 1;                            // flat: dots aren't tankier on later planets (in-planet Value still ramps them)
+  const galValueMul = g => Math.pow(2.2, g - 1);        // currency scale of planet g (income AND costs both ride this, so it cancels)
+  const galSpawnMul = g => 1;                           // flat base spawn (you raise it in-planet with Spawn Rate)
+  const galCap = g => 400;                              // flat field cap
 
   /* ====================== PLANET LAYERS (per-planet economy) ======================
      Each planet has its OWN currency and is its OWN fresh run. eco(g) is that planet's
