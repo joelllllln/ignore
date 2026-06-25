@@ -92,8 +92,7 @@ The **ECONOMY** tab multiplies the other pillars:
   armored elites and exotic kinds — not raw income.
 - **Spawn Rate** — more targets on the field.
 - **Capacity** — your cash ceiling (raise it before big purchases).
-
-Rare high-value **special** dots (~9× cash) still appear at a small innate rate.
+- **Luck** — a slow **+0.1% per level** chance of rare high-value **special** dots (~9× cash).
 
 ## Big-Moment abilities
 

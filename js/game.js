@@ -161,6 +161,7 @@
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 14, mul: 1.50, desc: () => "$" + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 20, mul: 1.30, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
     { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 24, mul: 1.33, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
+    { id: "luck",      tab: "eco", name: "Luck",       base: 60, mul: 1.18, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const upCost = u => Math.floor(u.base * Math.pow(u.mul, S.lv[u.id] || 0));
@@ -244,7 +245,7 @@
     derived.capacity = 200 * Math.pow(1.60, L.capacity);
     derived.valueMul = Math.pow(1.05, L.value);     // gentle +5% cash per level (also drives dot "menace")
     derived.spawnPerSec = 0.9 + 0.45 * L.spawnRate;
-    derived.luck = 0.03;                              // small innate chance of a rare 9× SPECIAL dot (Luck upgrade removed)
+    derived.luck = Math.min(0.5, 0.001 * L.luck);    // +0.1% chance of a rare 9× SPECIAL dot per Luck level
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
 
@@ -840,6 +841,7 @@
     capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
     value: "+5% cash per dot per level, and ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
     spawnRate: "More dots appear per second = more targets and income, up to the on-screen cap.",
+    luck: "Chance for rare SPECIAL dots worth about 9× normal cash. A slow +0.1% per level.",
     frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
     dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
     blackhole: "Drags every dot to the centre and crushes them over 5s. Cooldown 60s.",
