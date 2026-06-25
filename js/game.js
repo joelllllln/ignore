@@ -163,20 +163,48 @@
     singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift", "Slow Roll", "Free Orbit"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach", "Gravity Sink", "Abyssal Pull"], c: ["Event Reach", "Wide Maw", "Long Horizon", "Deep Grip", "Vast Reach", "Abyss Latch", "Maw Spread"], d: ["Twin Horizon", "Extra Well", "Triple Maw", "Parallel Wells", "Multi-Crush", "Event Bank", "Devour Array"], x: ["Event Maw", "Mass Vault", "Spaghetti Mill", "Tidal Crush", "Hawking Forge", "Quick Collapse", "Singularity Core"] },
   };
   const skillNames = type => isCol(type) ? COL_SKILLS[type] : SKILLS[type];
-  const GAL_DESC = [
-    "A quiet starting sector. Sparse, fragile dots — good for finding your rhythm.",
-    "Azure nebula. Swarms drift faster; keep your drones close.",
-    "Ember fields. Hotter, tougher dots — Mortars unlock here.",
-    "Verdant drift. Dense clouds of targets and richer payouts; Plasma unlocks.",
-    "Cobalt deep. Heavily reinforced dots demand real damage.",
-    "Crimson expanse. Relentless waves; Lasers unlock for crowd control.",
-    "Amber reach. High-value specials appear far more often.",
-    "Violet void. Chaotic, dense spawns; Railguns unlock to punch through.",
-    "Frost belt. Slow but massive, high-HP dots.",
-    "Nova core. Extreme density — your whole arsenal earns its keep.",
-    "The Abyss. Endless and brutal. How deep can you push?",
+  // --- progression MAP: three SOLAR SYSTEMS, each with 4–8 PLANETS. The linear
+  // travel index S.galaxy is the GLOBAL planet number (1..TOTAL_PLANETS); the map
+  // just groups those planets into systems visually. Travel still advances one
+  // planet at a time, and all the difficulty/scaling functions stay f(globalIndex).
+  const SYSTEMS = [
+    { name: "Helios", planets: 4 },   // inner, warm — find your rhythm
+    { name: "Cygnus", planets: 6 },   // mid — the arsenal fills out
+    { name: "Erebus", planets: 8 },   // outer dark — endless brutal grind
   ];
-  const galDesc = g => GAL_DESC[(g - 1) % GAL_DESC.length];
+  const PLANET_NAMES = [
+    "Vesta", "Ember", "Cinder", "Hearth",                              // Helios
+    "Azure", "Verdant", "Cobalt", "Mistral", "Halcyon", "Tempest",     // Cygnus
+    "Umbra", "Frost", "Onyx", "Wraith", "Pyre", "Abyss", "Maw", "Oblivion", // Erebus
+  ];
+  const PLANET_DESC = [
+    "A quiet inner world. Sparse, fragile dots — find your rhythm.",
+    "Drifting embers. Swarms move faster; keep collectors close.",
+    "Scorched cinder fields. Hotter, tougher dots — Mortars forge here.",
+    "The hearth-world. Dense clouds and richer payouts — Plasma ignites.",
+    "Azure tides. Reinforced dots demand real damage.",
+    "Verdant sprawl. Relentless waves — Lasers cut through.",
+    "Cobalt deep. High-value specials surface far more often.",
+    "Stormwinds. Chaotic, dense spawns — Railguns punch through.",
+    "A deceptive calm before the outer dark.",
+    "Tempest belt. Massive, high-HP dots roll through.",
+    "The outer dark begins. Brutal density — your whole arsenal earns its keep.",
+    "Frostbound. Slow but enormous dots.",
+    "Onyx void. Armored elites everywhere.",
+    "Wraith-light. Phantoms phase through your fire.",
+    "A dying star's pyre. Everything burns hotter.",
+    "The Abyss. Endless and merciless.",
+    "The Maw. It only takes.",
+    "Oblivion. How deep can you push?",
+  ];
+  const PLANET_SYS = [], PLANET_LOCAL = [];
+  SYSTEMS.forEach((s, si) => { for (let l = 0; l < s.planets; l++) { PLANET_SYS.push(si); PLANET_LOCAL.push(l); } });
+  const TOTAL_PLANETS = PLANET_SYS.length;
+  const REBIRTH_AT = TOTAL_PLANETS - SYSTEMS[SYSTEMS.length - 1].planets + 1;   // first planet of the final (outer) system
+  const planetIdx = g => Math.min(Math.max(g, 1), TOTAL_PLANETS) - 1;
+  const sysName = g => SYSTEMS[PLANET_SYS[planetIdx(g)]].name;
+  const galName = g => PLANET_NAMES[g - 1] || (PLANET_NAMES[PLANET_NAMES.length - 1] + " " + g);
+  const galDesc = g => PLANET_DESC[planetIdx(g)];
   const uColor = u => u.type === "mortar" ? "#9a9a9a" : u.type === "turret" ? "#ffffff" : "#cccccc";
   // Defenders auto-arrange into a tidy, centred formation that re-racks itself
   // as you buy more — like beer-pong cups: a lone unit sits centre, a handful
@@ -218,8 +246,6 @@
   const SD = {}; SDS.forEach(u => SD[u.id] = u);
   const sdCost = u => Math.floor(u.base * Math.pow(u.mul, META.sd[u.id] || 0));
 
-  const GAL_NAMES = ["The Void", "Azure", "Ember", "Verdant", "Cobalt", "Crimson", "Amber", "Violet", "Frost", "Nova", "Abyss"];
-  const galName = g => GAL_NAMES[(g - 1) % GAL_NAMES.length] + (g > GAL_NAMES.length ? " " + g : "");
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/galaxy) to a few
   // days each by the late galaxies. Rebirth/Star Dust helps you outpace it.
@@ -682,11 +708,11 @@
   function syncHUD() {
     $("ui-cash").textContent = fmt(S.cash); $("ui-cap").textContent = " / " + fmt(derived.capacity);
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the cash ceiling
-    $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy); $("ui-stardust").textContent = fmt(META.starDust);
+    $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy); $("ui-stardust").textContent = fmt(META.starDust);
     const tc = travelCost(S.galaxy);
     $("galaxy-fill").style.width = clamp(S.cash / tc, 0, 1) * 100 + "%";
     $("btn-travel").textContent = "TRAVEL ▸ $" + fmt(tc); $("btn-travel").classList.toggle("ready", S.cash >= tc);
-    $("btn-rebirth").classList.toggle("hidden", S.galaxy < 10 && S.peakGalaxy < 10);
+    $("btn-rebirth").classList.toggle("hidden", S.galaxy < REBIRTH_AT && S.peakGalaxy < REBIRTH_AT);
     for (const k in ABIL_CD) { $("ab-" + k).disabled = abil[k] > 0; $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : ""; }
     for (const id in listRows) {
       const row = listRows[id];
@@ -1009,7 +1035,9 @@
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span>" : reached ? "<span class='gi-tag'>Conquered ✓</span>"
       : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
-    $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div><div class='gi-desc'>" + galDesc(g) + "</div>" +
+    const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets;
+    $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
+      "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
     $("gm-info").classList.add("show");
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
@@ -1070,7 +1098,7 @@
     $("metrics-body").innerHTML =
       sec("Time &amp; progress", grid(
         row("Played (total)", fmtTime(s.playSec)) + row("This run", fmtTime(S.runSec)) +
-        row("Galaxy", S.galaxy + " · " + galName(S.galaxy)) + row("Peak galaxy", S.peakGalaxy) +
+        row("Planet", S.galaxy + " · " + galName(S.galaxy) + " (" + sysName(S.galaxy) + ")") + row("Peak planet", S.peakGalaxy) +
         row("Travels", s.travels) + row("Rebirths", s.rebirths))) +
       sec("Economy", grid(
         row("Cash / sec", "$" + fmt(cps)) + row("Capacity", "$" + fmt(derived.capacity)) +
@@ -1087,8 +1115,8 @@
   }
   // interactive pseudo-3D black & white star map
   const GMap = {
-    open: false, yaw: 0.5, pitch: -0.82, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0,
-    reset() { this.yaw = 0.5; this.pitch = -0.82; this.zoom = 1; },
+    open: false, yaw: 0.5, pitch: -0.82, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
+    reset() { this.yaw = 0.5; this.pitch = -0.82; this.zoom = 0.7; },
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
@@ -1107,21 +1135,34 @@
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
-    // each galaxy orbits the central black hole on its own ring (XZ plane);
-    // outer galaxies orbit slower. Position depends on this.t so they drift.
-    orbitR(g) { return 34 + g * 15; },
-    node(g) { const R = this.orbitR(g), sp = 0.16 / Math.sqrt(g), ang = g * 2.39963 + this.t * sp; return { x: Math.cos(ang) * R, y: 0, z: Math.sin(ang) * R }; },
-    blackHole(p) {
-      const c = this.c, r = clamp(26 * p.f, 12, 48), rot = this.t * 0.6;
-      for (let k = 0; k < 3; k++) { c.globalAlpha = 0.55 - k * 0.14; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r * (0.55 + k * 0.3), rot + k, rot + k + 4.3); c.stroke(); }
-      c.globalAlpha = 1; c.fillStyle = "#000"; c.beginPath(); c.arc(p.x, p.y, r * 0.5, 0, TAU); c.fill(); c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.stroke();
-      c.globalAlpha = 0.6; c.fillStyle = "#fff"; c.font = "10px ui-monospace,monospace"; c.textAlign = "center"; c.fillText("BLACK HOLE", p.x, p.y - r - 6); c.globalAlpha = 1;
+    // THREE solar systems sit in a row; each planet orbits its own sun on a ring
+    // in the XZ plane. Positions drift with this.t. The global planet index g maps
+    // to (system, local) via PLANET_SYS / PLANET_LOCAL.
+    SYS_GAP: 150,
+    orbitR(local) { return 20 + local * 8; },
+    sunCenter(si) { return { x: (si - (SYSTEMS.length - 1) / 2) * this.SYS_GAP, y: 0, z: 0 }; },
+    planetWorld(g) {
+      const i = planetIdx(g), si = PLANET_SYS[i], L = PLANET_LOCAL[i], ctr = this.sunCenter(si);
+      const R = this.orbitR(L), sp = 0.2 / Math.sqrt(L + 1), ang = L * 2.39963 + si * 1.7 + this.t * sp;
+      return { x: ctr.x + Math.cos(ang) * R, y: 0, z: ctr.z + Math.sin(ang) * R };
     },
-    cluster(cx, cy, scale, bright, rot) {
-      const c = this.c, n = 22;
-      for (let k = 0; k < n; k++) { const tk = k / n, ang = tk * 6.2 + rot, r = tk * scale, x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r * 0.62; c.globalAlpha = bright * (1 - tk * 0.55); c.fillStyle = "#fff"; c.fillRect(x, y, 1.6, 1.6); }
-      const g = c.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.55); g.addColorStop(0, "rgba(255,255,255," + bright + ")"); g.addColorStop(1, "rgba(255,255,255,0)");
-      c.globalAlpha = 1; c.fillStyle = g; c.beginPath(); c.arc(cx, cy, scale * 0.55, 0, TAU); c.fill(); c.globalAlpha = 1;
+    sun(p, lit, label) {
+      const c = this.c, r = clamp(12 * p.f, 5, 24);
+      const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.6);
+      g.addColorStop(0, "rgba(255,255,255," + (lit ? 0.85 : 0.45) + ")"); g.addColorStop(1, "rgba(255,255,255,0)");
+      c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, r * 2.6, 0, TAU); c.fill();
+      c.strokeStyle = "rgba(255,255,255,0.7)"; c.lineWidth = 1;
+      for (let k = 0; k < 12; k++) { const a = k / 12 * TAU + this.t * 0.25; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r * 1.25, p.y + Math.sin(a) * r * 1.25); c.lineTo(p.x + Math.cos(a) * r * 1.6, p.y + Math.sin(a) * r * 1.6); c.stroke(); }
+      c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
+      c.globalAlpha = lit ? 1 : 0.7; c.fillStyle = "#fff"; c.font = "bold 11px ui-monospace,monospace"; c.textAlign = "center"; c.fillText("★ " + label.toUpperCase(), p.x, p.y - r * 2.6 - 4); c.globalAlpha = 1;
+    },
+    planet(p, r, bright, current, seld) {
+      const c = this.c;
+      if (current || seld) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r + 5 + pulse * 3, 0, TAU); c.stroke(); }
+      c.globalAlpha = bright; c.fillStyle = "#000"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
+      c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x - r * 0.32, p.y - r * 0.32, r * 0.5, 0, TAU); c.fill();   // lit crescent
+      c.globalAlpha = 1;
     },
     render(dt) {
       if (!this.cv) return; const c = this.c;
@@ -1129,35 +1170,36 @@
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
       c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.2 + 0.35 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
-      const maxG = Math.max(10, S.peakGalaxy, S.galaxy);
-      // orbit trajectories (white ellipses) — projected rings in the XZ plane
-      for (let g = 1; g <= maxG; g++) {
-        const R = this.orbitR(g), cur = g === S.galaxy, seld = g === this.sel;
+      const curSys = PLANET_SYS[planetIdx(S.galaxy)];
+      // orbit rings — one per planet, around its own sun
+      for (let g = 1; g <= TOTAL_PLANETS; g++) {
+        const i = planetIdx(g), ctr = this.sunCenter(PLANET_SYS[i]), R = this.orbitR(PLANET_LOCAL[i]), cur = g === S.galaxy, seld = g === this.sel;
         c.beginPath();
-        for (let k = 0; k <= 72; k++) { const a = k / 72 * TAU, pr = this.proj(Math.cos(a) * R, 0, Math.sin(a) * R); k ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); }
-        c.globalAlpha = seld ? 0.95 : cur ? 0.55 : 0.18; c.strokeStyle = "#fff"; c.lineWidth = seld ? 3 : cur ? 2 : 1; c.stroke();
+        for (let k = 0; k <= 60; k++) { const a = k / 60 * TAU, pr = this.proj(ctr.x + Math.cos(a) * R, 0, ctr.z + Math.sin(a) * R); k ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); }
+        c.globalAlpha = seld ? 0.85 : cur ? 0.5 : 0.13; c.strokeStyle = "#fff"; c.lineWidth = seld ? 2.5 : cur ? 2 : 1; c.stroke();
       }
       c.globalAlpha = 1;
-      const pts = []; for (let g = 1; g <= maxG; g++) { const w = this.node(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
-      const order = pts.slice().sort((a, b) => b.p.z - a.p.z); this.hit = []; const hole = this.proj(0, 0, 0); let drewHole = false;
-      for (const it of order) {
-        if (!drewHole && it.p.z <= 0) { this.blackHole(hole); drewHole = true; }
+      // suns behind, far-to-near
+      SYSTEMS.map((s, si) => ({ si, p: this.proj(this.sunCenter(si).x, 0, this.sunCenter(si).z) }))
+        .sort((a, b) => b.p.z - a.p.z).forEach(s => this.sun(s.p, s.si === curSys, SYSTEMS[s.si].name));
+      // planets, far-to-near (painter's depth sort)
+      const pts = []; for (let g = 1; g <= TOTAL_PLANETS; g++) { const w = this.planetWorld(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
+      pts.sort((a, b) => b.p.z - a.p.z); this.hit = [];
+      for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-        const scale = clamp(22 * p.f, 7, 54), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.32;
-        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(scale * 0.7, 24) });
-        if (current || g === this.sel) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, scale * 0.7 + 6 + pulse * 4, 0, TAU); c.stroke(); }
-        this.cluster(p.x, p.y, scale, bright, this.t * 0.3 + g);
-        c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(11 * clamp(p.f, 0.65, 1.4)) + "px ui-monospace,monospace";
-        c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - scale * 0.7 - 8);
+        const r = clamp(7 * p.f, 3, 15), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
+        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 8, 20) });
+        this.planet(p, r, bright, current, g === this.sel);
+        c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
+        c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - r - 7);
         c.globalAlpha = 1;
       }
-      if (!drewHole) this.blackHole(hole);
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
   function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
-  function rebirthGain() { return Math.floor(5 + Math.max(0, S.peakGalaxy - 9) * 6 + Math.cbrt(S.totalRun + 1) * 0.5); }
-  function openRebirth() { if (S.galaxy < 10 && S.peakGalaxy < 10) return; $("rb-text").textContent = "Reset this run (cash, defenders & upgrades wiped) to bank Star Dust for permanent upgrades."; $("rb-gain").textContent = "✦ +" + fmt(rebirthGain()) + " Star Dust"; $("rebirth-modal").classList.add("show"); }
+  function rebirthGain() { return Math.floor(5 + Math.max(0, S.peakGalaxy - (REBIRTH_AT - 1)) * 6 + Math.cbrt(S.totalRun + 1) * 0.5); }
+  function openRebirth() { if (S.galaxy < REBIRTH_AT && S.peakGalaxy < REBIRTH_AT) return; $("rb-text").textContent = "Reset this run (cash, defenders & upgrades wiped) to bank Star Dust for permanent upgrades."; $("rb-gain").textContent = "✦ +" + fmt(rebirthGain()) + " Star Dust"; $("rebirth-modal").classList.add("show"); }
   function doRebirth() {
     META.starDust += rebirthGain(); META.stats.rebirths++; const keep = META; S = fresh(); META = keep;
     if (META.sd.sdStart > 0) S.cash = 50 * Math.pow(6, META.sd.sdStart);

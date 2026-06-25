@@ -23,9 +23,9 @@ systems loop where **your firepower IS your economy**.
 
 You command a growing rack of auto-firing defenders in the void. Dots drift in,
 your guns chew through them, collectors vacuum up the cash they drop, and you
-pour that cash into upgrades, skill trees and new unit classes. Travel galaxies
-for tougher dots and bigger payouts; reach Galaxy 10 to **Rebirth** for
-permanent **Star Dust** upgrades.
+pour that cash into upgrades, skill trees and new unit classes. Travel from planet
+to planet across **three solar systems** for tougher dots and bigger payouts; reach
+the outer system to **Rebirth** for permanent **Star Dust** upgrades.
 
 ## The core loop
 
@@ -197,18 +197,21 @@ The **ECONOMY** tab multiplies the other pillars:
 
 Each runs on a cooldown — save them for dense or high-value screens.
 
-## Galaxies, pacing, Rebirth & Star Dust
+## Planets, solar systems, pacing, Rebirth & Star Dust
 
-- The **Star Map** is interactive: 10 galaxies orbit a central black hole, each
-  on its own white orbital trajectory, slowly drifting. Drag to rotate, scroll/
-  pinch to zoom, tap a galaxy to inspect or travel.
-- **Travel** to the next galaxy is a large cash spend on a **super-exponential**
+- Progress runs through **18 planets grouped into three solar systems** —
+  **Helios** (4 planets), **Cygnus** (6), and the brutal outer **Erebus** (8).
+- The **Star Map** is interactive: the three suns sit in a row and each planet
+  orbits its own sun on a white ring, slowly drifting. Drag to rotate, scroll/
+  pinch to zoom, tap a planet to inspect or travel. All weapon/collector classes
+  unlock by the time you cross Cygnus.
+- **Travel** to the next planet is a large cash spend on a **super-exponential**
   curve — this is a deliberately **hardcore, multi-day** game. The first jump is
-  on the order of ~12 billion cash and each subsequent jump escalates sharply
-  (hours → days → weeks → months of idle progress for later galaxies).
-- At **Galaxy 10**, **Rebirth**: reset the run (cash & upgrades wiped) to bank
-  **Star Dust**, then buy permanent upgrades (damage, income, fire rate,
-  head-start cash) that carry into every future run.
+  on the order of ~5 billion cash and each subsequent jump escalates sharply
+  (hours → days → weeks for later planets).
+- Reaching **Erebus** (the outer system) unlocks **Rebirth**: reset the run
+  (cash & upgrades wiped) to bank **Star Dust**, then buy permanent upgrades
+  (damage, income, fire rate, head-start cash) that carry into every future run.
 
 ## Idle, offline & saving
 
