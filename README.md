@@ -84,18 +84,22 @@ The **COLLECTORS** tab gathers the cash orbs dots drop. Buy more and unlock new
 classes as you travel: **Drone → Drone Swarm → Collector → Magnet → Tractor →
 Singularity** (a black hole that slowly drags every orb, and nearby dots,
 inward). Each collector class has its **own skill web** (Speed / Suction /
-Yield / **Ingest**).
+Reach / **Ingest**) — pure logistics, **no income multiplier**.
 
-Collectors are about **speed and agility**, not becoming stationary magnets:
+Collectors are about **speed and agility**, not becoming stationary magnets — and
+they no longer multiply your cash (that lives in the Economy tab now):
 
 - **Speed** is the headline stat (capped so a maxed drone is fast & agile, not so
   fast it teleports *past* orbs). You can now field up to **4 drones**.
 - **Suction** (the pull/ring radius) grows *gently* and is **hard-capped well under
   the field**, so a collector always has to keep roaming to cover it.
+- **Reach** is how close a collector must get before it grabs an orb (flat) — a
+  little reach means less precise chasing.
 - **Ingest** (the 4th branch) is **how fast a collector swallows loot**. Big kills
   drop **heavy loot** a collector must sit on and consume (watch the ring fill) —
   small dots are instant, fat ones tie a collector up, so Ingest matters most there.
-- **Yield** multiplies cash per orb.
+
+Your cash *multiplier* is **Value** in the Economy tab — collectors just gather.
 
 ## Economy
 
