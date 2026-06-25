@@ -160,16 +160,17 @@ they no longer multiply your cash (that lives in the Economy tab now):
 - **Reach** is how close a collector must get before it grabs an orb (flat) — a
   little reach means less precise chasing.
 - **Capacity** is **how many orbs a collector processes at once** — its parallel
-  maw **bays**. With few bays it consumes one or two orbs at a time and a dense
-  pile backs up (and orbs can expire before it reaches them); with many bays it
-  chews through a whole cluster simultaneously. It shines exactly when loot piles
-  up — after big multi-kills, **Dot Rain**, and **Black Hole** pulls. (A maxed
-  Drone reaches ~10 bays, a Black Hole ~20.) *Distinct from the Economy tab's
-  Capacity, which is your cash ceiling.*
+  maw **bays**. Base bays are **generous** (a Drone starts at 5, a Black Hole at
+  14) so Capacity is never a harsh throttle in normal play; it kicks in exactly
+  when loot piles up — big multi-kills, **Dot Rain**, **Black Hole** pulls — letting
+  a collector chew a whole cluster at once instead of letting the overflow expire.
+  The upgrades are **big**: a maxed Drone hits ~60 bays, a Black Hole ~100+.
+  *Distinct from the Economy tab's Capacity, which is your cash ceiling.*
 - **Process** (the dedicated consumption wing) is **how fast a collector swallows
-  each orb** once a bay is on it. Big kills drop **heavy loot** a collector must
-  sit on and consume (watch the ring fill) — small dots are instant, fat ones tie
-  a bay up, so Process matters most there. Capacity is *how many at once*; Process
+  each orb** once a bay is on it — a **strong** lever (~**+100% per node**, a full
+  wing reaching ~×18–20). Big kills drop **heavy loot** a collector must sit on and
+  consume (watch the ring fill) — small dots are instant, fat ones tie a bay up, so
+  Process matters most there. Capacity is *how many at once*; Process
   is *how fast each one*.
 
 Your cash *multiplier* is **Value** in the Economy tab — collectors just gather.

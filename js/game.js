@@ -37,12 +37,12 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 2, mode: "chase", sides: 4, max: 4 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 3, mode: "swarm", sides: 3, max: 2 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 3, mode: "chase", sides: 6, max: 2 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 3, mode: "chase", sides: 5, max: 2 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 4, mode: "chase", sides: 8, max: 2 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 6, mode: "hole",  sides: 0, max: 2 },
+    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5, mode: "chase", sides: 4, max: 4 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7, mode: "swarm", sides: 3, max: 2 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7, mode: "chase", sides: 6, max: 2 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8, mode: "chase", sides: 5, max: 2 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9, mode: "chase", sides: 8, max: 2 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 2 },
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -79,13 +79,12 @@
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
-  // Process/consumption (ingest) bonuses are SMALL per node (+10% minor / +20% major /
-  // ~+45% key) so they read sanely across the dedicated Process wing instead of one
-  // node showing "+260%". Speed / suction / reach are left as-is.
-  // capacity = how many loot orbs a collector can PROCESS at once (parallel maw bays).
-  // A multiplier on the collector's base bay count (+20% / +45% / +100% per node),
-  // floored to a whole number of bays in cCapacity.
-  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, capacity: { min: 0.10, maj: 0.22, key: 0.5 }, ingest: { min: 0.10, maj: 0.20, key: 0.45 } };
+  // Process (ingest) is a STRONG per-node lever — +100% / +200% / +400% — so a full
+  // Process wing makes even heavy loot vanish. capacity = how many loot orbs a collector
+  // PROCESSES at once (parallel maw bays): a multiplier on the base bay count with BIG
+  // upgrades (+30% / +70% / +150% per node), floored to whole bays in cCapacity. Base
+  // bays are generous so Capacity is never a harsh throttle. Speed / suction / reach as-is.
+  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, capacity: { min: 0.30, maj: 0.70, key: 1.5 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
