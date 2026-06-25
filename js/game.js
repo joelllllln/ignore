@@ -726,6 +726,9 @@
       const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? keyN++ : cnt[ns]++; nodes.push({ id: wid + k, x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: w, nameSlot: ns, ni }); };
       const e = (a, b) => edges.push([wid + a, wid + b]);
       add("E", 0.95, 0, "minor", [{ p: stat, mag: "min" }]); edges.push(["start", wid + "E"]);
+      // x-branch (Process for collectors / Crit for defenders) sub-arm hanging off the
+      // ENTRY node, so it's investable THROUGHOUT the tree instead of one node at the tips.
+      { const xn = ri(1, 2), side = w % 2 ? 1 : -1; for (let t = 1; t <= xn; t++) { add("Y" + t, 0.95 + step * (t + 0.25), side * (1.5 + 0.3 * t), t === xn ? "major" : "minor", [{ p: "x", mag: t === xn ? "maj" : "min" }]); e(t === 1 ? "E" : "Y" + (t - 1), "Y" + t); } }
       if (loop) {
         let pL = "E", pR = "E";
         for (let t = 1; t <= arm; t++) {
