@@ -123,7 +123,7 @@
   // black hole keeps its huge reach.
   const cSpeed   = type => Math.min(900, COL_TYPES[type].speed * cls(type).speed);
   const cSuction = type => Math.min(COL_TYPES[type].mode === "hole" ? 900 : 240, COL_TYPES[type].suction * cls(type).suction);
-  const cCollect = type => Math.min(200, COL_TYPES[type].collect + cls(type).collect);   // capped so big Reach helps but never becomes a field-wide magnet
+  const cCollect = type => Math.min(140, COL_TYPES[type].collect + cls(type).collect);   // capped so collectors must keep chasing (not a field-wide magnet); Reach still matters for grabbing fresh loot fast
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
   const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * derived.incomeMul;
   const AGILITY = 0.12;
@@ -204,10 +204,11 @@
 
   const GAL_NAMES = ["The Void", "Azure", "Ember", "Verdant", "Cobalt", "Crimson", "Amber", "Violet", "Frost", "Nova", "Abyss"];
   const galName = g => GAL_NAMES[(g - 1) % GAL_NAMES.length] + (g > GAL_NAMES.length ? " " + g : "");
-  // Travel is a hard, escalating wall: ~half a day for the first jump, ramping
-  // super-exponentially to days then weeks per galaxy (rebirth/Star Dust is how
-  // you eventually outpace it). The grind — not an unkillable HP wall — is the gate.
-  const travelCost = g => Math.floor(1.2e10 * Math.pow(6, Math.pow(g - 1, 1.17)));
+  // Travel is a hard, escalating wall, but tuned to LINEAR-ish income: ~2 days for
+  // the first jump, ramping gently (≈×3/galaxy with a mild exponent) to a few days
+  // each by the late galaxies — NOT the old super-exponential curve that hit 8 years
+  // per jump once builds went additive. Rebirth/Star Dust still helps you outpace it.
+  const travelCost = g => Math.floor(1.2e10 * Math.pow(3, Math.pow(g - 1, 1.1)));
   const enemyHpMul = g => Math.pow(2.1, g - 1);
   const galValueMul = g => Math.pow(2.2, g - 1);
   const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
@@ -219,7 +220,12 @@
   // kill them and stronger drones to haul the bigger loot).
   const DROP_BASE = 15;
   const TOUGH_POW = 1.45;
-  const ORB_LIFE = 13;                                  // orbs vanish fast — collectors must keep up
+  const ORB_LIFE = 9;                                   // orbs vanish fast — collectors must keep up or loot is LOST
+  // Loot freshness: an orb pays full value when grabbed instantly and decays to
+  // FRESH_MIN of its value by the time it expires. So faster/more collectors bank
+  // more cash — collector Speed/Reach/Ingest/count are a real income lever again.
+  const FRESH_MIN = 0.35;
+  const orbFresh = o => FRESH_MIN + (1 - FRESH_MIN) * clamp(1 - o.t / ORB_LIFE, 0, 1);
 
   /* ----------------------------- state --------------------------- */
   let S, derived = {}, META, state = "home";
@@ -494,6 +500,9 @@
       else if (dr.parking) { dr.vx *= 0.55; dr.vy *= 0.55; }                                  // parked, consuming big loot
       else if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1, sp = cSpeed(dr.type); dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; }
       else { dr.vx *= 0.9; dr.vy *= 0.9; }
+      // separation: chase collectors push apart so they SPREAD and cover more of the
+      // field — so fielding more (and faster) collectors collects meaningfully more.
+      if (!hole) for (const o2 of drones) { if (o2 === dr || COL_TYPES[o2.type].mode === "hole") continue; const dx = dr.x - o2.x, dy = dr.y - o2.y, d2 = dx * dx + dy * dy; if (d2 > 1 && d2 < 200 * 200) { const inv = 1 / Math.sqrt(d2), f = (200 - Math.sqrt(d2)) * cSpeed(dr.type) * 0.012; dr.vx += dx * inv * f * dt; dr.vy += dy * inv * f * dt; } }
       dr.x = clamp(dr.x + dr.vx * dt, 0, W); dr.y = clamp(dr.y + dr.vy * dt, 0, H);
       dr.parking = false;
     }
@@ -505,10 +514,10 @@
       let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
       if (nd) {
         const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 150 : 240) / (o.weight || 1);
-        if (dl < cCollect(nd.type) + 6) {                         // reached: consume over time (big loot = longer; collector parks)
+        if (dl < cCollect(nd.type) + 6) {                         // must REACH loot to bank it — collector Speed/Reach/Ingest is the lever
           o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
           if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
-          if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) burst(o.x, o.y, 8, 70, 2); orbs.splice(i, 1); }
+          if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) burst(o.x, o.y, 8, 70, 2); orbs.splice(i, 1); }
         } else { o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); } }
       }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
