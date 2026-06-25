@@ -209,6 +209,13 @@
   const galValueMul = g => Math.pow(2.2, g - 1);
   const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
   const galCap = g => Math.min(150 + g * 90, 720);     // more dots allowed on-field to feed the higher spawn rate
+  // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
+  // not a collector yield multiplier. DROP_BASE is the cash a plain dot drops;
+  // TOUGH_POW makes reward scale SUPER-linearly with a dot's toughness, so tanky
+  // dots & armored elites pay disproportionately more (rewarding turret damage to
+  // kill them and stronger drones to haul the bigger loot).
+  const DROP_BASE = 7;
+  const TOUGH_POW = 1.45;
   const ORB_LIFE = 13;                                  // orbs vanish fast — collectors must keep up
 
   /* ----------------------------- state --------------------------- */
@@ -331,7 +338,7 @@
     if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
     const hp = base * roll;
     special = special || (!armored && !cfg && Math.random() < derived.luck);
-    const val = Math.max(1, Math.round(2 * galValueMul(g) * derived.valueMul * derived.incomeMul * (hp / avg) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
+    const val = Math.max(1, Math.round(DROP_BASE * galValueMul(g) * derived.valueMul * derived.incomeMul * Math.pow(hp / avg, TOUGH_POW) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" ? 6 : 7, armored ? 40 : 24);
     // visual tier: the tougher the dot, the more elaborate (spikes/rings)
     const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : roll < 9 ? 5 : 6;

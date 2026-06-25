@@ -29,7 +29,11 @@ Dot difficulty and craziness are driven by how much you invest in **Value**:
 - **At Value 0, every dot is the plainest tier-0 grey** — simple and quick to
   kill, low payout.
 - As you pour cash into **Value**, dots roll tougher: more health, more elaborate
-  visuals (spikes & rings), and they pay proportionally more.
+  visuals (spikes & rings), and they pay **disproportionately** more — reward scales
+  *super-linearly* with toughness, so tanky dots and armored elites drop fat loot.
+  This is where your income comes from: killing **more** dots, and **tougher, more
+  rewarding** ones — not a flat cash multiplier. That demand pulls stronger turrets
+  (to kill the tanky ones) and stronger drones (to haul the bigger drops).
 - High Value unlocks **armored elites** (double-ringed, huge defense, heavy slow
   loot) and a roster of **exotic dot kinds** — each also gated by galaxy:
   - **Swift** / **Zigzag** — fast & erratic
