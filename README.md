@@ -139,7 +139,7 @@ The **COLLECTORS** tab gathers the cash orbs dots drop. Buy more and unlock new
 classes as you travel: **Drone → Drone Swarm → Collector → Magnet → Tractor →
 Singularity** (a black hole that slowly drags every orb, and nearby dots,
 inward). Each collector class has its **own skill web** (Speed / Suction /
-Reach / **Ingest**) — pure logistics, **no income multiplier**.
+Reach / **Capacity** / **Process**) — pure logistics, **no income multiplier**.
 
 Collectors are about **speed and agility**, not becoming stationary magnets — and
 they no longer multiply your cash (that lives in the Economy tab now):
@@ -150,9 +150,18 @@ they no longer multiply your cash (that lives in the Economy tab now):
   the field**, so a collector always has to keep roaming to cover it.
 - **Reach** is how close a collector must get before it grabs an orb (flat) — a
   little reach means less precise chasing.
-- **Ingest** (the 4th branch) is **how fast a collector swallows loot**. Big kills
-  drop **heavy loot** a collector must sit on and consume (watch the ring fill) —
-  small dots are instant, fat ones tie a collector up, so Ingest matters most there.
+- **Capacity** is **how many orbs a collector processes at once** — its parallel
+  maw **bays**. With few bays it consumes one or two orbs at a time and a dense
+  pile backs up (and orbs can expire before it reaches them); with many bays it
+  chews through a whole cluster simultaneously. It shines exactly when loot piles
+  up — after big multi-kills, **Dot Rain**, and **Black Hole** pulls. (A maxed
+  Drone reaches ~10 bays, a Black Hole ~20.) *Distinct from the Economy tab's
+  Capacity, which is your cash ceiling.*
+- **Process** (the dedicated consumption wing) is **how fast a collector swallows
+  each orb** once a bay is on it. Big kills drop **heavy loot** a collector must
+  sit on and consume (watch the ring fill) — small dots are instant, fat ones tie
+  a bay up, so Process matters most there. Capacity is *how many at once*; Process
+  is *how fast each one*.
 
 Your cash *multiplier* is **Value** in the Economy tab — collectors just gather.
 
@@ -202,7 +211,8 @@ Each runs on a cooldown — save them for dense or high-value screens.
   collector.
 - Info (ⓘ) buttons sit on nearly every system — including **every skill-tree
   node**, where an ⓘ on the detail panel explains exactly what that boost does
-  (Damage, Fire Rate, Range, Crit, Mind, Multishot, Speed, Pull, Yield, Ingest). The
+  (Damage, Fire Rate, Range, Crit, Mind, Multishot, Speed, Pull, Reach, Capacity,
+  Process). The
   **▁▄█ Metrics** panel tracks economy, combat, kills, armored killed, cash lost,
   and more.
 

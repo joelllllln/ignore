@@ -37,12 +37,12 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4, max: 4 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, mode: "swarm", sides: 3, max: 2 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, mode: "chase", sides: 6, max: 2 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, mode: "chase", sides: 5, max: 2 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, mode: "chase", sides: 8, max: 2 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, mode: "hole",  sides: 0, max: 2 },
+    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 2, mode: "chase", sides: 4, max: 4 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 3, mode: "swarm", sides: 3, max: 2 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 3, mode: "chase", sides: 6, max: 2 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 3, mode: "chase", sides: 5, max: 2 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 4, mode: "chase", sides: 8, max: 2 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 6, mode: "hole",  sides: 0, max: 2 },
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -64,7 +64,7 @@
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
-  const DEF_PRIM = ["dmg", "rate", "range", "int"], COL_PRIM = ["speed", "suction", "collect"];
+  const DEF_PRIM = ["dmg", "rate", "range", "int"], COL_PRIM = ["speed", "suction", "collect", "capacity"];
   // Tree nodes add a FLAT bonus that STACKS ADDITIVELY — a stat's multiplier is
   // 1 + (sum of its nodes' bonuses). Bonuses do NOT compound off each other, so
   // deep trees scale LINEARLY (no exponential runaway), and because each new node
@@ -82,7 +82,10 @@
   // Process/consumption (ingest) bonuses are SMALL per node (+10% minor / +20% major /
   // ~+45% key) so they read sanely across the dedicated Process wing instead of one
   // node showing "+260%". Speed / suction / reach are left as-is.
-  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 0.10, maj: 0.20, key: 0.45 } };
+  // capacity = how many loot orbs a collector can PROCESS at once (parallel maw bays).
+  // A multiplier on the collector's base bay count (+20% / +45% / +100% per node),
+  // floored to a whole number of bays in cCapacity.
+  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, capacity: { min: 0.10, maj: 0.22, key: 0.5 }, ingest: { min: 0.10, maj: 0.20, key: 0.45 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -98,7 +101,7 @@
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
       if (n.kind === "key") { o.multi++; if (n.spec) o[n.spec]++; }   // keystone = +1 multishot AND a ✦ specialization
@@ -109,7 +112,7 @@
     o.multi = Math.min(o.multi, 6);
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
   const uMulti = u => cls(u.type).multi || 0;
   const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
@@ -137,6 +140,7 @@
   const cSuction = type => Math.min(COL_TYPES[type].mode === "hole" ? 900 : 240, COL_TYPES[type].suction * cls(type).suction);
   const cCollect = type => Math.min(140, COL_TYPES[type].collect + cls(type).collect);   // capped so collectors must keep chasing (not a field-wide magnet); Reach still matters for grabbing fresh loot fast
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
+  const cCapacity = type => Math.max(1, Math.round(COL_TYPES[type].cap * cls(type).capacity));   // how many orbs it processes in parallel (bays); multiplies the base bay count, floored to a whole number
   const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * derived.incomeMul;
   const AGILITY = 0.12;
 
@@ -149,14 +153,15 @@
     laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray", "Hot Lens", "Sunfire"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream", "Fast Cycle", "Lightstorm"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split", "Wide Mirror", "True Aim"], d: ["Tracking AI", "Scan Logic", "Priority Lock", "Predictive Aim", "Swarm Sense", "Hunter Net", "Omniscience"], x: ["Crit Focus", "Focal Point", "Vaporize"] },
     railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator", "Tungsten Rod", "Worldbreaker"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo", "Fast Coil", "Volley"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm", "Extended Rail", "Dead Centre"], d: ["Fire Solution", "Ballistic AI", "Target Lock", "Lead Computer", "Kill Predictor", "War Mind", "Oracle Core"], x: ["Crit Lock", "Penetrator", "One Shot"] },
   };
-  // collector skill webs: a=Speed, b=Suction, c=Reach (grab distance), x=Ingest (loot-swallow speed)
+  // collector skill webs: a=Speed, b=Suction, c=Reach (grab distance), d=Capacity (parallel
+  // maw bays — how many orbs at once), x=Ingest (loot-swallow speed)
   const COL_SKILLS = {
-    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream", "Quick Servos", "Overdrive"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field", "Strong Coil", "Deep Pull"], c: ["Bigger Scoop", "Wide Grip", "Long Arms", "Quick Latch", "Tractor Grip", "Snap Reach", "Vacuum Maw"], x: ["Quick Gulp", "Maw Servo", "Grinder", "Crush Jaws", "Smelter", "Furnace Maw", "Devourer"] },
-    swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash", "Fast Hive", "Blitz"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep", "Wide Mesh", "Dragnet"], c: ["Many Hands", "Wide Reach", "Long Grip", "Pack Latch", "Total Grasp", "Far Hands", "Hive Grip"], x: ["Big Net", "Hive Hold", "Quick Strip", "Mass Feed", "Pack Digest", "Hive Mill", "Treasury"] },
-    collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame", "Quick Haul", "Blink Drive"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex", "Strong Maw", "Black Maw"], c: ["Cargo Arms", "Wide Maw", "Long Reach", "Bulk Grip", "Grand Reach", "Heavy Latch", "Maw Spread"], x: ["Maw Bay", "Cargo Bay", "Crusher", "Bulk Mill", "Ore Press", "Smelt Bay", "Strongbox"] },
-    magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash", "Quick Coil", "Overspin"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar", "Strong Dipole", "Pole Reversal"], c: ["Grab Coil", "Wide Pole", "Long Coil", "Grip Field", "Vast Reach", "Strong Latch", "Pole Spread"], x: ["Wide Coil", "Storage Coil", "Flux Mill", "Eddy Press", "Induction Forge", "Quick Smelt", "Bullion"] },
-    tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed", "Quick Beam", "Hyperdrive"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach", "Broad Beam", "Long Reach"], c: ["Hopper Arm", "Wide Grip", "Long Tow", "Cone Latch", "Far Reach", "Broad Grip", "Tow Spread"], x: ["Wide Cone", "Hold Beam", "Beam Mill", "Phase Press", "Plasma Forge", "Quick Render", "Reserve"] },
-    singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift", "Slow Roll", "Free Orbit"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach", "Gravity Sink", "Abyssal Pull"], c: ["Event Reach", "Wide Maw", "Long Horizon", "Deep Grip", "Vast Reach", "Abyss Latch", "Maw Spread"], x: ["Event Maw", "Mass Vault", "Spaghetti Mill", "Tidal Crush", "Hawking Forge", "Quick Collapse", "Singularity Core"] },
+    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream", "Quick Servos", "Overdrive"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field", "Strong Coil", "Deep Pull"], c: ["Bigger Scoop", "Wide Grip", "Long Arms", "Quick Latch", "Tractor Grip", "Snap Reach", "Vacuum Maw"], d: ["Twin Bay", "Extra Hopper", "Triple Maw", "Parallel Feed", "Multi-Intake", "Bay Array", "Hydra Maw"], x: ["Quick Gulp", "Maw Servo", "Grinder", "Crush Jaws", "Smelter", "Furnace Maw", "Devourer"] },
+    swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash", "Fast Hive", "Blitz"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep", "Wide Mesh", "Dragnet"], c: ["Many Hands", "Wide Reach", "Long Grip", "Pack Latch", "Total Grasp", "Far Hands", "Hive Grip"], d: ["Split Duty", "More Mouths", "Spread Feed", "Parallel Swarm", "Many Maws", "Wide Intake", "Devour Cloud"], x: ["Big Net", "Hive Hold", "Quick Strip", "Mass Feed", "Pack Digest", "Hive Mill", "Treasury"] },
+    collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame", "Quick Haul", "Blink Drive"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex", "Strong Maw", "Black Maw"], c: ["Cargo Arms", "Wide Maw", "Long Reach", "Bulk Grip", "Grand Reach", "Heavy Latch", "Maw Spread"], d: ["Twin Hopper", "Extra Bay", "Triple Intake", "Parallel Bays", "Conveyor Bank", "Bay Cluster", "Mega Intake"], x: ["Maw Bay", "Cargo Bay", "Crusher", "Bulk Mill", "Ore Press", "Smelt Bay", "Strongbox"] },
+    magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash", "Quick Coil", "Overspin"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar", "Strong Dipole", "Pole Reversal"], c: ["Grab Coil", "Wide Pole", "Long Coil", "Grip Field", "Vast Reach", "Strong Latch", "Pole Spread"], d: ["Twin Pole", "Extra Coil Bay", "Triple Intake", "Parallel Coils", "Multi-Pole", "Coil Bank", "Pole Array"], x: ["Wide Coil", "Storage Coil", "Flux Mill", "Eddy Press", "Induction Forge", "Quick Smelt", "Bullion"] },
+    tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed", "Quick Beam", "Hyperdrive"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach", "Broad Beam", "Long Reach"], c: ["Hopper Arm", "Wide Grip", "Long Tow", "Cone Latch", "Far Reach", "Broad Grip", "Tow Spread"], d: ["Twin Beam", "Extra Tractor", "Triple Tow", "Parallel Beams", "Multi-Lock", "Beam Bank", "Beam Array"], x: ["Wide Cone", "Hold Beam", "Beam Mill", "Phase Press", "Plasma Forge", "Quick Render", "Reserve"] },
+    singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift", "Slow Roll", "Free Orbit"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach", "Gravity Sink", "Abyssal Pull"], c: ["Event Reach", "Wide Maw", "Long Horizon", "Deep Grip", "Vast Reach", "Abyss Latch", "Maw Spread"], d: ["Twin Horizon", "Extra Well", "Triple Maw", "Parallel Wells", "Multi-Crush", "Event Bank", "Devour Array"], x: ["Event Maw", "Mass Vault", "Spaghetti Mill", "Tidal Crush", "Hawking Forge", "Quick Collapse", "Singularity Core"] },
   };
   const skillNames = type => isCol(type) ? COL_SKILLS[type] : SKILLS[type];
   const GAL_DESC = [
@@ -538,16 +543,23 @@
     }
     // black holes also drag nearby dots gently toward them (the "suck in" feel)
     for (const dr of drones) { if (COL_TYPES[dr.type].mode !== "hole") continue; const R = cSuction(dr.type) * 1.5; for (const d of dots) { const dx = dr.x - d.x, dy = dr.y - d.y, dl = Math.hypot(dx, dy) || 1; if (dl < R) { d.x += dx / dl * 60 * dt; d.y += dy / dl * 60 * dt; } } }
+    for (const dr of drones) dr.proc = 0;   // free maw bays this frame; Capacity = how many orbs a collector processes in parallel
     let earned = 0;
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
       let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
       if (nd) {
         const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 150 : 240) / (o.weight || 1);
-        if (dl < cCollect(nd.type) + 6) {                         // must REACH loot to bank it — collector Speed/Reach/Ingest is the lever
-          o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
-          if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
-          if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) { burst(o.x, o.y, 8, 70, 2); nd.pop = 0.25; } orbs.splice(i, 1); }
+        if (dl < cCollect(nd.type) + 6) {                         // in reach — but it needs a free maw bay to actually process it
+          if (nd.proc < cCapacity(nd.type)) {                     // a bay is open → process this orb (Speed/Reach get it here, Process/Capacity chew through it)
+            nd.proc++;
+            o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
+            if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
+            if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) { burst(o.x, o.y, 8, 70, 2); nd.pop = 0.25; } orbs.splice(i, 1); }
+          } else {                                                 // all bays busy — orb queues at the maw; with too little Capacity a dense pile backs up and can expire
+            o.x += (nd.x - o.x) * 0.1; o.y += (nd.y - o.y) * 0.1;
+            if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
+          }
         } else { o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); } }
       }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
@@ -769,7 +781,7 @@
     const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1, nameSlot: "start", ni: 0 }], edges = [];
     const cnt = { 1: 0, 2: 0, 3: 0, 4: 0, x: 0 }; let keyN = 0;
     const setSpec = () => { if (CLASS_SPEC[type]) nodes[nodes.length - 1].spec = CLASS_SPEC[type]; };   // defenders only; call right after an add("K",…)
-    const stats = isCol(type) ? [1, 2, 3] : [1, 2, 3, 4], NP = stats.length;   // defenders get a 4th primary: Intelligence
+    const stats = [1, 2, 3, 4], NP = stats.length;   // 4 primaries: defenders = dmg/rate/range/Mind, collectors = speed/pull/reach/Capacity
     for (let i = NP - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
     const deep = { turret: 0, mortar: 0, plasma: 1, laser: 1, railgun: 2 }[type] || 0;   // later classes get deeper trees
     const col = isCol(type);
@@ -822,7 +834,7 @@
     _trees[type] = { nodes, edges: eds, map, adj };
     return _trees[type];
   }
-  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", int: "mind", speed: "spd", suction: "pull", collect: "reach", ingest: "process" };
+  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", int: "mind", speed: "spd", suction: "pull", collect: "reach", capacity: "capacity", ingest: "process" };
   function slotText(type, s) {
     const col = isCol(type), amt = slotAmt(type, s);
     if (s.p === "x") return "+" + Math.round(amt * 100) + "% " + (col ? "process" : "crit");
@@ -832,7 +844,7 @@
   const nodeFx = (type, n) => { let s = (n.slots || []).map(sl => slotText(type, sl)).join(" · "); if (n.spec) s += (s ? " · " : "") + "✦ " + SPEC_NAME[n.spec]; return s; };
   // Plain-language glossary for every stat a tree node can grant — surfaced by an
   // ⓘ button in the node panel so you always know what a boost actually does.
-  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", int: "Mind", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", ingest: "Process", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
+  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", int: "Mind", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", capacity: "Capacity", ingest: "Process", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
   const STAT_INFO = {
     explosive: "✦ SPECIALIZATION — every shot DETONATES, dealing its full damage to all dots in a blast radius (turns the unit into a bomb tower). Each Explosive keystone makes the blast bigger.",
     chain: "✦ SPECIALIZATION — every shot ARCS like lightning from the dot it hits to nearby dots, jumping one extra time per keystone (damage fades a little each jump). Shreds clusters.",
@@ -846,6 +858,7 @@
     speed: "Movement speed — how fast this collector chases orbs. Capped so it stays agile instead of flying straight past loot.",
     suction: "Pull radius — how far it drags orbs in toward itself. Capped below the field, so it must keep roaming; it never becomes a stationary field-wide magnet.",
     collect: "Reach — how close a collector must get to an orb before it grabs and starts consuming it. More reach = it snags loot from a little further out, so less precise chasing. Collectors carry NO cash multiplier — income lives in the Economy tab.",
+    capacity: "Capacity — how many loot orbs this collector can PROCESS at the same time (its parallel maw bays). With low capacity a collector consumes orbs one or two at a time and a dense pile backs up (and orbs can expire before it gets to them); high capacity lets it chew through a whole cluster at once. Matters most after big multi-kills, Dot Rain, and Black Hole pulls — exactly when loot piles up faster than a single bay can clear it. (Separate from the Economy tab's Capacity, which is your cash ceiling.)",
     ingest: "Process speed — how quickly a collector consumes the loot a dot drops once it reaches it. Big/heavy loot takes longer to process, so this matters most for fat dots and armored elites — a key drone lever.",
   };
   function nodeStats(type, n) {
@@ -857,7 +870,7 @@
   }
   // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
   // speed / suction / yield / ingest), plus class & keystone markers.
-  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", int: "◈", speed: "➤", suction: "◉", yield: "❖", collect: "▣", ingest: "⊛" };
+  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", int: "◈", speed: "➤", suction: "◉", yield: "❖", collect: "▣", capacity: "▦", ingest: "⊛" };
   function nodeIcon(type, n) {
     if (n.kind === "start") return "★";
     if (n.kind === "key") return "✦";
@@ -874,7 +887,7 @@
   function statLine(tp) {
     const s = { type: tp };
     return isCol(tp)
-      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> reach · <b>×" + cIngest(tp).toFixed(2) + "</b> process"
+      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> reach · <b>" + cCapacity(tp) + "</b> bays · <b>×" + cIngest(tp).toFixed(2) + "</b> process"
       : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "") + (uInt(s) ? " · <b>" + Math.round(Math.min(1, uInt(s)) * 100) + "%</b> mind" : "") + (uExplode(s) ? " · <b>✦bombs</b>" : "") + (uChain(s) ? " · <b>✦chain</b>" : "") + (uPierce(s) ? " · <b>✦laser</b>" : "");
   }
   // allocation: a node is allocatable if a connected node is already allocated.
