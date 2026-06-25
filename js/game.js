@@ -260,6 +260,11 @@
   const curWorth = g => eco(g);                                      // exchange value of one unit of planet g's currency
   const conquerTarget = g => Math.ceil(eco(g) * 80);               // currency you must EARN on a planet to conquer it (unlock travel + background) — reached in a few min as you upgrade
   const BG_EFF = 0.4;                                                // a conquered planet earns at this fraction of its live rate, idle
+  // EXCHANGE is deliberately HARSH — you really start fresh on each world (AdCap "moon" style).
+  // You keep only ~8% of value, and currency from FAR-behind worlds is "stale" (decays per planet
+  // of distance), so the background empire is a small leg-up, never a buy-past-it snowball.
+  const EXCHANGE_KEEP = 0.08;
+  const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; const dist = Math.abs(S.galaxy - fromG); return Math.floor(cash * (curWorth(fromG) / curWorth(S.galaxy)) * EXCHANGE_KEEP * Math.pow(0.6, Math.max(0, dist - 1))); };
   // per-class buy-cost factors (× eco(active) × 1.9^count) — keeps class differentiation but planet-local
   const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650 };
   // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
@@ -386,7 +391,7 @@
     { p: 3,  key: "splitter",  name: "Cinder Brood",     hp: 1.1,  val: 1.0, weight: 1.0, splits: 2, maxGen: 3 },          // splits again and again across generations
     { p: 4,  key: "grower",    name: "Hearth Bloat",     hp: 1.2,  val: 1.3, weight: 0.9, grow: 1 },                       // swells bigger & richer the longer it lives
     { p: 5,  key: "shield",    name: "Azure Bastion",    hp: 1.0,  val: 1.5, weight: 0.9, shield: 0.7, reflect: 0.3 },     // front shield soaks/reflects shots
-    { p: 6,  key: "healer",    name: "Verdant Mender",   hp: 1.3,  val: 1.6, weight: 0.8, regen: 0.03, healAura: 1 },      // heals itself AND nearby dots
+    { p: 6,  key: "healer",    name: "Verdant Mender",   hp: 1.0,  val: 1.6, weight: 0.8, regen: 0.018, healAura: 1 },      // heals itself AND nearby dots
     { p: 7,  key: "orbiter",   name: "Cobalt Sentinel",  hp: 1.3,  val: 1.5, weight: 0.8, sat: 3, satGuard: 1 },           // orbiting satellites shield the core
     { p: 8,  key: "flock",     name: "Mistral Gale",     hp: 0.7,  val: 1.4, weight: 1.0, speed: 1.7, flock: 1 },          // flocks together (boids)
     { p: 9,  key: "cloak",     name: "Halcyon Mirage",   hp: 1.0,  val: 1.9, weight: 0.8, cloak: 1 },                      // cloaks invisible & untargetable in bursts
@@ -600,7 +605,7 @@
       if (d.phase !== undefined) { d.phase += dt; d.phased = (d.phase % 2.4) < 1.0; }
       if (d.zig !== undefined) { d.zig += dt; if (d.zig > 0.35) { d.zig = 0; const sp = Math.hypot(d.vx, d.vy) || 1, a = Math.random() * TAU; d.vx = Math.cos(a) * sp; d.vy = Math.sin(a) * sp; } }
       if (d.grow !== undefined) { d.grow += dt; const f = 1 + Math.min(d.grow * 0.05, 1.4); d.r = d.r0 * f; d.value = Math.round(d.value0 * f * f); }                                                       // Hearth swells bigger & richer
-      if (d.healAura !== undefined) { d.healAura += dt; if (d.healAura > 0.9) { d.healAura = 0; for (const o of dots) { if (o === d || o.dead) continue; if ((o.x - d.x) ** 2 + (o.y - d.y) ** 2 < 9025 && o.hp < o.maxHp) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.035); } } }   // Verdant mends nearby dots
+      if (d.healAura !== undefined) { d.healAura += dt; if (d.healAura > 1.2) { d.healAura = 0; for (const o of dots) { if (o === d || o.dead) continue; if ((o.x - d.x) ** 2 + (o.y - d.y) ** 2 < 4900 && o.hp < o.maxHp) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.02); } } }   // Verdant mends nearby dots
       if (d.armorUp !== undefined) { d.armorUp += dt; if (d.hit <= 0) d.shield = Math.min(d.shieldMax, d.shield + d.shieldMax * 0.2 * dt); }                                                              // Frost regrows armor
       if (d.cloak !== undefined) { d.cloak += dt; d.cloaked = (d.cloak % 3.0) < 1.4; }                                                                                                                    // Halcyon cloaks invisible
       if (d.blink !== undefined) { d.blink += dt; if (d.blink > 1.6) { d.blink = 0; burst(d.x, d.y, 5, 50, 1.5); d.bx = d.x; d.by = d.y; d.x = clamp(d.x + rnd(-95, 95), 30, W - 30); d.y = clamp(d.y + rnd(-95, 95), 50, H - 130); } }   // Wraith teleports
@@ -1306,15 +1311,15 @@
     snapshotActive(); META.stats.travels++; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); activatePlanet(g + 1); save(); }
   // jump to ANY reached planet (revisit & upgrade your background empire, or test)
   function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; snapshotActive(); flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); activatePlanet(g); save(); }
-  // EXCHANGE: convert a background planet's currency into the one you're spending now (value-preserving, 10% fee)
+  // EXCHANGE: convert a background planet's currency into the one you're spending now (HARSH rate, see exchangeAmt)
   function exchangeFrom(g) { const v = S.vault[g]; if (!v || g === S.galaxy || !(v.cash > 0)) return 0;
-    const got = Math.floor(v.cash * curWorth(g) / curWorth(S.galaxy) * 0.9); v.cash = 0; S.cash += got; recompute(); syncHUD(); save(); return got; }
+    const got = exchangeAmt(g, v.cash); v.cash = 0; S.cash += got; recompute(); syncHUD(); save(); return got; }
   function openExchange() {
     const wrap = $("exch-list"); wrap.innerHTML = "";
-    $("exch-sub").textContent = "Your conquered planets keep earning their own currency. Convert any of it into " + curName(S.galaxy) + " (what you're spending now) to fund this run. 10% fee.";
+    $("exch-sub").textContent = "Convert a conquered planet's idle currency into " + curName(S.galaxy) + ". Rates are HARSH (you keep ~8%, and far-off worlds are 'stale') — a leg-up, not a free ride. You really start fresh on each world.";
     let any = false;
     for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (!v || !v.conquered) continue; any = true;
-      const bal = Math.floor(v.cash || 0), conv = Math.floor(bal * curWorth(g) / curWorth(S.galaxy) * 0.9);
+      const bal = Math.floor(v.cash || 0), conv = exchangeAmt(g, bal);
       const el = document.createElement("div"); el.className = "up";
       el.innerHTML = `<span class="u-dot" style="background:#888"></span><div class="u-mid"><div class="u-name">${galName(g)}<span class="lv">+${fmt(v.bgRate || 0)}/s idle</span></div><div class="u-desc">${fmt(bal)} ${curName(g)} → <b>${fmt(conv)} ${curName(S.galaxy)}</b></div></div><button class="u-buy">Convert</button>`;
       wrap.appendChild(el); const b = el.querySelector(".u-buy"); b.disabled = conv <= 0; b.onclick = () => { exchangeFrom(g); openExchange(); };

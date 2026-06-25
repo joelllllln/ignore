@@ -236,8 +236,9 @@ bigger numbers (no single curve that walls out). The loop:
   (online **and** offline) at the rate you left it. **Revisit** any conquered
   planet to upgrade it and raise that idle rate.
 - **⇄ Exchange** converts a background planet's currency into the one you're
-  spending now (value-preserving, 10% fee) — so a fresh landing is a *running
-  start*, never a grind reset.
+  spending now — but at a **harsh rate** (you keep ~8%, and far-off worlds are
+  "stale" and decay further). It's a small leg-up, **not** a buy-past-it
+  snowball: you genuinely **start fresh on every world**.
 
 Because each planet balances against itself, conquer time stays roughly constant
 planet-to-planet instead of exploding — the cross-planet growth lives in your
