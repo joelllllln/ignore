@@ -87,10 +87,13 @@ strength matters.
 
 The **ECONOMY** tab multiplies the other pillars:
 
-- **Value** — cash per dot **and** the difficulty/craziness dial (see above).
+- **Value** — a gentle **+5% cash per dot** per level, and the difficulty/craziness
+  dial (see above): the main reason to invest is ramping dot *menace* — tougher dots,
+  armored elites and exotic kinds — not raw income.
 - **Spawn Rate** — more targets on the field.
 - **Capacity** — your cash ceiling (raise it before big purchases).
-- **Luck** — chance of rare high-value **special** dots (~9× cash).
+
+Rare high-value **special** dots (~9× cash) still appear at a small innate rate.
 
 ## Big-Moment abilities
 

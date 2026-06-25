@@ -159,9 +159,8 @@
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 14, mul: 1.50, desc: () => "$" + fmt(derived.capacity) },
-    { id: "value",     tab: "eco", name: "Value",      base: 20, mul: 1.60, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
+    { id: "value",     tab: "eco", name: "Value",      base: 20, mul: 1.30, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
     { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 24, mul: 1.33, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
-    { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.35, max: 25, desc: () => Math.round(derived.luck * 100) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const upCost = u => Math.floor(u.base * Math.pow(u.mul, S.lv[u.id] || 0));
@@ -243,9 +242,9 @@
     derived.sdFire = (1 + 0.15 * m.sd.sdFire) * (frenzyT > 0 ? 5 : 1);
     derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
     derived.capacity = 200 * Math.pow(1.60, L.capacity);
-    derived.valueMul = Math.pow(1.20, L.value);
+    derived.valueMul = Math.pow(1.05, L.value);     // gentle +5% cash per level (also drives dot "menace")
     derived.spawnPerSec = 0.9 + 0.45 * L.spawnRate;
-    derived.luck = Math.min(0.5, 0.02 * L.luck);
+    derived.luck = 0.03;                              // small innate chance of a rare 9× SPECIAL dot (Luck upgrade removed)
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
 
@@ -839,9 +838,8 @@
     tractor: "Very wide tractor beam that sweeps huge areas of orbs.",
     singularity: "Black hole — hovers centre-field and slowly drags EVERY orb (and nearby dots) inward. Huge reach & yield.",
     capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
-    value: "Multiplies the cash every dot drops. Your core income multiplier.",
+    value: "+5% cash per dot per level, and ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
     spawnRate: "More dots appear per second = more targets and income, up to the on-screen cap.",
-    luck: "Chance for rare SPECIAL dots worth about 9× normal cash.",
     frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
     dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
     blackhole: "Drags every dot to the centre and crushes them over 5s. Cooldown 60s.",

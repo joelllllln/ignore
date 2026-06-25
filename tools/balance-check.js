@@ -10,7 +10,7 @@
 //   ~ 1.0-1.1 -> too cheap (never a meaningful constraint)
 //   > 1.1   -> healthy (each level takes more effort than the last)
 //
-// Additive-effect upgrades (Spawn, Luck) give a flat bonus per level, so any
+// Additive-effect upgrades (Spawn) give a flat bonus per level, so any
 // cost growth > 1 already converges; we just report their cost growth.
 "use strict";
 const fs = require("fs");
@@ -44,7 +44,6 @@ const checks = [
   { id: "value", eff: "valueMul", kind: "income", label: "Value (cash/dot)" },
   { id: "capacity", eff: "capacity", kind: "ceiling", label: "Capacity (ceiling)" },
   { id: "spawnRate", eff: "spawnPerSec", kind: "additive", label: "Spawn Rate" },
-  { id: "luck", eff: "luck", kind: "additive", label: "Luck" },
 ];
 
 console.log("ECONOMY BALANCE AUDIT (cost growth vs effect growth per level)\n");
