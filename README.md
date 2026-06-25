@@ -64,9 +64,13 @@ interconnected node map per class:
   multiplier is 1 + the total of its nodes' bonuses). Bonuses don't compound, so
   trees scale **linearly** (no runaway), and early nodes feel strong while later
   ones taper — which keeps the start gentle.
-- ✦ **Keystones** are transformative: they turn turrets into machine-guns **and**
-  grant **multishot** — every unit of that class fires at one extra simultaneous
-  target per keystone.
+- ✦ **Keystones** are transformative: each grants **+1 multishot** **and** a crazy
+  **weapon specialization** that changes how the unit fires (BTD-style). Three exist,
+  and each defender class leads with a different one (stacking keystones makes it
+  stronger):
+  - **✦ Explosive Rounds** — every shot detonates for blast (splash) damage — a bomb tower.
+  - **✦ Chain Lightning** — every shot arcs between nearby dots, one extra jump per keystone.
+  - **✦ Piercing Laser** — every shot becomes a beam that punches through a whole line of dots.
 - Costs climb steeply along a tree (keystones cost far more than passives), so
   plan your route. Every unit of a class shares its tree.
 - The trees are **big** (50–60+ nodes each) and the bonuses are **large** — a full

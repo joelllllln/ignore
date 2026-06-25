@@ -70,13 +70,13 @@
   // nodes feel strong, late nodes are incremental.
   // mul/rate/speed/suction/ingest bonuses are FRACTIONS (0.4 = +40%); range/collect
   // are flat distances; crit is flat chance.
-  const MAG = { mul: { min: 1.3, maj: 4.0, key: 10 }, rate: { min: 0.9, maj: 2.8, key: 7 }, range: { min: 40, maj: 110, key: 260 }, crit: { min: 0.06, maj: 0.18, key: 0.36 }, collect: { min: 6, maj: 18, key: 40 } };
+  const MAG = { mul: { min: 1.8, maj: 4.5, key: 11 }, rate: { min: 1.3, maj: 3.2, key: 8 }, range: { min: 40, maj: 110, key: 260 }, crit: { min: 0.06, maj: 0.18, key: 0.36 }, collect: { min: 6, maj: 18, key: 40 } };
   // Turret tree (first defender) — slightly bigger early bonuses for an easier start.
-  const MAG_TURRET = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 1.5, maj: 4.5, key: 11 }, range: { min: 60, maj: 160, key: 360 }, crit: { min: 0.10, maj: 0.25, key: 0.50 } };
+  const MAG_TURRET = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 2.0, maj: 4.5, key: 11 }, range: { min: 60, maj: 160, key: 360 }, crit: { min: 0.10, maj: 0.25, key: 0.50 } };
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
-  const MAG_COL = { speed: { min: 1.5, maj: 4.0, key: 9 }, suction: { min: 0.4, maj: 1.0, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 1.2, maj: 3.0, key: 7 } };
+  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 1.8, maj: 3.5, key: 7 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -90,10 +90,10 @@
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0 };
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
-      if (n.kind === "key") o.multi++;                          // each keystone = +1 multishot target
+      if (n.kind === "key") { o.multi++; if (n.spec) o[n.spec]++; }   // keystone = +1 multishot AND a ✦ specialization
       // Every bonus ADDS (sums linearly) — nothing compounds, so no runaway.
       for (const s of n.slots) { const amt = slotAmt(type, s);
         if (s.p === "x") o[col ? "ingest" : "crit"] += amt;
@@ -101,7 +101,7 @@
     o.multi = Math.min(o.multi, 6);
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0 };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
   const uMulti = u => cls(u.type).multi || 0;
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
   const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg * derived.sdDmg;
@@ -110,6 +110,12 @@
   const uCrit = u => Math.min(0.85, cls(u.type).crit);
   const uCritMul = u => 2.2;
   const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + cls(u.type).range * 0.4 : 0;
+  // ✦ keystone SPECIALIZATIONS (BTD-style transformations) — counts of allocated keystones of each kind
+  const uExplode = u => cls(u.type).explosive || 0;   // shots detonate (splash) — "bomb tower"
+  const uChain   = u => cls(u.type).chain || 0;        // shots arc to nearby dots — "chain lightning"
+  const uPierce  = u => cls(u.type).pierce || 0;        // shot becomes a piercing beam — "laser lance"
+  const SPEC_NAME = { explosive: "Explosive Rounds", chain: "Chain Lightning", pierce: "Piercing Laser" };
+  const SPECS = ["explosive", "chain", "pierce"];
   // Speed is capped so a maxed Speed tree makes collectors fast & agile, not so
   // fast they teleport PAST orbs (which used to zero out collection). Suction
   // (the pull/ring radius) is capped well under the field so collectors must keep
@@ -372,9 +378,32 @@
       if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; recoiled = true; }   // muzzle recoil (toward first target)
       beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: crit ? 3.5 : 2 });
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
-      const aoe = uSplash(u);
-      if (aoe > 0) { for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type); }
-      else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
+      const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
+      if (aoe > 0) {
+        for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type);
+        if (explode) { ring(target.x, target.y, 4, aoe, 0.2); burst(target.x, target.y, 7, 90, 2); }
+      } else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
+      // ✦ Chain Lightning — arc from the hit dot to nearby dots, fading per jump
+      const chain = uChain(u);
+      if (chain > 0) {
+        let src = target, jumps = chain + 1, cdmg = dmg * 0.6; const seen = new Set([target]);
+        while (jumps-- > 0) {
+          let best = null, bd = 140 * 140;
+          for (const d of dots) { if (d.dead || seen.has(d)) continue; const q = (d.x - src.x) ** 2 + (d.y - src.y) ** 2; if (q < bd) { bd = q; best = d; } }
+          if (!best) break;
+          beams.push({ x1: src.x, y1: src.y, x2: best.x, y2: best.y, life: 0.1, color: "#dff0ff", w: 2 });
+          seen.add(best); hitDot(best, cdmg, u.type); src = best; cdmg *= 0.85;
+        }
+      }
+      // ✦ Piercing Laser — punch a beam through every dot along the line of fire
+      const pierce = uPierce(u);
+      if (pierce > 0) {
+        const nx = ddx / ddl, ny = ddy / ddl, width = 14 + pierce * 8, rngU = uRange(u);
+        for (const d of dots) { if (d.dead || d === target) continue;
+          const rx = d.x - p.x, ry = d.y - p.y, t = rx * nx + ry * ny; if (t < 0 || t > rngU) continue;
+          if (Math.abs(rx * -ny + ry * nx) <= width + d.r) hitDot(d, dmg * 0.85, u.type); }
+        beams.push({ x1: p.x, y1: p.y, x2: p.x + nx * rngU, y2: p.y + ny * rngU, life: 0.09, color: "#fff", w: 2.5 });
+      }
     }
   }
   function hitDot(d, dmg, src) {
@@ -669,6 +698,8 @@
     const R = makeRng(fnv("ids:" + type)), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
     const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1, nameSlot: "start", ni: 0 }], edges = [];
     const cnt = { 1: 0, 2: 0, 3: 0, x: 0 }; let keyN = 0;
+    const specBase = fnv("spec:" + type) % 3;   // each class leads with a different ✦ specialization
+    const setSpec = w => { if (!isCol(type)) nodes[nodes.length - 1].spec = SPECS[(w + specBase) % 3]; };   // defenders only; call right after an add("K",…)
     const stats = [1, 2, 3]; for (let i = 2; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
     const nW = ri(5, 7), rot = R() * Math.PI * 2;     // far more wings — bigger trees
     for (let w = 0; w < nW; w++) {
@@ -687,7 +718,7 @@
           e(pL, "L" + t); e(pR, "R" + t); pL = "L" + t; pR = "R" + t;
         }
         const kr = 0.95 + step * (arm + 1.1);
-        add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stat2, mag: "key" }]); e("L" + arm, "K"); e("R" + arm, "K");
+        add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stat2, mag: "key" }]); setSpec(w); e("L" + arm, "K"); e("R" + arm, "K");
         add("S", kr + 0.85, 0, "major", [{ p: "x", mag: "maj" }]); e("K", "S");
         if (R() < 0.6) e("L1", "R1"); // rung
       } else {
@@ -698,7 +729,7 @@
           e(prev, "C" + t); prev = "C" + t;
           if (R() < 0.5) { add("P" + t, r + 0.15, (R() < 0.5 ? -1 : 1) * (0.8 + 0.12 * t), "minor", [{ p: stat2, mag: "min" }]); e("C" + t, "P" + t); }
         }
-        if (R() < 0.7) { const kr = 0.95 + step * (arm + 1); add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stats[(w + 2) % 3], mag: "key" }]); e("C" + arm, "K"); }
+        if (R() < 0.7) { const kr = 0.95 + step * (arm + 1); add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stats[(w + 2) % 3], mag: "key" }]); setSpec(w); e("C" + arm, "K"); }
         else { add("X", 0.95 + step * (arm + 1), 0, "major", [{ p: "x", mag: "maj" }]); e("C" + arm, "X"); }
       }
     }
@@ -716,11 +747,14 @@
     const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
     return key === "range" || key === "collect" ? "+" + amt + " " + STAT_LBL[key] : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
   }
-  const nodeFx = (type, n) => (n.slots || []).map(s => slotText(type, s)).join(" · ");
+  const nodeFx = (type, n) => { let s = (n.slots || []).map(sl => slotText(type, sl)).join(" · "); if (n.spec) s += (s ? " · " : "") + "✦ " + SPEC_NAME[n.spec]; return s; };
   // Plain-language glossary for every stat a tree node can grant — surfaced by an
   // ⓘ button in the node panel so you always know what a boost actually does.
-  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", ingest: "Ingest" };
+  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", ingest: "Ingest", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
   const STAT_INFO = {
+    explosive: "✦ SPECIALIZATION — every shot DETONATES, dealing its full damage to all dots in a blast radius (turns the unit into a bomb tower). Each Explosive keystone makes the blast bigger.",
+    chain: "✦ SPECIALIZATION — every shot ARCS like lightning from the dot it hits to nearby dots, jumping one extra time per keystone (damage fades a little each jump). Shreds clusters.",
+    pierce: "✦ SPECIALIZATION — every shot becomes a LASER LANCE that punches through and hits every dot in a straight line, not just the target. More keystones = a wider beam.",
     dmg: "Damage per shot. Kills come faster, and since kills ARE your income, raw damage is your economy.",
     rate: "Fire rate (shots/sec). High enough and a unit machine-guns, firing several shots per frame.",
     range: "Targeting range (flat bonus). Wider range keeps more dots in reach, so units idle less.",
@@ -735,6 +769,7 @@
     const col = isCol(type), keys = [];
     for (const s of (n.slots || [])) { const k = s.p === "x" ? (col ? "ingest" : "crit") : (col ? COL_PRIM : DEF_PRIM)[s.p - 1]; if (!keys.includes(k)) keys.push(k); }
     if (n.kind === "key" && !col && !keys.includes("multi")) keys.push("multi");
+    if (n.spec) keys.push(n.spec);
     return keys;
   }
   // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
@@ -757,7 +792,7 @@
     const s = { type: tp };
     return isCol(tp)
       ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> reach · <b>×" + cIngest(tp).toFixed(2) + "</b> ingest"
-      : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "");
+      : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "") + (uExplode(s) ? " · <b>✦bombs</b>" : "") + (uChain(s) ? " · <b>✦chain</b>" : "") + (uPierce(s) ? " · <b>✦laser</b>" : "");
   }
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
@@ -784,7 +819,7 @@
     $("si-tag").textContent = n.kind === "key" ? "✦ Notable Keystone" : n.kind === "major" ? "◆ Notable" : "• Passive";
     const keyDef = n.kind === "key" && !isCol(type);
     $("si-desc").textContent = n.kind === "key"
-      ? (keyDef ? "A devastating keystone: joins two stat branches AND lets every unit of this class fire at one EXTRA target each shot (multishot)." : "A powerful node joining two stat branches of this wing.")
+      ? (keyDef ? "A devastating keystone: +1 multishot AND unlocks/stacks a ✦ " + (SPEC_NAME[n.spec] || "specialization") + " — a crazy weapon transformation (see the ⓘ)." : "A powerful node joining two stat branches of this wing.")
       : n.kind === "major" ? "A stronger passive on this branch." : "A small passive on the path.";
     const sk = nodeStats(type, n);
     $("si-fx").innerHTML = "Grants: " + fx + (keyDef ? " · +1 simultaneous target" : "") +
