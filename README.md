@@ -90,7 +90,9 @@ The **ECONOMY** tab multiplies the other pillars:
 - **Value** — a gentle **+5% cash per dot** per level, and the difficulty/craziness
   dial (see above): the main reason to invest is ramping dot *menace* — tougher dots,
   armored elites and exotic kinds — not raw income.
-- **Spawn Rate** — more targets on the field.
+- **Spawn Rate** — more dots per second. With Value softened, this is now a
+  primary income lever (more targets → more kills → more cash), up to the
+  on-screen cap — lean on it and your collectors to keep up.
 - **Capacity** — your cash ceiling (raise it before big purchases).
 - **Luck** — a slow **+0.1% per level** chance of rare high-value **special** dots (~9× cash).
 

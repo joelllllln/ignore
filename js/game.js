@@ -184,7 +184,7 @@
   const enemyHpMul = g => Math.pow(2.1, g - 1);
   const galValueMul = g => Math.pow(2.2, g - 1);
   const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
-  const galCap = g => Math.min(110 + g * 65, 520);
+  const galCap = g => Math.min(150 + g * 90, 720);     // more dots allowed on-field to feed the higher spawn rate
   const ORB_LIFE = 13;                                  // orbs vanish fast — collectors must keep up
 
   /* ----------------------------- state --------------------------- */
@@ -244,7 +244,7 @@
     derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
     derived.capacity = 200 * Math.pow(1.60, L.capacity);
     derived.valueMul = Math.pow(1.05, L.value);     // gentle +5% cash per level (also drives dot "menace")
-    derived.spawnPerSec = 0.9 + 0.45 * L.spawnRate;
+    derived.spawnPerSec = 0.9 + 2.0 * L.spawnRate;   // beefed: spawn is now a primary income lever (covers the softer Value)
     derived.luck = Math.min(0.5, 0.001 * L.luck);    // +0.1% chance of a rare 9× SPECIAL dot per Luck level
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
