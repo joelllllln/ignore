@@ -70,13 +70,13 @@
   // nodes feel strong, late nodes are incremental.
   // mul/rate/speed/suction/ingest bonuses are FRACTIONS (0.4 = +40%); range/collect
   // are flat distances; crit is flat chance.
-  const MAG = { mul: { min: 0.4, maj: 1.1, key: 3.0 }, rate: { min: 0.35, maj: 1.0, key: 2.5 }, range: { min: 30, maj: 90, key: 220 }, crit: { min: 0.05, maj: 0.16, key: 0.32 }, collect: { min: 6, maj: 18, key: 40 } };
+  const MAG = { mul: { min: 1.3, maj: 4.0, key: 10 }, rate: { min: 0.9, maj: 2.8, key: 7 }, range: { min: 40, maj: 110, key: 260 }, crit: { min: 0.06, maj: 0.18, key: 0.36 }, collect: { min: 6, maj: 18, key: 40 } };
   // Turret tree (first defender) — slightly bigger early bonuses for an easier start.
-  const MAG_TURRET = { mul: { min: 0.5, maj: 1.4, key: 3.5 }, rate: { min: 0.5, maj: 1.2, key: 3.0 }, range: { min: 50, maj: 140, key: 320 }, crit: { min: 0.08, maj: 0.20, key: 0.40 } };
+  const MAG_TURRET = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 1.5, maj: 4.5, key: 11 }, range: { min: 60, maj: 160, key: 360 }, crit: { min: 0.10, maj: 0.25, key: 0.50 } };
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
-  const MAG_COL = { speed: { min: 0.6, maj: 1.6, key: 3.5 }, suction: { min: 0.15, maj: 0.4, key: 0.9 }, collect: { min: 4, maj: 10, key: 24 }, ingest: { min: 0.4, maj: 1.0, key: 2.5 } };
+  const MAG_COL = { speed: { min: 1.5, maj: 4.0, key: 9 }, suction: { min: 0.4, maj: 1.0, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 1.2, maj: 3.0, key: 7 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -98,7 +98,7 @@
       for (const s of n.slots) { const amt = slotAmt(type, s);
         if (s.p === "x") o[col ? "ingest" : "crit"] += amt;
         else o[prim[s.p - 1]] += amt; } }
-    o.multi = Math.min(o.multi, 5);
+    o.multi = Math.min(o.multi, 6);
     return o;
   }
   const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0 };
@@ -117,7 +117,7 @@
   // black hole keeps its huge reach.
   const cSpeed   = type => Math.min(900, COL_TYPES[type].speed * cls(type).speed);
   const cSuction = type => Math.min(COL_TYPES[type].mode === "hole" ? 900 : 240, COL_TYPES[type].suction * cls(type).suction);
-  const cCollect = type => COL_TYPES[type].collect + cls(type).collect;
+  const cCollect = type => Math.min(200, COL_TYPES[type].collect + cls(type).collect);   // capped so big Reach helps but never becomes a field-wide magnet
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
   const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * derived.incomeMul;
   const AGILITY = 0.12;
@@ -670,11 +670,11 @@
     const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1, nameSlot: "start", ni: 0 }], edges = [];
     const cnt = { 1: 0, 2: 0, 3: 0, x: 0 }; let keyN = 0;
     const stats = [1, 2, 3]; for (let i = 2; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
-    const nW = ri(3, 5), rot = R() * Math.PI * 2;
+    const nW = ri(5, 7), rot = R() * Math.PI * 2;     // far more wings — bigger trees
     for (let w = 0; w < nW; w++) {
       const th = rot + w * (Math.PI * 2 / nW), ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
       const wid = "w" + w, stat = stats[w % 3], stat2 = stats[(w + 1) % 3];
-      const step = 0.66 + R() * 0.16, dx = 0.62 + R() * 0.3, arm = ri(2, 4), loop = R() < 0.55;
+      const step = 0.66 + R() * 0.16, dx = 0.62 + R() * 0.3, arm = ri(4, 6), loop = R() < 0.55;   // longer arms — far more nodes per wing
       const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? keyN++ : cnt[ns]++; nodes.push({ id: wid + k, x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: w, nameSlot: ns, ni }); };
       const e = (a, b) => edges.push([wid + a, wid + b]);
       add("E", 0.95, 0, "minor", [{ p: stat, mag: "min" }]); edges.push(["start", wid + "E"]);
@@ -762,7 +762,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 4 * Math.pow(1.55, allocCount(type)) * k); }
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 4 * Math.pow(1.25, allocCount(type)) * k); }   // gentler growth so the (now much bigger) trees stay fillable over the long game
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();

@@ -69,9 +69,11 @@ interconnected node map per class:
   target per keystone.
 - Costs climb steeply along a tree (keystones cost far more than passives), so
   plan your route. Every unit of a class shares its tree.
-- Passive nodes give a solid (but sub-runaway) multiplier; **majors** and
-  **keystones** are where the real spikes live. A full **Turret** tree lands around
-  a ~700× DPS multiplier — strong, but no longer the ×100,000 runaway it briefly was.
+- The trees are **big** (50–60+ nodes each) and the bonuses are **large** — a full
+  **Turret** tree lands around a **×4,000 DPS** multiplier — but because every bonus
+  is additive (summed, not compounded), that huge number is a hard ceiling you reach
+  by fully investing, never an exponential runaway. Early/cheap nodes give fast power;
+  the deep tree is a long-game goal (filling the turret tree costs ~$1.2B).
 
 ### Buying more units
 
