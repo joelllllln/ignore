@@ -63,24 +63,20 @@
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
   const DEF_PRIM = ["dmg", "rate", "range"], COL_PRIM = ["speed", "suction", "collect"];
-  // mul stats COMPOUND per node (so each node is felt, keystones are big spikes);
-  // flat stats (range/crit/collect) add up.
-  const MAG = { mul: { min: 1.2, maj: 1.85, key: 3.0 }, rate: { min: 1.28, maj: 2.3, key: 4.5 }, range: { min: 30, maj: 90, key: 220 }, crit: { min: 0.05, maj: 0.16, key: 0.32 }, collect: { min: 6, maj: 18, key: 40 } };
-  // Turret tree: punchy but REINED IN. Passives sit at/under the per-node cost
-  // growth (×1.55) so a full tree can't spiral into a runaway; majors/keystone
-  // still spike. (Earlier these doubled every node and compounded to ×295,000.)
-  const MAG_TURRET = { mul: { min: 1.35, maj: 1.9, key: 3.0 }, rate: { min: 1.4, maj: 2.0, key: 3.0 }, range: { min: 50, maj: 140, key: 320 }, crit: { min: 0.08, maj: 0.20, key: 0.40 } };
-  // Collectors are about SPEED & AGILITY, not becoming stationary magnets. Each
-  // stat gets its own curve: Speed strong, Suction deliberately gentle (and the
-  // radius is hard-capped in cSuction below), Yield moderate, and the x-branch is
-  // INGEST — how fast a collector swallows loot (big loot takes longer, so it
-  // matters most there).
-  // Collectors are pure LOGISTICS — get orbs and bank them — with NO income
-  // multiplier (yield was OP and double-dipped with the economy, so it now lives
-  // only in the Economy tab). Speed strong, Suction gentle (and radius-capped in
-  // cSuction), Reach (collect) = how close it must get to grab loot (flat), and
-  // Ingest = how fast it swallows what it grabs.
-  const MAG_COL = { speed: { min: 1.6, maj: 2.4, key: 3.6 }, suction: { min: 1.14, maj: 1.38, key: 1.8 }, collect: { min: 4, maj: 10, key: 24 }, ingest: { min: 1.4, maj: 2.0, key: 3.0 } };
+  // Tree nodes add a FLAT bonus that STACKS ADDITIVELY — a stat's multiplier is
+  // 1 + (sum of its nodes' bonuses). Bonuses do NOT compound off each other, so
+  // deep trees scale LINEARLY (no exponential runaway), and because each new node
+  // is a smaller share of a growing total, the effect naturally tapers — early
+  // nodes feel strong, late nodes are incremental.
+  // mul/rate/speed/suction/ingest bonuses are FRACTIONS (0.4 = +40%); range/collect
+  // are flat distances; crit is flat chance.
+  const MAG = { mul: { min: 0.4, maj: 1.1, key: 3.0 }, rate: { min: 0.35, maj: 1.0, key: 2.5 }, range: { min: 30, maj: 90, key: 220 }, crit: { min: 0.05, maj: 0.16, key: 0.32 }, collect: { min: 6, maj: 18, key: 40 } };
+  // Turret tree (first defender) — slightly bigger early bonuses for an easier start.
+  const MAG_TURRET = { mul: { min: 0.5, maj: 1.4, key: 3.5 }, rate: { min: 0.5, maj: 1.2, key: 3.0 }, range: { min: 50, maj: 140, key: 320 }, crit: { min: 0.08, maj: 0.20, key: 0.40 } };
+  // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
+  // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
+  // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
+  const MAG_COL = { speed: { min: 0.6, maj: 1.6, key: 3.5 }, suction: { min: 0.15, maj: 0.4, key: 0.9 }, collect: { min: 4, maj: 10, key: 24 }, ingest: { min: 0.4, maj: 1.0, key: 2.5 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -97,10 +93,11 @@
     const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0 };
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
-      if (n.kind === "key") o.multi++;                          // each keystone = +1 multishot target (crazy power)
+      if (n.kind === "key") o.multi++;                          // each keystone = +1 multishot target
+      // Every bonus ADDS (sums linearly) — nothing compounds, so no runaway.
       for (const s of n.slots) { const amt = slotAmt(type, s);
-        if (s.p === "x") { if (col) o.ingest *= amt; else o.crit += amt; }   // collectors: x = ingest (multiplicative)
-        else { const key = prim[s.p - 1]; if (key === "range" || key === "collect") o[key] += amt; else o[key] *= amt; } } }
+        if (s.p === "x") o[col ? "ingest" : "crit"] += amt;
+        else o[prim[s.p - 1]] += amt; } }
     o.multi = Math.min(o.multi, 5);
     return o;
   }
@@ -214,7 +211,7 @@
   // TOUGH_POW makes reward scale SUPER-linearly with a dot's toughness, so tanky
   // dots & armored elites pay disproportionately more (rewarding turret damage to
   // kill them and stronger drones to haul the bigger loot).
-  const DROP_BASE = 7;
+  const DROP_BASE = 15;
   const TOUGH_POW = 1.45;
   const ORB_LIFE = 13;                                  // orbs vanish fast — collectors must keep up
 
@@ -715,9 +712,9 @@
   const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", collect: "reach", ingest: "ingest" };
   function slotText(type, s) {
     const col = isCol(type), amt = slotAmt(type, s);
-    if (s.p === "x") return col ? "×" + amt.toFixed(2).replace(/\.?0+$/, "") + " ingest" : "+" + Math.round(amt * 100) + "% crit";
+    if (s.p === "x") return "+" + Math.round(amt * 100) + "% " + (col ? "ingest" : "crit");
     const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
-    return key === "range" || key === "collect" ? "+" + amt + " " + STAT_LBL[key] : "×" + amt.toFixed(2).replace(/\.?0+$/, "") + " " + STAT_LBL[key];
+    return key === "range" || key === "collect" ? "+" + amt + " " + STAT_LBL[key] : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => (n.slots || []).map(s => slotText(type, s)).join(" · ");
   // Plain-language glossary for every stat a tree node can grant — surfaced by an

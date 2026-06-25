@@ -60,7 +60,10 @@ interconnected node map per class:
 - Allocate outward from the centre; each node needs a **connected** node first.
 - Every node is named, shows an icon of what it upgrades, and a tap reveals a
   detail panel with a before/after stat preview.
-- Stats **compound** (each node multiplies), so deep trees scale hard.
+- Stats **stack additively** — each node adds a flat bonus that *sums* (a stat's
+  multiplier is 1 + the total of its nodes' bonuses). Bonuses don't compound, so
+  trees scale **linearly** (no runaway), and early nodes feel strong while later
+  ones taper — which keeps the start gentle.
 - ✦ **Keystones** are transformative: they turn turrets into machine-guns **and**
   grant **multishot** — every unit of that class fires at one extra simultaneous
   target per keystone.
