@@ -79,7 +79,10 @@
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
-  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 2.6, maj: 5.5, key: 11 } };
+  // Process/consumption (ingest) bonuses are SMALL per node (+10% minor / +20% major /
+  // ~+45% key) so they read sanely across the dedicated Process wing instead of one
+  // node showing "+260%". Speed / suction / reach are left as-is.
+  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, ingest: { min: 0.10, maj: 0.20, key: 0.45 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -148,12 +151,12 @@
   };
   // collector skill webs: a=Speed, b=Suction, c=Reach (grab distance), x=Ingest (loot-swallow speed)
   const COL_SKILLS = {
-    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream", "Quick Servos", "Overdrive"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field", "Strong Coil", "Deep Pull"], c: ["Bigger Scoop", "Wide Grip", "Long Arms", "Quick Latch", "Tractor Grip", "Snap Reach", "Vacuum Maw"], x: ["Quick Gulp", "Maw Servo", "Devourer"] },
-    swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash", "Fast Hive", "Blitz"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep", "Wide Mesh", "Dragnet"], c: ["Many Hands", "Wide Reach", "Long Grip", "Pack Latch", "Total Grasp", "Far Hands", "Hive Grip"], x: ["Big Net", "Hive Hold", "Treasury"] },
-    collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame", "Quick Haul", "Blink Drive"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex", "Strong Maw", "Black Maw"], c: ["Cargo Arms", "Wide Maw", "Long Reach", "Bulk Grip", "Grand Reach", "Heavy Latch", "Maw Spread"], x: ["Maw Bay", "Cargo Bay", "Strongbox"] },
-    magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash", "Quick Coil", "Overspin"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar", "Strong Dipole", "Pole Reversal"], c: ["Grab Coil", "Wide Pole", "Long Coil", "Grip Field", "Vast Reach", "Strong Latch", "Pole Spread"], x: ["Wide Coil", "Storage Coil", "Bullion"] },
-    tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed", "Quick Beam", "Hyperdrive"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach", "Broad Beam", "Long Reach"], c: ["Hopper Arm", "Wide Grip", "Long Tow", "Cone Latch", "Far Reach", "Broad Grip", "Tow Spread"], x: ["Wide Cone", "Hold Beam", "Reserve"] },
-    singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift", "Slow Roll", "Free Orbit"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach", "Gravity Sink", "Abyssal Pull"], c: ["Event Reach", "Wide Maw", "Long Horizon", "Deep Grip", "Vast Reach", "Abyss Latch", "Maw Spread"], x: ["Event Maw", "Mass Vault", "Singularity Core"] },
+    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream", "Quick Servos", "Overdrive"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field", "Strong Coil", "Deep Pull"], c: ["Bigger Scoop", "Wide Grip", "Long Arms", "Quick Latch", "Tractor Grip", "Snap Reach", "Vacuum Maw"], x: ["Quick Gulp", "Maw Servo", "Grinder", "Crush Jaws", "Smelter", "Furnace Maw", "Devourer"] },
+    swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash", "Fast Hive", "Blitz"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep", "Wide Mesh", "Dragnet"], c: ["Many Hands", "Wide Reach", "Long Grip", "Pack Latch", "Total Grasp", "Far Hands", "Hive Grip"], x: ["Big Net", "Hive Hold", "Quick Strip", "Mass Feed", "Pack Digest", "Hive Mill", "Treasury"] },
+    collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame", "Quick Haul", "Blink Drive"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex", "Strong Maw", "Black Maw"], c: ["Cargo Arms", "Wide Maw", "Long Reach", "Bulk Grip", "Grand Reach", "Heavy Latch", "Maw Spread"], x: ["Maw Bay", "Cargo Bay", "Crusher", "Bulk Mill", "Ore Press", "Smelt Bay", "Strongbox"] },
+    magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash", "Quick Coil", "Overspin"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar", "Strong Dipole", "Pole Reversal"], c: ["Grab Coil", "Wide Pole", "Long Coil", "Grip Field", "Vast Reach", "Strong Latch", "Pole Spread"], x: ["Wide Coil", "Storage Coil", "Flux Mill", "Eddy Press", "Induction Forge", "Quick Smelt", "Bullion"] },
+    tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed", "Quick Beam", "Hyperdrive"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach", "Broad Beam", "Long Reach"], c: ["Hopper Arm", "Wide Grip", "Long Tow", "Cone Latch", "Far Reach", "Broad Grip", "Tow Spread"], x: ["Wide Cone", "Hold Beam", "Beam Mill", "Phase Press", "Plasma Forge", "Quick Render", "Reserve"] },
+    singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift", "Slow Roll", "Free Orbit"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach", "Gravity Sink", "Abyssal Pull"], c: ["Event Reach", "Wide Maw", "Long Horizon", "Deep Grip", "Vast Reach", "Abyss Latch", "Maw Spread"], x: ["Event Maw", "Mass Vault", "Spaghetti Mill", "Tidal Crush", "Hawking Forge", "Quick Collapse", "Singularity Core"] },
   };
   const skillNames = type => isCol(type) ? COL_SKILLS[type] : SKILLS[type];
   const GAL_DESC = [
@@ -768,17 +771,25 @@
     const stats = isCol(type) ? [1, 2, 3] : [1, 2, 3, 4], NP = stats.length;   // defenders get a 4th primary: Intelligence
     for (let i = NP - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
     const deep = { turret: 0, mortar: 0, plasma: 1, laser: 1, railgun: 2 }[type] || 0;   // later classes get deeper trees
+    const col = isCol(type);
     const nW = ri(5, 7) + deep, rot = R() * Math.PI * 2;     // far more wings — bigger trees
+    // COLLECTORS ONLY: one whole wing is dedicated to Process/consumption (the x-branch),
+    // a single coherent section you path into and invest as a block, instead of process
+    // being dotted around as a little sub-arm hanging off every wing. Defender trees are
+    // untouched — their Crit (x) still weaves throughout exactly as before.
+    const procW = col ? nW - 1 : -1;
+    const keySlots = (s1, s2) => s1 === s2 ? [{ p: s1, mag: "key" }] : [{ p: s1, mag: "key" }, { p: s2, mag: "key" }];
     for (let w = 0; w < nW; w++) {
       const th = rot + w * (Math.PI * 2 / nW), ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
-      const wid = "w" + w, stat = stats[w % NP], stat2 = stats[(w + 1) % NP];
+      const isProc = w === procW;     // the dedicated Process section (collectors only)
+      const wid = "w" + w, stat = isProc ? "x" : stats[w % NP], stat2 = isProc ? "x" : stats[(w + 1) % NP];
       const step = 0.66 + R() * 0.16, dx = 0.62 + R() * 0.3, arm = ri(4, 6) + deep, loop = R() < 0.55;   // longer arms — far more nodes per wing (deeper for later classes)
       const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? keyN++ : cnt[ns]++; nodes.push({ id: wid + k, x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: w, nameSlot: ns, ni }); };
       const e = (a, b) => edges.push([wid + a, wid + b]);
       add("E", 0.95, 0, "minor", [{ p: stat, mag: "min" }]); edges.push(["start", wid + "E"]);
-      // x-branch (Process for collectors / Crit for defenders) sub-arm hanging off the
-      // ENTRY node, so it's investable THROUGHOUT the tree instead of one node at the tips.
-      { const xn = ri(1, 2), side = w % 2 ? 1 : -1; for (let t = 1; t <= xn; t++) { add("Y" + t, 0.95 + step * (t + 0.25), side * (1.5 + 0.3 * t), t === xn ? "major" : "minor", [{ p: "x", mag: t === xn ? "maj" : "min" }]); e(t === 1 ? "E" : "Y" + (t - 1), "Y" + t); } }
+      // Defenders weave Crit (x) throughout via a small sub-arm off each entry node;
+      // collectors don't — their Process lives in the dedicated wing above.
+      if (!col) { const xn = ri(1, 2), side = w % 2 ? 1 : -1; for (let t = 1; t <= xn; t++) { add("Y" + t, 0.95 + step * (t + 0.25), side * (1.5 + 0.3 * t), t === xn ? "major" : "minor", [{ p: "x", mag: t === xn ? "maj" : "min" }]); e(t === 1 ? "E" : "Y" + (t - 1), "Y" + t); } }
       if (loop) {
         let pL = "E", pR = "E";
         for (let t = 1; t <= arm; t++) {
@@ -788,8 +799,8 @@
           e(pL, "L" + t); e(pR, "R" + t); pL = "L" + t; pR = "R" + t;
         }
         const kr = 0.95 + step * (arm + 1.1);
-        add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stat2, mag: "key" }]); setSpec(w); e("L" + arm, "K"); e("R" + arm, "K");
-        add("S", kr + 0.85, 0, "major", [{ p: "x", mag: "maj" }]); e("K", "S");
+        add("K", kr, 0, "key", keySlots(stat, stat2)); setSpec(w); e("L" + arm, "K"); e("R" + arm, "K");
+        add("S", kr + 0.85, 0, "major", [{ p: col ? stat : "x", mag: "maj" }]); e("K", "S");
         if (R() < 0.6) e("L1", "R1"); // rung
       } else {
         let prev = "E";
@@ -799,8 +810,8 @@
           e(prev, "C" + t); prev = "C" + t;
           if (R() < 0.5) { add("P" + t, r + 0.15, (R() < 0.5 ? -1 : 1) * (0.8 + 0.12 * t), "minor", [{ p: stat2, mag: "min" }]); e("C" + t, "P" + t); }
         }
-        if (R() < 0.7) { const kr = 0.95 + step * (arm + 1); add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stats[(w + 2) % NP], mag: "key" }]); setSpec(w); e("C" + arm, "K"); }
-        else { add("X", 0.95 + step * (arm + 1), 0, "major", [{ p: "x", mag: "maj" }]); e("C" + arm, "X"); }
+        if (R() < 0.7) { const kr = 0.95 + step * (arm + 1); add("K", kr, 0, "key", keySlots(stat, isProc ? "x" : stats[(w + 2) % NP])); setSpec(w); e("C" + arm, "K"); }
+        else { add("X", 0.95 + step * (arm + 1), 0, "major", [{ p: col ? stat : "x", mag: "maj" }]); e("C" + arm, "X"); }
       }
     }
     for (let w = 0; w < nW; w++) if (R() < 0.7) edges.push(["w" + w + "E", "w" + ((w + 1) % nW) + "E"]); // inner ring weave
