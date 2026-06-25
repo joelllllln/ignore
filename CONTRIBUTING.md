@@ -31,17 +31,21 @@ what's written here, **this file wins** — follow it.
    balance/pacing is affected.
 3. Commit to `main` with a clear message.
 4. `git push -u origin main`.
-5. Give the owner a **play link** pinned to the new commit (see below).
+5. **MANDATORY:** give the owner a **play link** pinned to the new commit (see
+   below). This is not optional — **every single change ends with a fresh link
+   to test.** If you made several pushes, give the link for the latest commit.
 
 ## 4. Play link format
 
-After pushing, hand the owner a commit-pinned link so cache never bites:
+After **every** push, hand the owner a commit-pinned link so cache never bites
+and they can immediately test the change:
 
 ```
 https://raw.githack.com/joelllllln/ignore/<commit-sha>/index.html
 ```
 
-(Use the full or short SHA of the commit you just pushed.)
+(Use the full or short SHA of the commit you just pushed.) Never end a turn that
+included a code change without pasting this link.
 
 ## 5. Notes
 
