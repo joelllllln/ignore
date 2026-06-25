@@ -25,11 +25,11 @@
   // Each class has a NICHE: vsBig = bonus damage to armored/tanky dots, vsSwarm =
   // bonus to weak/small/fast dots. So mixing classes beats stacking one.
   const DEF_TYPES = {
-    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 20, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 20, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
-    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 20, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
-    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 20, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
-    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 16, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
+    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
+    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
+    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
+    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
   };
   const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun"];
   /* ----------------------- collector types ----------------------- */
@@ -37,12 +37,12 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5, mode: "chase", sides: 4, max: 16 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7, mode: "swarm", sides: 3, max: 12 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7, mode: "chase", sides: 6, max: 10 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8, mode: "chase", sides: 5, max: 9 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9, mode: "chase", sides: 8, max: 8 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 6 },
+    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5, mode: "chase", sides: 4, max: 4 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7, mode: "swarm", sides: 3, max: 2 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7, mode: "chase", sides: 6, max: 2 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8, mode: "chase", sides: 5, max: 2 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9, mode: "chase", sides: 8, max: 2 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 2 },
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -1232,7 +1232,7 @@
     open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
     cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
     reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.7; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
-    ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, twist: null, rotMode: false, hit: [], stars: [], sel: 0,
+    ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, panMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("contextmenu", e => e.preventDefault());
@@ -1240,30 +1240,29 @@
         try { this.cv.setPointerCapture(e.pointerId); } catch (_) {}
         const p = this.pt(e); this.ptrs.set(e.pointerId, p); this.moved = false;
         this.lx = p.x; this.ly = p.y; this.sx0 = p.x; this.sy0 = p.y;
-        this.rotMode = e.shiftKey || e.button === 2;
-        if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; this.twist = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x); }
+        this.panMode = e.shiftKey || e.button === 2;   // desktop: shift / right-drag to MOVE instead of rotate
+        if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; }
       });
       this.cv.addEventListener("pointermove", e => {
         if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) {   // two fingers: pinch-zoom toward the fingers, drag to move, twist to rotate
-          const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2, ang = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x);
+        if (this.ptrs.size >= 2) {   // TWO fingers: pinch to zoom in/out, drag up/down/left/right to MOVE
+          const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
           if (this.pinchD) this.zoomAt(d / this.pinchD, mx, my);
           if (this.midX != null) this.panTo(this.midX, this.midY, mx, my);
-          if (this.twist != null) { let da = ang - this.twist; if (da > Math.PI) da -= TAU; if (da < -Math.PI) da += TAU; this.yaw += da; }
-          this.pinchD = d; this.midX = mx; this.midY = my; this.twist = ang; this.moved = true; return;
+          this.pinchD = d; this.midX = mx; this.midY = my; this.moved = true; return;
         }
         const dx = p.x - this.lx, dy = p.y - this.ly;
         if (Math.hypot(p.x - this.sx0, p.y - this.sy0) > 5) this.moved = true;
-        if (this.rotMode) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.35, -0.12); }   // shift / right-drag rotates
-        else this.panTo(this.lx, this.ly, p.x, p.y);                                                             // plain drag grabs & moves the map
+        if (this.panMode) this.panTo(this.lx, this.ly, p.x, p.y);                                       // shift / right-drag moves the map
+        else { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.35, -0.12); }        // SINGLE finger: change camera angle (left/right = yaw, up/down = pitch)
         this.lx = p.x; this.ly = p.y;
       });
       const up = e => {
-        const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; this.twist = null;
+        const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null;
         if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; this.sx0 = r.x; this.sy0 = r.y; this.moved = false; }
         if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); }
       };
-      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; this.twist = null; });
+      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; });
       this.cv.addEventListener("wheel", e => { e.preventDefault(); const p = this.pt(e); this.zoomAt(1 - e.deltaY * 0.0015, p.x, p.y); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
