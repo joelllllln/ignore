@@ -387,7 +387,7 @@
       const target = c.d;
       let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
       const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
-      if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; recoiled = true; }   // muzzle recoil + aim + muzzle-flash (toward first target)
+      if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; u.heat = Math.min(1, (u.heat || 0) + 0.1); recoiled = true; }   // muzzle recoil + aim + flash + heat build-up (toward first target)
       beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: (crit ? 3.5 : 2) + Math.min(Math.log10(uDmg(u) + 1) * 0.5, 3) });   // bolder beams with more damage
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
       const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
@@ -494,7 +494,7 @@
     }
     dots = dots.filter(d => !d.dead);
 
-    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
+    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; if (u.heat > 0) u.heat = Math.max(0, u.heat - dt * 1.4); u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
 
     // collectors coordinate: chase-types each claim their nearest orb (so they
@@ -512,6 +512,7 @@
       // field — so fielding more (and faster) collectors collects meaningfully more.
       if (!hole) for (const o2 of drones) { if (o2 === dr || COL_TYPES[o2.type].mode === "hole") continue; const dx = dr.x - o2.x, dy = dr.y - o2.y, d2 = dx * dx + dy * dy; if (d2 > 1 && d2 < 200 * 200) { const inv = 1 / Math.sqrt(d2), f = (200 - Math.sqrt(d2)) * cSpeed(dr.type) * 0.012; dr.vx += dx * inv * f * dt; dr.vy += dy * inv * f * dt; } }
       dr.x = clamp(dr.x + dr.vx * dt, 0, W); dr.y = clamp(dr.y + dr.vy * dt, 0, H);
+      if (dr.pop > 0) dr.pop -= dt;
       dr.parking = false;
     }
     // black holes also drag nearby dots gently toward them (the "suck in" feel)
@@ -525,7 +526,7 @@
         if (dl < cCollect(nd.type) + 6) {                         // must REACH loot to bank it — collector Speed/Reach/Ingest is the lever
           o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
           if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
-          if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) burst(o.x, o.y, 8, 70, 2); orbs.splice(i, 1); }
+          if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) { burst(o.x, o.y, 8, 70, 2); nd.pop = 0.25; } orbs.splice(i, 1); }
         } else { o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); } }
       }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
@@ -587,6 +588,7 @@
       const bodyR = (u.type === "turret" ? 11 : 9) + Math.min(Math.log10(c.dmg + 1) * 1.4, 6);
       const specCol = c.explosive ? "#ffb060" : c.chain ? "#a9d6ff" : c.pierce ? "#ffffff" : "#c8d2e6";
       const aim = u.aim != null ? u.aim : -Math.PI / 2;
+      if (u.heat > 0.05) { ctx.fillStyle = "rgba(255,250,235," + u.heat * 0.16 + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 9, 0, TAU); ctx.fill(); }   // rapid fire -> soft heat glow
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(aim); ctx.lineCap = "round";
       for (let b = 0; b < barrels; b++) {
         const off = (b - (barrels - 1) / 2) * (bw + 2.4);
@@ -609,7 +611,7 @@
       ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, sr, 0, TAU); ctx.stroke();
       const sp = Math.hypot(dr.vx || 0, dr.vy || 0);
       if (mode !== "hole" && sp > 40) { ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(dr.x - (dr.vx || 0) * 0.1, dr.y - (dr.vy || 0) * 0.1); ctx.lineTo(dr.x, dr.y); ctx.stroke(); }   // speed trail
-      const cs = 1 + Math.min(Math.log10(cIngest(dr.type)) * 0.5, 1.4);   // Process -> bigger maw
+      const cs = (1 + Math.min(Math.log10(cIngest(dr.type)) * 0.5, 1.4)) * (1 + Math.max(0, dr.pop || 0) * 1.6);   // Process -> bigger maw; chomp-pop when banking big loot
       ctx.save(); ctx.translate(dr.x, dr.y); ctx.scale(cs, cs);
       if (mode === "hole") {
         const rot = Date.now() / 600;
