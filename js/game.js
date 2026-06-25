@@ -261,12 +261,12 @@
   function ring(x, y, r0, r1, life) { if (parts.length > MAXP) return; parts.push({ t: 1, x, y, r: r0, r1, life, max: life }); }
   function floatTxt(x, y, txt) { if (parts.length > MAXP) return; parts.push({ t: 2, x, y, vy: -40, life: 0.95, max: 0.95, txt }); }
   function spark(x, y) { if (parts.length > MAXP) return; parts.push({ t: 3, x, y, life: 0.22, max: 0.22 }); }
-  function shakeAdd(a) { shake = Math.min(16, shake + a); }
+  function shakeAdd(a) { shake = Math.min(7, shake + a); }   // lower cap so dense late-game kills don't rattle the screen
   function flashAdd(a) { flash = Math.min(0.9, flash + a); }
   function stepFx(dt) {
     for (const p of parts) { p.life -= dt; if (p.t === 0 || p.t === 4) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; if (p.t === 4) p.ang += p.spin * dt; } else if (p.t === 2) { p.y += p.vy * dt; p.vy *= 0.9; } }
     if (parts.length) parts = parts.filter(p => p.life > 0);
-    shake *= Math.exp(-dt * 9); if (shake < 0.2) shake = 0;
+    shake *= Math.exp(-dt * 13); if (shake < 0.2) shake = 0;
     flash = Math.max(0, flash - dt * 3.2);
   }
   function drawParts() {
@@ -388,7 +388,7 @@
       let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
       const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
       if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; recoiled = true; }   // muzzle recoil + aim + muzzle-flash (toward first target)
-      beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: crit ? 3.5 : 2 });
+      beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: (crit ? 3.5 : 2) + Math.min(Math.log10(uDmg(u) + 1) * 0.5, 3) });   // bolder beams with more damage
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
       const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
       if (aoe > 0) {
@@ -438,7 +438,7 @@
       const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (d.armored) s.armored = (s.armored || 0) + 1; if (src) s.kills[src] = (s.kills[src] || 0) + 1;
       const nb = Math.min(28, 6 + (d.tier || 0) * 4 + (d.armored ? 8 : 0));
       burst(d.x, d.y, nb, 90 + (d.tier || 0) * 24 + (d.armored ? 60 : 0), 2 + (d.tier || 0) * 0.3);
-      ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored || (d.tier || 0) >= 4) shakeAdd(d.armored ? 5 : 3);
+      ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored || (d.tier || 0) >= 4) shakeAdd(d.armored ? 1.8 : 1);
       if (d.splits && (d.gen || 0) < 1) for (let i = 0; i < d.splits; i++) {
         const hp = d.maxHp * 0.4;
         dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-40, 40), vy: rnd(-40, 40), hp, maxHp: hp,
@@ -463,9 +463,9 @@
   function useAbility(k) {
     if (abil[k] > 0 || state !== "play") return;
     abil[k] = ABIL_CD[k]; META.stats.abilities[k] = (META.stats.abilities[k] || 0) + 1;
-    if (k === "frenzy") { frenzyT = 6; shakeAdd(6); flashAdd(0.3); ring(W / 2, H / 2, 30, Math.max(W, H) * 0.55, 0.5); }
+    if (k === "frenzy") { frenzyT = 6; shakeAdd(3.5); flashAdd(0.3); ring(W / 2, H / 2, 30, Math.max(W, H) * 0.55, 0.5); }
     else if (k === "dotrain") { const n = 30 + S.galaxy * 8; for (let i = 0; i < n; i++) spawnDot(Math.random() < 0.3); shakeAdd(4); ring(W / 2, 70, 20, W * 0.55, 0.5); }
-    else if (k === "blackhole") { blackholeT = 5; shakeAdd(8); flashAdd(0.25); ring(W / 2, H / 2, Math.max(W, H) * 0.55, 40, 0.6); }
+    else if (k === "blackhole") { blackholeT = 5; shakeAdd(5); flashAdd(0.25); ring(W / 2, H / 2, Math.max(W, H) * 0.55, 40, 0.6); }
   }
 
   /* ----------------------------- update -------------------------- */
@@ -599,6 +599,7 @@
       ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 3.5, 0, TAU); ctx.fill();
       ctx.fillStyle = uColor(u); ctx.beginPath(); ctx.arc(p.x, p.y, bodyR, 0, TAU); ctx.fill();
       if (uCrit(u) > 0.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(uCrit(u), 0.9) + ")"; ctx.beginPath(); ctx.arc(p.x - bodyR * 0.32, p.y - bodyR * 0.32, 2.3, 0, TAU); ctx.fill(); }   // crit glint
+      if (c.multi) { const t2 = Date.now() / 760; for (let k = 0; k < c.multi; k++) { const a = t2 + k / c.multi * TAU; ctx.fillStyle = "rgba(255,255,255,0.65)"; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * (bodyR + 6), p.y + Math.sin(a) * (bodyR + 6), 1.6, 0, TAU); ctx.fill(); } }   // orbiting ticks = keystones (specialization level)
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
       const tot = allocCount(u.type); if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - bodyR - 11); }
     }
@@ -1093,7 +1094,7 @@
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
-  function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(10); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
+  function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
   function rebirthGain() { return Math.floor(5 + Math.max(0, S.peakGalaxy - 9) * 6 + Math.cbrt(S.totalRun + 1) * 0.5); }
   function openRebirth() { if (S.galaxy < 10 && S.peakGalaxy < 10) return; $("rb-text").textContent = "Reset this run (cash, defenders & upgrades wiped) to bank Star Dust for permanent upgrades."; $("rb-gain").textContent = "✦ +" + fmt(rebirthGain()) + " Star Dust"; $("rebirth-modal").classList.add("show"); }
   function doRebirth() {
