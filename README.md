@@ -145,7 +145,9 @@ Each runs on a cooldown — save them for dense or high-value screens.
   defenders "keep firing" — on return you collect a capped share of your recent
   coins-per-second, shown on a Welcome-back screen.
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
-- **Draw across the field** to blast dots yourself.
+- **Draw across the field** to blast dots yourself — and **tap (or drag over)
+  loot** to bank it manually, instantly and at full value, without waiting for a
+  collector.
 - Info (ⓘ) buttons sit on nearly every system — including **every skill-tree
   node**, where an ⓘ on the detail panel explains exactly what that boost does
   (Damage, Fire Rate, Range, Crit, Multishot, Speed, Pull, Yield, Ingest). The

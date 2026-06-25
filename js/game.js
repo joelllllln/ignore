@@ -85,7 +85,7 @@
   function slotAmt(type, s) {
     if (isCol(type)) {
       if (s.p === "x") return MAG_COL.ingest[s.mag];                 // x branch = ingestion speed
-      return MAG_COL[COL_PRIM[s.p - 1]][s.mag];                      // speed / suction / yield
+      return MAG_COL[COL_PRIM[s.p - 1]][s.mag];                      // speed / suction / collect (reach)
     }
     const M = type === "turret" ? MAG_TURRET : MAG;
     if (s.p === "x") return M.crit[s.mag];
@@ -409,6 +409,16 @@
   }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
   function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, dmg, "draw"); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }
+  // tap / drag over loot to manually bank it (no collector needed) — instant, full value.
+  function collectAt(x, y) {
+    for (let i = orbs.length - 1; i >= 0; i--) {
+      const o = orbs[i]; if ((o.x - x) ** 2 + (o.y - y) ** 2 > (26 + (o.r0 || 4)) ** 2) continue;
+      const got = Math.max(1, Math.round(o.value * derived.incomeMul));
+      S.cash = Math.min(derived.capacity, S.cash + got); S.totalRun += got; META.totalEver += got;
+      fxEarn += got; fxEarnX = o.x; fxEarnY = o.y - 6; burst(o.x, o.y, o.big ? 9 : 5, 80, 2); spark(o.x, o.y);
+      orbs.splice(i, 1);
+    }
+  }
 
   function useAbility(k) {
     if (abil[k] > 0 || state !== "play") return;
@@ -641,12 +651,12 @@
     plasma:      { keys: ["Overload", "Crit Cascade", "Ion Storm"] },
     laser:       { keys: ["Death Beam", "Prism Crit", "Resonant Cascade"] },
     railgun:     { keys: ["Railstorm Core", "Calibrated", "Overrail"] },
-    drone:       { keys: ["Perfect Collector", "Rich Haul", "Swift Magnet"] },
-    swarm:       { keys: ["Locust God", "Pack Yield", "Hive Sync"] },
-    collector:   { keys: ["Mega Hauler", "Bulk Yield", "Power Magnet"] },
-    magnet:      { keys: ["Magnetar Core", "Coil Yield", "Flux Drive"] },
-    tractor:     { keys: ["Singularity Beam", "Tow Yield", "Beam Lock"] },
-    singularity: { keys: ["Big Crunch", "Mass Cash", "Tidal Lock"] },
+    drone:       { keys: ["Perfect Collector", "Slipstream", "Swift Magnet"] },
+    swarm:       { keys: ["Locust God", "Pack Hunter", "Hive Sync"] },
+    collector:   { keys: ["Mega Hauler", "Bulk Maw", "Power Magnet"] },
+    magnet:      { keys: ["Magnetar Core", "Coil Reach", "Flux Drive"] },
+    tractor:     { keys: ["Singularity Beam", "Tow Reach", "Beam Lock"] },
+    singularity: { keys: ["Big Crunch", "Event Maw", "Tidal Lock"] },
   };
   // Each class gets its OWN tree, generated deterministically from its name:
   // a START hub with a random number of wings (3-5), each wing a chain or a
@@ -1038,12 +1048,13 @@
     if (state !== "play") return;
     const p = ptr(e), ui = unitAt(p.x, p.y);
     if (ui >= 0) { openSkillTree(S.units[ui].type); return; }
+    collectAt(p.x, p.y);
     drawing = true; lastDraw = p; brushAt(p.x, p.y);
   });
   canvas.addEventListener("pointermove", e => {
     if (!drawing || state !== "play") return;
     const p = ptr(e), dx = p.x - lastDraw.x, dy = p.y - lastDraw.y, dist = Math.hypot(dx, dy), steps = Math.max(1, Math.floor(dist / 14));
-    for (let i = 1; i <= steps; i++) brushAt(lastDraw.x + dx * i / steps, lastDraw.y + dy * i / steps);
+    for (let i = 1; i <= steps; i++) { const bx = lastDraw.x + dx * i / steps, by = lastDraw.y + dy * i / steps; brushAt(bx, by); collectAt(bx, by); }
     lastDraw = p;
   });
   const endDraw = () => { drawing = false; };
@@ -1098,5 +1109,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, collectAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();
