@@ -72,9 +72,11 @@ Extra defenders/collectors are paced **geometrically** across the galaxy. Income
 grows exponentially, so costs are spaced on the cash *log-scale* — `base ×
 (travel ÷ base)^frac` — landing each new unit roughly **15% → 30% → 45%** of the
 way through that galaxy *in time*, not as a flat slice of the final number. In
-Galaxy 1 (travel $12B) a 2nd turret is ~**$1K**, a 3rd ~**$19K**, a 4th ~**$326K**
-(drones ~$4K / $57K / $790K): cheap to start, a real investment by the 4th, and
-always well under the travel wall — so you unlock your roster *as* you progress.
+Galaxy 1 (travel $12B) a 2nd turret is ~**$1K**, a 3rd ~**$19K**, a 4th ~**$326K**.
+Drones are the **first collector** and now also cap at 4, so they're priced the
+**same as turrets** (same unit costs *and* the same skill-tree node costs): cheap
+to start, a real investment by the 4th, always well under the travel wall — so you
+unlock your roster *as* you progress.
 
 ## Collectors
 

@@ -35,7 +35,7 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4, max: 4 },
+    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4, max: 4 },
     swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, mode: "swarm", sides: 3, max: 2 },
     collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, mode: "chase", sides: 6, max: 2 },
     magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, mode: "chase", sides: 5, max: 2 },
