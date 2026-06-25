@@ -1222,34 +1222,68 @@
     open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
     cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
     reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.7; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
-    ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, midX: 0, midY: 0, rotMode: false, hit: [], stars: [], sel: 0,
+    ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, twist: null, rotMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("contextmenu", e => e.preventDefault());
-      this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; this.rotMode = e.shiftKey || e.button === 2; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; } });
+      this.cv.addEventListener("pointerdown", e => {
+        try { this.cv.setPointerCapture(e.pointerId); } catch (_) {}
+        const p = this.pt(e); this.ptrs.set(e.pointerId, p); this.moved = false;
+        this.lx = p.x; this.ly = p.y; this.sx0 = p.x; this.sy0 = p.y;
+        this.rotMode = e.shiftKey || e.button === 2;
+        if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; this.twist = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x); }
+      });
       this.cv.addEventListener("pointermove", e => {
         if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) {   // two fingers: pinch zoom + twist/move rotate
-          const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
-          if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.25, 4.5); this.pinchD = d;
-          if (this.midX) { this.yaw += (mx - this.midX) * 0.008; this.pitch = clamp(this.pitch - (my - this.midY) * 0.008, -1.3, 0.15); }
-          this.midX = mx; this.midY = my; this.moved = true; this.lx = p.x; this.ly = p.y; return;
+        if (this.ptrs.size >= 2) {   // two fingers: pinch-zoom toward the fingers, drag to move, twist to rotate
+          const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2, ang = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x);
+          if (this.pinchD) this.zoomAt(d / this.pinchD, mx, my);
+          if (this.midX != null) this.panTo(this.midX, this.midY, mx, my);
+          if (this.twist != null) { let da = ang - this.twist; if (da > Math.PI) da -= TAU; if (da < -Math.PI) da += TAU; this.yaw += da; }
+          this.pinchD = d; this.midX = mx; this.midY = my; this.twist = ang; this.moved = true; return;
         }
-        const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 4) this.moved = true;
-        if (this.rotMode) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.3, 0.15); }   // shift/right-drag rotates
-        else this.pan(dx, dy);                                                                                  // drag freely moves around the galaxy
+        const dx = p.x - this.lx, dy = p.y - this.ly;
+        if (Math.hypot(p.x - this.sx0, p.y - this.sy0) > 5) this.moved = true;
+        if (this.rotMode) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.35, -0.12); }   // shift / right-drag rotates
+        else this.panTo(this.lx, this.ly, p.x, p.y);                                                             // plain drag grabs & moves the map
         this.lx = p.x; this.ly = p.y;
       });
-      const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = 0; if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; } if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
-      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = 0; });
-      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.25, 4.5); }, { passive: false });
+      const up = e => {
+        const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; this.twist = null;
+        if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; this.sx0 = r.x; this.sy0 = r.y; this.moved = false; }
+        if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); }
+      };
+      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; this.twist = null; });
+      this.cv.addEventListener("wheel", e => { e.preventDefault(); const p = this.pt(e); this.zoomAt(1 - e.deltaY * 0.0015, p.x, p.y); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     show() { this.open = true; this.resize(); if (!this.stars.length) for (let i = 0; i < 120; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show"); },
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } },
-    pan(dx, dy) { const f = 0.5 * this.zoom, cy = Math.cos(this.yaw), sy = Math.sin(this.yaw), wx = -dx / f, wz = -dy / (f * 0.7); this.cx += wx * cy - wz * sy; this.cz += wx * sy + wz * cy; this.tcx = this.cx; this.tcz = this.cz; },
+    // perspective-correct unproject: the world point on the ground plane (y=0) under a screen
+    // point — inverts the exact same yaw/pitch/perspective math as proj() so drag & zoom track 1:1
+    unproject(px, py) {
+      const sx = px - this.w / 2, sy = py - this.h * 0.5, cp = Math.cos(this.pitch), sp = Math.sin(this.pitch), Z = this.zoom;
+      let den = 360 * Z * sp + sy * cp; if (Math.abs(den) < 1e-4) den = den < 0 ? -1e-4 : 1e-4;
+      const z1 = -720 * sy / den;                      // post-yaw depth of the ground intersection
+      let f = 360 * Z / (720 + z1 * cp); if (Math.abs(f) < 1e-4) f = 1e-4;
+      const x1 = sx / f, cy = Math.cos(this.yaw), syw = Math.sin(this.yaw);
+      return { x: this.cx + x1 * cy - z1 * syw, z: this.cz + x1 * syw + z1 * cy };
+    },
+    // grab-the-map pan: the world point under the finger's start is moved to the finger's end
+    panTo(ax, ay, bx, by) {
+      const a = this.unproject(ax, ay), b = this.unproject(bx, by);
+      this.cx += a.x - b.x; this.cz += a.z - b.z; this.tcx = this.cx; this.tcz = this.cz;
+    },
+    // zoom toward a screen point (cursor / pinch midpoint), keeping that world point fixed
+    zoomAt(factor, px, py) {
+      const before = this.unproject(px, py);
+      this.zoom = clamp(this.zoom * factor, 0.2, 6);
+      const after = this.unproject(px, py);
+      this.cx += before.x - after.x; this.cz += before.z - after.z;
+      this.tcx = this.cx; this.tcz = this.cz;
+    },
     proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
     // THREE widely-spaced solar systems (a big triangle). Each planet rides its OWN
     // orbit: a distinct ellipse, inclination (tilt) and orientation, seeded by planet.
