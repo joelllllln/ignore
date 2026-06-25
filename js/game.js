@@ -390,8 +390,8 @@
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.sqrt(derived.valueMul), base = 14 * enemyHpMul(g) * vscale, avg = base * 1.3;
-    const men = clamp(S.lv.value / 35, 0, 1.3);   // "menace": as Value climbs, tougher dots appear more (and pay more)
-    const men01 = Math.min(1, men);               // 0..1 gate — keeps dots BASIC until Value is invested
+    const men = S.free ? 1.0 : clamp(S.lv.value / 35, 0, 1.3);   // "menace": as Value climbs, tougher dots appear more (free sandbox forces it so every race shows up)
+    const men01 = S.free ? 1 : Math.min(1, men);                  // 0..1 gate — keeps dots BASIC until Value is invested
     let roll = rnd(0.7, 1.0 + men * 2.8), armored = false, kind = "normal", cfg = null, mv = 20;
     // difficulty & craziness are bought with VALUE: at Value 0 every dot is the
     // plainest tier-0 grey. armored elites & exotic kinds only appear once you invest.
@@ -772,22 +772,22 @@
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {
-        const d = TY(id), locked = S.galaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;
+        const d = TY(id), locked = !S.free && S.galaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;
         row.desc.textContent = n + "/" + d.max + (locked ? "" : " · " + d.name);
         if (locked) { row.buy.textContent = "🔒 G" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
         else if (full) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.add("maxed"); }
-        else { row.buy.textContent = "$" + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); row.el.classList.remove("maxed"); }
+        else { row.buy.textContent = S.free ? "FREE" : "$" + fmt(c); row.buy.disabled = !S.free && S.cash < c; row.buy.classList.toggle("afford", S.free || S.cash >= c); row.el.classList.remove("maxed"); }
       } else {
         const u = UP[id], lvl = S.lv[id], maxed = u.max != null && lvl >= u.max;
         row.lv.textContent = "Lv " + lvl; row.desc.textContent = u.desc(lvl);
         if (maxed) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.el.classList.add("maxed"); row.buy.classList.remove("afford"); }
-        else { const c = upCost(u); row.buy.textContent = "$" + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); row.el.classList.remove("maxed"); }
+        else { const c = upCost(u); row.buy.textContent = S.free ? "FREE" : "$" + fmt(c); row.buy.disabled = !S.free && S.cash < c; row.buy.classList.toggle("afford", S.free || S.cash >= c); row.el.classList.remove("maxed"); }
       }
     }
     // tab badges
     const aff = { def: false, drone: false, eco: false };
-    for (const t of DEF_ORDER) if (S.galaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t)) aff.def = true;
-    for (const t of COL_ORDER) if (S.galaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t)) aff.drone = true;
+    for (const t of DEF_ORDER) if (S.free || (S.galaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.def = true;
+    for (const t of COL_ORDER) if (S.free || (S.galaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.drone = true;
     for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
     for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
   }
@@ -820,15 +820,15 @@
   }
   function buyUnit(type) {
     const list = classList(type);
-    if (S.galaxy < TY(type).gal || countType(type) >= TY(type).max) return;
-    const c = unitBuyCost(type); if (S.cash < c) return;
-    S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); if (isCol(type)) syncCollectors();
+    if ((!S.free && S.galaxy < TY(type).gal) || countType(type) >= TY(type).max) return;   // free mode ignores the planet gate
+    const c = unitBuyCost(type); if (!S.free && S.cash < c) return;
+    if (!S.free) S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); if (isCol(type)) syncCollectors();
     Audio_buy(); renderList(); save();
   }
   function buyUpgrade(u) {
     const lvl = S.lv[u.id]; if (u.max != null && lvl >= u.max) return;
-    const c = upCost(u); if (S.cash < c) return;
-    S.cash -= c; S.lv[u.id]++;
+    const c = upCost(u); if (!S.free && S.cash < c) return;
+    if (!S.free) S.cash -= c; S.lv[u.id]++;
     Audio_buy(); recompute(); syncHUD(); save();
   }
   function Audio_buy() {}  // (silent build)
@@ -983,8 +983,8 @@
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
   function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 3 * Math.pow(1.33, allocCount(type)) * k); }   // cheap early (rewarding start), STEEP growth: deep trees are a long progressive grind (the main pacing wall)
   function allocNode(type, n) {
-    if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
-    S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
+    if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (!S.free && S.cash < c) return;
+    if (!S.free) S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
   }
   // before/after stat preview if this node were allocated.
   function nodePreview(type, n) {
@@ -998,7 +998,7 @@
     const panel = $("st-info"), type = STree.type;
     if (!n || n.kind === "start") { panel.classList.remove("show"); STree.sel = n ? n.id : null; return; }
     STree.sel = n.id;
-    const has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost, fx = nodeFx(type, n);
+    const has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.free || S.cash >= cost, fx = nodeFx(type, n);
     $("si-name").textContent = nodeIcon(type, n) + "  " + (nodeLabel(type, n) || fx);
     $("si-tag").textContent = n.kind === "key" ? "✦ Notable Keystone" : n.kind === "major" ? "◆ Notable" : "• Passive";
     const keyDef = n.kind === "key" && !isCol(type);
@@ -1012,7 +1012,7 @@
       sk.map(k => "<b>" + STAT_TITLE[k] + "</b> — " + STAT_INFO[k]).join("<br><br>"));
     const btn = $("st-upgrade");
     if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
-    else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = "ALLOCATE · $" + fmt(cost); btn.disabled = !afford; }
+    else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = S.free ? "ALLOCATE · FREE" : "ALLOCATE · $" + fmt(cost); btn.disabled = !afford; }
     else { $("si-prev").innerHTML = "🔒 Locked — first allocate a node connected to this one."; btn.textContent = "LOCKED"; btn.disabled = true; }
     panel.classList.add("show");
   }
@@ -1240,18 +1240,17 @@
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
-  function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
+  function travel() { const c = travelCost(S.galaxy); if (!S.free && S.cash < c) return; if (!S.free) S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
   // jump to an ALREADY-reached planet (revisit, free) — lets you hop back to test/farm any planet you've unlocked
   function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; S.galaxy = g; dots = []; orbs = []; parts = []; flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); recompute(); syncHUD(); save(); }
-  // CODES: cheat to unlock everything for testing each planet's native race
+  // CODES: "test" turns on FREE SANDBOX mode — everything is unlocked & free to
+  // buy so you click and test whatever you want yourself (it does NOT hand you a
+  // pre-built roster). Toggle off by entering the code again.
   function unlockAll() {
-    S.peakGalaxy = TOTAL_PLANETS;                          // every planet reachable/jumpable on the map
-    S.cash = Math.min(1e15, 1e15);                          // tons of cash for any purchase
-    S.lv.value = 60; S.lv.spawnRate = 20; S.lv.capacity = 40; S.lv.luck = 25;   // max the economy upgrades
-    S.units = []; DEF_ORDER.forEach(t => { for (let i = 0; i < DEF_TYPES[t].max; i++) S.units.push(newUnit(t)); });          // all defenders, maxed count
-    S.collectors = []; COL_ORDER.forEach(t => { for (let i = 0; i < COL_TYPES[t].max; i++) S.collectors.push({ type: t }); }); // all collectors, maxed count
-    S.units = capList(S.units); S.collectors = capList(S.collectors);
+    S.free = !S.free;                                       // toggle free sandbox
+    if (S.free) { S.peakGalaxy = TOTAL_PLANETS; S.cash = Math.max(S.cash, 1e12); }   // all planets jumpable; cash just for show (buys are free)
     syncCollectors(); recompute(); renderList(); syncHUD(); save();
+    return S.free;
   }
   /* ----------------------------- screens ------------------------- */
   function setScreen(s) {
@@ -1313,12 +1312,12 @@
   $("home-how").onclick = () => $("how").classList.add("show");
   $("how-close").onclick = $("how-back").onclick = () => $("how").classList.remove("show");
   $("home-reset").onclick = () => { if (confirm("Erase ALL progress?")) wipeSave(); };
-  // CODES box — "test" unlocks all planets, upgrades, collectors & defenders
-  const CODES = { test: { msg: "✓ ALL UNLOCKED", run: unlockAll } };
+  // CODES box — "test" toggles FREE SANDBOX mode: all planets jumpable, every
+  // defender/collector/upgrade unlocked and FREE to buy (you click & test yourself).
   function applyCode() {
-    const v = ($("code-input").value || "").trim().toLowerCase(), c = CODES[v];
+    const v = ($("code-input").value || "").trim().toLowerCase();
     const msg = $("code-msg");
-    if (c) { c.run(); msg.textContent = c.msg; msg.style.color = "#fff"; $("code-input").value = ""; $("home-gal").textContent = S.peakGalaxy; }
+    if (v === "test") { const on = unlockAll(); msg.textContent = on ? "✓ FREE MODE ON" : "free mode off"; msg.style.color = "#fff"; $("code-input").value = ""; $("home-gal").textContent = S.peakGalaxy; }
     else { msg.textContent = v ? "✗ invalid code" : ""; msg.style.color = "var(--warn)"; }
   }
   if ($("code-go")) $("code-go").onclick = applyCode;
