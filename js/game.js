@@ -1,8 +1,8 @@
 /* =====================================================================
    IDLE DOT SHOOTER  (HTML5/Canvas, original implementation)
    Defenders are individual units, each with its own upgrade tree (tap to
-   open). Drones are a coordinated collection fleet. Galaxies scale dot
-   count + toughness. Rebirth -> Star Dust. Offline earnings. Home screen.
+   open). Drones are a coordinated collection fleet. Planets (across three
+   solar systems) scale dot count + toughness. Offline earnings. Home screen.
    ===================================================================== */
 (() => {
   "use strict";
@@ -115,8 +115,8 @@
   const uMulti = u => cls(u.type).multi || 0;
   const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
-  const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg * derived.sdDmg;
-  const uRate = u => DEF_TYPES[u.type].rate * cls(u.type).rate * derived.sdFire;
+  const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg;
+  const uRate = u => DEF_TYPES[u.type].rate * cls(u.type).rate * (frenzyT > 0 ? 5 : 1);   // Frenzy ability = 5× fire rate
   const uRange = u => DEF_TYPES[u.type].range + cls(u.type).range;
   const uCrit = u => Math.min(0.85, cls(u.type).crit);
   const uCritMul = u => 2.2;
@@ -200,7 +200,6 @@
   const PLANET_SYS = [], PLANET_LOCAL = [];
   SYSTEMS.forEach((s, si) => { for (let l = 0; l < s.planets; l++) { PLANET_SYS.push(si); PLANET_LOCAL.push(l); } });
   const TOTAL_PLANETS = PLANET_SYS.length;
-  const REBIRTH_AT = TOTAL_PLANETS - SYSTEMS[SYSTEMS.length - 1].planets + 1;   // first planet of the final (outer) system
   const planetIdx = g => Math.min(Math.max(g, 1), TOTAL_PLANETS) - 1;
   const sysName = g => SYSTEMS[PLANET_SYS[planetIdx(g)]].name;
   const galName = g => PLANET_NAMES[g - 1] || (PLANET_NAMES[PLANET_NAMES.length - 1] + " " + g);
@@ -237,18 +236,9 @@
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const upCost = u => Math.floor(u.base * Math.pow(u.mul, S.lv[u.id] || 0));
 
-  const SDS = [
-    { id: "sdDmg",   name: "Permanent Damage",  base: 4, mul: 1.7, desc: l => "+" + 25 * l + "% damage" },
-    { id: "sdInc",   name: "Permanent Income",  base: 4, mul: 1.7, desc: l => "+" + 25 * l + "% income" },
-    { id: "sdFire",  name: "Permanent Fire Rate", base: 5, mul: 1.8, desc: l => "+" + 15 * l + "% fire rate" },
-    { id: "sdStart", name: "Head-Start Cash",   base: 6, mul: 1.9, desc: l => "start $" + fmt(50 * Math.pow(6, l)) },
-  ];
-  const SD = {}; SDS.forEach(u => SD[u.id] = u);
-  const sdCost = u => Math.floor(u.base * Math.pow(u.mul, META.sd[u.id] || 0));
-
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
-  // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/galaxy) to a few
-  // days each by the late galaxies. Rebirth/Star Dust helps you outpace it.
+  // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
+  // days each by the late planets.
   const travelCost = g => Math.floor(5e9 * Math.pow(3.2, Math.pow(g - 1, 1.12)));
   const enemyHpMul = g => Math.pow(2.1, g - 1);
   const galValueMul = g => Math.pow(2.2, g - 1);
@@ -280,9 +270,9 @@
   function freshStats() {
     const kills = {}; DEF_ORDER.forEach(t => kills[t] = 0); kills.draw = 0; kills.blackhole = 0;
     const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
-    return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, rebirths: 0, lost: 0, lostCash: 0 };
+    return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, lost: 0, lostCash: 0 };
   }
-  function freshMeta() { const sd = {}; SDS.forEach(u => sd[u.id] = 0); return { starDust: 0, sd, totalEver: 0, stats: freshStats() }; }
+  function freshMeta() { return { totalEver: 0, stats: freshStats() }; }
   const stat = () => META.stats;
 
   let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0;
@@ -320,9 +310,7 @@
 
   function recompute() {
     const L = S.lv, m = META;
-    derived.sdDmg = 1 + 0.25 * m.sd.sdDmg;
-    derived.sdFire = (1 + 0.15 * m.sd.sdFire) * (frenzyT > 0 ? 5 : 1);
-    derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
+    derived.incomeMul = 1;
     derived.capacity = 400 * Math.pow(1.60, L.capacity);   // higher base so the very start isn't ceiling-blocked; still exponential (must hold travel cash)
     derived.valueMul = 1 + 0.08 * L.value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace"
     derived.spawnPerSec = 0.9 + 2.0 * L.spawnRate;   // beefed: spawn is now a primary income lever (covers the softer Value)
@@ -341,7 +329,7 @@
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
         if (d.S) { S = Object.assign(fresh(), d.S); S.lv = Object.assign(fresh().lv, d.S.lv || {}); if (!S.units || !S.units.length) S.units = [newUnit("turret")]; S.units.forEach(u => { u.cd = u.cd || 0; }); if (!S.classNodes || typeof S.classNodes !== "object") S.classNodes = {}; ALL_TYPES.forEach(t => { if (!S.classNodes[t]) S.classNodes[t] = {}; }); if (!Array.isArray(S.collectors) || !S.collectors.length) { const n = 1 + (d.S.lv && d.S.lv.drones || 0); S.collectors = []; for (let i = 0; i < n; i++) S.collectors.push({ type: "drone" }); } S.units = capList(S.units); S.collectors = capList(S.collectors); }
-        if (d.META) { META = Object.assign(freshMeta(), d.META); META.sd = Object.assign(freshMeta().sd, d.META.sd || {});
+        if (d.META) { META = Object.assign(freshMeta(), d.META);
           const st = d.META.stats || {}; META.stats = Object.assign(freshStats(), st);
           META.stats.kills = Object.assign(freshStats().kills, st.kills || {});
           META.stats.collected = Object.assign(freshStats().collected, st.collected || {});
@@ -708,11 +696,10 @@
   function syncHUD() {
     $("ui-cash").textContent = fmt(S.cash); $("ui-cap").textContent = " / " + fmt(derived.capacity);
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the cash ceiling
-    $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy); $("ui-stardust").textContent = fmt(META.starDust);
+    $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
     const tc = travelCost(S.galaxy);
     $("galaxy-fill").style.width = clamp(S.cash / tc, 0, 1) * 100 + "%";
     $("btn-travel").textContent = "TRAVEL ▸ $" + fmt(tc); $("btn-travel").classList.toggle("ready", S.cash >= tc);
-    $("btn-rebirth").classList.toggle("hidden", S.galaxy < REBIRTH_AT && S.peakGalaxy < REBIRTH_AT);
     for (const k in ABIL_CD) { $("ab-" + k).disabled = abil[k] > 0; $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : ""; }
     for (const id in listRows) {
       const row = listRows[id];
@@ -1043,17 +1030,6 @@
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
   }
 
-  /* ------------------------- star dust + galaxy ------------------ */
-  function buildSD() {
-    $("ui-stardust").textContent = fmt(META.starDust);
-    const wrap = $("sd-list"); wrap.innerHTML = "";
-    for (const u of SDS) { const lvl = META.sd[u.id], c = sdCost(u);
-      const el = document.createElement("div"); el.className = "up";
-      el.innerHTML = `<span class="u-dot" style="background:var(--sd)"></span><div class="u-mid"><div class="u-name">${u.name}<span class="lv">Lv ${lvl}</span></div><div class="u-desc">${u.desc(lvl)}</div></div><button class="u-info" title="Info">i</button><button class="u-buy">✦ ${c}</button>`;
-      wrap.appendChild(el); el.querySelector(".u-info").onclick = () => showInfo(u.name, u.id); const b = el.querySelector(".u-buy"); b.disabled = META.starDust < c;
-      b.onclick = () => { if (META.starDust < sdCost(u)) return; META.starDust -= sdCost(u); META.sd[u.id]++; recompute(); buildSD(); syncHUD(); save(); };
-    }
-  }
   const INFO = {
     turret: "ALL-ROUNDER backbone — cheap, fast single-target. Even damage vs everything. Signature keystone: ✦ Chain Lightning. Smallest tree.",
     mortar: "SWARM-CLEARER — splash shells, ×2.2 damage to weak/small dots (but barely scratches armor). Signature: ✦ Explosive Rounds. Deeper tree than turret.",
@@ -1073,10 +1049,6 @@
     frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
     dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
     blackhole: "Drags every dot to the centre and crushes them over 5s. Cooldown 60s.",
-    sdDmg: "+25% damage per level — kept forever across every run (survives Rebirth).",
-    sdInc: "+25% cash income per level — permanent across runs.",
-    sdFire: "+15% fire rate per level — permanent across runs.",
-    sdStart: "Begin each new run with a chunk of starting cash.",
   };
   function showInfo(title, id) { $("info-title").textContent = title; $("info-text").textContent = INFO[id] || ""; $("info-modal").classList.add("show"); }
   function showInfoText(title, html) { $("info-title").textContent = title; $("info-text").innerHTML = html; $("info-modal").classList.add("show"); }
@@ -1099,11 +1071,11 @@
       sec("Time &amp; progress", grid(
         row("Played (total)", fmtTime(s.playSec)) + row("This run", fmtTime(S.runSec)) +
         row("Planet", S.galaxy + " · " + galName(S.galaxy) + " (" + sysName(S.galaxy) + ")") + row("Peak planet", S.peakGalaxy) +
-        row("Travels", s.travels) + row("Rebirths", s.rebirths))) +
+        row("Travels", s.travels))) +
       sec("Economy", grid(
         row("Cash / sec", "$" + fmt(cps)) + row("Capacity", "$" + fmt(derived.capacity)) +
         row("Earned this run", "$" + fmt(S.totalRun)) + row("Earned all-time", "$" + fmt(META.totalEver)) +
-        row("Star Dust", "✦ " + fmt(META.starDust)) + row("Skill nodes", nodes) +
+        row("Skill nodes", nodes) +
         row("Cash lost (uncollected)", "$" + fmt(s.lostCash || 0)))) +
       sec("Combat", grid(
         row("Dots popped", fmt(s.dotsPopped)) + row("Special dots", fmt(s.specials)) + row("Armored killed", fmt(s.armored || 0)) +
@@ -1198,15 +1170,6 @@
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
   function travel() { const c = travelCost(S.galaxy); if (S.cash < c) return; S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
-  function rebirthGain() { return Math.floor(5 + Math.max(0, S.peakGalaxy - (REBIRTH_AT - 1)) * 6 + Math.cbrt(S.totalRun + 1) * 0.5); }
-  function openRebirth() { if (S.galaxy < REBIRTH_AT && S.peakGalaxy < REBIRTH_AT) return; $("rb-text").textContent = "Reset this run (cash, defenders & upgrades wiped) to bank Star Dust for permanent upgrades."; $("rb-gain").textContent = "✦ +" + fmt(rebirthGain()) + " Star Dust"; $("rebirth-modal").classList.add("show"); }
-  function doRebirth() {
-    META.starDust += rebirthGain(); META.stats.rebirths++; const keep = META; S = fresh(); META = keep;
-    if (META.sd.sdStart > 0) S.cash = 50 * Math.pow(6, META.sd.sdStart);
-    dots = []; orbs = []; beams = []; parts = []; spawnAcc = 0; cps = 0; drones = []; selUnit = -1; flashAdd(0.85); shakeAdd(12);
-    syncCollectors(); recompute(); $("rebirth-modal").classList.remove("show"); renderList(); buildSD(); syncHUD(); save();
-  }
-
   /* ----------------------------- screens ------------------------- */
   function setScreen(s) {
     state = s;
@@ -1215,7 +1178,7 @@
     $("dock").style.display = (s === "play") ? "block" : "none";
     $("btn-menu").style.display = (s === "play") ? "block" : "none";
     $("btn-metrics").style.display = (s === "play") ? "block" : "none";
-    if (s === "home") { $("home-gal").textContent = S.peakGalaxy; $("home-sd").textContent = fmt(META.starDust); }
+    if (s === "home") { $("home-gal").textContent = S.peakGalaxy; }
   }
 
   /* ----------------------------- input --------------------------- */
@@ -1242,8 +1205,7 @@
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
   for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
   $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
-  $("btn-travel").onclick = travel; $("btn-rebirth").onclick = openRebirth; $("rb-confirm").onclick = doRebirth; $("rb-close").onclick = () => $("rebirth-modal").classList.remove("show");
-  $("btn-sd").onclick = () => { buildSD(); $("sd-shop").classList.add("show"); }; $("sd-close").onclick = () => $("sd-shop").classList.remove("show");
+  $("btn-travel").onclick = travel;
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
   $("st-upgrade").onclick = () => {
@@ -1261,7 +1223,7 @@
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");
   $("menu-resume").onclick = () => $("menu").classList.remove("show");
-  $("menu-reset").onclick = () => { if (confirm("Erase ALL progress (including Star Dust)?")) wipeSave(); };
+  $("menu-reset").onclick = () => { if (confirm("Erase ALL progress?")) wipeSave(); };
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
   $("home-play").onclick = () => { renderList(); setScreen("play"); };
   $("home-galaxies").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); };
@@ -1286,5 +1248,5 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, collectAt, useAbility, travel, doRebirth, rebirthGain, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol };
 })();

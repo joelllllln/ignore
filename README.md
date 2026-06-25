@@ -24,8 +24,7 @@ systems loop where **your firepower IS your economy**.
 You command a growing rack of auto-firing defenders in the void. Dots drift in,
 your guns chew through them, collectors vacuum up the cash they drop, and you
 pour that cash into upgrades, skill trees and new unit classes. Travel from planet
-to planet across **three solar systems** for tougher dots and bigger payouts; reach
-the outer system to **Rebirth** for permanent **Star Dust** upgrades.
+to planet across **three solar systems** for tougher dots and bigger payouts.
 
 ## The core loop
 
@@ -197,7 +196,7 @@ The **ECONOMY** tab multiplies the other pillars:
 
 Each runs on a cooldown — save them for dense or high-value screens.
 
-## Planets, solar systems, pacing, Rebirth & Star Dust
+## Planets, solar systems & pacing
 
 - Progress runs through **18 planets grouped into three solar systems** —
   **Helios** (4 planets), **Cygnus** (6), and the brutal outer **Erebus** (8).
@@ -209,9 +208,6 @@ Each runs on a cooldown — save them for dense or high-value screens.
   curve — this is a deliberately **hardcore, multi-day** game. The first jump is
   on the order of ~5 billion cash and each subsequent jump escalates sharply
   (hours → days → weeks for later planets).
-- Reaching **Erebus** (the outer system) unlocks **Rebirth**: reset the run
-  (cash & upgrades wiped) to bank **Star Dust**, then buy permanent upgrades
-  (damage, income, fire rate, head-start cash) that carry into every future run.
 
 ## Idle, offline & saving
 
@@ -232,13 +228,12 @@ Each runs on a cooldown — save them for dense or high-value screens.
 ## Project layout
 
 ```
-index.html   HUD (cash/galaxy/star dust), dock (abilities, tabs, upgrade list),
-             modals (skill tree, star map, Star Dust shop, Rebirth,
-             Welcome-back, info, metrics, menu)
+index.html   HUD (cash/planet), dock (abilities, tabs, upgrade list),
+             modals (skill tree, star map, Welcome-back, info, metrics, menu)
 style.css    Minimalist B&W theme, reactive button feel, modal & map styles
 js/game.js   The whole game: dots & dot kinds, defender classes & formation,
-             per-class skill trees, collectors, economy, abilities, galaxies,
-             Rebirth/Star Dust, juice (particles/shake/flash), offline,
+             per-class skill trees, collectors, economy, abilities, planets
+             & solar systems, juice (particles/shake/flash), offline,
              save, single requestAnimationFrame loop
 icon.svg     App icon
 tools/       Headless balancing aids (run with Node):

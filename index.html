@@ -18,7 +18,6 @@
       <div class="g-label">PLANET <b id="ui-galaxy">1</b> <span id="ui-gname"></span> <span class="g-tap">▾</span></div>
       <div class="g-bar"><div id="galaxy-fill"></div></div>
     </div>
-    <div class="t-sd" id="sd-wrap">✦ <b id="ui-stardust">0</b></div>
   </div>
 
   <!-- BOTTOM DOCK -->
@@ -38,8 +37,6 @@
     <div id="up-list"></div>
     <div id="actions">
       <button class="act travel" id="btn-travel">TRAVEL ▸</button>
-      <button class="act dust" id="btn-sd">✦ DUST</button>
-      <button class="act rebirth hidden" id="btn-rebirth">✦ REBIRTH</button>
     </div>
   </div>
 
@@ -47,7 +44,7 @@
   <div id="home" class="modal show">
     <div class="card home-card">
       <h1 class="home-title">IDLE&nbsp;DOT<span>SHOOTER</span></h1>
-      <div class="home-stats"><span>Planet <b id="home-gal">1</b></span><span>✦ <b id="home-sd">0</b> Star Dust</span></div>
+      <div class="home-stats"><span>Planet <b id="home-gal">1</b></span></div>
       <button class="big" id="home-play">▶ PLAY</button>
       <button class="big alt" id="home-galaxies">🪐 PLANETS &amp; PROGRESS</button>
       <button class="big alt" id="home-how">❔ HOW TO PLAY</button>
@@ -68,7 +65,6 @@
         <li>🛰️ <b>Collectors</b> gather the cash dots drop. Buy more in the <b>COLLECTORS</b> tab and unlock new classes: <b>Drone</b> → <b>Drone Swarm</b> → <b>Black Hole</b> (slowly drags everything in). Each has its own skill web.</li>
         <li>💰 <b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck.</li>
         <li>🪐 Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for tougher dots, more of them, and bigger payouts.</li>
-        <li>✦ Reach the outer system (<b>Erebus</b>) to <b>Rebirth</b> for permanent Star Dust upgrades.</li>
         <li>✍️ <b>Draw across the field</b> to blast dots yourself.</li>
       </ul>
       <button class="big" id="how-back">BACK</button>
@@ -96,24 +92,6 @@
     <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-reset">⟲ Recenter</button><button class="x" id="gm-close">✕</button></div></div>
     <div class="map-hint">three solar systems · planets orbit their suns · drag to rotate · scroll/pinch to zoom · tap a planet</div>
     <div id="gm-info" class="gm-info"></div>
-  </div>
-
-  <!-- STAR DUST SHOP -->
-  <div id="sd-shop" class="modal">
-    <div class="card">
-      <div class="card-head"><h2>✦ Star Dust — permanent upgrades</h2><button class="x" id="sd-close">✕</button></div>
-      <div id="sd-list"></div>
-    </div>
-  </div>
-
-  <!-- REBIRTH CONFIRM -->
-  <div id="rebirth-modal" class="modal">
-    <div class="card">
-      <div class="card-head"><h2>✦ Rebirth</h2><button class="x" id="rb-close">✕</button></div>
-      <p id="rb-text" class="muted"></p>
-      <div class="rb-gain" id="rb-gain"></div>
-      <button class="big" id="rb-confirm">REBIRTH NOW</button>
-    </div>
   </div>
 
   <!-- WELCOME BACK -->
@@ -150,7 +128,7 @@
   <div id="menu" class="modal">
     <div class="card">
       <div class="card-head"><h2>Idle Dot Shooter</h2><button class="x" id="menu-close">✕</button></div>
-      <p class="muted">Auto-fire at the dots. Drone collects the cash. Buy upgrades across Defence, Drone &amp; Economy. Travel between planets across three solar systems; reach the outer system to Rebirth for permanent Star Dust.</p>
+      <p class="muted">Auto-fire at the dots. Drone collects the cash. Buy upgrades across Defence, Drone &amp; Economy. Travel between planets across three solar systems for tougher dots and bigger payouts.</p>
       <button class="big" id="menu-resume">RESUME</button>
       <button class="big danger" id="menu-reset">RESET SAVE</button>
     </div>
