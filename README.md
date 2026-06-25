@@ -76,12 +76,21 @@ stronger per node than a gal-1 Turret — so mixing classes beats spamming one):
 - **Railgun** — **×4 vs armored** (weak vs swarms) · ✦Piercing Laser · huge tree
 
 Units **visibly reflect their build** — all in stark **black & white**, no colour
-and no idle motion: more fire rate grows more **barrels** (one rate node → a
-double-barrel), range lengthens them, damage fattens the barrels & body, each
-keystone adds a static white **pip**, high crit shows a small dark inset, **Mind**
-draws a faint concentric ring (brighter = smarter), and they give a brief white
-muzzle-flash as they fire. Collectors reflect their build too: outer ring = Pull
-(Suction), inner ring = grab zone (Reach), maw size = Process (Ingest), and the
+and no idle motion. Each upgrade branch leaves its own small, name-matched mark so
+you can read at a glance *what* a unit has invested in:
+
+- **Fire Rate** (Belt Feed / Gatling / Double Tap) → more **barrels** (one rate
+  node literally makes a double-barrel) + a brief white muzzle-flash as it fires.
+- **Damage** (Reinforced Rounds / Tungsten Core / Heavy Slugs) → reinforcement
+  **rivets** stud the body, one per node, and the barrels & body fatten.
+- **Range** (Scope / Range Finder / Laser Sight) → a faint **sight line** creeps
+  out past the muzzle, one notch longer per node (and the barrel lengthens).
+- **Mind** (Targeting Chip / Threat Sense / Squad Link) → a faint concentric ring
+  (brighter = smarter) **notched with a sensor tick per node**.
+- **Crit** → a small dark inset; **Keystones** → static white **pips** above it.
+
+Collectors reflect their build too: outer ring = Pull (Suction), inner ring = grab
+zone (Reach), maw size = Process (Ingest) with a **tooth per Ingest node**, and the
 speed trail lengthens with Speed.
 
 Units auto-rack into a tidy formation that re-arranges as the count grows, and

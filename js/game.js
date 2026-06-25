@@ -101,18 +101,18 @@
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0,
+      n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };   // n = allocated-node count per branch, drives the per-upgrade visual marks
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
       if (n.kind === "key") { o.multi++; if (n.spec) o[n.spec]++; }   // keystone = +1 multishot AND a ✦ specialization
       // Every bonus ADDS (sums linearly) — nothing compounds, so no runaway.
-      for (const s of n.slots) { const amt = slotAmt(type, s);
-        if (s.p === "x") o[col ? "ingest" : "crit"] += amt;
-        else o[prim[s.p - 1]] += amt; } }
+      for (const s of n.slots) { const amt = slotAmt(type, s), key = s.p === "x" ? (col ? "ingest" : "crit") : prim[s.p - 1];
+        o[key] += amt; if (o.n[key] != null) o.n[key]++; } }
     o.multi = Math.min(o.multi, 6);
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0, n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };
   const uMulti = u => cls(u.type).multi || 0;
   const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
@@ -629,15 +629,21 @@
         ctx.strokeStyle = "#e6e6e6"; ctx.lineWidth = Math.max(1, bw * 0.5); ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
         if (u.flash > 0) { const a = u.flash / 0.08; ctx.fillStyle = "rgba(255,255,255," + a + ")"; ctx.beginPath(); ctx.arc(blen + 1, off, bw * 0.55 + 2 * a, 0, TAU); ctx.fill(); }   // brief white muzzle flash only while firing
       }
+      // RANGE branch (Scope · Range Finder · Laser Sight · Long Barrel): a faint sight line creeps past the muzzle, one notch longer per range node
+      if (c.n.range > 0) { const sl = Math.min(5 + c.n.range * 3.5, 40); ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(blen + 2, 0); ctx.lineTo(blen + 2 + sl, 0); ctx.stroke(); }
       ctx.restore();
       // --- body (size = damage) · distinct per-class silhouette: turret circle · mortar hex · plasma diamond · laser triangle · railgun square ---
       const shp = { mortar: [6, 0], plasma: [4, Math.PI / 4], laser: [3, -Math.PI / 2], railgun: [4, 0] }[u.type];
       const body = r => { if (!shp) { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill(); } else { ctx.beginPath(); for (let k = 0; k < shp[0]; k++) { const a = shp[1] + k / shp[0] * TAU, x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.fill(); } };
       ctx.fillStyle = "#222"; body(bodyR + 3.5);
       ctx.fillStyle = uColor(u); body(bodyR);
+      // DAMAGE branch (Reinforced Rounds · Tungsten Core · Heavy Slugs · Armor Piercing): reinforcement rivets stud the body, one per damage node
+      { const nD = Math.min(c.n.dmg, 9); for (let k = 0; k < nD; k++) { const a = -Math.PI / 2 + k / Math.max(nD, 1) * TAU; ctx.fillStyle = "rgba(0,0,0,0.34)"; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * bodyR * 0.6, p.y + Math.sin(a) * bodyR * 0.6, 1.1, 0, TAU); ctx.fill(); } }
       if (uCrit(u) > 0.2) { ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.beginPath(); ctx.arc(p.x - bodyR * 0.3, p.y - bodyR * 0.3, Math.min(uCrit(u) * 3.5, 3), 0, TAU); ctx.fill(); }   // crit = small dark inset on the body (reads on bright units)
       const iq = Math.min(1, uInt(u));   // Mind = a faint STATIC concentric ring, brighter the smarter — no motion, no colour
-      if (iq > 0.05) { ctx.strokeStyle = "rgba(255,255,255," + (0.1 + 0.35 * iq) + ")"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 5, 0, TAU); ctx.stroke(); }
+      if (iq > 0.05) { ctx.strokeStyle = "rgba(255,255,255," + (0.1 + 0.35 * iq) + ")"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 5, 0, TAU); ctx.stroke();
+        // MIND branch (Targeting Chip · Threat Sense · Squad Link): sensor ticks notch the ring, one per mind node
+        const nM = Math.min(c.n.int, 10); for (let k = 0; k < nM; k++) { const a = -Math.PI / 2 + k / Math.max(nM, 1) * TAU; ctx.beginPath(); ctx.moveTo(p.x + Math.cos(a) * (bodyR + 3.5), p.y + Math.sin(a) * (bodyR + 3.5)); ctx.lineTo(p.x + Math.cos(a) * (bodyR + 6.5), p.y + Math.sin(a) * (bodyR + 6.5)); ctx.stroke(); } }
       if (c.multi) { for (let k = 0; k < c.multi; k++) { const a = -Math.PI / 2 + (k - (c.multi - 1) / 2) * 0.46; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * (bodyR + 8.5), p.y + Math.sin(a) * (bodyR + 8.5), 1.5, 0, TAU); ctx.fill(); } }   // static white pips = keystones (multishot/spec level)
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
       const tot = allocCount(u.type); if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - bodyR - 11); }
@@ -662,6 +668,8 @@
         for (let k = 0; k < 3; k++) { const a = k / 3 * TAU; ctx.beginPath(); ctx.arc(Math.cos(a) * 6, Math.sin(a) * 6, 3.2, 0, TAU); ctx.fill(); }
       } else {
         ctx.rotate(Date.now() / 300); ctx.fillStyle = "#ddd"; ctx.fillRect(-6, -6, 12, 12);
+        // PROCESS/INGEST branch (Quick Gulp · Maw Servo · Devourer): maw teeth, one per Ingest node
+        const nI = Math.min(cls(dr.type).n.ingest, 8); ctx.strokeStyle = "#aaa"; ctx.lineWidth = 1; for (let k = 0; k < nI; k++) { const a = k / nI * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 7, Math.sin(a) * 7); ctx.lineTo(Math.cos(a) * 9.5, Math.sin(a) * 9.5); ctx.stroke(); }
       }
       ctx.restore();
     }
