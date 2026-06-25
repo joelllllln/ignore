@@ -35,7 +35,7 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4, max: 2 },
+    drone:       { name: "Drone",          base: 300,        gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, mode: "chase", sides: 4, max: 4 },
     swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, mode: "swarm", sides: 3, max: 2 },
     collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, mode: "chase", sides: 6, max: 2 },
     magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, mode: "chase", sides: 5, max: 2 },
@@ -49,7 +49,12 @@
   const newUnit = type => ({ type, cd: rnd(0, 0.4) });
   const classList = type => isCol(type) ? S.collectors : S.units;
   const countType = type => classList(type).filter(u => u.type === type).length;
-  const unitBuyCost = type => Math.floor(TY(type).base * Math.pow(2.4, countType(type)));
+  // New units are a MAJOR, paced expense — each costs a rising fraction of the
+  // travel cost of the galaxy where its class unlocks, so extra turrets/drones land
+  // ~15% / 30% / 45% (then 60%) of the way through that galaxy's grind rather than
+  // costing nothing. (The first unit of a later-unlocking class is a smaller 8%.)
+  const UNIT_FRAC = [0.08, 0.15, 0.30, 0.45, 0.60];
+  const unitBuyCost = type => Math.floor(travelCost(TY(type).gal) * UNIT_FRAC[Math.min(countType(type), UNIT_FRAC.length - 1)]);
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -57,36 +62,40 @@
   // mul stats COMPOUND per node (so each node is felt, keystones are big spikes);
   // flat stats (range/crit/collect) add up.
   const MAG = { mul: { min: 1.2, maj: 1.85, key: 3.0 }, rate: { min: 1.28, maj: 2.3, key: 4.5 }, range: { min: 30, maj: 90, key: 220 }, crit: { min: 0.05, maj: 0.16, key: 0.32 }, collect: { min: 6, maj: 18, key: 40 } };
-  // The turret (first defender) and drone (first collector) trees are tuned to feel
-  // TRANSFORMATIVE rather than incremental: every node roughly DOUBLES its stat —
-  // e.g. a fire-rate passive is "Double Barrel" (×2 rate), a damage node ×2 dmg, not
-  // a small % bump. Keystones spike far harder still. Later classes keep the gentler
-  // default curve so the progression up the roster still matters.
-  const MAG_BOOST = {
-    turret: { mul: { min: 2.0, maj: 3.0, key: 5.0 }, rate: { min: 2.0, maj: 3.2, key: 6.0 }, range: { min: 80, maj: 220, key: 520 }, crit: { min: 0.12, maj: 0.30, key: 0.55 }, collect: { min: 6, maj: 18, key: 40 } },
-    drone:  { mul: { min: 2.0, maj: 3.0, key: 5.0 }, rate: { min: 2.0, maj: 3.2, key: 6.0 }, range: { min: 80, maj: 220, key: 520 }, crit: { min: 0.12, maj: 0.30, key: 0.55 }, collect: { min: 16, maj: 48, key: 110 } },
-  };
-  const magFor = type => MAG_BOOST[type] || MAG;
+  // Turret tree: punchy but REINED IN. Passives sit at/under the per-node cost
+  // growth (×1.55) so a full tree can't spiral into a runaway; majors/keystone
+  // still spike. (Earlier these doubled every node and compounded to ×295,000.)
+  const MAG_TURRET = { mul: { min: 1.35, maj: 1.9, key: 3.0 }, rate: { min: 1.4, maj: 2.0, key: 3.0 }, range: { min: 50, maj: 140, key: 320 }, crit: { min: 0.08, maj: 0.20, key: 0.40 } };
+  // Collectors are about SPEED & AGILITY, not becoming stationary magnets. Each
+  // stat gets its own curve: Speed strong, Suction deliberately gentle (and the
+  // radius is hard-capped in cSuction below), Yield moderate, and the x-branch is
+  // INGEST — how fast a collector swallows loot (big loot takes longer, so it
+  // matters most there).
+  const MAG_COL = { speed: { min: 1.6, maj: 2.4, key: 3.6 }, suction: { min: 1.14, maj: 1.38, key: 1.8 }, yield: { min: 1.3, maj: 1.7, key: 2.4 }, ingest: { min: 1.4, maj: 2.0, key: 3.0 } };
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
-    const col = isCol(type), M = magFor(type);
-    if (s.p === "x") return col ? M.collect[s.mag] : M.crit[s.mag];
-    const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
+    if (isCol(type)) {
+      if (s.p === "x") return MAG_COL.ingest[s.mag];                 // x branch = ingestion speed
+      return MAG_COL[COL_PRIM[s.p - 1]][s.mag];                      // speed / suction / yield
+    }
+    const M = type === "turret" ? MAG_TURRET : MAG;
+    if (s.p === "x") return M.crit[s.mag];
+    const key = DEF_PRIM[s.p - 1];
     return key === "range" ? M.range[s.mag] : key === "rate" ? M.rate[s.mag] : M.mul[s.mag];
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, multi: 0 };
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0 };
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
       if (n.kind === "key") o.multi++;                          // each keystone = +1 multishot target (crazy power)
       for (const s of n.slots) { const amt = slotAmt(type, s);
-        if (s.p === "x") { if (col) o.collect += amt; else o.crit += amt; }
+        if (s.p === "x") { if (col) o.ingest *= amt; else o.crit += amt; }   // collectors: x = ingest (multiplicative)
         else { const key = prim[s.p - 1]; if (key === "range") o.range += amt; else o[key] *= amt; } } }
     o.multi = Math.min(o.multi, 5);
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, multi: 0 };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0 };
   const uMulti = u => cls(u.type).multi || 0;
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
   const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg * derived.sdDmg;
@@ -95,9 +104,15 @@
   const uCrit = u => Math.min(0.85, cls(u.type).crit);
   const uCritMul = u => 2.2;
   const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + cls(u.type).range * 0.4 : 0;
-  const cSpeed   = type => COL_TYPES[type].speed   * cls(type).speed;
-  const cSuction = type => COL_TYPES[type].suction * cls(type).suction;
+  // Speed is capped so a maxed Speed tree makes collectors fast & agile, not so
+  // fast they teleport PAST orbs (which used to zero out collection). Suction
+  // (the pull/ring radius) is capped well under the field so collectors must keep
+  // roaming to cover it — they never become stationary field-wide magnets. The
+  // black hole keeps its huge reach.
+  const cSpeed   = type => Math.min(900, COL_TYPES[type].speed * cls(type).speed);
+  const cSuction = type => Math.min(COL_TYPES[type].mode === "hole" ? 900 : 240, COL_TYPES[type].suction * cls(type).suction);
   const cCollect = type => COL_TYPES[type].collect + cls(type).collect;
+  const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
   const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * derived.incomeMul;
   const AGILITY = 0.12;
 
@@ -110,9 +125,9 @@
     laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray", "Hot Lens", "Sunfire"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream", "Fast Cycle", "Lightstorm"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split", "Wide Mirror", "True Aim"], x: ["Crit Focus", "Focal Point", "Vaporize"] },
     railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator", "Tungsten Rod", "Worldbreaker"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo", "Fast Coil", "Volley"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm", "Extended Rail", "Dead Centre"], x: ["Crit Lock", "Penetrator", "One Shot"] },
   };
-  // collector skill webs: a=Speed, b=Suction, c=Yield, x=Grab/Collect
+  // collector skill webs: a=Speed, b=Suction, c=Yield, x=Ingest (loot-swallow speed)
   const COL_SKILLS = {
-    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream", "Quick Servos", "Overdrive"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field", "Strong Coil", "Deep Pull"], c: ["Bigger Scoop", "Compactor", "Refinery", "Cash Sense", "Midas Touch", "Smelter", "Gold Logic"], x: ["Wide Scoop", "Cargo Bay", "Vault"] },
+    drone:       { a: ["Light Frame", "Tuned Rotors", "Boosters", "Ion Thrust", "Slipstream", "Quick Servos", "Overdrive"], b: ["Magnet", "Wide Field", "Tractor Coil", "Graviton Pull", "Event Field", "Strong Coil", "Deep Pull"], c: ["Bigger Scoop", "Compactor", "Refinery", "Cash Sense", "Midas Touch", "Smelter", "Gold Logic"], x: ["Quick Gulp", "Maw Servo", "Devourer"] },
     swarm:       { a: ["Hive Mind", "Sync Wings", "Formation", "Overswarm", "Locust Dash", "Fast Hive", "Blitz"], b: ["Net Cast", "Mesh Field", "Swarm Pull", "Hive Gravity", "Total Sweep", "Wide Mesh", "Dragnet"], c: ["Many Hands", "Bulk Haul", "Hive Vault", "Pack Bonus", "Golden Swarm", "Rich Hive", "Gold Rush"], x: ["Big Net", "Hive Hold", "Treasury"] },
     collector:   { a: ["Servo Boost", "Heavy Treads", "Turbo", "Afterburner", "Warp Frame", "Quick Haul", "Blink Drive"], b: ["Big Magnet", "Wide Maw", "Gravity Plate", "Pull Field", "Vortex", "Strong Maw", "Black Maw"], c: ["Cargo Hold", "Crusher", "Smelter", "Bulk Bonus", "Gold Press", "Rich Hold", "Mint"], x: ["Maw Bay", "Cargo Bay", "Strongbox"] },
     magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash", "Quick Coil", "Overspin"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar", "Strong Dipole", "Pole Reversal"], c: ["Bin", "Pack Rat", "Foundry", "Yield Coil", "Midas Coil", "Rich Bin", "Gold Coil"], x: ["Wide Coil", "Storage Coil", "Bullion"] },
@@ -439,7 +454,7 @@
       if (nd) {
         const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 150 : 240) / (o.weight || 1);
         if (dl < cCollect(nd.type) + 6) {                         // reached: consume over time (big loot = longer; collector parks)
-          o.consume += dt; o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
+          o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
           if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
           if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) burst(o.x, o.y, 8, 70, 2); orbs.splice(i, 1); }
         } else { o.x += (nd.x - o.x) / dl * pull * dt; o.y += (nd.y - o.y) / dl * pull * dt; if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); } }
@@ -671,22 +686,22 @@
     _trees[type] = { nodes, edges: eds, map, adj };
     return _trees[type];
   }
-  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", yield: "yield", collect: "grab" };
+  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", yield: "yield", collect: "grab", ingest: "ingest" };
   function slotText(type, s) {
     const col = isCol(type), amt = slotAmt(type, s);
-    if (s.p === "x") return col ? "+" + amt + " grab" : "+" + Math.round(amt * 100) + "% crit";
+    if (s.p === "x") return col ? "×" + amt.toFixed(2).replace(/\.?0+$/, "") + " ingest" : "+" + Math.round(amt * 100) + "% crit";
     const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
     return key === "range" ? "+" + amt + " rng" : "×" + amt.toFixed(2).replace(/\.?0+$/, "") + " " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => (n.slots || []).map(s => slotText(type, s)).join(" · ");
   // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
-  // speed / suction / yield / grab), plus class & keystone markers.
-  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", speed: "➤", suction: "◉", yield: "❖", collect: "▣" };
+  // speed / suction / yield / ingest), plus class & keystone markers.
+  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", speed: "➤", suction: "◉", yield: "❖", collect: "▣", ingest: "⊛" };
   function nodeIcon(type, n) {
     if (n.kind === "start") return "★";
     if (n.kind === "key") return "✦";
     const s = n.slots[0];
-    if (s.p === "x") return isCol(type) ? STAT_ICON.collect : STAT_ICON.crit;
+    if (s.p === "x") return isCol(type) ? STAT_ICON.ingest : STAT_ICON.crit;
     return STAT_ICON[(isCol(type) ? COL_PRIM : DEF_PRIM)[s.p - 1]] || "•";
   }
   function nodeLabel(type, n) {
@@ -698,7 +713,7 @@
   function statLine(tp) {
     const s = { type: tp };
     return isCol(tp)
-      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> grab · <b>×" + cYield(tp).toFixed(2) + "</b> yield"
+      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>×" + cIngest(tp).toFixed(2) + "</b> ingest · <b>×" + cYield(tp).toFixed(2) + "</b> yield"
       : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "");
   }
   // allocation: a node is allocatable if a connected node is already allocated.
@@ -832,7 +847,7 @@
     plasma: "Heavy long-range bolts. High damage per hit; melts tanky dots.",
     laser: "Rapid low-damage beam. Enormous fire rate shreds swarms and scales hard with crit.",
     railgun: "Slow, devastating shots with the longest range and the biggest single hit.",
-    drone: "Basic collector — chases the nearest cash orb. Small pull & grab; you can field 2.",
+    drone: "Fast, agile collector — chases the nearest cash orb. Its tree is about Speed & Ingest (how quickly it swallows loot), not a big magnet pull. Field up to 4.",
     swarm: "Faster with a wider net — covers more of the field than a lone drone.",
     collector: "Heavy hauler: big pull radius & grab size, higher yield per orb.",
     magnet: "Strong long-range magnetic pull and high yield.",

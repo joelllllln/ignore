@@ -62,10 +62,17 @@ interconnected node map per class:
   target per keystone.
 - Costs climb steeply along a tree (keystones cost far more than passives), so
   plan your route. Every unit of a class shares its tree.
-- The **Turret** tree (your first defender) is tuned to feel *transformative*:
-  every node roughly **doubles** its stat — a fire-rate passive is a literal
-  "double barrel" (×2 rate), a damage node ×2 dmg — instead of a small % bump.
-  Later defender classes keep a gentler per-node curve so the roster still matters.
+- Passive nodes give a solid (but sub-runaway) multiplier; **majors** and
+  **keystones** are where the real spikes live. A full **Turret** tree lands around
+  a ~700× DPS multiplier — strong, but no longer the ×100,000 runaway it briefly was.
+
+### Buying more units
+
+Extra defenders/collectors are a **major, paced expense**, not pocket change. Each
+new unit costs a rising fraction of the **travel cost of the galaxy where its class
+unlocks** — roughly **15% → 30% → 45%** of that galaxy's grind for your 2nd/3rd/4th.
+So in Galaxy 1 a 2nd turret is ~$1.8B, a 3rd ~$3.6B, a 4th ~$5.4B (travel itself is
+$12B): you unlock your roster *as you progress through the galaxy*, not all at once.
 
 ## Collectors
 
@@ -73,15 +80,18 @@ The **COLLECTORS** tab gathers the cash orbs dots drop. Buy more and unlock new
 classes as you travel: **Drone → Drone Swarm → Collector → Magnet → Tractor →
 Singularity** (a black hole that slowly drags every orb, and nearby dots,
 inward). Each collector class has its **own skill web** (Speed / Suction /
-Yield / Grab).
+Yield / **Ingest**).
 
-Like the Turret, the **Drone** tree (your first collector) is tuned to be
-*transformative* — every node roughly **doubles** its Speed / Suction / Yield
-instead of giving a small % bonus. Later collector classes keep the gentler curve.
+Collectors are about **speed and agility**, not becoming stationary magnets:
 
-Big kills drop **heavy loot** a collector must sit on and **consume** (watch the
-ring fill) — small dots are instant, fat ones tie a collector up, so collector
-strength matters.
+- **Speed** is the headline stat (capped so a maxed drone is fast & agile, not so
+  fast it teleports *past* orbs). You can now field up to **4 drones**.
+- **Suction** (the pull/ring radius) grows *gently* and is **hard-capped well under
+  the field**, so a collector always has to keep roaming to cover it.
+- **Ingest** (the 4th branch) is **how fast a collector swallows loot**. Big kills
+  drop **heavy loot** a collector must sit on and consume (watch the ring fill) —
+  small dots are instant, fat ones tie a collector up, so Ingest matters most there.
+- **Yield** multiplies cash per orb.
 
 ## Economy
 
