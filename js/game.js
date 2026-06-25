@@ -192,10 +192,10 @@
 
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
-    { id: "capacity",  tab: "eco", name: "Capacity",   base: 28, mul: 1.50, desc: () => "$" + fmt(derived.capacity) },
-    { id: "value",     tab: "eco", name: "Value",      base: 40, mul: 1.30, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 96, mul: 1.33, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
-    { id: "luck",      tab: "eco", name: "Luck",       base: 120, mul: 1.18, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
+    { id: "capacity",  tab: "eco", name: "Capacity",   base: 20, mul: 1.55, desc: () => "$" + fmt(derived.capacity) },
+    { id: "value",     tab: "eco", name: "Value",      base: 30, mul: 1.42, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" },
+    { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const upCost = u => Math.floor(u.base * Math.pow(u.mul, S.lv[u.id] || 0));
@@ -211,11 +211,10 @@
 
   const GAL_NAMES = ["The Void", "Azure", "Ember", "Verdant", "Cobalt", "Crimson", "Amber", "Violet", "Frost", "Nova", "Abyss"];
   const galName = g => GAL_NAMES[(g - 1) % GAL_NAMES.length] + (g > GAL_NAMES.length ? " " + g : "");
-  // Travel is a hard, escalating wall, but tuned to LINEAR-ish income: ~2 days for
-  // the first jump, ramping gently (≈×3/galaxy with a mild exponent) to a few days
-  // each by the late galaxies — NOT the old super-exponential curve that hit 8 years
-  // per jump once builds went additive. Rebirth/Star Dust still helps you outpace it.
-  const travelCost = g => Math.floor(1.2e10 * Math.pow(3, Math.pow(g - 1, 1.1)));
+  // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
+  // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/galaxy) to a few
+  // days each by the late galaxies. Rebirth/Star Dust helps you outpace it.
+  const travelCost = g => Math.floor(5e9 * Math.pow(3.2, Math.pow(g - 1, 1.12)));
   const enemyHpMul = g => Math.pow(2.1, g - 1);
   const galValueMul = g => Math.pow(2.2, g - 1);
   const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
@@ -815,7 +814,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 8 * Math.pow(1.25, allocCount(type)) * k); }   // ×2 cost; gentle growth so the big trees stay fillable over the long game
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 3 * Math.pow(1.33, allocCount(type)) * k); }   // cheap early (rewarding start), STEEP growth: deep trees are a long progressive grind (the main pacing wall)
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
