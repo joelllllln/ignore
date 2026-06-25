@@ -57,7 +57,7 @@
   // cheap (~$1k in G1) and scales the 4th up into the mid-galaxy ($100k+), all well
   // under the travel wall — instead of the nonsensical flat 15%·12B = $1.8B.
   const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
-  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * Math.pow(1.7, countType(type)));   // planet-local, geometric in count
+  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * Math.pow(1.5, countType(type)));   // planet-local, geometric in count
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -386,7 +386,7 @@
     { p: 3,  key: "splitter",  name: "Cinder Brood",     hp: 1.1,  val: 1.0, weight: 1.0, splits: 2, maxGen: 3 },          // splits again and again across generations
     { p: 4,  key: "grower",    name: "Hearth Bloat",     hp: 1.2,  val: 1.3, weight: 0.9, grow: 1 },                       // swells bigger & richer the longer it lives
     { p: 5,  key: "shield",    name: "Azure Bastion",    hp: 1.0,  val: 1.5, weight: 0.9, shield: 0.7, reflect: 0.3 },     // front shield soaks/reflects shots
-    { p: 6,  key: "healer",    name: "Verdant Mender",   hp: 1.3,  val: 1.6, weight: 0.8, regen: 0.05, healAura: 1 },      // heals itself AND nearby dots
+    { p: 6,  key: "healer",    name: "Verdant Mender",   hp: 1.3,  val: 1.6, weight: 0.8, regen: 0.03, healAura: 1 },      // heals itself AND nearby dots
     { p: 7,  key: "orbiter",   name: "Cobalt Sentinel",  hp: 1.3,  val: 1.5, weight: 0.8, sat: 3, satGuard: 1 },           // orbiting satellites shield the core
     { p: 8,  key: "flock",     name: "Mistral Gale",     hp: 0.7,  val: 1.4, weight: 1.0, speed: 1.7, flock: 1 },          // flocks together (boids)
     { p: 9,  key: "cloak",     name: "Halcyon Mirage",   hp: 1.0,  val: 1.9, weight: 0.8, cloak: 1 },                      // cloaks invisible & untargetable in bursts
@@ -600,14 +600,14 @@
       if (d.phase !== undefined) { d.phase += dt; d.phased = (d.phase % 2.4) < 1.0; }
       if (d.zig !== undefined) { d.zig += dt; if (d.zig > 0.35) { d.zig = 0; const sp = Math.hypot(d.vx, d.vy) || 1, a = Math.random() * TAU; d.vx = Math.cos(a) * sp; d.vy = Math.sin(a) * sp; } }
       if (d.grow !== undefined) { d.grow += dt; const f = 1 + Math.min(d.grow * 0.05, 1.4); d.r = d.r0 * f; d.value = Math.round(d.value0 * f * f); }                                                       // Hearth swells bigger & richer
-      if (d.healAura !== undefined) { d.healAura += dt; if (d.healAura > 0.6) { d.healAura = 0; for (const o of dots) { if (o === d || o.dead) continue; if ((o.x - d.x) ** 2 + (o.y - d.y) ** 2 < 9025 && o.hp < o.maxHp) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.06); } } }   // Verdant mends nearby dots
+      if (d.healAura !== undefined) { d.healAura += dt; if (d.healAura > 0.9) { d.healAura = 0; for (const o of dots) { if (o === d || o.dead) continue; if ((o.x - d.x) ** 2 + (o.y - d.y) ** 2 < 9025 && o.hp < o.maxHp) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.035); } } }   // Verdant mends nearby dots
       if (d.armorUp !== undefined) { d.armorUp += dt; if (d.hit <= 0) d.shield = Math.min(d.shieldMax, d.shield + d.shieldMax * 0.2 * dt); }                                                              // Frost regrows armor
       if (d.cloak !== undefined) { d.cloak += dt; d.cloaked = (d.cloak % 3.0) < 1.4; }                                                                                                                    // Halcyon cloaks invisible
       if (d.blink !== undefined) { d.blink += dt; if (d.blink > 1.6) { d.blink = 0; burst(d.x, d.y, 5, 50, 1.5); d.bx = d.x; d.by = d.y; d.x = clamp(d.x + rnd(-95, 95), 30, W - 30); d.y = clamp(d.y + rnd(-95, 95), 50, H - 130); } }   // Wraith teleports
       if (d.flock) { let ax = 0, ay = 0, cx = 0, cy = 0, n = 0; for (const o of dots) { if (o === d || !o.flock) continue; const dx = o.x - d.x, dy = o.y - d.y, q = dx * dx + dy * dy; if (q < 8100) { ax += o.vx; ay += o.vy; cx += o.x; cy += o.y; n++; if (q < 676) { d.vx -= dx * 0.05; d.vy -= dy * 0.05; } } } if (n) { d.vx += (ax / n - d.vx) * 0.02 + (cx / n - d.x) * 0.004; d.vy += (ay / n - d.vy) * 0.02 + (cy / n - d.y) * 0.004; } }   // Mistral flocks (boids)
-      if (d.gravity) for (const o of orbs) { const dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 19600) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 95 * dt; o.y += dy / dl * 95 * dt; } }   // Abyss drags loot away from collectors
-      if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 22500) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 135 * dt; o.y += dy / dl * 135 * dt; if (q < (d.r + 9) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.14); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals
-      if (d.spawner !== undefined) { d.spawner += dt; if (d.spawner > 2.6 && dots.length < cap) { d.spawner = 0; const hp = d.maxHp * 0.18, mr = Math.max(5, d.r0 * 0.5); dots.push({ x: d.x + rnd(-14, 14), y: d.y + rnd(-14, 14), vx: rnd(-55, 55), vy: rnd(-55, 55), hp, maxHp: hp, value: Math.max(1, Math.round((d.value0 || d.value) * 0.18)), value0: 1, r: mr, r0: mr, tier: 0, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" }); burst(d.x, d.y, 4, 40, 1.2); } }   // Null Spawn births minions
+      if (d.gravity) for (const o of orbs) { const dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 19600) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 55 * dt; o.y += dy / dl * 55 * dt; } }   // Abyss drags loot away from collectors
+      if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 22500) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 135 * dt; o.y += dy / dl * 135 * dt; if (q < (d.r + 9) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.06); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals
+      if (d.spawner !== undefined) { d.spawner += dt; if (d.spawner > 3.8 && dots.length < cap) { d.spawner = 0; const hp = d.maxHp * 0.18, mr = Math.max(5, d.r0 * 0.5); dots.push({ x: d.x + rnd(-14, 14), y: d.y + rnd(-14, 14), vx: rnd(-55, 55), vy: rnd(-55, 55), hp, maxHp: hp, value: Math.max(1, Math.round((d.value0 || d.value) * 0.18)), value0: 1, r: mr, r0: mr, tier: 0, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" }); burst(d.x, d.y, 4, 40, 1.2); } }   // Null Spawn births minions
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
       else { d.x += d.vx * dt; d.y += d.vy * dt; if (d.x < 30 || d.x > W - 30) d.vx *= -1; if (d.y < 50 || d.y > H - 130) d.vy *= -1; d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130); }
     }
@@ -1120,14 +1120,24 @@
     const conqHere = planetMeta(S.galaxy).conquered || S.free;
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span>"
-      : reached ? "<button id='gi-jump'>↩ Jump here</button>"   // revisit a conquered planet (manage your empire)
+      : reached ? "<button id='gi-jump'>▶ Play this world</button>"   // jump in and play your save on this planet
       : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>🔒 Conquer " + galName(S.galaxy) + " first</span>")
       : "<span class='gi-tag'>🔒 Locked</span>";
     const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g), pv = S.vault[g];
-    const curLine = "<div class='gi-unlock'>💠 Currency: <b>" + curName(g) + "</b>" + (pv && pv.conquered ? " · conquered · +" + fmt(pv.bgRate || 0) + "/s idle · bank " + fmt(pv.cash || 0) : "") + "</div>";
+    // per-planet progression: currency bank, idle rate, build, conquer status
+    const bank = current ? S.cash : (pv ? pv.cash || 0 : 0);
+    const nDef = current ? S.units.length : (pv && pv.units ? pv.units.length : 0);
+    const nCol = current ? S.collectors.length : (pv && pv.collectors ? pv.collectors.length : 0);
+    const nNodes = (() => { const cn = current ? S.classNodes : (pv ? pv.classNodes : null); let n = 0; if (cn) for (const k in cn) n += Object.keys(cn[k] || {}).length; return n; })();
+    const prog = current ? (planetMeta(g).conquered ? "✓ conquered" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer")
+      : (pv && pv.conquered ? "✓ conquered" : (reached ? "visited — not conquered" : "unexplored"));
+    const stats = "<div class='gi-unlock'>💠 <b>" + curName(g) + "</b> · bank " + fmt(bank) +
+      (pv && pv.conquered ? " · <b>+" + fmt(pv.bgRate || 0) + "/s</b> idle" : "") +
+      (nDef + nCol > 0 ? " · build " + nDef + "⚔ " + nCol + "✦ " + nNodes + "◆" : "") +
+      "<br>" + prog + "</div>";
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
-      curLine +
+      stats +
       "<div class='gi-unlock'>☣ Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
     $("gm-info").classList.add("show");
@@ -1369,6 +1379,7 @@
     showNodeInfo(onward.length === 1 ? onward[0] : node);
   };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
+  $("gm-exchange").onclick = () => { openExchange(); $("exchange").classList.add("show"); };
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
