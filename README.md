@@ -112,9 +112,10 @@ Your cash *multiplier* is **Value** in the Economy tab — collectors just gathe
 
 The **ECONOMY** tab multiplies the other pillars:
 
-- **Value** — a gentle **+5% cash per dot** per level, and the difficulty/craziness
-  dial (see above): the main reason to invest is ramping dot *menace* — tougher dots,
-  armored elites and exotic kinds — not raw income.
+- **Value** — a **flat +8% cash per dot** per level (additive — it doesn't compound,
+  so it's strong early and never runs away), and the difficulty/craziness dial (see
+  above): a big reason to invest is ramping dot *menace* — tougher dots, armored
+  elites and exotic kinds.
 - **Spawn Rate** — more dots per second. With Value softened, this is now a
   primary income lever (more targets → more kills → more cash), up to the
   on-screen cap — lean on it and your collectors to keep up.

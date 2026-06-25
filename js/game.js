@@ -270,8 +270,8 @@
     derived.sdDmg = 1 + 0.25 * m.sd.sdDmg;
     derived.sdFire = (1 + 0.15 * m.sd.sdFire) * (frenzyT > 0 ? 5 : 1);
     derived.incomeMul = 1 + 0.25 * m.sd.sdInc;
-    derived.capacity = 200 * Math.pow(1.60, L.capacity);
-    derived.valueMul = Math.pow(1.05, L.value);     // gentle +5% cash per level (also drives dot "menace")
+    derived.capacity = 400 * Math.pow(1.60, L.capacity);   // higher base so the very start isn't ceiling-blocked; still exponential (must hold travel cash)
+    derived.valueMul = 1 + 0.08 * L.value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace"
     derived.spawnPerSec = 0.9 + 2.0 * L.spawnRate;   // beefed: spawn is now a primary income lever (covers the softer Value)
     derived.luck = Math.min(0.5, 0.001 * L.luck);    // +0.1% chance of a rare 9× SPECIAL dot per Luck level
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
@@ -901,7 +901,7 @@
     tractor: "Very wide tractor beam that sweeps huge areas of orbs.",
     singularity: "Black hole — hovers centre-field and slowly drags EVERY orb (and nearby dots) inward. Huge reach & yield.",
     capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
-    value: "+5% cash per dot per level, and ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
+    value: "A FLAT +8% cash per dot per level (additive — it doesn't compound, so no runaway). Also ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
     spawnRate: "More dots appear per second = more targets and income, up to the on-screen cap.",
     luck: "Chance for rare SPECIAL dots worth about 9× normal cash. A slow +0.1% per level.",
     frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
