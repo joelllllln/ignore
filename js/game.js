@@ -49,12 +49,16 @@
   const newUnit = type => ({ type, cd: rnd(0, 0.4) });
   const classList = type => isCol(type) ? S.collectors : S.units;
   const countType = type => classList(type).filter(u => u.type === type).length;
-  // New units are a MAJOR, paced expense — each costs a rising fraction of the
-  // travel cost of the galaxy where its class unlocks, so extra turrets/drones land
-  // ~15% / 30% / 45% (then 60%) of the way through that galaxy's grind rather than
-  // costing nothing. (The first unit of a later-unlocking class is a smaller 8%.)
-  const UNIT_FRAC = [0.08, 0.15, 0.30, 0.45, 0.60];
-  const unitBuyCost = type => Math.floor(travelCost(TY(type).gal) * UNIT_FRAC[Math.min(countType(type), UNIT_FRAC.length - 1)]);
+  // Units are paced GEOMETRICALLY across the galaxy, not as a flat % of its travel
+  // cost. Income grows exponentially, so "15% of the way through" means 15% of the
+  // way up the cash LOG-scale: base*(travel/base)^frac. That keeps a 2nd turret
+  // cheap (~$1k in G1) and scales the 4th up into the mid-galaxy ($100k+), all well
+  // under the travel wall — instead of the nonsensical flat 15%·12B = $1.8B.
+  const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
+  const unitBuyCost = type => {
+    const t = TY(type), f = UNIT_FRAC[Math.min(countType(type), UNIT_FRAC.length - 1)];
+    return Math.floor(t.base * Math.pow(travelCost(t.gal) / t.base, f));
+  };
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].

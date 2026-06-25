@@ -68,11 +68,13 @@ interconnected node map per class:
 
 ### Buying more units
 
-Extra defenders/collectors are a **major, paced expense**, not pocket change. Each
-new unit costs a rising fraction of the **travel cost of the galaxy where its class
-unlocks** — roughly **15% → 30% → 45%** of that galaxy's grind for your 2nd/3rd/4th.
-So in Galaxy 1 a 2nd turret is ~$1.8B, a 3rd ~$3.6B, a 4th ~$5.4B (travel itself is
-$12B): you unlock your roster *as you progress through the galaxy*, not all at once.
+Extra defenders/collectors are paced **geometrically** across the galaxy. Income
+grows exponentially, so costs are spaced on the cash *log-scale* — `base ×
+(travel ÷ base)^frac` — landing each new unit roughly **15% → 30% → 45%** of the
+way through that galaxy *in time*, not as a flat slice of the final number. In
+Galaxy 1 (travel $12B) a 2nd turret is ~**$1K**, a 3rd ~**$19K**, a 4th ~**$326K**
+(drones ~$4K / $57K / $790K): cheap to start, a real investment by the 4th, and
+always well under the travel wall — so you unlock your roster *as* you progress.
 
 ## Collectors
 
