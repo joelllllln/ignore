@@ -1213,37 +1213,58 @@
   }
   // interactive pseudo-3D black & white star map
   const GMap = {
-    open: false, yaw: 0.5, pitch: -0.82, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
-    reset() { this.yaw = 0.5; this.pitch = -0.82; this.zoom = 0.7; },
-    ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [], stars: [], sel: 0,
+    open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
+    cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
+    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.7; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
+    ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, midX: 0, midY: 0, rotMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
-      this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
+      this.cv.addEventListener("contextmenu", e => e.preventDefault());
+      this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; this.rotMode = e.shiftKey || e.button === 2; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; } });
       this.cv.addEventListener("pointermove", e => {
         if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.4, 3.5); this.pinchD = d; this.moved = true; this.lx = p.x; this.ly = p.y; return; }
-        const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 6) this.moved = true; this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.2, 1.2); this.lx = p.x; this.ly = p.y;
+        if (this.ptrs.size >= 2) {   // two fingers: pinch zoom + twist/move rotate
+          const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
+          if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.25, 4.5); this.pinchD = d;
+          if (this.midX) { this.yaw += (mx - this.midX) * 0.008; this.pitch = clamp(this.pitch - (my - this.midY) * 0.008, -1.3, 0.15); }
+          this.midX = mx; this.midY = my; this.moved = true; this.lx = p.x; this.ly = p.y; return;
+        }
+        const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 4) this.moved = true;
+        if (this.rotMode) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.3, 0.15); }   // shift/right-drag rotates
+        else this.pan(dx, dy);                                                                                  // drag freely moves around the galaxy
+        this.lx = p.x; this.ly = p.y;
       });
-      const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; } if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
-      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; });
-      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.4, 3.5); }, { passive: false });
+      const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = 0; if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; } if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
+      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = 0; });
+      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.25, 4.5); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
-    show() { this.open = true; this.resize(); if (!this.stars.length) for (let i = 0; i < 90; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); $("gm-info").classList.remove("show"); },
+    show() { this.open = true; this.resize(); if (!this.stars.length) for (let i = 0; i < 120; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show"); },
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
-    proj(x, y, z) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
-    // THREE solar systems sit in a row; each planet orbits its own sun on a ring
-    // in the XZ plane. Positions drift with this.t. The global planet index g maps
-    // to (system, local) via PLANET_SYS / PLANET_LOCAL.
-    SYS_GAP: 150,
-    orbitR(local) { return 20 + local * 8; },
-    sunCenter(si) { return { x: (si - (SYSTEMS.length - 1) / 2) * this.SYS_GAP, y: 0, z: 0 }; },
-    planetWorld(g) {
-      const i = planetIdx(g), si = PLANET_SYS[i], L = PLANET_LOCAL[i], ctr = this.sunCenter(si);
-      const R = this.orbitR(L), sp = 0.2 / Math.sqrt(L + 1), ang = L * 2.39963 + si * 1.7 + this.t * sp;
-      return { x: ctr.x + Math.cos(ang) * R, y: 0, z: ctr.z + Math.sin(ang) * R };
+    focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } },
+    pan(dx, dy) { const f = 0.5 * this.zoom, cy = Math.cos(this.yaw), sy = Math.sin(this.yaw), wx = -dx / f, wz = -dy / (f * 0.7); this.cx += wx * cy - wz * sy; this.cz += wx * sy + wz * cy; this.tcx = this.cx; this.tcz = this.cz; },
+    proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
+    // THREE widely-spaced solar systems (a big triangle). Each planet rides its OWN
+    // orbit: a distinct ellipse, inclination (tilt) and orientation, seeded by planet.
+    SYS_POS: [{ x: -680, z: -150 }, { x: 0, z: 300 }, { x: 680, z: -150 }],
+    sunCenter(si) { const p = this.SYS_POS[si] || this.SYS_POS[0]; return { x: p.x, y: 0, z: p.z }; },
+    orbitParams(g) {
+      if (!this._orb) this._orb = {}; if (this._orb[g]) return this._orb[g];
+      const i = planetIdx(g), L = PLANET_LOCAL[i], si = PLANET_SYS[i];
+      const h = Math.imul(g + si * 131 + 7, 2654435761) >>> 0, r = k => ((h >>> (k * 5)) & 31) / 31;
+      const base = 60 + L * 40;                                  // way more spaced out
+      const a = base * (0.8 + r(0) * 0.6), b = base * (0.5 + r(1) * 0.55);   // ellipse semi-axes
+      const inc = (r(2) - 0.5) * 1.3, node = r(3) * TAU, ph = L * 2.1 + r(4) * TAU, sp = (0.08 + r(5) * 0.06) / Math.sqrt(L + 1) * (r(0) < 0.5 ? -1 : 1);
+      return this._orb[g] = { a, b, inc, node, ph, sp };
     },
+    orbitPoint(g, ang) {
+      const o = this.orbitParams(g), ctr = this.sunCenter(PLANET_SYS[planetIdx(g)]);
+      let px = Math.cos(ang) * o.a, pz = Math.sin(ang) * o.b, py = pz * Math.sin(o.inc); pz *= Math.cos(o.inc);
+      const cn = Math.cos(o.node), sn = Math.sin(o.node);
+      return { x: ctr.x + px * cn - pz * sn, y: py, z: ctr.z + px * sn + pz * cn };
+    },
+    planetWorld(g) { const o = this.orbitParams(g); return this.orbitPoint(g, o.ph + this.t * o.sp); },
     sun(p, lit, label) {
       const c = this.c, r = clamp(12 * p.f, 5, 24);
       const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.6);
@@ -1265,35 +1286,40 @@
     render(dt) {
       if (!this.cv) return; const c = this.c;
       this.t += dt;
+      this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
       c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.2 + 0.35 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
       const curSys = PLANET_SYS[planetIdx(S.galaxy)];
-      // orbit rings — one per planet, around its own sun
+      this.hit = [];
+      // each planet's own elliptical/inclined orbit ring
       for (let g = 1; g <= TOTAL_PLANETS; g++) {
-        const i = planetIdx(g), ctr = this.sunCenter(PLANET_SYS[i]), R = this.orbitR(PLANET_LOCAL[i]), cur = g === S.galaxy, seld = g === this.sel;
+        const cur = g === S.galaxy, seld = g === this.sel;
         c.beginPath();
-        for (let k = 0; k <= 60; k++) { const a = k / 60 * TAU, pr = this.proj(ctr.x + Math.cos(a) * R, 0, ctr.z + Math.sin(a) * R); k ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); }
-        c.globalAlpha = seld ? 0.85 : cur ? 0.5 : 0.13; c.strokeStyle = "#fff"; c.lineWidth = seld ? 2.5 : cur ? 2 : 1; c.stroke();
+        for (let k = 0; k <= 64; k++) { const w = this.orbitPoint(g, k / 64 * TAU), pr = this.proj(w.x, w.y, w.z); k ? c.lineTo(pr.x, pr.y) : c.moveTo(pr.x, pr.y); }
+        c.globalAlpha = seld ? 0.85 : cur ? 0.5 : 0.12; c.strokeStyle = "#fff"; c.lineWidth = seld ? 2.5 : cur ? 2 : 1; c.stroke();
       }
       c.globalAlpha = 1;
-      // suns behind, far-to-near
+      // suns behind (far-to-near) — and register each as a tappable focus target
       SYSTEMS.map((s, si) => ({ si, p: this.proj(this.sunCenter(si).x, 0, this.sunCenter(si).z) }))
-        .sort((a, b) => b.p.z - a.p.z).forEach(s => this.sun(s.p, s.si === curSys, SYSTEMS[s.si].name));
+        .sort((a, b) => b.p.z - a.p.z).forEach(s => { this.sun(s.p, s.si === curSys, SYSTEMS[s.si].name); this.hit.push({ sun: s.si, x: s.p.x, y: s.p.y, r: Math.max(clamp(12 * s.p.f, 5, 24) * 2.2, 34) }); });
       // planets, far-to-near (painter's depth sort)
       const pts = []; for (let g = 1; g <= TOTAL_PLANETS; g++) { const w = this.planetWorld(g); pts.push({ g, p: this.proj(w.x, w.y, w.z) }); }
-      pts.sort((a, b) => b.p.z - a.p.z); this.hit = [];
+      pts.sort((a, b) => b.p.z - a.p.z);
       for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
         const r = clamp(7 * p.f, 3, 15), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
-        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 8, 20) });
+        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 7, 18) });
         this.planet(p, r, bright, current, g === this.sel);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
         c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - r - 7);
         c.globalAlpha = 1;
       }
     },
-    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
+    tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } }
+      if (!best) return;
+      if (best.sun != null) { this.focusSystem(best.sun); this.sel = null; $("gm-info").classList.remove("show"); }   // tap a sun -> recenter on its system
+      else { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
   // ---- PLANET LAYERS: each planet is its own run; vault holds conquered planets' builds + idle rate ----
   function planetMeta(g) { return S.vault[g] || (S.vault[g] = { conquered: false, earned: 0, bgRate: 0 }); }
