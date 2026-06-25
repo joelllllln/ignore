@@ -221,10 +221,27 @@ Each runs on a cooldown — save them for dense or high-value screens.
   orbits its own sun on a white ring, slowly drifting. Drag to rotate, scroll/
   pinch to zoom, tap a planet to inspect or travel. All weapon/collector classes
   unlock by the time you cross Cygnus.
-- **Travel** to the next planet is a large cash spend on a **super-exponential**
-  curve — this is a deliberately **hardcore, multi-day** game. The first jump is
-  on the order of ~5 billion cash and each subsequent jump escalates sharply
-  (hours → days → weeks for later planets).
+### Planet Layers — every planet is its own run
+
+Each planet has its **own currency** and is a **self-contained mini-run** — all
+costs are rebased to that planet's scale, so every planet plays the same shape in
+bigger numbers (no single curve that walls out). The loop:
+
+- **Land & build from scratch** with a little starter currency, using everything
+  you've *unlocked* so far (classes stay unlocked permanently — your knowledge
+  carries, your build doesn't).
+- **Earn that planet's currency** by killing its native race until you hit the
+  **conquer** bar — that unlocks **Travel**.
+- **Conquer → it joins your background empire**, earning its currency *passively*
+  (online **and** offline) at the rate you left it. **Revisit** any conquered
+  planet to upgrade it and raise that idle rate.
+- **⇄ Exchange** converts a background planet's currency into the one you're
+  spending now (value-preserving, 10% fee) — so a fresh landing is a *running
+  start*, never a grind reset.
+
+Because each planet balances against itself, conquer time stays roughly constant
+planet-to-planet instead of exploding — the cross-planet growth lives in your
+**background portfolio**, which is additive and parallel.
 
 ## Idle, offline & saving
 

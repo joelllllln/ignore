@@ -57,10 +57,7 @@
   // cheap (~$1k in G1) and scales the 4th up into the mid-galaxy ($100k+), all well
   // under the travel wall — instead of the nonsensical flat 15%·12B = $1.8B.
   const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
-  const unitBuyCost = type => {
-    const t = TY(type), f = UNIT_FRAC[Math.min(countType(type), UNIT_FRAC.length - 1)];
-    return Math.floor(2 * t.base * Math.pow(travelCost(t.gal) / t.base, f));   // ×2: units cost twice as much
-  };
+  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * Math.pow(1.7, countType(type)));   // planet-local, geometric in count
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -234,7 +231,7 @@
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
-  const upCost = u => Math.floor(u.base * Math.pow(u.mul, S.lv[u.id] || 0));
+  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * Math.pow(u.mul, S.lv[u.id] || 0));   // planet-local: ~2 plain-dot drops to start, grows by mul
 
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
@@ -244,6 +241,22 @@
   const galValueMul = g => Math.pow(2.2, g - 1);
   const galSpawnMul = g => 1 + (g - 1) * 0.95;          // far more dots in later galaxies
   const galCap = g => Math.min(150 + g * 90, 720);     // more dots allowed on-field to feed the higher spawn rate
+
+  /* ====================== PLANET LAYERS (per-planet economy) ======================
+     Each planet has its OWN currency and is its OWN fresh run. eco(g) is that planet's
+     natural currency scale (what a plain dot drops there), so EVERY cost is rebased to
+     eco(g): a planet plays the same shape in bigger numbers. Conquer a planet -> it joins
+     your BACKGROUND empire, earning its currency passively (online + offline) at the rate
+     you left it; revisit to upgrade it. The EXCHANGE converts any planet's currency into
+     the one you're spending now, so a fresh landing is a running start, never a grind. */
+  const eco = g => 15 * Math.pow(2.2, Math.max(1, g) - 1);          // currency scale of planet g (= a plain dot's drop)
+  const CUR_NAMES = ["Dust","Sparks","Slag","Embers","Brine","Spores","Cobalt","Gusts","Glimmer","Charge","Shade","Rime","Shards","Wisps","Ash","Voidstone","Bile","Null"];
+  const curName = g => CUR_NAMES[Math.min(Math.max(g,1),CUR_NAMES.length)-1] || "Null";
+  const curWorth = g => eco(g);                                      // exchange value of one unit of planet g's currency
+  const conquerTarget = g => Math.ceil(eco(g) * 80);               // currency you must EARN on a planet to conquer it (unlock travel + background) — reached in a few min as you upgrade
+  const BG_EFF = 0.4;                                                // a conquered planet earns at this fraction of its live rate, idle
+  // per-class buy-cost factors (× eco(active) × 1.9^count) — keeps class differentiation but planet-local
+  const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650 };
   // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
   // not a collector yield multiplier. DROP_BASE is the cash a plain dot drops;
   // TOUGH_POW makes reward scale SUPER-linearly with a dot's toughness, so tanky
@@ -263,7 +276,7 @@
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
-    return { cash: 0, galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0 };
+    return { cash: Math.floor(eco(1) * 45), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {} };
   }
   // trim a unit/collector list down to each type's max (enforces caps on load)
   function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type, m = TY(t) ? TY(t).max : 99; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }
@@ -275,7 +288,7 @@
   function freshMeta() { return { totalEver: 0, stats: freshStats() }; }
   const stat = () => META.stats;
 
-  let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0;
+  let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
   let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0;
@@ -311,7 +324,7 @@
   function recompute() {
     const L = S.lv, m = META;
     derived.incomeMul = 1;
-    derived.capacity = 400 * Math.pow(1.60, L.capacity);   // higher base so the very start isn't ceiling-blocked; still exponential (must hold travel cash)
+    derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity);   // planet-local cash ceiling (scales with the planet's currency)
     derived.valueMul = 1 + 0.08 * L.value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace"
     derived.spawnPerSec = 0.9 + 2.0 * L.spawnRate;   // beefed: spawn is now a primary income lever (covers the softer Value)
     derived.luck = Math.min(0.5, 0.001 * L.luck);    // +0.1% chance of a rare 9× SPECIAL dot per Luck level
@@ -321,7 +334,7 @@
   /* ----------------------------- save ---------------------------- */
   const KEY = "ids_clone.v2";
   let wiping = false;
-  function save() { if (wiping) return; try { localStorage.setItem(KEY, JSON.stringify({ S, META, ts: Date.now(), cps })); } catch (e) {} }
+  function save() { if (wiping) return; try { if (S && S.vault) { const v = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }); v.earned = curEarned; } localStorage.setItem(KEY, JSON.stringify({ S, META, ts: Date.now(), cps })); } catch (e) {} }
   function wipeSave() { wiping = true; try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
   function load() {
     S = fresh(); META = freshMeta(); let off = null;
@@ -334,9 +347,15 @@
           META.stats.kills = Object.assign(freshStats().kills, st.kills || {});
           META.stats.collected = Object.assign(freshStats().collected, st.collected || {});
           META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {}); }
-        if (d.ts && d.cps > 0) { const e = clamp((Date.now() - d.ts) / 1000, 0, 8 * 3600); if (e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; } }
+        if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, 12 * 3600);
+          if (d.cps > 0 && e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; }
+          // background empire kept earning while away
+          if (S.vault) for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) v.cash = (v.cash || 0) + v.bgRate * e; }
+        }
       }
     } catch (e) {}
+    if (!S.vault) S.vault = {};
+    curEarned = (S.vault[S.galaxy] && S.vault[S.galaxy].earned) || 0;
     recompute();
     if (off) { S.cash = Math.min(derived.capacity, S.cash + off.gain); S._welcome = off; }
   }
@@ -540,7 +559,7 @@
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; if ((o.x - x) ** 2 + (o.y - y) ** 2 > (26 + (o.r0 || 4)) ** 2) continue;
       const got = Math.max(1, Math.round(o.value * derived.incomeMul));
-      S.cash = Math.min(derived.capacity, S.cash + got); S.totalRun += got; META.totalEver += got;
+      S.cash = Math.min(derived.capacity, S.cash + got); S.totalRun += got; META.totalEver += got; curEarned += got;
       fxEarn += got; fxEarnX = o.x; fxEarnY = o.y - 6; burst(o.x, o.y, o.big ? 9 : 5, 80, 2); spark(o.x, o.y);
       orbs.splice(i, 1);
     }
@@ -633,7 +652,10 @@
       }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
-    if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; }
+    if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
+      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, cps * BG_EFF); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED"); flashAdd(0.4); shakeAdd(3); } }
+    // background empire: every conquered, non-active planet keeps earning its own currency
+    for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) v.cash = (v.cash || 0) + v.bgRate * dt; }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+$" + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
@@ -762,17 +784,20 @@
 
   /* ----------------------------- HUD ----------------------------- */
   function syncHUD() {
-    $("ui-cash").textContent = fmt(S.cash); $("ui-cap").textContent = " / " + fmt(derived.capacity);
-    $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the cash ceiling
+    let bg = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered) bg += v.bgRate || 0; }
+    $("ui-cash").textContent = fmt(S.cash); $("ui-cap").textContent = " " + curName(S.galaxy) + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");
+    $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
-    const tc = travelCost(S.galaxy);
-    $("galaxy-fill").style.width = clamp(S.cash / tc, 0, 1) * 100 + "%";
-    $("btn-travel").textContent = "TRAVEL ▸ $" + fmt(tc); $("btn-travel").classList.toggle("ready", S.cash >= tc);
+    const tgt = conquerTarget(S.galaxy), conq = planetMeta(S.galaxy).conquered;
+    $("galaxy-fill").style.width = clamp(conq ? 1 : curEarned / tgt, 0, 1) * 100 + "%";
+    const ready = conq || S.free;
+    $("btn-travel").textContent = ready ? "TRAVEL ▸" : "CONQUER " + Math.floor(clamp(curEarned / tgt, 0, 1) * 100) + "%";
+    $("btn-travel").disabled = !ready; $("btn-travel").classList.toggle("ready", ready);
     for (const k in ABIL_CD) { $("ab-" + k).disabled = abil[k] > 0; $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : ""; }
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {
-        const d = TY(id), locked = !S.free && S.galaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;
+        const d = TY(id), locked = !S.free && S.peakGalaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;
         row.desc.textContent = n + "/" + d.max + (locked ? "" : " · " + d.name);
         if (locked) { row.buy.textContent = "🔒 G" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
         else if (full) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.add("maxed"); }
@@ -786,8 +811,8 @@
     }
     // tab badges
     const aff = { def: false, drone: false, eco: false };
-    for (const t of DEF_ORDER) if (S.free || (S.galaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.def = true;
-    for (const t of COL_ORDER) if (S.free || (S.galaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.drone = true;
+    for (const t of DEF_ORDER) if (S.free || (S.peakGalaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.def = true;
+    for (const t of COL_ORDER) if (S.free || (S.peakGalaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.drone = true;
     for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
     for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
   }
@@ -820,7 +845,7 @@
   }
   function buyUnit(type) {
     const list = classList(type);
-    if ((!S.free && S.galaxy < TY(type).gal) || countType(type) >= TY(type).max) return;   // free mode ignores the planet gate
+    if ((!S.free && S.peakGalaxy < TY(type).gal) || countType(type) >= TY(type).max) return;   // unlocked once you've REACHED its planet (permanent); free mode ignores it
     const c = unitBuyCost(type); if (!S.free && S.cash < c) return;
     if (!S.free) S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); if (isCol(type)) syncCollectors();
     Audio_buy(); renderList(); save();
@@ -981,7 +1006,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.floor(TY(type).base * 3 * Math.pow(1.33, allocCount(type)) * k); }   // cheap early (rewarding start), STEEP growth: deep trees are a long progressive grind (the main pacing wall)
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 1.5 * Math.pow(1.33, allocCount(type)) * k); }   // planet-local: cheap early, STEEP growth (the in-planet grind)
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (!S.free && S.cash < c) return;
     if (!S.free) S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
@@ -1086,14 +1111,18 @@
     renderList(); syncHUD(); save();
   }
   function showGalaxyInfo(g) {
-    const current = g === S.galaxy, reached = g <= S.peakGalaxy && !current, next = g === S.galaxy + 1, cost = travelCost(S.galaxy);
+    const current = g === S.galaxy, reached = g <= S.peakGalaxy && !current, next = g === S.galaxy + 1;
+    const conqHere = planetMeta(S.galaxy).conquered || S.free;
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span>"
-      : reached ? "<button id='gi-jump'>↩ Jump here</button>"   // revisit an unlocked planet (free)
-      : next ? "<button id='gi-travel'" + (S.cash >= cost ? "" : " disabled") + ">Travel · $" + fmt(cost) + "</button>" : "<span class='gi-tag'>🔒 Locked</span>";
-    const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g);
+      : reached ? "<button id='gi-jump'>↩ Jump here</button>"   // revisit a conquered planet (manage your empire)
+      : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>🔒 Conquer " + galName(S.galaxy) + " first</span>")
+      : "<span class='gi-tag'>🔒 Locked</span>";
+    const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g), pv = S.vault[g];
+    const curLine = "<div class='gi-unlock'>💠 Currency: <b>" + curName(g) + "</b>" + (pv && pv.conquered ? " · conquered · +" + fmt(pv.bgRate || 0) + "/s idle · bank " + fmt(pv.cash || 0) : "") + "</div>";
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
+      curLine +
       "<div class='gi-unlock'>☣ Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
     $("gm-info").classList.add("show");
@@ -1240,9 +1269,43 @@
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (best) { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
-  function travel() { const c = travelCost(S.galaxy); if (!S.free && S.cash < c) return; if (!S.free) S.cash -= c; S.galaxy++; META.stats.travels++; if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy; dots = []; orbs = []; parts = []; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); recompute(); syncHUD(); save(); }
-  // jump to an ALREADY-reached planet (revisit, free) — lets you hop back to test/farm any planet you've unlocked
-  function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; S.galaxy = g; dots = []; orbs = []; parts = []; flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); recompute(); syncHUD(); save(); }
+  // ---- PLANET LAYERS: each planet is its own run; vault holds conquered planets' builds + idle rate ----
+  function planetMeta(g) { return S.vault[g] || (S.vault[g] = { conquered: false, earned: 0, bgRate: 0 }); }
+  function freshPlanetBuild() { const lv = {}; UPS.forEach(u => lv[u.id] = 0); const cn = {}; ALL_TYPES.forEach(t => cn[t] = {}); return { cash: 0, units: [newUnit("turret")], collectors: [{ type: "drone" }], lv, classNodes: cn }; }
+  function snapshotActive() {   // write the live build back into the vault, lock in the best idle rate
+    const v = planetMeta(S.galaxy);
+    v.cash = S.cash; v.units = S.units; v.collectors = S.collectors; v.lv = S.lv; v.classNodes = S.classNodes;
+    v.earned = curEarned; v.bgRate = Math.max(v.bgRate || 0, cps * BG_EFF);
+  }
+  function activatePlanet(g) {   // make planet g the live playfield (restore its build, or fresh-start it)
+    const v = planetMeta(g), fresh = !(v && v.units), b = fresh ? freshPlanetBuild() : v;
+    S.cash = fresh ? Math.floor(eco(g) * 45) : (b.cash || 0);   // a fresh landing comes with starter supplies so you build immediately
+    S.units = (b.units && b.units.length) ? b.units : [newUnit("turret")];
+    S.collectors = (b.collectors && b.collectors.length) ? b.collectors : [{ type: "drone" }];
+    S.lv = b.lv || freshPlanetBuild().lv; S.classNodes = b.classNodes || freshPlanetBuild().classNodes;
+    S.galaxy = g; if (g > S.peakGalaxy) S.peakGalaxy = g; curEarned = v.earned || 0;
+    dots = []; orbs = []; beams = []; parts = []; selUnit = -1;
+    syncCollectors(); recompute(); renderList(); syncHUD(); GMap.reset && 0;
+  }
+  function travel() { const g = S.galaxy; if (!S.free && !planetMeta(g).conquered) return;   // must CONQUER the current planet first
+    snapshotActive(); META.stats.travels++; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); activatePlanet(g + 1); save(); }
+  // jump to ANY reached planet (revisit & upgrade your background empire, or test)
+  function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; snapshotActive(); flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); activatePlanet(g); save(); }
+  // EXCHANGE: convert a background planet's currency into the one you're spending now (value-preserving, 10% fee)
+  function exchangeFrom(g) { const v = S.vault[g]; if (!v || g === S.galaxy || !(v.cash > 0)) return 0;
+    const got = Math.floor(v.cash * curWorth(g) / curWorth(S.galaxy) * 0.9); v.cash = 0; S.cash += got; recompute(); syncHUD(); save(); return got; }
+  function openExchange() {
+    const wrap = $("exch-list"); wrap.innerHTML = "";
+    $("exch-sub").textContent = "Your conquered planets keep earning their own currency. Convert any of it into " + curName(S.galaxy) + " (what you're spending now) to fund this run. 10% fee.";
+    let any = false;
+    for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (!v || !v.conquered) continue; any = true;
+      const bal = Math.floor(v.cash || 0), conv = Math.floor(bal * curWorth(g) / curWorth(S.galaxy) * 0.9);
+      const el = document.createElement("div"); el.className = "up";
+      el.innerHTML = `<span class="u-dot" style="background:#888"></span><div class="u-mid"><div class="u-name">${galName(g)}<span class="lv">+${fmt(v.bgRate || 0)}/s idle</span></div><div class="u-desc">${fmt(bal)} ${curName(g)} → <b>${fmt(conv)} ${curName(S.galaxy)}</b></div></div><button class="u-buy">Convert</button>`;
+      wrap.appendChild(el); const b = el.querySelector(".u-buy"); b.disabled = conv <= 0; b.onclick = () => { exchangeFrom(g); openExchange(); };
+    }
+    if (!any) wrap.innerHTML = "<p class='muted' style='padding:12px;text-align:center'>No conquered planets yet.<br>Conquer this planet, travel onward, and its idle currency will pool here to bankroll your next fresh start.</p>";
+  }
   // CODES: "test" turns on FREE SANDBOX mode — everything is unlocked & free to
   // buy so you click and test whatever you want yourself (it does NOT hand you a
   // pre-built roster). Toggle off by entering the code again.
@@ -1288,6 +1351,8 @@
   for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
   $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
   $("btn-travel").onclick = travel;
+  $("btn-exchange").onclick = () => { openExchange(); $("exchange").classList.add("show"); };
+  $("exch-close").onclick = () => $("exchange").classList.remove("show");
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
   $("st-upgrade").onclick = () => {

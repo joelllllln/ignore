@@ -13,7 +13,7 @@
 
   <!-- TOP BAR -->
   <div id="top" class="layer">
-    <div class="t-cash">$<b id="ui-cash">0</b><span id="ui-cap"> / 0</span></div>
+    <div class="t-cash"><b id="ui-cash">0</b><span id="ui-cap"> </span></div>
     <div class="t-galaxy" id="galaxy-open">
       <div class="g-label">PLANET <b id="ui-galaxy">1</b> <span id="ui-gname"></span> <span class="g-tap">▾</span></div>
       <div class="g-bar"><div id="galaxy-fill"></div></div>
@@ -37,6 +37,7 @@
     <div id="up-list"></div>
     <div id="actions">
       <button class="act travel" id="btn-travel">TRAVEL ▸</button>
+      <button class="act" id="btn-exchange">⇄ EXCHANGE</button>
     </div>
   </div>
 
@@ -98,6 +99,15 @@
     <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-reset">⟲ Recenter</button><button class="x" id="gm-close">✕</button></div></div>
     <div class="map-hint">three solar systems · planets orbit their suns · drag to rotate · scroll/pinch to zoom · tap a planet</div>
     <div id="gm-info" class="gm-info"></div>
+  </div>
+
+  <!-- EXCHANGE (background empire) -->
+  <div id="exchange" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>⇄ Exchange</h2><button class="x" id="exch-close">✕</button></div>
+      <p class="muted" id="exch-sub"></p>
+      <div id="exch-list"></div>
+    </div>
   </div>
 
   <!-- WELCOME BACK -->
