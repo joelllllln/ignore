@@ -68,6 +68,15 @@ as they fire. Collectors scale with Process (bigger maw) and trail when fast.
 Units auto-rack into a tidy formation that re-arranges as the count grows, and
 fire simultaneously.
 
+Every defender tree has a **Mind** branch (◈) — a whole side that upgrades the
+unit's *intelligence and coordination*, not its raw firepower. A smart unit
+**reads the field**: it won't waste a bolt on a dot another shot is already
+guaranteed to kill (**overkill avoidance**), it **coordinates with the rest of
+your rack** so two units don't both dump on the same doomed dot, and it
+**triages** — putting shots on the highest-value targets it can actually
+finish. Dumb units just shoot the nearest thing; high-Mind units stop wasting
+shots, so the same firepower nets more kills and more income.
+
 Tap any defender (or **⬆ Tree**) to open its **skill tree** — a unique,
 interconnected node map per class:
 
@@ -174,7 +183,7 @@ Each runs on a cooldown — save them for dense or high-value screens.
   collector.
 - Info (ⓘ) buttons sit on nearly every system — including **every skill-tree
   node**, where an ⓘ on the detail panel explains exactly what that boost does
-  (Damage, Fire Rate, Range, Crit, Multishot, Speed, Pull, Yield, Ingest). The
+  (Damage, Fire Rate, Range, Crit, Mind, Multishot, Speed, Pull, Yield, Ingest). The
   **▁▄█ Metrics** panel tracks economy, combat, kills, armored killed, cash lost,
   and more.
 

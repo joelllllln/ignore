@@ -64,7 +64,7 @@
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
-  const DEF_PRIM = ["dmg", "rate", "range"], COL_PRIM = ["speed", "suction", "collect"];
+  const DEF_PRIM = ["dmg", "rate", "range", "int"], COL_PRIM = ["speed", "suction", "collect"];
   // Tree nodes add a FLAT bonus that STACKS ADDITIVELY — a stat's multiplier is
   // 1 + (sum of its nodes' bonuses). Bonuses do NOT compound off each other, so
   // deep trees scale LINEARLY (no exponential runaway), and because each new node
@@ -74,7 +74,7 @@
   // are flat distances; crit is flat chance.
   // Defender baseline (turret = tier 1). Later classes scale UP via DEF_SCALE, so a
   // gal-7 Railgun tree is FAR stronger per node than a gal-1 Turret — "scaled correctly."
-  const MAG_DEF = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 2.0, maj: 4.5, key: 11 }, range: { min: 60, maj: 160, key: 360 }, crit: { min: 0.10, maj: 0.25, key: 0.50 } };
+  const MAG_DEF = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 2.0, maj: 4.5, key: 11 }, range: { min: 60, maj: 160, key: 360 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 } };   // int = "Mind": smarter targeting (no overkill / coordination), additive toward fully-smart=1
   const DEF_SCALE = { turret: 1.0, mortar: 1.35, plasma: 1.8, laser: 2.4, railgun: 3.2 };
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
@@ -90,11 +90,12 @@
     if (s.p === "x") return MAG_DEF.crit[s.mag];                        // crit = flat chance, not tier-scaled
     const key = DEF_PRIM[s.p - 1];
     if (key === "range") return MAG_DEF.range[s.mag];                   // range = flat distance, not scaled
+    if (key === "int") return MAG_DEF.int[s.mag];                       // intelligence = flat smartness, not scaled
     return (key === "rate" ? MAG_DEF.rate[s.mag] : MAG_DEF.mul[s.mag]) * sc;   // dmg/rate bonuses scale by class tier
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
       if (n.kind === "key") { o.multi++; if (n.spec) o[n.spec]++; }   // keystone = +1 multishot AND a ✦ specialization
@@ -105,8 +106,9 @@
     o.multi = Math.min(o.multi, 6);
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0 };
   const uMulti = u => cls(u.type).multi || 0;
+  const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
   const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg * derived.sdDmg;
   const uRate = u => DEF_TYPES[u.type].rate * cls(u.type).rate * derived.sdFire;
@@ -138,11 +140,11 @@
   // flavour names: one pool per stat branch (a/b/c) plus the extra 'x' branch.
   // every node — even the small passives — pulls a distinct name from its pool.
   const SKILLS = {
-    turret:  { a: ["Reinforced Rounds", "Tungsten Core", "Armor Piercing", "Hollow Points", "Overcharge", "Heavy Slugs", "Devastator"], b: ["Quick Hands", "Belt Feed", "Rapid Servos", "Hair Trigger", "Double Tap", "Cyclic Bolt", "Gatling Drive"], c: ["Scope", "Range Finder", "Laser Sight", "Tracking AI", "Eagle Eye", "Long Barrel", "Hawkeye"], x: ["Critical Core", "Deadeye", "Killshot"] },
-    mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Cluster Munitions", "Carpet Bomb", "Heavy Ordnance", "Doomshell"], b: ["Fast Fuse", "Auto-Loader", "Twin Tubes", "Rapid Mortar", "Barrage", "Quick Crew", "Drumfire"], c: ["Wider Blast", "Shrapnel", "Spotter", "Precision Strike", "Saturation", "Wide Arc", "Bullseye"], x: ["Shell Shock", "Pinpoint", "Devastation"] },
-    plasma:  { a: ["Ion Charge", "Superheated", "Fusion Core", "Antimatter", "Singularity Bolt", "Plasma Surge", "Star Core"], b: ["Capacitor", "Coolant Loop", "Overclock", "Rapid Cycle", "Continuous Beam", "Supercooled", "Flux Drive"], c: ["Focusing Lens", "Long Barrel", "Crit Matrix", "Targeting Array", "Lancer", "Beam Optics", "Far Sight"], x: ["Crit Core", "Overcharge Cell", "Meltdown"] },
-    laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray", "Hot Lens", "Sunfire"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream", "Fast Cycle", "Lightstorm"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split", "Wide Mirror", "True Aim"], x: ["Crit Focus", "Focal Point", "Vaporize"] },
-    railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator", "Tungsten Rod", "Worldbreaker"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo", "Fast Coil", "Volley"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm", "Extended Rail", "Dead Centre"], x: ["Crit Lock", "Penetrator", "One Shot"] },
+    turret:  { a: ["Reinforced Rounds", "Tungsten Core", "Armor Piercing", "Hollow Points", "Overcharge", "Heavy Slugs", "Devastator"], b: ["Quick Hands", "Belt Feed", "Rapid Servos", "Hair Trigger", "Double Tap", "Cyclic Bolt", "Gatling Drive"], c: ["Scope", "Range Finder", "Laser Sight", "Tracking AI", "Eagle Eye", "Long Barrel", "Hawkeye"], d: ["Targeting Chip", "Threat Sense", "Kill Tracker", "Fire Discipline", "Combat Logic", "Squad Link", "Tactical Core"], x: ["Critical Core", "Deadeye", "Killshot"] },
+    mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Cluster Munitions", "Carpet Bomb", "Heavy Ordnance", "Doomshell"], b: ["Fast Fuse", "Auto-Loader", "Twin Tubes", "Rapid Mortar", "Barrage", "Quick Crew", "Drumfire"], c: ["Wider Blast", "Shrapnel", "Spotter", "Precision Strike", "Saturation", "Wide Arc", "Bullseye"], d: ["Fire Plan", "Spotter Net", "Impact Sense", "Salvo Logic", "Forward Observer", "Battery Link", "Strike Command"], x: ["Shell Shock", "Pinpoint", "Devastation"] },
+    plasma:  { a: ["Ion Charge", "Superheated", "Fusion Core", "Antimatter", "Singularity Bolt", "Plasma Surge", "Star Core"], b: ["Capacitor", "Coolant Loop", "Overclock", "Rapid Cycle", "Continuous Beam", "Supercooled", "Flux Drive"], c: ["Focusing Lens", "Long Barrel", "Crit Matrix", "Targeting Array", "Lancer", "Beam Optics", "Far Sight"], d: ["Logic Core", "Heuristics", "Threat Model", "Predict Engine", "Sentience", "Neural Mesh", "Mind Lattice"], x: ["Crit Core", "Overcharge Cell", "Meltdown"] },
+    laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray", "Hot Lens", "Sunfire"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream", "Fast Cycle", "Lightstorm"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split", "Wide Mirror", "True Aim"], d: ["Tracking AI", "Scan Logic", "Priority Lock", "Predictive Aim", "Swarm Sense", "Hunter Net", "Omniscience"], x: ["Crit Focus", "Focal Point", "Vaporize"] },
+    railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator", "Tungsten Rod", "Worldbreaker"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo", "Fast Coil", "Volley"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm", "Extended Rail", "Dead Centre"], d: ["Fire Solution", "Ballistic AI", "Target Lock", "Lead Computer", "Kill Predictor", "War Mind", "Oracle Core"], x: ["Crit Lock", "Penetrator", "One Shot"] },
   };
   // collector skill webs: a=Speed, b=Suction, c=Reach (grab distance), x=Ingest (loot-swallow speed)
   const COL_SKILLS = {
@@ -374,18 +376,34 @@
     // gather every in-range dot, nearest first, preferring ones not already
     // marked for lethal damage this frame (so fire spreads instead of overkilling).
     const rng = uRange(u) ** 2; const cands = [];
+    const iq = Math.min(1, uInt(u));   // 0 = dumb (nearest-first), ~1 = perfect coordination
     for (const d of dots) {
       if (d.dead) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;
-      cands.push({ d, q, covered: (d.pending || 0) >= d.hp });
+      // a smarter unit "reads" lethal damage already inbound (pending kills + a margin
+      // for shots that haven't resolved yet) and won't waste a bolt on a doomed dot.
+      const inbound = (d.pending || 0) + (d.aimed || 0);
+      cands.push({ d, q, covered: inbound >= d.hp, value: d.value || 0 });
     }
     if (!cands.length) return;
-    cands.sort((a, b) => (a.covered - b.covered) || (a.q - b.q));   // uncovered first, then nearest
+    // dumb units sort by distance only; intelligent ones triage live targets first,
+    // then put their shots on the highest-value dots they can actually finish.
+    cands.sort((a, b) => (a.covered - b.covered) ||
+      (iq > 0.4 ? (b.value - a.value) : 0) || (a.q - b.q));
     const shots = 1 + uMulti(u);                            // keystone nodes grant extra simultaneous targets
-    const fired = cands.slice(0, shots);
+    const fired = [];
+    for (const c of cands) {
+      if (fired.length >= shots) break;
+      // overkill avoidance: the more intelligent the unit, the more reliably it
+      // *skips* a dot another shot is already guaranteed to kill (saving the bolt).
+      if (c.covered && iq > 0 && Math.random() < iq) continue;
+      fired.push(c);
+    }
+    if (!fired.length) fired.push(cands[0]);   // nothing valid to skip onto — fire anyway
     let recoiled = false;
     for (const c of fired) {
       const target = c.d;
       let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
+      target.aimed = (target.aimed || 0) + dmg;   // mark for coordination — later units this frame see it's spoken-for
       const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
       if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; u.heat = Math.min(1, (u.heat || 0) + 0.1); recoiled = true; }   // muzzle recoil + aim + flash + heat build-up (toward first target)
       beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: (crit ? 3.5 : 2) + Math.min(Math.log10(uDmg(u) + 1) * 0.5, 3) });   // bolder beams with more damage
@@ -483,7 +501,7 @@
     if (spawnAcc > 6) spawnAcc = 6;
 
     for (const d of dots) {
-      d.pending = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
+      d.pending = 0; d.aimed = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
       if (d.regen && d.hit <= 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.maxHp * d.regen * dt);  // heals unless under fire
       if (d.pulse !== undefined) { d.pulse += dt; if (d.pulse > 1.5) { d.pulse = 0; ring(d.x, d.y, d.r, d.r + 26, 0.45); } }
@@ -605,6 +623,8 @@
       ctx.fillStyle = uColor(u); body(bodyR);
       if (uCrit(u) > 0.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(uCrit(u), 0.9) + ")"; ctx.beginPath(); ctx.arc(p.x - bodyR * 0.32, p.y - bodyR * 0.32, 2.3, 0, TAU); ctx.fill(); }   // crit glint
       if (c.multi) { const t2 = Date.now() / 760; for (let k = 0; k < c.multi; k++) { const a = t2 + k / c.multi * TAU; ctx.fillStyle = "rgba(255,255,255,0.65)"; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * (bodyR + 6), p.y + Math.sin(a) * (bodyR + 6), 1.6, 0, TAU); ctx.fill(); } }   // orbiting ticks = keystones (specialization level)
+      const iq = Math.min(1, uInt(u));   // Mind -> a faint sensor sweep scanning the field
+      if (iq > 0.05) { const sw = Date.now() / 1000 * (1.2 + iq), rr = bodyR + 5; ctx.strokeStyle = "rgba(150,210,255," + (0.18 + 0.5 * iq) + ")"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(p.x, p.y, rr, sw, sw + 0.5 + 0.9 * iq); ctx.stroke(); }
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
       const tot = allocCount(u.type); if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - bodyR - 11); }
     }
@@ -742,14 +762,15 @@
     if (_trees[type]) return _trees[type];
     const R = makeRng(fnv("ids:" + type)), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
     const nodes = [{ id: "start", x: 0, y: 0, kind: "start", slots: [], wing: -1, nameSlot: "start", ni: 0 }], edges = [];
-    const cnt = { 1: 0, 2: 0, 3: 0, x: 0 }; let keyN = 0;
+    const cnt = { 1: 0, 2: 0, 3: 0, 4: 0, x: 0 }; let keyN = 0;
     const setSpec = () => { if (CLASS_SPEC[type]) nodes[nodes.length - 1].spec = CLASS_SPEC[type]; };   // defenders only; call right after an add("K",…)
-    const stats = [1, 2, 3]; for (let i = 2; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
+    const stats = isCol(type) ? [1, 2, 3] : [1, 2, 3, 4], NP = stats.length;   // defenders get a 4th primary: Intelligence
+    for (let i = NP - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
     const deep = { turret: 0, mortar: 0, plasma: 1, laser: 1, railgun: 2 }[type] || 0;   // later classes get deeper trees
     const nW = ri(5, 7) + deep, rot = R() * Math.PI * 2;     // far more wings — bigger trees
     for (let w = 0; w < nW; w++) {
       const th = rot + w * (Math.PI * 2 / nW), ux = Math.cos(th), uy = Math.sin(th), px = Math.cos(th + Math.PI / 2), py = Math.sin(th + Math.PI / 2);
-      const wid = "w" + w, stat = stats[w % 3], stat2 = stats[(w + 1) % 3];
+      const wid = "w" + w, stat = stats[w % NP], stat2 = stats[(w + 1) % NP];
       const step = 0.66 + R() * 0.16, dx = 0.62 + R() * 0.3, arm = ri(4, 6) + deep, loop = R() < 0.55;   // longer arms — far more nodes per wing (deeper for later classes)
       const add = (k, r, s, kind, slots) => { const ns = kind === "key" ? "key" : slots[0].p, ni = kind === "key" ? keyN++ : cnt[ns]++; nodes.push({ id: wid + k, x: ux * r + px * s, y: uy * r + py * s, kind, slots, wing: w, nameSlot: ns, ni }); };
       const e = (a, b) => edges.push([wid + a, wid + b]);
@@ -777,7 +798,7 @@
           e(prev, "C" + t); prev = "C" + t;
           if (R() < 0.5) { add("P" + t, r + 0.15, (R() < 0.5 ? -1 : 1) * (0.8 + 0.12 * t), "minor", [{ p: stat2, mag: "min" }]); e("C" + t, "P" + t); }
         }
-        if (R() < 0.7) { const kr = 0.95 + step * (arm + 1); add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stats[(w + 2) % 3], mag: "key" }]); setSpec(w); e("C" + arm, "K"); }
+        if (R() < 0.7) { const kr = 0.95 + step * (arm + 1); add("K", kr, 0, "key", [{ p: stat, mag: "key" }, { p: stats[(w + 2) % NP], mag: "key" }]); setSpec(w); e("C" + arm, "K"); }
         else { add("X", 0.95 + step * (arm + 1), 0, "major", [{ p: "x", mag: "maj" }]); e("C" + arm, "X"); }
       }
     }
@@ -788,7 +809,7 @@
     _trees[type] = { nodes, edges: eds, map, adj };
     return _trees[type];
   }
-  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", speed: "spd", suction: "pull", collect: "reach", ingest: "process" };
+  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", int: "mind", speed: "spd", suction: "pull", collect: "reach", ingest: "process" };
   function slotText(type, s) {
     const col = isCol(type), amt = slotAmt(type, s);
     if (s.p === "x") return "+" + Math.round(amt * 100) + "% " + (col ? "process" : "crit");
@@ -798,7 +819,7 @@
   const nodeFx = (type, n) => { let s = (n.slots || []).map(sl => slotText(type, sl)).join(" · "); if (n.spec) s += (s ? " · " : "") + "✦ " + SPEC_NAME[n.spec]; return s; };
   // Plain-language glossary for every stat a tree node can grant — surfaced by an
   // ⓘ button in the node panel so you always know what a boost actually does.
-  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", ingest: "Process", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
+  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", int: "Mind", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", ingest: "Process", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
   const STAT_INFO = {
     explosive: "✦ SPECIALIZATION — every shot DETONATES, dealing its full damage to all dots in a blast radius (turns the unit into a bomb tower). Each Explosive keystone makes the blast bigger.",
     chain: "✦ SPECIALIZATION — every shot ARCS like lightning from the dot it hits to nearby dots, jumping one extra time per keystone (damage fades a little each jump). Shreds clusters.",
@@ -807,6 +828,7 @@
     rate: "Fire rate (shots/sec). High enough and a unit machine-guns, firing several shots per frame.",
     range: "Targeting range (flat bonus). Wider range keeps more dots in reach, so units idle less.",
     crit: "Crit chance. A critical shot deals ~2.2× damage and pops a little extra.",
+    int: "Mind — combat intelligence & coordination. A smart unit reads the field: it won't waste a bolt on a dot another shot is already guaranteed to kill (overkill avoidance), it coordinates with the rest of your rack so two units don't both fire on the same doomed dot, and it triages — putting shots on the highest-value targets it can finish. Higher Mind = fewer wasted shots = more effective DPS and income.",
     multi: "Multishot. Each keystone lets EVERY unit of this class fire at one extra dot at the same time.",
     speed: "Movement speed — how fast this collector chases orbs. Capped so it stays agile instead of flying straight past loot.",
     suction: "Pull radius — how far it drags orbs in toward itself. Capped below the field, so it must keep roaming; it never becomes a stationary field-wide magnet.",
@@ -822,7 +844,7 @@
   }
   // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
   // speed / suction / yield / ingest), plus class & keystone markers.
-  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", speed: "➤", suction: "◉", yield: "❖", collect: "▣", ingest: "⊛" };
+  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", int: "◈", speed: "➤", suction: "◉", yield: "❖", collect: "▣", ingest: "⊛" };
   function nodeIcon(type, n) {
     if (n.kind === "start") return "★";
     if (n.kind === "key") return "✦";
@@ -833,14 +855,14 @@
   function nodeLabel(type, n) {
     if (n.kind === "start") return TY(type).name;
     if (n.kind === "key") { const ks = (CLASS_WEB[type] || CLASS_WEB.turret).keys; return ks[n.ni % ks.length] || "Keystone"; }
-    const pool = n.nameSlot === "x" ? skillNames(type).x : skillNames(type)[["", "a", "b", "c"][n.nameSlot]];
+    const pool = n.nameSlot === "x" ? skillNames(type).x : skillNames(type)[["", "a", "b", "c", "d"][n.nameSlot]];
     return (pool && pool[n.ni % pool.length]) || nodeFx(type, n);
   }
   function statLine(tp) {
     const s = { type: tp };
     return isCol(tp)
       ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> reach · <b>×" + cIngest(tp).toFixed(2) + "</b> process"
-      : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "") + (uExplode(s) ? " · <b>✦bombs</b>" : "") + (uChain(s) ? " · <b>✦chain</b>" : "") + (uPierce(s) ? " · <b>✦laser</b>" : "");
+      : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "") + (uInt(s) ? " · <b>" + Math.round(Math.min(1, uInt(s)) * 100) + "%</b> mind" : "") + (uExplode(s) ? " · <b>✦bombs</b>" : "") + (uChain(s) ? " · <b>✦chain</b>" : "") + (uPierce(s) ? " · <b>✦laser</b>" : "");
   }
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
