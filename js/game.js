@@ -408,7 +408,7 @@
       let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
       target.aimed = (target.aimed || 0) + dmg;   // mark for coordination — later units this frame see it's spoken-for
       const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
-      if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; u.heat = Math.min(1, (u.heat || 0) + 0.1); recoiled = true; }   // muzzle recoil + aim + flash + heat build-up (toward first target)
+      if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; recoiled = true; }   // muzzle recoil + aim + brief flash (toward first target)
       beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: (crit ? 3.5 : 2) + Math.min(Math.log10(uDmg(u) + 1) * 0.5, 3) });   // bolder beams with more damage
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
       const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
@@ -424,7 +424,7 @@
           let best = null, bd = 140 * 140;
           for (const d of dots) { if (d.dead || seen.has(d)) continue; const q = (d.x - src.x) ** 2 + (d.y - src.y) ** 2; if (q < bd) { bd = q; best = d; } }
           if (!best) break;
-          beams.push({ x1: src.x, y1: src.y, x2: best.x, y2: best.y, life: 0.1, color: "#dff0ff", w: 2 });
+          beams.push({ x1: src.x, y1: src.y, x2: best.x, y2: best.y, life: 0.1, color: "#fff", w: 2 });
           seen.add(best); hitDot(best, cdmg, u.type); src = best; cdmg *= 0.85;
         }
       }
@@ -515,7 +515,7 @@
     }
     dots = dots.filter(d => !d.dead);
 
-    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; if (u.heat > 0) u.heat = Math.max(0, u.heat - dt * 1.4); u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
+    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
 
     // collectors coordinate: chase-types each claim their nearest orb (so they
@@ -603,41 +603,42 @@
       const c = cls(u.type);
       // every defender shows its targeting radius — faint by default, highlighted when selected
       { const sel = i === selUnit; ctx.strokeStyle = sel ? "rgba(255,255,255,0.32)" : "rgba(255,255,255,0.07)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, uRange(u), 0, TAU); ctx.stroke(); }
-      // --- build-reflecting visuals: barrels=fire rate (+multishot), length=range, thickness/size=damage, colour=specialization ---
+      // --- build-reflecting visuals (strictly black & white, no idle motion): barrels = fire rate
+      //     (+multishot), length = range, thickness/body size = damage, silhouette = class ---
       const barrels = clamp(Math.max(1 + Math.floor(Math.log(Math.max(c.rate, 1)) / Math.log(2.2)), 1 + (c.multi || 0)), 1, 6);
       const blen = 13 + Math.min(uRange(u) - DEF_TYPES[u.type].range, 260) * 0.04;
       const bw = 2.6 + Math.min(Math.log10(c.dmg + 1) * 1.7, 6.5);
       const bodyR = (u.type === "turret" ? 11 : 9) + Math.min(Math.log10(c.dmg + 1) * 1.4, 6);
-      const specCol = c.explosive ? "#ffb060" : c.chain ? "#a9d6ff" : c.pierce ? "#ffffff" : "#c8d2e6";
       const aim = u.aim != null ? u.aim : -Math.PI / 2;
-      if (u.heat > 0.05) { ctx.fillStyle = "rgba(255,250,235," + u.heat * 0.16 + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 9, 0, TAU); ctx.fill(); }   // rapid fire -> soft heat glow
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(aim); ctx.lineCap = "round";
       for (let b = 0; b < barrels; b++) {
         const off = (b - (barrels - 1) / 2) * (bw + 2.4);
-        ctx.strokeStyle = "#3a4150"; ctx.lineWidth = bw + 1.6; ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
-        ctx.strokeStyle = specCol; ctx.lineWidth = Math.max(1, bw * 0.5); ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
-        if (u.flash > 0) { const a = u.flash / 0.08; ctx.fillStyle = "rgba(255,238,170," + a + ")"; ctx.beginPath(); ctx.arc(blen + 1, off, bw * 0.8 + 3 * a, 0, TAU); ctx.fill(); }
+        ctx.strokeStyle = "#2b2b2b"; ctx.lineWidth = bw + 1.6; ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
+        ctx.strokeStyle = "#e6e6e6"; ctx.lineWidth = Math.max(1, bw * 0.5); ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
+        if (u.flash > 0) { const a = u.flash / 0.08; ctx.fillStyle = "rgba(255,255,255," + a + ")"; ctx.beginPath(); ctx.arc(blen + 1, off, bw * 0.55 + 2 * a, 0, TAU); ctx.fill(); }   // brief white muzzle flash only while firing
       }
       ctx.restore();
-      // --- body (size = damage) ---
-      // distinct per-class silhouette: turret circle · mortar hexagon · plasma diamond · laser triangle · railgun square
+      // --- body (size = damage) · distinct per-class silhouette: turret circle · mortar hex · plasma diamond · laser triangle · railgun square ---
       const shp = { mortar: [6, 0], plasma: [4, Math.PI / 4], laser: [3, -Math.PI / 2], railgun: [4, 0] }[u.type];
       const body = r => { if (!shp) { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill(); } else { ctx.beginPath(); for (let k = 0; k < shp[0]; k++) { const a = shp[1] + k / shp[0] * TAU, x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.fill(); } };
       ctx.fillStyle = "#222"; body(bodyR + 3.5);
       ctx.fillStyle = uColor(u); body(bodyR);
-      if (uCrit(u) > 0.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(uCrit(u), 0.9) + ")"; ctx.beginPath(); ctx.arc(p.x - bodyR * 0.32, p.y - bodyR * 0.32, 2.3, 0, TAU); ctx.fill(); }   // crit glint
-      if (c.multi) { const t2 = Date.now() / 760; for (let k = 0; k < c.multi; k++) { const a = t2 + k / c.multi * TAU; ctx.fillStyle = "rgba(255,255,255,0.65)"; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * (bodyR + 6), p.y + Math.sin(a) * (bodyR + 6), 1.6, 0, TAU); ctx.fill(); } }   // orbiting ticks = keystones (specialization level)
-      const iq = Math.min(1, uInt(u));   // Mind -> a faint sensor sweep scanning the field
-      if (iq > 0.05) { const sw = Date.now() / 1000 * (1.2 + iq), rr = bodyR + 5; ctx.strokeStyle = "rgba(150,210,255," + (0.18 + 0.5 * iq) + ")"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(p.x, p.y, rr, sw, sw + 0.5 + 0.9 * iq); ctx.stroke(); }
+      if (uCrit(u) > 0.2) { ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.beginPath(); ctx.arc(p.x - bodyR * 0.3, p.y - bodyR * 0.3, Math.min(uCrit(u) * 3.5, 3), 0, TAU); ctx.fill(); }   // crit = small dark inset on the body (reads on bright units)
+      const iq = Math.min(1, uInt(u));   // Mind = a faint STATIC concentric ring, brighter the smarter — no motion, no colour
+      if (iq > 0.05) { ctx.strokeStyle = "rgba(255,255,255," + (0.1 + 0.35 * iq) + ")"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, bodyR + 5, 0, TAU); ctx.stroke(); }
+      if (c.multi) { for (let k = 0; k < c.multi; k++) { const a = -Math.PI / 2 + (k - (c.multi - 1) / 2) * 0.46; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * (bodyR + 8.5), p.y + Math.sin(a) * (bodyR + 8.5), 1.5, 0, TAU); ctx.fill(); } }   // static white pips = keystones (multishot/spec level)
       ctx.fillStyle = "#000"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(DEF_TYPES[u.type].name[0], p.x, p.y + 1);
       const tot = allocCount(u.type); if (tot) { ctx.fillStyle = "#fff"; ctx.font = "9px ui-monospace,monospace"; ctx.fillText("" + tot, p.x, p.y - bodyR - 11); }
     }
     ctx.textBaseline = "alphabetic";
     for (const dr of drones) {
       const mode = COL_TYPES[dr.type].mode, sr = cSuction(dr.type);
-      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, sr, 0, TAU); ctx.stroke();
+      // collectors reflect their build too (all monochrome): outer ring = pull radius (Suction),
+      // inner ring = grab zone (Reach), maw size = Process/Ingest, trail length = Speed.
+      ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, sr, 0, TAU); ctx.stroke();
+      if (mode !== "hole") { const reach = cCollect(dr.type); ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, reach, 0, TAU); ctx.stroke(); }   // grab-distance ring (Reach)
       const sp = Math.hypot(dr.vx || 0, dr.vy || 0);
-      if (mode !== "hole" && sp > 40) { ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(dr.x - (dr.vx || 0) * 0.1, dr.y - (dr.vy || 0) * 0.1); ctx.lineTo(dr.x, dr.y); ctx.stroke(); }   // speed trail
+      if (mode !== "hole" && sp > 25) { const tl = Math.min(sp * 0.06, 22), ux2 = (dr.vx || 0) / (sp || 1), uy2 = (dr.vy || 0) / (sp || 1); ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(dr.x - ux2 * tl, dr.y - uy2 * tl); ctx.lineTo(dr.x, dr.y); ctx.stroke(); }   // speed trail — length scales with Speed
       const cs = (1 + Math.min(Math.log10(cIngest(dr.type)) * 0.5, 1.4)) * (1 + Math.max(0, dr.pop || 0) * 1.6);   // Process -> bigger maw; chomp-pop when banking big loot
       ctx.save(); ctx.translate(dr.x, dr.y); ctx.scale(cs, cs);
       if (mode === "hole") {
