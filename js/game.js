@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.0";
+  const VERSION = "v1.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
 
@@ -1240,7 +1240,7 @@
     const current = g === S.galaxy, reached = g <= S.peakGalaxy && !current, next = g === S.galaxy + 1;
     const conqHere = planetMeta(S.galaxy).conquered || S.free;
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
-    const action = current ? "<span class='gi-tag'>▶ You are here</span>"
+    const action = current ? "<span class='gi-tag'>▶ You are here</span> <button id='gi-visit'>⊙ Zoom to base ▸</button>"
       : reached ? "<button id='gi-jump'>⊙ Visit ▸</button>"   // dive into & play your save on this visited world
       : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>🔒 Conquer " + galName(S.galaxy) + " first</span>")
       : "<span class='gi-tag'>🔒 Locked</span>";
@@ -1264,6 +1264,7 @@
     $("gm-info").classList.add("show");
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
     const j = $("gi-jump"); if (j) j.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { jumpTo(g); $("galaxy-map").classList.remove("show"); GMap.hide(); }); };
+    const vc = $("gi-visit"); if (vc) vc.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { $("galaxy-map").classList.remove("show"); GMap.hide(); }); };   // already here → just dive to the base
   }
 
   const INFO = {
@@ -1339,17 +1340,17 @@
         if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; }
       });
       this.cv.addEventListener("pointermove", e => {
-        if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) {   // TWO fingers: pinch to zoom in/out, drag up/down/left/right = change camera ANGLE
+        if (this.flight || !this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
+        if (this.ptrs.size >= 2) {   // TWO fingers: pinch = zoom, drag = rotate the camera
           const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
-          if (this.pinchD) this.zoomAt(d / this.pinchD, mx, my);
-          if (this.midX != null) { this.yaw += (mx - this.midX) * 0.01; this.pitch = clamp(this.pitch - (my - this.midY) * 0.012, -1.5, 1.5); }   // free tilt — look from above, level, or underneath
+          if (this.pinchD) this.zoomBy(d / this.pinchD);
+          if (this.midX != null) this.rotate(mx - this.midX, my - this.midY);
           this.pinchD = d; this.midX = mx; this.midY = my; this.moved = true; return;
         }
         const dx = p.x - this.lx, dy = p.y - this.ly;
         if (Math.hypot(p.x - this.sx0, p.y - this.sy0) > 5) this.moved = true;
-        if (this.rotMode) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.012, -1.5, 1.5); }   // shift / right-drag rotates (desktop)
-        else this.panTo(this.lx, this.ly, p.x, p.y);                                                          // SINGLE finger: move the map
+        if (this.rotMode) this.rotate(dx, dy);   // shift / right-drag rotates (desktop)
+        else this.pan(dx, dy);                    // ONE finger: move
         this.lx = p.x; this.ly = p.y;
       });
       const up = e => {
@@ -1358,36 +1359,25 @@
         if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); }
       };
       this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; });
-      this.cv.addEventListener("wheel", e => { e.preventDefault(); const p = this.pt(e); this.zoomAt(1 - e.deltaY * 0.0015, p.x, p.y); }, { passive: false });
+      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoomBy(1 - e.deltaY * 0.0015); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     show() { this.open = true; this.flight = null; this.zoom = 0.7; this.resize(); if (!this.stars.length) for (let i = 0; i < 120; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show"); },
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
-    focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } },
-    // perspective-correct unproject: the world point on the ground plane (y=0) under a screen
-    // point — inverts the exact same yaw/pitch/perspective math as proj() so drag & zoom track 1:1
-    unproject(px, py) {
-      const sx = px - this.w / 2, sy = py - this.h * 0.5, cp = Math.cos(this.pitch), sp = Math.sin(this.pitch), Z = this.zoom;
-      let den = 360 * Z * sp + sy * cp; if (Math.abs(den) < 1e-4) den = den < 0 ? -1e-4 : 1e-4;
-      const z1 = -720 * sy / den;                      // post-yaw depth of the ground intersection
-      let f = 360 * Z / (720 + z1 * cp); if (Math.abs(f) < 1e-4) f = 1e-4;
-      const x1 = sx / f, cy = Math.cos(this.yaw), syw = Math.sin(this.yaw);
-      return { x: this.cx + x1 * cy - z1 * syw, z: this.cz + x1 * syw + z1 * cy };
+    focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } this.clampFocus(); },
+    // keep the camera focus inside the galaxy so it can NEVER fly off to infinity
+    clampFocus() { this.cx = clamp(this.cx, -1100, 1100); this.cz = clamp(this.cz, -750, 850); this.tcx = clamp(this.tcx, -1100, 1100); this.tcz = clamp(this.tcz, -750, 850); },
+    // ALWAYS-STABLE pan: a screen drag moves the focus in the camera's ground plane, bounded — no perspective
+    // inversion (which blew up near edge-on), so it can't rocket the view away.
+    pan(dx, dy) {
+      const k = 1 / (this.zoom * 0.5), cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
+      const fore = 1 / Math.max(0.4, Math.abs(Math.sin(this.pitch)));   // vertical foreshorten, capped so it can't explode
+      const wx = -dx * k, wz = -dy * k * fore;
+      this.cx += wx * cy - wz * sy; this.cz += wx * sy + wz * cy; this.tcx = this.cx; this.tcz = this.cz; this.clampFocus();
     },
-    // grab-the-map pan: the world point under the finger's start is moved to the finger's end
-    panTo(ax, ay, bx, by) {
-      const a = this.unproject(ax, ay), b = this.unproject(bx, by);
-      this.cx += a.x - b.x; this.cz += a.z - b.z; this.tcx = this.cx; this.tcz = this.cz;
-    },
-    // zoom toward a screen point (cursor / pinch midpoint), keeping that world point fixed
-    zoomAt(factor, px, py) {
-      const before = this.unproject(px, py);
-      this.zoom = clamp(this.zoom * factor, 0.2, 6);
-      const after = this.unproject(px, py);
-      this.cx += before.x - after.x; this.cz += before.z - after.z;
-      this.tcx = this.cx; this.tcz = this.cz;
-    },
+    zoomBy(factor) { this.zoom = clamp(this.zoom * factor, 0.4, 4.5); },                       // zoom toward centre — predictable, no drift
+    rotate(dx, dy) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.012, -1.45, -0.12); },   // safe pitch range (never edge-on)
     proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
     // THREE widely-spaced solar systems (a big triangle). Each planet rides its OWN
     // orbit: a distinct ellipse, inclination (tilt) and orientation, seeded by planet.
