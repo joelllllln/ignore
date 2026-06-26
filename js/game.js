@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.1";
+  const VERSION = "v2.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -286,8 +286,11 @@
   // Each planet's currency has its OWN seeded magnitude (distinct, non-uniform) on top of the ×2.2 ladder.
   // conquerTarget AND income both ride eco(g), so this per-planet bump CANCELS in time-to-conquer — pacing
   // is provably unchanged; it only makes each planet's numbers feel unique and its starting purse distinct.
-  const ecoBump = g => Math.exp(((((Math.imul((Math.max(1, g) + 5) * 2654435761, 40503) >>> 0) >>> 8) & 1023) / 1023 - 0.5) * 1.9);   // ~×0.39 … ×2.6, seeded per planet
-  const eco = g => CUR_BASE * Math.pow(2.2, Math.max(1, g) - 1) * ecoBump(g);   // distinct currency scale of planet g (a plain dot's drop)
+  // Each planet's currency is worth MORE than the previous — by a SEEDED, varying step (×1.6…×2.8), so the
+  // magnitudes are distinct/non-uniform yet ALWAYS climbing. conquerTarget AND income both ride eco(g), so
+  // the steps cancel in time-to-conquer — pacing is provably unchanged.
+  const ecoStep = k => 1.6 + ((Math.imul((k + 11) * 2654435761, 40503) >>> 0 >>> 7) & 1023) / 1023 * 1.2;   // ×1.6…×2.8 vs the previous planet, seeded, always > 1
+  const eco = g => { g = Math.max(1, g); let v = CUR_BASE; for (let k = 2; k <= g; k++) v *= ecoStep(k); return v; };   // strictly-increasing, distinct currency scale of planet g
   const startMul = g => 28 + ((Math.imul((Math.max(1, g) + 19) * 2654435761, 40503) >>> 0 >>> 6) & 511) / 511 * 64;   // seeded fresh-landing purse: eco(g) × [28..92], distinct per planet
   const CUR_NAMES = ["Dust","Sparks","Slag","Embers","Brine","Spores","Cobalt","Gusts","Glimmer","Charge","Shade","Rime","Shards","Wisps","Ash","Voidstone","Bile","Null"];
   const CUR_SYM   = ["✦","✷","◆","✸","≋","✤","◈","❂","✧","⚡","◐","❄","◇","∿","▲","⬟","☣","⊘"];   // each planet's currency has its own symbol
