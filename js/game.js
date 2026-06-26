@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.8";
+  const VERSION = "v1.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -20,6 +20,7 @@
     ctx: null, nb: null,
     ac() { try { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === "suspended") this.ctx.resume(); } catch (e) { this.ctx = null; } return this.ctx; },
     noise() { const a = this.ctx; if (!a) return null; if (!this.nb) { const n = a.sampleRate * 2, b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.nb = b; } const s = a.createBufferSource(); s.buffer = this.nb; s.loop = true; return s; },
+    swoosh(dur) { const a = this.ac(); if (!a) return; const t0 = a.currentTime, s = this.noise(); if (!s) return; const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.9; bp.frequency.setValueAtTime(2800, t0); bp.frequency.exponentialRampToValueAtTime(180, t0 + dur); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(bp).connect(g).connect(a.destination); s.start(t0); s.stop(t0 + dur + 0.05); },   // descending "drop out of hyperspace" whoosh
     warp(dur) {
       const a = this.ac(); if (!a) return; const t0 = a.currentTime, dest = a.destination;
       const tube = this.noise(); if (tube) { const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.3; bp.frequency.setValueAtTime(180, t0); bp.frequency.exponentialRampToValueAtTime(3200, t0 + dur * 0.82); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.34, t0 + dur * 0.78); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.96); tube.connect(bp).connect(g).connect(dest); tube.start(t0); tube.stop(t0 + dur); }
@@ -1424,7 +1425,8 @@
       this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoomBy(1 - e.deltaY * 0.0015); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
-    show() { this.open = true; this.flight = null; this.zoom = 0.7; this.resize(); if (!this.stars.length) for (let i = 0; i < 120; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show"); },
+    show() { this.open = true; this.flight = null; this.resize(); if (!this.stars.length) for (let i = 0; i < 160; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.6) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show");
+      this.intro = 0; this.introDur = 1.25; this.iz0 = 3.2; this.zoom = 3.2; this._warp = 1.7; Sfx.swoosh(1.05); },   // full hyperspace ARRIVAL on opening the map
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } this.clampFocus(); },
@@ -1484,7 +1486,13 @@
     render(dt) {
       if (!this.cv) return; const c = this.c;
       this.t += dt;
-      if (!this.flight && this._warp) this._warp = Math.max(0, this._warp - dt * 4);   // warp streaks settle after the dive
+      if (!this.flight && this.intro == null && this._warp) this._warp = Math.max(0, this._warp - dt * 4);   // warp streaks settle after the dive
+      if (this.intro != null) {                              // FULL hyperspace arrival when the map opens
+        this.intro += dt; const p = clamp(this.intro / this.introDur, 0, 1), q = (1 - p) * (1 - p);
+        this._warp = 1.7 * q;                                 // stars streak fast, then decelerate to points
+        this.zoom = 0.7 + (this.iz0 - 0.7) * q;               // drop out: ease the zoom from close-in out to the resting galaxy view
+        if (p >= 1) { this.intro = null; this._warp = 0; this.zoom = 0.7; }
+      }
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
         const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), e = p * p * (3 - 2 * p), w = this.planetWorld(fl.g);
         this.cx = fl.cx0 + (w.x - fl.cx0) * clamp(e * 1.4, 0, 1); this.cz = fl.cz0 + (w.z - fl.cz0) * clamp(e * 1.4, 0, 1);
