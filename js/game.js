@@ -316,7 +316,7 @@
   function freshMeta() { return { totalEver: 0, stats: freshStats() }; }
   const stat = () => META.stats;
 
-  let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0;
+  let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
   let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0;
@@ -443,6 +443,22 @@
     leech: "devours loot orbs and heals from them", spawner: "endlessly births minion dots",
   };
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
+  // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
+  const BOSS_INTERVAL = 300;   // seconds of active (boss-free) play between bosses
+  const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
+  const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
+  function spawnBoss() {
+    const g = S.galaxy, vm = derived.valueMul, base = 18 * Math.pow(vm, 1.3);
+    let dps = 0; for (const u of S.units) dps += uDmg(u) * DEF_TYPES[u.type].rate * cls(u.type).rate;   // size HP to your real firepower → a ~minute+ fight, scales with you
+    const hp = Math.max(base * 30, dps * 60);
+    const r = clamp(40 + Math.log10(hp + 10) * 2.4, 42, 60);
+    const val = Math.max(1, Math.round(DROP_BASE * galValueMul(g) * vm * derived.incomeMul * 120));   // fat bounty for a hard kill
+    dots.push({ x: W / 2, y: H * 0.3, vx: rnd(-18, 18), vy: rnd(-8, 8), hp, maxHp: hp, value: val, value0: val,
+      r, r0: r, tier: 6, spin: Math.random() * TAU, special: false, armored: true, kind: "boss", boss: true, bg: g,
+      shieldMax: hp * 0.35, shield: hp * 0.35, armorUp: 0, regen: 0.012, add: 0,
+      weight: 5, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#ffffff" });
+    floatTxt(W / 2, H / 2 - 70, "⚠ " + bossName(g) + " ⚠"); flashAdd(0.55); shakeAdd(9);
+  }
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.pow(derived.valueMul, 1.3), base = 18 * enemyHpMul(g) * vscale, avg = base * 1.3;   // HP scales SUPER-linearly with Value — Value genuinely & heavily toughens enemies; cash is unaffected (it keys off hp/avg, where base cancels)
     const men = S.free ? 1.0 : clamp(S.lv.value / 28, 0, 3.5);   // "menace": Value drives how tough/common the hard dots are — steeper & high cap so the strongest become real multi-second tanks
@@ -570,6 +586,13 @@
     d.hp -= dmg; d.hit = 0.08;
     if (d.hp <= 0) {
       d.dead = true;
+      if (d.boss) {   // a defeated mini-boss bursts into several fat loot orbs + big payoff fx
+        const np = 5; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
+        burst(d.x, d.y, 44, 210, 3.2); ring(d.x, d.y, d.r, d.r + 130, 0.6); ring(d.x, d.y, d.r, d.r + 70, 0.4); shakeAdd(7); flashAdd(0.35);
+        floatTxt(d.x, d.y - d.r - 12, "☠ " + bossName(d.bg || S.galaxy) + " DEFEATED");
+        const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
+        return;
+      }
       // bigger / tougher kills drop heavier loot that takes longer to consume
       const big = d.armored || (d.tier || 0) >= 3, cmax = big ? 1.6 : ((d.tier || 0) >= 1 || d.r > 12 ? 0.55 : 0.1);
       orbs.push({ x: d.x, y: d.y, value: d.value, t: 0, weight: d.weight || 1, consume: 0, consumeMax: cmax, r0: big ? 6.5 : ((d.tier || 0) >= 1 ? 4 : 2.6), big });
@@ -631,10 +654,16 @@
     spawnAcc += dt * derived.spawnPerSec * galSpawnMul(S.galaxy);
     while (spawnAcc >= 1 && dots.length < cap) { spawnDot(); spawnAcc -= 1; }
     if (spawnAcc > 6) spawnAcc = 6;
+    // mini-boss: one at a time; timer only counts while no boss is on the field
+    if (!dots.some(d => d.boss)) { bossAcc += dt; if (bossAcc >= BOSS_INTERVAL) { bossAcc = 0; spawnBoss(); } }
 
     for (const d of dots) {
       d.pending = 0; d.aimed = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
+      if (d.boss) { d.add += dt; if (d.add > 6 && dots.length < cap - 2) { d.add = 0;   // boss summons a couple of adds to keep the pressure on
+          const mb = 18 * Math.pow(derived.valueMul, 1.3) * rnd(1.5, 3), mr = clamp(8 + Math.log10(mb + 10) * 2, 8, 16), mv = Math.max(1, Math.round((d.value0 || 1) * 0.01));
+          for (let i = 0; i < 2; i++) dots.push({ x: d.x + rnd(-24, 24), y: d.y + rnd(-24, 24), vx: rnd(-65, 65), vy: rnd(-50, 50), hp: mb, maxHp: mb, value: mv, value0: mv, r: mr, r0: mr, tier: 1, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" });
+          burst(d.x, d.y, 6, 60, 1.4); } }
       if (d.regen && d.hit <= 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.maxHp * d.regen * dt);  // heals unless under fire
       if (d.pulse !== undefined) { d.pulse += dt; if (d.pulse > 1.5) { d.pulse = 0; ring(d.x, d.y, d.r, d.r + 26, 0.45); if (d.shock) for (const dr of drones) { const dx = dr.x - d.x, dy = dr.y - d.y, dl = Math.hypot(dx, dy); if (dl < 115) { dr.vx += dx / (dl || 1) * 210; dr.vy += dy / (dl || 1) * 210; } } } }   // Tempest shock shoves collectors off
       if (d.phase !== undefined) { d.phase += dt; d.phased = (d.phase % 2.4) < 1.0; }
@@ -708,6 +737,29 @@
     if (S.galaxy > S.peakGalaxy) S.peakGalaxy = S.galaxy;
   }
 
+  // each planet's boss gets a distinct, seeded silhouette (sides / spokes / rings / spin) + a health bar
+  function drawBoss(d) {
+    const g = d.bg || S.galaxy, hsh = Math.imul((g + 7) * 2654435761, 40503) >>> 0, rv = k => ((hsh >> (k * 3)) & 7) / 7;
+    const sides = 3 + Math.floor(rv(0) * 6), spokes = 6 + Math.floor(rv(1) * 8), rings = 1 + Math.floor(rv(2) * 3);
+    const dir = rv(3) < 0.5 ? -1 : 1, sp = d.spin * (0.6 + rv(4) * 0.8) * dir;
+    const r = d.r * (d.hit > 0 ? 1.12 : 1) * (d.born < 0.3 ? clamp(d.born / 0.3, 0.3, 1) : 1);
+    ctx.globalAlpha = 0.10 + 0.05 * Math.sin(d.spin * 3); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.x, d.y, r * 2.0, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;   // menace aura
+    ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 1.5; ctx.setLineDash([5, 7]); ctx.beginPath(); ctx.arc(d.x, d.y, r * 1.62, -sp, -sp + TAU); ctx.stroke(); ctx.setLineDash([]);   // dashed halo
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.4; ctx.fillStyle = "#fff";                                          // rotating spokes/limbs
+    for (let k = 0; k < spokes; k++) { const a = sp + k / spokes * TAU, o = r * (1.35 + 0.22 * Math.sin(d.spin * 2 + k)); ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * r * 1.02, d.y + Math.sin(a) * r * 1.02); ctx.lineTo(d.x + Math.cos(a) * o, d.y + Math.sin(a) * o); ctx.stroke(); ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * o, d.y + Math.sin(a) * o, 2.4, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = d.hit > 0 ? "#fff" : "#d8d8d8"; ctx.beginPath();                                                // core polygon
+    for (let k = 0; k <= sides; k++) { const a = -sp * 0.5 + k / sides * TAU, rr = r * (k % 2 && rv(5) > 0.5 ? 0.82 : 1); (k ? ctx.lineTo : ctx.moveTo).call(ctx, d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr); }
+    ctx.closePath(); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4; for (let k = 1; k <= rings; k++) { ctx.beginPath(); ctx.arc(d.x, d.y, r * (k / (rings + 1)), 0, TAU); ctx.stroke(); }   // inner rings
+    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(d.x, d.y, r * 0.24, 0, TAU); ctx.fill();                       // core eye
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.x + Math.cos(d.spin) * r * 0.1, d.y + Math.sin(d.spin) * r * 0.1, r * 0.1, 0, TAU); ctx.fill();
+    if (d.shield > 0) { ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 3; ctx.globalAlpha = clamp(d.shield / d.shieldMax, 0.25, 1); ctx.beginPath(); ctx.arc(d.x, d.y, r * 1.78, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
+    const bw = 150, bx = d.x - bw / 2, by = d.y - r * 1.95 - 16;                                                    // health bar + name
+    ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(bx - 2, by - 2, bw + 4, 9);
+    ctx.fillStyle = "#fff"; ctx.fillRect(bx, by, bw * clamp(d.hp / d.maxHp, 0, 1), 5);
+    if (d.shield > 0) { ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.fillRect(bx, by, bw * clamp(d.shield / d.shieldMax, 0, 1), 5); }
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("☠ " + bossName(g), d.x, by - 4);
+  }
   /* ----------------------------- render -------------------------- */
   function render() {
     ctx.clearRect(0, 0, W, H);
@@ -720,6 +772,7 @@
     for (const b of beams) { const a = clamp(b.life / (b.w > 2 ? 0.13 : 0.08), 0, 1); ctx.strokeStyle = b.color; ctx.globalAlpha = a * 0.25; ctx.lineWidth = (b.w || 2) * 2.4; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.globalAlpha = a; ctx.lineWidth = b.w || 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
     for (const d of dots) {
+      if (d.boss) { drawBoss(d); continue; }
       const pulse = d.pulse !== undefined ? 1 + 0.12 * Math.sin(d.born * 0.1 + d.pulse * 4) : 1;
       const dr2 = d.r * (d.born < 0.2 ? clamp(d.born / 0.18, 0.2, 1) : 1) * (d.hit > 0 ? 1 + d.hit / 0.08 * 0.28 : 1) * pulse;
       const ga = d.phased ? 0.4 : d.cloaked ? 0.12 : 1;
