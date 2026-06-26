@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.2";
+  const VERSION = "v1.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
 
@@ -322,7 +322,8 @@
   let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
-  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0;
+  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0;
+  const VEIL_FADE = 0.55;   // seconds for the zoom-into-base white-wipe to fade back out after landing
   const MAXP = 440;
   function burst(x, y, n, spd, sz) { if (parts.length > MAXP) return; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = spd * (0.35 + Math.random() * 0.9);
     if (Math.random() < 0.4) parts.push({ t: 4, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.3 + Math.random() * 0.35, max: 0.65, ang: a, len: sz * 2 + Math.random() * sz * 2, spin: (Math.random() - 0.5) * 12 });  // shard
@@ -1417,16 +1418,17 @@
       c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x - r * 0.32, p.y - r * 0.32, r * 0.5, 0, TAU); c.fill();   // lit crescent
       c.globalAlpha = 1;
     },
-    // cinematic dive: glide focus onto a planet and keep accelerating the zoom, then drop into the world
-    flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.5, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; },
+    // cinematic dive: glide focus onto a planet, accelerate the zoom, white-wipe over the cut, drop into the world
+    flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.25, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; },
     render(dt) {
       if (!this.cv) return; const c = this.c;
       this.t += dt;
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
-        const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), w = this.planetWorld(fl.g);
-        this.cx = fl.cx0 + (w.x - fl.cx0) * clamp(p * 1.7, 0, 1); this.cz = fl.cz0 + (w.z - fl.cz0) * clamp(p * 1.7, 0, 1);
-        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (22 - fl.z0) * (p * p * p);   // ease-in → keeps zooming faster
-        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; if (cb) cb(); }
+        const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), e = p * p * (3 - 2 * p), w = this.planetWorld(fl.g);
+        this.cx = fl.cx0 + (w.x - fl.cx0) * clamp(e * 1.4, 0, 1); this.cz = fl.cz0 + (w.z - fl.cz0) * clamp(e * 1.4, 0, 1);
+        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (16 - fl.z0) * (p * p * p);   // accelerating dive
+        const tv = $("transition"); if (tv) tv.style.opacity = clamp((p - 0.5) / 0.5, 0, 1);     // white-wipe fades in over the back half, hiding the cut
+        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; if (tv) tv.style.opacity = "1"; if (cb) cb(); veilT = VEIL_FADE; }   // fully white at the swap, then loop fades it out → no flick
       }
       this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1639,7 +1641,9 @@
   }
   window.addEventListener("resize", resize);
   let last = 0, saveAcc = 0;
-  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt); saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
+  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt);
+    if (veilT > 0) { veilT = Math.max(0, veilT - dt); const v = $("transition"); if (v) v.style.opacity = (veilT / VEIL_FADE).toFixed(3); }   // fade the zoom-into-base white-wipe back out
+    saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
   if ($("version")) $("version").textContent = VERSION;
   load(); resize(); syncCollectors(); renderList(); GMap.init(); STree.init(); setScreen("home");
