@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.9";
+  const VERSION = "v2.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -283,7 +283,12 @@
   // is ×2.2 bigger, so progression runs millions → billions → trillions+. This is purely
   // the SCALE — income and every cost ride the same eco(g), so pacing is unchanged.
   const CUR_BASE = 5e6;
-  const eco = g => CUR_BASE * Math.pow(2.2, Math.max(1, g) - 1);    // currency scale of planet g (= a plain dot's drop)
+  // Each planet's currency has its OWN seeded magnitude (distinct, non-uniform) on top of the ×2.2 ladder.
+  // conquerTarget AND income both ride eco(g), so this per-planet bump CANCELS in time-to-conquer — pacing
+  // is provably unchanged; it only makes each planet's numbers feel unique and its starting purse distinct.
+  const ecoBump = g => Math.exp(((((Math.imul((Math.max(1, g) + 5) * 2654435761, 40503) >>> 0) >>> 8) & 1023) / 1023 - 0.5) * 1.9);   // ~×0.39 … ×2.6, seeded per planet
+  const eco = g => CUR_BASE * Math.pow(2.2, Math.max(1, g) - 1) * ecoBump(g);   // distinct currency scale of planet g (a plain dot's drop)
+  const startMul = g => 28 + ((Math.imul((Math.max(1, g) + 19) * 2654435761, 40503) >>> 0 >>> 6) & 511) / 511 * 64;   // seeded fresh-landing purse: eco(g) × [28..92], distinct per planet
   const CUR_NAMES = ["Dust","Sparks","Slag","Embers","Brine","Spores","Cobalt","Gusts","Glimmer","Charge","Shade","Rime","Shards","Wisps","Ash","Voidstone","Bile","Null"];
   const CUR_SYM   = ["✦","✷","◆","✸","≋","✤","◈","❂","✧","⚡","◐","❄","◇","∿","▲","⬟","☣","⊘"];   // each planet's currency has its own symbol
   const curName = g => CUR_NAMES[Math.min(Math.max(g,1),CUR_NAMES.length)-1] || "Null";
@@ -302,7 +307,16 @@
   // You keep only ~8% of value, and currency from FAR-behind worlds is "stale" (decays per planet
   // of distance), so the background empire is a small leg-up, never a buy-past-it snowball.
   const EXCHANGE_KEEP = 0.08;
-  const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; const dist = Math.abs(S.galaxy - fromG); return Math.floor(cash * (curWorth(fromG) / curWorth(S.galaxy)) * EXCHANGE_KEEP * Math.pow(0.6, Math.max(0, dist - 1))); };
+  // ── FLOATING FX MARKET — every currency PAIR has a unique seeded base spread that ALSO drifts over real
+  // time (a live market you can time). The conversion stays value-anchored (worth ratio) + harsh keep +
+  // distance decay + a hard cap, so it can NEVER flood an economy or shortcut a conquest. ──
+  const fxHash = (a, b) => Math.imul(Math.min(a, b) * 131 + Math.max(a, b) * 977 + 17, 2654435761) >>> 0;
+  const fxBase = (a, b) => 0.65 + ((fxHash(a, b) >>> 9) & 1023) / 1023 * 0.95;                          // unique base spread per pair ~[0.65,1.60]
+  const fxDriftAt = (a, b, t) => { const h = fxHash(a, b), ph1 = ((h >>> 3) & 255) / 255 * TAU, ph2 = ((h >>> 13) & 255) / 255 * TAU, f1 = 0.02 + ((h >>> 21) & 15) / 15 * 0.04, f2 = 0.07 + ((h >>> 25) & 15) / 15 * 0.11; return 1 + 0.2 * Math.sin(t * f1 + ph1) + 0.1 * Math.sin(t * f2 + ph2); };
+  const fxMarketAt = (a, b, t) => fxBase(a, b) * fxDriftAt(a, b, t);                                    // the live "rate" the player sees, floats ~[0.45,2.1]
+  const fxMarket = (a, b) => fxMarketAt(a, b, Date.now() / 1000);
+  const fxRate = (fromG, toG) => (curWorth(fromG) / curWorth(toG)) * EXCHANGE_KEEP * Math.pow(0.6, Math.max(0, Math.abs(toG - fromG) - 1)) * fxMarket(fromG, toG);
+  const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; return Math.floor(Math.min(cash * fxRate(fromG, S.galaxy), conquerTarget(S.galaxy) * 0.04)); };   // hard cap = 4% of a conquest → never broken, can't shortcut
   // per-class buy-cost factors (× eco(active) × 1.9^count) — keeps class differentiation but planet-local
   const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650 };
   // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
@@ -324,7 +338,7 @@
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
-    return { cash: Math.floor(eco(1) * 45), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null };
+    return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null };
   }
   // trim a unit/collector list down to each type's max (enforces caps on load)
   function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type, m = TY(t) ? TY(t).max : 99; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }
@@ -339,7 +353,7 @@
   let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
-  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0, landT = 0;
+  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0, landT = 0, fxAcc = 0;
   const VEIL_FADE = 0.6;   // seconds for the zoom-into-base white-wipe to fade back out after landing
   const LAND_DUR = 0.85;   // camera pull-back "you have arrived" settle after the warp lands
   const MAXP = 440;
@@ -474,7 +488,7 @@
     let dps = 0; for (const u of S.units) dps += uDmg(u) * DEF_TYPES[u.type].rate * cls(u.type).rate;   // size HP to your real firepower → a ~minute+ fight, scales with you
     const hp = Math.max(base * 30, dps * 60);
     const r = clamp(40 + Math.log10(hp + 10) * 2.4, 42, 60);
-    const val = Math.max(1, Math.round(DROP_BASE * galValueMul(g) * vm * derived.incomeMul * 120));   // fat bounty for a hard kill
+    const val = Math.max(1, Math.round(eco(g) * vm * derived.incomeMul * 120));   // fat bounty for a hard kill
     // each planet's boss gets its OWN seeded movement personality (not the lazy drift-to-centre)
     const mh = Math.imul((g + 13) * 2654435761, 40503) >>> 0, mr = k => ((mh >>> (k * 4)) & 15) / 15;
     const styles = ["lissajous", "orbit", "charge", "pace", "prowl", "dash"];
@@ -529,7 +543,7 @@
     if (cfg) { roll *= cfg.hp; if (cfg.speed) mv *= cfg.speed; }
     const hp = base * roll * (derived.spawnMenace || 1);   // surplus Spawn Rate (past the field cap) makes every dot tougher & richer
     special = special || (!armored && !cfg && Math.random() < derived.luck);
-    const val = Math.max(1, Math.round(DROP_BASE * galValueMul(g) * derived.valueMul * derived.incomeMul * Math.pow(hp / avg, TOUGH_POW) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
+    const val = Math.max(1, Math.round(eco(g) * derived.valueMul * derived.incomeMul * Math.pow(hp / avg, TOUGH_POW) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" || kind === "flock" ? 6 : 7, armored ? 40 : 24);
     // visual tier: the tougher the dot, the more elaborate (spikes/rings)
     const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : roll < 9 ? 5 : 6;
@@ -1595,7 +1609,7 @@
   }
   function activatePlanet(g) {   // make planet g the live playfield (restore its build, or fresh-start it)
     const v = planetMeta(g), fresh = !(v && v.units), b = fresh ? freshPlanetBuild() : v;
-    S.cash = fresh ? Math.floor(eco(g) * 45) : (b.cash || 0);   // a fresh landing comes with starter supplies so you build immediately
+    S.cash = fresh ? Math.floor(eco(g) * startMul(g)) : (b.cash || 0);   // a fresh landing comes with starter supplies so you build immediately
     S.units = (b.units && b.units.length) ? b.units : [newUnit("turret")];
     S.collectors = (b.collectors && b.collectors.length) ? b.collectors : [{ type: "drone" }];
     S.lv = b.lv || freshPlanetBuild().lv; S.classNodes = b.classNodes || freshPlanetBuild().classNodes;
@@ -1630,15 +1644,22 @@
     const got = exchangeAmt(g, v.cash); v.cash = 0; S.cash += got; recompute(); syncHUD(); save(); return got; }
   function openExchange() {
     const wrap = $("exch-list"); wrap.innerHTML = "";
-    $("exch-sub").textContent = "Convert a conquered planet's idle currency into " + curName(S.galaxy) + ". Rates are HARSH (you keep ~8%, and far-off worlds are 'stale') — a leg-up, not a free ride. You really start fresh on each world.";
+    $("exch-sub").textContent = "LIVE FX market into " + curSym(S.galaxy) + " " + curName(S.galaxy) + " — every currency pair has its own rate that drifts over time. You keep ~8% of value (far worlds decay) and it's capped, so it's a leg-up, not a free ride. Convert when a rate spikes ↗.";
     let any = false;
     for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (!v || !v.conquered) continue; any = true;
-      const bal = Math.floor(v.cash || 0), conv = exchangeAmt(g, bal);
-      const el = document.createElement("div"); el.className = "up";
-      el.innerHTML = `<span class="u-dot" style="background:transparent;color:#fff;font-size:15px;text-align:center;line-height:14px">${curSym(g)}</span><div class="u-mid"><div class="u-name">${galName(g)}<span class="lv">+${curSym(g)}${fmt(v.bgRate || 0)}/s idle</span></div><div class="u-desc">${curSym(g)} ${fmt(bal)} ${curName(g)} → <b>${curSym(S.galaxy)} ${fmt(conv)} ${curName(S.galaxy)}</b></div></div><button class="u-buy">Convert</button>`;
-      wrap.appendChild(el); const b = el.querySelector(".u-buy"); b.disabled = conv <= 0; b.onclick = () => { exchangeFrom(g); openExchange(); };
+      const bal = Math.floor(v.cash || 0);
+      const el = document.createElement("div"); el.className = "up"; el.dataset.fxg = g;
+      el.innerHTML = `<span class="u-dot" style="background:transparent;color:#fff;font-size:15px;text-align:center;line-height:14px">${curSym(g)}</span><div class="u-mid"><div class="u-name">${curName(g)} <span class="lv fx-rate" data-g="${g}"></span></div><div class="u-desc">${curSym(g)} ${fmt(bal)} → <b class="fx-amt" data-g="${g}"></b></div></div><button class="u-buy">Convert</button>`;
+      wrap.appendChild(el); const b = el.querySelector(".u-buy"); b.onclick = () => { exchangeFrom(g); openExchange(); };
     }
     if (!any) wrap.innerHTML = "<p class='muted' style='padding:12px;text-align:center'>No conquered planets yet.<br>Conquer this planet, travel onward, and its idle currency will pool here to bankroll your next fresh start.</p>";
+    refreshExchange();
+  }
+  function refreshExchange() {   // live floating rates + converted amounts while the modal is open
+    const ex = $("exchange"); if (!ex || !ex.classList.contains("show")) return;
+    const now = Date.now() / 1000, list = $("exch-list");
+    list.querySelectorAll(".fx-rate").forEach(sp => { const g = +sp.dataset.g, m = fxMarketAt(g, S.galaxy, now), up = m >= fxMarketAt(g, S.galaxy, now - 1.5); sp.textContent = (up ? "↗ " : "↘ ") + "×" + m.toFixed(2); sp.style.color = up ? "#fff" : "var(--dim)"; });
+    list.querySelectorAll("[data-fxg]").forEach(row => { const g = +row.dataset.fxg, v = S.vault[g], conv = exchangeAmt(g, Math.floor((v && v.cash) || 0)); const amt = row.querySelector(".fx-amt"); if (amt) amt.textContent = curSym(S.galaxy) + " " + fmt(conv) + " " + curName(S.galaxy); const b = row.querySelector(".u-buy"); if (b) b.disabled = conv <= 0; });
   }
   // CODES: "test" turns on FREE SANDBOX mode — everything is unlocked & free to
   // buy so you click and test whatever you want yourself (it does NOT hand you a
@@ -1746,6 +1767,7 @@
   function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt);
     if (veilT > 0) { veilT = Math.max(0, veilT - dt); setVeil(135 * (1 - veilT / VEIL_FADE)); }   // iris the black veil open over the base after landing
     if (landT > 0) { landT = Math.max(0, landT - dt); camZoom += (camFit - camZoom) * Math.min(1, dt * 3.5); if (landT === 0) { camZoom = camFit; const root = $("root"); if (root) root.classList.remove("cinematic"); } }   // camera pulls back to the base, then letterbox retracts
+    fxAcc += dt; if (fxAcc > 0.2) { fxAcc = 0; refreshExchange(); }   // tick the live FX rates while the exchange is open
     saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
   if ($("version")) $("version").textContent = VERSION;
