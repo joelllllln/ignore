@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.1";
+  const VERSION = "v1.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
 
@@ -1608,6 +1608,7 @@
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");
   $("menu-resume").onclick = () => $("menu").classList.remove("show");
+  $("menu-home").onclick = () => { save(); $("menu").classList.remove("show"); setScreen("home"); };   // back to the home screen (progress saved)
   $("menu-reset").onclick = () => { if (confirm("Erase ALL progress?")) wipeSave(); };
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
   $("home-play").onclick = () => { renderList(); setScreen("play"); };
