@@ -1427,8 +1427,9 @@
     dots = []; orbs = []; beams = []; parts = []; selUnit = -1;
     syncCollectors(); recompute(); renderList(); syncHUD(); GMap.reset && 0;
   }
-  // journey time: first trip (planet 1→2) is 3 hours, +1 hour each further out (planet g → 3+(g-1) = g+2 hrs)
-  function travelDur(a) { return (a + 2) * 3600; }
+  // journey time: first trip (planet 1→2) is 3 hours, +1 hour each further out (planet g → 3+(g-1) = g+2 hrs).
+  // Crossing into a NEW solar system takes twice as long (the big inter-system hauls).
+  function travelDur(a) { const base = (a + 2) * 3600, cross = PLANET_SYS[planetIdx(a)] !== PLANET_SYS[planetIdx(a + 1)]; return cross ? base * 2 : base; }
   function travel() {   // LAUNCH an expedition to the next planet: costs treasury + takes a real journey
     const g = S.galaxy;
     if (S.travel) return;                                   // already en route
