@@ -228,7 +228,7 @@
   const UPS = [
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 20, mul: 1.55, desc: () => curSym(S.galaxy) + " " + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 30, mul: 1.42, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" + (derived.spawnMenace > 1.001 ? "  ·  +" + Math.round((derived.spawnMenace - 1) * 100) + "% menace" : "") },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" + (derived.spawnSurplus > 0.05 ? "  ·  up to +" + Math.round(5 * derived.spawnSurplus) + "% menace when full" : "") },
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
@@ -355,10 +355,9 @@
     // into MENACE: every dot spawns tougher & (via TOUGH_POW) worth disproportionately more. So Spawn
     // Rate keeps paying off even with a full screen, exactly like Value never caps out.
     const rawSpawn = 0.9 + 2.0 * L.spawnRate;
-    const SPAWN_SOFTCAP = 12;                                                  // ~where a busy field saturates the 400 cap
-    derived.spawnPerSec = rawSpawn <= SPAWN_SOFTCAP ? rawSpawn               // below saturation: pure dots/sec
-      : SPAWN_SOFTCAP + (rawSpawn - SPAWN_SOFTCAP) * 0.3;                      // above: count still creeps up if there's room
-    derived.spawnMenace = 1 + 0.05 * Math.max(0, rawSpawn - SPAWN_SOFTCAP);   // surplus → tougher, richer dots (income rises since TOUGH_POW>1)
+    derived.spawnPerSec = rawSpawn;                                           // FULL benefit — the field cap limits count, so if you kill fast you just get flooded with more dots
+    derived.spawnSurplus = Math.max(0, rawSpawn - 12);                        // rate beyond the field's comfortable throughput — becomes MENACE, but only while the field is actually saturated
+    if (derived.spawnMenace == null) derived.spawnMenace = 1;                 // live value, updated each frame from real field fullness in the spawn loop
     derived.luck = Math.min(0.5, 0.001 * L.luck);    // +0.1% chance of a rare 9× SPECIAL dot per Luck level
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
@@ -614,8 +613,13 @@
     if (blackholeT > 0) blackholeT -= dt;
     for (const k in abil) if (abil[k] > 0) abil[k] = Math.max(0, abil[k] - dt);
 
-    spawnAcc += dt * derived.spawnPerSec * galSpawnMul(S.galaxy);
     const cap = galCap(S.galaxy);
+    // DYNAMIC menace: only when the field is genuinely full (you can't keep up) does surplus Spawn
+    // Rate turn into toughness. Clear the field fast and menace stays ~1 — you just get MORE dots.
+    const sat = clamp((dots.length / cap - 0.7) / 0.3, 0, 1);                 // 0 until ~70% full, ramps to 1 at the cap
+    const targetMenace = 1 + 0.05 * (derived.spawnSurplus || 0) * sat;
+    derived.spawnMenace += (targetMenace - derived.spawnMenace) * Math.min(1, dt * 2);   // smooth so it doesn't jitter
+    spawnAcc += dt * derived.spawnPerSec * galSpawnMul(S.galaxy);
     while (spawnAcc >= 1 && dots.length < cap) { spawnDot(); spawnAcc -= 1; }
     if (spawnAcc > 6) spawnAcc = 6;
 
@@ -1186,7 +1190,7 @@
     singularity: "Black hole — hovers centre-field and slowly drags EVERY orb (and nearby dots) inward. Huge reach & yield.",
     capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
     value: "A FLAT +8% cash per dot per level (additive — it doesn't compound, so no runaway). Also ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
-    spawnRate: "More dots per second. The field holds a few hundred dots at once — once it's that full, extra Spawn Rate instead makes every dot TOUGHER and worth far more (it spills into 'menace'), so it never goes to waste even on a packed screen.",
+    spawnRate: "More dots per second — and if you're clearing them fast, you just get MORE to kill. Only when the field actually fills up (you can't keep up) does extra Spawn Rate convert into 'menace' instead: every dot spawns tougher and worth far more. So fast killing is rewarded with sheer volume, and the upgrade still pays off as toughness when the screen is packed.",
     luck: "Chance for rare SPECIAL dots worth about 9× normal cash. A slow +0.1% per level.",
     frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
     dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
