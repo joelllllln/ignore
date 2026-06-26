@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.3";
+  const VERSION = "v1.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
 
@@ -323,7 +323,7 @@
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
   let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0;
-  const VEIL_FADE = 0.55;   // seconds for the zoom-into-base white-wipe to fade back out after landing
+  const VEIL_FADE = 0.6;   // seconds for the zoom-into-base white-wipe to fade back out after landing
   const MAXP = 440;
   function burst(x, y, n, spd, sz) { if (parts.length > MAXP) return; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = spd * (0.35 + Math.random() * 0.9);
     if (Math.random() < 0.4) parts.push({ t: 4, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.3 + Math.random() * 0.35, max: 0.65, ang: a, len: sz * 2 + Math.random() * sz * 2, spin: (Math.random() - 0.5) * 12 });  // shard
@@ -778,6 +778,15 @@
     ctx.fillStyle = "#fff"; ctx.fillRect(bx, by, bw * clamp(d.hp / d.maxHp, 0, 1), 5);
     if (d.shield > 0) { ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.fillRect(bx, by, bw * clamp(d.shield / d.shieldMax, 0, 1), 5); }
     ctx.fillStyle = "#fff"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("☠ " + bossName(g), d.x, by - 4);
+  }
+  // Black-iris veil for the zoom-into-base transition. rPct = radius of the clear hole (% of screen):
+  // 0 = fully black, ≥135 = fully clear (veil off). Centered, so it closes on / opens from the planet.
+  function setVeil(rPct) {
+    const v = $("transition"); if (!v) return;
+    if (rPct == null || rPct >= 135) { v.style.opacity = "0"; return; }
+    const r = Math.max(0, rPct);
+    v.style.opacity = "1";
+    v.style.background = "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) " + r.toFixed(1) + "%, #000 " + (r + 8).toFixed(1) + "%)";
   }
   /* ----------------------------- render -------------------------- */
   function render() {
@@ -1423,17 +1432,23 @@
     render(dt) {
       if (!this.cv) return; const c = this.c;
       this.t += dt;
+      if (!this.flight && this._warp) this._warp = Math.max(0, this._warp - dt * 4);   // warp streaks settle after the dive
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
         const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), e = p * p * (3 - 2 * p), w = this.planetWorld(fl.g);
         this.cx = fl.cx0 + (w.x - fl.cx0) * clamp(e * 1.4, 0, 1); this.cz = fl.cz0 + (w.z - fl.cz0) * clamp(e * 1.4, 0, 1);
-        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (16 - fl.z0) * (p * p * p);   // accelerating dive
-        const tv = $("transition"); if (tv) tv.style.opacity = clamp((p - 0.5) / 0.5, 0, 1);     // white-wipe fades in over the back half, hiding the cut
-        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; if (tv) tv.style.opacity = "1"; if (cb) cb(); veilT = VEIL_FADE; }   // fully white at the swap, then loop fades it out → no flick
+        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (20 - fl.z0) * (p * p * p);   // accelerating dive into the planet
+        this._warp = e;                                                                          // starfield stretches into warp streaks
+        setVeil(135 * (1 - clamp((p - 0.4) / 0.6, 0, 1)));                                        // black iris closes on the planet over the back half
+        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; this._warp = 1; setVeil(0); if (cb) cb(); veilT = VEIL_FADE; }   // full black at the swap → loop irises it open over the base
       }
       this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
-      c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.2 + 0.35 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1;
+      const warp = this._warp || 0;
+      if (warp > 0.05) {   // hyperspace: stars stretch radially away from centre as you dive in
+        c.lineCap = "round";
+        for (const s of this.stars) { const sx = s.x * this.w, sy = s.y * this.h, dx = sx - this.w / 2, dy = sy - this.h / 2, dl = Math.hypot(dx, dy) || 1, str = warp * warp * (50 + dl); c.strokeStyle = "rgba(255,255,255," + (0.25 + 0.55 * warp).toFixed(2) + ")"; c.lineWidth = s.r * (1 + warp * 1.6); c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + dx / dl * str, sy + dy / dl * str); c.stroke(); }
+      } else { c.fillStyle = "#fff"; for (const s of this.stars) { c.globalAlpha = 0.2 + 0.35 * Math.abs(Math.sin(this.t + s.x * 9)); c.fillRect(s.x * this.w, s.y * this.h, s.r, s.r); } c.globalAlpha = 1; }
       const curSys = PLANET_SYS[planetIdx(S.galaxy)];
       this.hit = [];
       // each planet's own elliptical/inclined orbit ring
@@ -1642,7 +1657,7 @@
   window.addEventListener("resize", resize);
   let last = 0, saveAcc = 0;
   function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt);
-    if (veilT > 0) { veilT = Math.max(0, veilT - dt); const v = $("transition"); if (v) v.style.opacity = (veilT / VEIL_FADE).toFixed(3); }   // fade the zoom-into-base white-wipe back out
+    if (veilT > 0) { veilT = Math.max(0, veilT - dt); setVeil(135 * (1 - veilT / VEIL_FADE)); }   // iris the black veil open over the base after landing
     saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
   if ($("version")) $("version").textContent = VERSION;
