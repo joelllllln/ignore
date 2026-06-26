@@ -13,6 +13,11 @@
 > `https://raw.githack.com/joelllllln/ignore/<commit-sha>/index.html` — never
 > finish a change without it.
 >
+> **BUMP THE VERSION ON EVERY CHANGE.** Increment the `VERSION` constant near the
+> top of `js/game.js` (`v1.0` → `v1.1` → `v1.2` …) with every update. It shows in
+> the **top-right corner in-game** so the owner can confirm they're on the latest
+> build. No change ships without a version bump.
+>
 > See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full standing rules.
 
 A hardcore idle/incremental space shooter built with **HTML5, JavaScript and

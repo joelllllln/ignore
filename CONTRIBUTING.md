@@ -27,13 +27,23 @@ what's written here, **this file wins** — follow it.
 ## 3. Workflow each time you make a change
 
 1. Edit `js/game.js` (and `index.html` / `style.css` / `README.md` as needed).
-2. Sanity-check: `node --check js/game.js`, and the tools in `tools/` if
+2. **MANDATORY — bump the version.** Increment the `VERSION` constant near the
+   top of [`js/game.js`](js/game.js) on **every** change (e.g. `v1.0` → `v1.1`,
+   then `v1.2`, …). It is shown in the **top-right corner in-game**, so the owner
+   can confirm at a glance they're on the latest build. Never ship a change
+   without bumping it. `VERSION` is the single source of truth — the badge text
+   is set from it automatically; do not hardcode the number anywhere else.
+3. Sanity-check: `node --check js/game.js`, and the tools in `tools/` if
    balance/pacing is affected.
-3. Commit to `main` with a clear message.
-4. `git push -u origin main`.
-5. **MANDATORY:** give the owner a **play link** pinned to the new commit (see
+4. Commit to `main` with a clear message.
+5. `git push -u origin main`.
+6. **MANDATORY:** give the owner a **play link** pinned to the new commit (see
    below). This is not optional — **every single change ends with a fresh link
    to test.** If you made several pushes, give the link for the latest commit.
+
+> **Versioning convention:** simple two-part `vMAJOR.MINOR`. Bump the MINOR on
+> each routine change; bump MAJOR only for a big milestone. The number only ever
+> needs to *change* so the owner knows the build updated — keep it monotonic.
 
 ## 4. Play link format
 
