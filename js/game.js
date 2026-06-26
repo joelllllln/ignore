@@ -237,9 +237,11 @@
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
   // days each by the late planets.
-  // Launching an expedition to the next planet costs most of your treasury (you fund the fleet) —
-  // pegged to your bank ceiling so it's always achievable by filling up, and scales with the planet.
-  const travelCost = () => Math.max(1, Math.round((derived.capacity || eco(S.galaxy) * 220) * 0.8));
+  // Launching an expedition costs a FIXED, huge sum scaling with the planet's economy (NOT your
+  // bank ceiling — so you can't dodge it by keeping capacity low). On planet 1 it's ~25T; you'll
+  // need to invest in Capacity just to hold that much cash, then bank it. Escalates ×1.2 per planet.
+  const TRAVEL_COST_K = 5e6;
+  const travelCost = g => { g = g || S.galaxy; return Math.round(eco(g) * TRAVEL_COST_K * Math.pow(1.2, g - 1)); };
   // PLANET LAYERS: every planet is a self-contained run of the SAME base difficulty —
   // its identity comes from its native RACE and your in-planet Value ramp, not raw HP.
   // So base HP/spawn are FLAT across planets (a fresh army can always start killing);
@@ -384,7 +386,7 @@
           if (d.cps > 0 && e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; }
           // background empire kept earning while away
           if (S.vault) for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) v.cash = (v.cash || 0) + v.bgRate * e; }
-          if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;   // an in-flight expedition keeps travelling while away
+          if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + Math.max(0, (Date.now() - d.ts) / 1000);   // expedition keeps travelling while away (uncapped — long trips must finish)
         }
       }
     } catch (e) {}
@@ -835,7 +837,7 @@
     $("galaxy-fill").style.width = clamp(conq ? 1 : curEarned / tgt, 0, 1) * 100 + "%";
     const last = S.galaxy >= TOTAL_PLANETS;
     let label, dis = true, ready = false, enroute = false;
-    if (S.travel) { label = "EN ROUTE … " + Math.ceil(Math.max(0, S.travel.dur - S.travel.t)) + "s"; enroute = true; }
+    if (S.travel) { label = "EN ROUTE … " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)); enroute = true; }
     else if (conq || S.free) {
       if (last) { label = "★ FINAL WORLD"; }
       else { const cost = travelCost(); ready = true; dis = !(S.free || S.cash >= cost); label = "LAUNCH ⟶ " + (S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(cost)); }
@@ -1399,7 +1401,7 @@
         c.fillStyle = "#fff"; c.beginPath(); c.moveTo(r, 0); c.lineTo(-r * 0.7, r * 0.62); c.lineTo(-r * 0.7, -r * 0.62); c.closePath(); c.fill();
         c.restore();
         c.fillStyle = "rgba(255,255,255,0.9)"; c.font = "bold 10px ui-monospace,monospace"; c.textAlign = "center";
-        c.fillText("⟶ " + galName(tv.to) + "  " + Math.ceil(Math.max(0, tv.dur - tv.t)) + "s", sp.x, sp.y - r - 6);
+        c.fillText("⟶ " + galName(tv.to) + "  " + fmtTime(Math.max(0, tv.dur - tv.t)), sp.x, sp.y - r - 6);
       }
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } }
@@ -1425,8 +1427,8 @@
     dots = []; orbs = []; beams = []; parts = []; selUnit = -1;
     syncCollectors(); recompute(); renderList(); syncHUD(); GMap.reset && 0;
   }
-  // journey time between two planets — scales with the real distance on the star map (cross-system jumps take longer)
-  function travelDur(a, b) { let d = 600; try { const pa = GMap.planetWorld(a), pb = GMap.planetWorld(b); d = Math.hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z); } catch (e) {} return clamp(d / 16, 18, 75); }
+  // journey time: first trip (planet 1→2) is 3 hours, +1 hour each further out (planet g → 3+(g-1) = g+2 hrs)
+  function travelDur(a) { return (a + 2) * 3600; }
   function travel() {   // LAUNCH an expedition to the next planet: costs treasury + takes a real journey
     const g = S.galaxy;
     if (S.travel) return;                                   // already en route
@@ -1435,7 +1437,7 @@
     const cost = travelCost();
     if (!S.free && S.cash < cost) return;                   // need the launch funds banked
     if (!S.free) { S.cash -= cost; }
-    S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g, g + 1) };
+    S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g) };
     META.stats.travels++; flashAdd(0.35); shakeAdd(2); recompute(); syncHUD(); save();
   }
   // jump to ANY reached planet (revisit & upgrade your background empire, or test)
