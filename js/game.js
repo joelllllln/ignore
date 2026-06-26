@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.6";
+  const VERSION = "v1.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1364,28 +1364,31 @@
         const p = this.pt(e); this.ptrs.set(e.pointerId, p); this.moved = false;
         this.lx = p.x; this.ly = p.y; this.sx0 = p.x; this.sy0 = p.y;
         this.rotMode = e.shiftKey || e.button === 2;   // desktop: shift / right-drag to ROTATE instead of move
-        if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; }
+        if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = this.d0 = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = this.m0x = (a[0].x + a[1].x) / 2; this.midY = this.m0y = (a[0].y + a[1].y) / 2; this.gMode = null; }
       });
       this.cv.addEventListener("pointermove", e => {
         if (this.flight || !this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) {   // TWO fingers: pinch = zoom, drag = rotate the camera
+        if (this.ptrs.size >= 2) {   // TWO fingers: pinch = zoom, deliberate drag = rotate. Intent is locked against the gesture
+          // START (a pure drag keeps the spread ~constant while the midpoint travels), after a small deadzone — so the
+          // per-finger event wobble can never make a pinch tumble the camera or a drag snap the zoom.
           const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
-          if (this.pinchD) this.zoomBy(d / this.pinchD);
-          if (this.midX != null) this.rotate(mx - this.midX, my - this.midY);
+          if (!this.gMode) { const spread = Math.abs(d - this.d0), mid = Math.hypot(mx - this.m0x, my - this.m0y); if (spread > 14 || mid > 14) this.gMode = spread > mid ? "zoom" : "rot"; }
+          if (this.gMode === "zoom" && this.pinchD) this.zoomBy(d / this.pinchD);
+          else if (this.gMode === "rot" && this.midX != null) this.rotate(mx - this.midX, my - this.midY);
           this.pinchD = d; this.midX = mx; this.midY = my; this.moved = true; return;
         }
         const dx = p.x - this.lx, dy = p.y - this.ly;
-        if (Math.hypot(p.x - this.sx0, p.y - this.sy0) > 5) this.moved = true;
+        if (Math.hypot(p.x - this.sx0, p.y - this.sy0) > 9) this.moved = true;
         if (this.rotMode) this.rotate(dx, dy);   // shift / right-drag rotates (desktop)
         else this.pan(dx, dy);                    // ONE finger: move
         this.lx = p.x; this.ly = p.y;
       });
       const up = e => {
-        const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null;
-        if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; this.sx0 = r.x; this.sy0 = r.y; this.moved = false; }
+        const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; this.gMode = null;
+        if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; this.sx0 = r.x; this.sy0 = r.y; this.moved = true; }   // a finger lifting from a 2-finger gesture must NOT become a tap or a jump
         if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); }
       };
-      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; });
+      this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; this.midX = null; this.gMode = null; });
       this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoomBy(1 - e.deltaY * 0.0015); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
@@ -1404,7 +1407,7 @@
       this.cx += wx * cy - wz * sy; this.cz += wx * sy + wz * cy; this.tcx = this.cx; this.tcz = this.cz; this.clampFocus();
     },
     zoomBy(factor) { this.zoom = clamp(this.zoom * factor, 0.4, 4.5); },                       // zoom toward centre — predictable, no drift
-    rotate(dx, dy) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.012, -1.45, -0.12); },   // safe pitch range (never edge-on)
+    rotate(dx, dy) { this.yaw += dx * 0.009; this.pitch = clamp(this.pitch - dy * 0.009, -1.45, -0.12); },   // gentler, safe pitch range (never edge-on)
     proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
     // THREE widely-spaced solar systems (a big triangle). Each planet rides its OWN
     // orbit: a distinct ellipse, inclination (tilt) and orientation, seeded by planet.
@@ -1496,7 +1499,7 @@
       for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
         const r = clamp(7 * p.f, 3, 15), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
-        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 7, 18) });
+        this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 11, 24) });
         this.planet(p, r, bright, current, g === this.sel);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
         c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - r - 7);
