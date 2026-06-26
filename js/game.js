@@ -11,7 +11,8 @@
   const TAU = Math.PI * 2;
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
-  let W = 0, H = 0, DPR = 1;
+  let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
+  const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
 
   function fmt(n) {
     if (n < 1000) return (n | 0).toString();
@@ -480,7 +481,14 @@
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" || kind === "flock" ? 6 : 7, armored ? 40 : 24);
     // visual tier: the tougher the dot, the more elaborate (spikes/rings)
     const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : roll < 9 ? 5 : 6;
-    const d = { x: rnd(40, W - 40), y: rnd(60, H - 150), vx: rnd(-mv, mv), vy: rnd(-mv, mv),
+    // WAVE STYLE: enter from a random point on the perimeter and drift slowly toward the centre
+    let ex, ey; const edge = Math.floor(Math.random() * 4), j = () => rnd(0, 26);
+    if (edge === 0) { ex = rnd(34, W - 34); ey = 44 + j(); }              // top
+    else if (edge === 1) { ex = rnd(34, W - 34); ey = H - 140 - j(); }    // bottom (above the dock)
+    else if (edge === 2) { ex = 34 + j(); ey = rnd(64, H - 150); }        // left
+    else { ex = W - 34 - j(); ey = rnd(64, H - 150); }                    // right
+    const ia = Math.atan2(H / 2 - ey, W / 2 - ex) + rnd(-0.55, 0.55), isp = mv * rnd(0.55, 1.0);
+    const d = { x: ex, y: ey, vx: Math.cos(ia) * isp, vy: Math.sin(ia) * isp, spd: mv,
       hp, maxHp: hp, value: val, value0: val, r, r0: r, tier, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
       color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` };
     if (cfg) {
@@ -678,7 +686,15 @@
       if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 22500) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 135 * dt; o.y += dy / dl * 135 * dt; if (q < (d.r + 9) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.06); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals
       if (d.spawner !== undefined) { d.spawner += dt; if (d.spawner > 3.8 && dots.length < cap) { d.spawner = 0; const hp = d.maxHp * 0.18, mr = Math.max(5, d.r0 * 0.5); dots.push({ x: d.x + rnd(-14, 14), y: d.y + rnd(-14, 14), vx: rnd(-55, 55), vy: rnd(-55, 55), hp, maxHp: hp, value: Math.max(1, Math.round((d.value0 || d.value) * 0.18)), value0: 1, r: mr, r0: mr, tier: 0, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" }); burst(d.x, d.y, 4, 40, 1.2); } }   // Null Spawn births minions
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
-      else { d.x += d.vx * dt; d.y += d.vy * dt; if (d.x < 30 || d.x > W - 30) d.vx *= -1; if (d.y < 50 || d.y > H - 130) d.vy *= -1; d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130); }
+      else {   // wave drift: gentle pull toward the centre + a little wander, capped to a slow creep
+        const cxp = W / 2 - d.x, cyp = H / 2 - d.y, cdp = Math.hypot(cxp, cyp) || 1;
+        d.vx += (cxp / cdp) * 9 * dt + rnd(-13, 13) * dt; d.vy += (cyp / cdp) * 9 * dt + rnd(-13, 13) * dt;
+        const sp2 = Math.hypot(d.vx, d.vy), mx = Math.max(d.spd || 20, 16) * 1.3;
+        if (sp2 > mx) { d.vx *= mx / sp2; d.vy *= mx / sp2; }
+        d.x += d.vx * dt; d.y += d.vy * dt;
+        if (d.x < 30 || d.x > W - 30) d.vx *= -0.5; if (d.y < 50 || d.y > H - 130) d.vy *= -0.5;
+        d.x = clamp(d.x, 30, W - 30); d.y = clamp(d.y, 50, H - 130);
+      }
     }
     dots = dots.filter(d => !d.dead);
 
@@ -762,12 +778,14 @@
   }
   /* ----------------------------- render -------------------------- */
   function render() {
-    ctx.clearRect(0, 0, W, H);
-    const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.7);
+    ctx.clearRect(0, 0, SW, SH);
+    const g = ctx.createRadialGradient(SW / 2, SH / 2, 0, SW / 2, SH / 2, Math.max(SW, SH) * 0.7);
     g.addColorStop(0, `hsl(0,0%,${7 + ((S.galaxy - 1) % 6) * 2}%)`); g.addColorStop(1, "#000");
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH);
     ctx.save();
+    ctx.translate(SW / 2, SH / 2);                                  // center-locked world camera
     if (shake > 0.2) ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
+    ctx.scale(camZoom, camZoom); ctx.translate(-W / 2, -H / 2);
     if (blackholeT > 0) { ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, TAU); ctx.fill(); }
     for (const b of beams) { const a = clamp(b.life / (b.w > 2 ? 0.13 : 0.08), 0, 1); ctx.strokeStyle = b.color; ctx.globalAlpha = a * 0.25; ctx.lineWidth = (b.w || 2) * 2.4; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.globalAlpha = a; ctx.lineWidth = b.w || 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
@@ -877,7 +895,7 @@
     if (trail.length) { ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 16; ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.beginPath(); for (let i = 0; i < trail.length; i++) { const tp = trail[i]; i ? ctx.lineTo(tp.x, tp.y) : ctx.moveTo(tp.x, tp.y); } ctx.stroke(); }
     drawParts();
     ctx.restore();
-    if (flash > 0) { ctx.fillStyle = "rgba(255,255,255," + Math.min(0.55, flash * 0.6) + ")"; ctx.fillRect(0, 0, W, H); }
+    if (flash > 0) { ctx.fillStyle = "rgba(255,255,255," + Math.min(0.55, flash * 0.6) + ")"; ctx.fillRect(0, 0, SW, SH); }
   }
 
   /* ----------------------------- HUD ----------------------------- */
@@ -1547,23 +1565,30 @@
   }
 
   /* ----------------------------- input --------------------------- */
-  function ptr(e) { const r = canvas.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; }
+  // screen → WORLD coords (inverse of the center-locked camera), plus raw screen for pinch
+  function ptr(e) { const r = canvas.getBoundingClientRect(), s = e.touches ? e.touches[0] : e, sx = s.clientX - r.left, sy = s.clientY - r.top; return { x: (sx - SW / 2) / camZoom + W / 2, y: (sy - SH / 2) / camZoom + H / 2, sx, sy }; }
   function unitAt(x, y) { const n = S.units.length; for (let i = 0; i < n; i++) { const p = unitPos(i, n); if ((p.x - x) ** 2 + (p.y - y) ** 2 <= 24 * 24) return i; } return -1; }
+  const gptrs = new Map(); let pinchD0 = 0;
   canvas.addEventListener("pointerdown", e => {
     if (state !== "play") return;
-    const p = ptr(e), ui = unitAt(p.x, p.y);
+    const p = ptr(e); gptrs.set(e.pointerId, { sx: p.sx, sy: p.sy });
+    if (gptrs.size >= 2) { drawing = false; const a = [...gptrs.values()]; pinchD0 = Math.hypot(a[0].sx - a[1].sx, a[0].sy - a[1].sy); return; }   // two fingers = zoom, not draw
+    const ui = unitAt(p.x, p.y);
     if (ui >= 0) { openSkillTree(S.units[ui].type); return; }
-    collectAt(p.x, p.y);
-    drawing = true; lastDraw = p; brushAt(p.x, p.y);
+    collectAt(p.x, p.y); drawing = true; lastDraw = p; brushAt(p.x, p.y);
   });
   canvas.addEventListener("pointermove", e => {
-    if (!drawing || state !== "play") return;
+    if (state !== "play") return;
+    if (gptrs.has(e.pointerId)) { const q = ptr(e); gptrs.set(e.pointerId, { sx: q.sx, sy: q.sy }); }
+    if (gptrs.size >= 2) { const a = [...gptrs.values()], d = Math.hypot(a[0].sx - a[1].sx, a[0].sy - a[1].sy); if (pinchD0) camZoom = clamp(camZoom * d / pinchD0, camFit, 1.15); pinchD0 = d; return; }   // pinch to zoom the playfield
+    if (!drawing) return;
     const p = ptr(e), dx = p.x - lastDraw.x, dy = p.y - lastDraw.y, dist = Math.hypot(dx, dy), steps = Math.max(1, Math.floor(dist / 14));
     for (let i = 1; i <= steps; i++) { const bx = lastDraw.x + dx * i / steps, by = lastDraw.y + dy * i / steps; brushAt(bx, by); collectAt(bx, by); }
     lastDraw = p;
   });
-  const endDraw = () => { drawing = false; };
+  const endDraw = e => { if (e && e.pointerId !== undefined) gptrs.delete(e.pointerId); if (gptrs.size < 2) pinchD0 = 0; drawing = false; };
   canvas.addEventListener("pointerup", endDraw); canvas.addEventListener("pointercancel", endDraw); canvas.addEventListener("pointerleave", endDraw);
+  canvas.addEventListener("wheel", e => { if (state !== "play") return; e.preventDefault(); camZoom = clamp(camZoom * (1 - e.deltaY * 0.0012), camFit, 1.15); }, { passive: false });
 
   /* ----------------------------- wiring -------------------------- */
   for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); renderList(); }; }
@@ -1611,8 +1636,10 @@
 
   /* ----------------------------- loop / boot --------------------- */
   function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2); W = canvas.clientWidth; H = canvas.clientHeight;
-    canvas.width = W * DPR | 0; canvas.height = H * DPR | 0; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    DPR = Math.min(window.devicePixelRatio || 1, 2); SW = canvas.clientWidth; SH = canvas.clientHeight;
+    canvas.width = SW * DPR | 0; canvas.height = SH * DPR | 0; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    W = SW * WORLD_SCALE; H = SH * WORLD_SCALE; camFit = Math.min(SW / W, SH / H);   // fit the whole world on screen by default
+    camZoom = camZoom ? clamp(camZoom, camFit, 1.15) : camFit;
     for (const dr of drones) { dr.x = clamp(dr.x, 0, W); dr.y = clamp(dr.y, 0, H); }
     if (GMap.open) GMap.resize();
     if ($("skilltree").classList.contains("show")) STree.resize();
