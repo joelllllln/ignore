@@ -1430,7 +1430,7 @@
   // journey time is RELATIVE TO THE REAL MAP DISTANCE between the two planets (the line the ship
   // flies). Calibrated so the first short hop ≈ 3h; far planets & inter-system hauls scale up
   // naturally (the big cross-system jumps land around a day+).
-  const TRAVEL_SEC_PER_UNIT = 161;
+  const TRAVEL_SEC_PER_UNIT = 80.5;
   function travelDur(a) {
     let d = 67;
     try { const pa = GMap.planetWorld(a), pb = GMap.planetWorld(a + 1); d = Math.hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z); } catch (e) {}
