@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.4";
+  const VERSION = "v1.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
 
@@ -1428,7 +1428,7 @@
       c.globalAlpha = 1;
     },
     // cinematic dive: glide focus onto a planet, accelerate the zoom, white-wipe over the cut, drop into the world
-    flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.25, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; },
+    flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.45, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; },
     render(dt) {
       if (!this.cv) return; const c = this.c;
       this.t += dt;
@@ -1436,10 +1436,15 @@
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
         const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), e = p * p * (3 - 2 * p), w = this.planetWorld(fl.g);
         this.cx = fl.cx0 + (w.x - fl.cx0) * clamp(e * 1.4, 0, 1); this.cz = fl.cz0 + (w.z - fl.cz0) * clamp(e * 1.4, 0, 1);
-        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (20 - fl.z0) * (p * p * p);   // accelerating dive into the planet
-        this._warp = e;                                                                          // starfield stretches into warp streaks
-        setVeil(135 * (1 - clamp((p - 0.4) / 0.6, 0, 1)));                                        // black iris closes on the planet over the back half
-        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; this._warp = 1; setVeil(0); if (cb) cb(); veilT = VEIL_FADE; }   // full black at the swap → loop irises it open over the base
+        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (26 - fl.z0) * (p * p * p);   // DEEP accelerating dive into the planet
+        this._warp = Math.min(1.25, e * 1.25); this._diveP = p; this._diveG = fl.g;             // stronger streaks + banner state
+        const tv = $("transition");
+        if (tv) {
+          if (p < 0.72) { const r = 135 * (1 - clamp((p - 0.34) / 0.38, 0, 1)); tv.style.background = "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) " + r.toFixed(1) + "%, #000 " + (r + 8).toFixed(1) + "%)"; tv.style.opacity = r >= 134 ? "0" : "1"; }   // black iris closes on the planet
+          else if (p < 0.88) { tv.style.background = "#fff"; tv.style.opacity = "1"; }   // ⚡ hyperspace WHITE PUNCH at the entry
+          else { tv.style.background = "#000"; tv.style.opacity = "1"; }                  // settle to black for the cut
+        }
+        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; this._warp = 1; this._diveP = null; if (tv) { tv.style.background = "#000"; tv.style.opacity = "1"; } if (cb) cb(); veilT = VEIL_FADE; shakeAdd(7); flashAdd(0.3); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.5, 0.6); }   // land: iris opens over the base + impact shockwave
       }
       this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1491,6 +1496,16 @@
         c.restore();
         c.fillStyle = "rgba(255,255,255,0.9)"; c.font = "bold 10px ui-monospace,monospace"; c.textAlign = "center";
         c.fillText("⟶ " + galName(tv.to) + "  " + fmtTime(Math.max(0, tv.dur - tv.t)), sp.x, sp.y - r - 6);
+      }
+      // ENTERING <PLANET> banner during the dive — fades in, then the iris swallows it
+      if (this.flight && this._diveP != null) {
+        const a = clamp(this._diveP * 4, 0, 1) * clamp((0.7 - this._diveP) * 6, 0, 1);
+        if (a > 0.02) {
+          c.globalAlpha = a; c.fillStyle = "#fff"; c.textAlign = "center";
+          c.font = "700 12px ui-monospace,monospace"; c.fillText("▶  E N T E R I N G", this.w / 2, this.h * 0.26);
+          c.font = "800 22px ui-monospace,monospace"; c.fillText(galName(this._diveG).toUpperCase(), this.w / 2, this.h * 0.26 + 26);
+          c.globalAlpha = 1;
+        }
       }
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } }
