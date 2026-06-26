@@ -12,9 +12,25 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.5";
+  const VERSION = "v1.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
+  // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
+  const Sfx = {
+    ctx: null, nb: null,
+    ac() { try { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === "suspended") this.ctx.resume(); } catch (e) { this.ctx = null; } return this.ctx; },
+    noise() { const a = this.ctx; if (!a) return null; if (!this.nb) { const n = a.sampleRate * 2, b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.nb = b; } const s = a.createBufferSource(); s.buffer = this.nb; s.loop = true; return s; },
+    warp(dur) {
+      const a = this.ac(); if (!a) return; const t0 = a.currentTime, dest = a.destination;
+      const tube = this.noise(); if (tube) { const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.3; bp.frequency.setValueAtTime(180, t0); bp.frequency.exponentialRampToValueAtTime(3200, t0 + dur * 0.82); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.34, t0 + dur * 0.78); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.96); tube.connect(bp).connect(g).connect(dest); tube.start(t0); tube.stop(t0 + dur); }
+      const o = a.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(55, t0); o.frequency.exponentialRampToValueAtTime(440, t0 + dur * 0.8); const og = a.createGain(); og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.11, t0 + dur * 0.75); og.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.9); o.connect(og).connect(dest); o.start(t0); o.stop(t0 + dur * 0.95);
+      const tb = t0 + dur * 0.8;   // BOOM at the punch
+      const bo = a.createOscillator(); bo.type = "sine"; bo.frequency.setValueAtTime(170, tb); bo.frequency.exponentialRampToValueAtTime(38, tb + 0.5); const bg = a.createGain(); bg.gain.setValueAtTime(0.0001, tb); bg.gain.exponentialRampToValueAtTime(0.55, tb + 0.02); bg.gain.exponentialRampToValueAtTime(0.0001, tb + 0.6); bo.connect(bg).connect(dest); bo.start(tb); bo.stop(tb + 0.62);
+      const tr = this.noise(); if (tr) { const hp = a.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1400; const ng = a.createGain(); ng.gain.setValueAtTime(0.3, tb); ng.gain.exponentialRampToValueAtTime(0.0001, tb + 0.2); tr.connect(hp).connect(ng).connect(dest); tr.start(tb); tr.stop(tb + 0.22); }
+      const tl = t0 + dur;   // landing rumble
+      const ro = a.createOscillator(); ro.type = "sine"; ro.frequency.setValueAtTime(58, tl); ro.frequency.exponentialRampToValueAtTime(26, tl + 0.7); const rg = a.createGain(); rg.gain.setValueAtTime(0.0001, tl); rg.gain.exponentialRampToValueAtTime(0.4, tl + 0.05); rg.gain.exponentialRampToValueAtTime(0.0001, tl + 0.85); ro.connect(rg).connect(dest); ro.start(tl); ro.stop(tl + 0.88);
+    }
+  };
 
   function fmt(n) {
     if (n < 1000) return (n | 0).toString();
@@ -322,8 +338,9 @@
   let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
-  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0;
+  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0, landT = 0;
   const VEIL_FADE = 0.6;   // seconds for the zoom-into-base white-wipe to fade back out after landing
+  const LAND_DUR = 0.85;   // camera pull-back "you have arrived" settle after the warp lands
   const MAXP = 440;
   function burst(x, y, n, spd, sz) { if (parts.length > MAXP) return; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = spd * (0.35 + Math.random() * 0.9);
     if (Math.random() < 0.4) parts.push({ t: 4, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.3 + Math.random() * 0.35, max: 0.65, ang: a, len: sz * 2 + Math.random() * sz * 2, spin: (Math.random() - 0.5) * 12 });  // shard
@@ -1428,7 +1445,7 @@
       c.globalAlpha = 1;
     },
     // cinematic dive: glide focus onto a planet, accelerate the zoom, white-wipe over the cut, drop into the world
-    flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.45, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; },
+    flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.45, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; Sfx.warp(1.45); const root = $("root"); if (root) root.classList.add("cinematic"); },
     render(dt) {
       if (!this.cv) return; const c = this.c;
       this.t += dt;
@@ -1436,18 +1453,24 @@
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
         const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), e = p * p * (3 - 2 * p), w = this.planetWorld(fl.g);
         this.cx = fl.cx0 + (w.x - fl.cx0) * clamp(e * 1.4, 0, 1); this.cz = fl.cz0 + (w.z - fl.cz0) * clamp(e * 1.4, 0, 1);
-        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (26 - fl.z0) * (p * p * p);   // DEEP accelerating dive into the planet
-        this._warp = Math.min(1.25, e * 1.25); this._diveP = p; this._diveG = fl.g;             // stronger streaks + banner state
+        const dip = Math.sin(clamp(p / 0.16, 0, 1) * Math.PI) * 0.16;                              // anticipation: pull back, THEN lunge
+        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 * (1 - dip) + (28 - fl.z0) * (p * p * p);
+        this._warp = Math.min(1.3, e * 1.3); this._diveP = p; this._diveG = fl.g;
         const tv = $("transition");
         if (tv) {
           if (p < 0.72) { const r = 135 * (1 - clamp((p - 0.34) / 0.38, 0, 1)); tv.style.background = "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) " + r.toFixed(1) + "%, #000 " + (r + 8).toFixed(1) + "%)"; tv.style.opacity = r >= 134 ? "0" : "1"; }   // black iris closes on the planet
-          else if (p < 0.88) { tv.style.background = "#fff"; tv.style.opacity = "1"; }   // ⚡ hyperspace WHITE PUNCH at the entry
+          else if (p < 0.88) { tv.style.background = "radial-gradient(circle at 50% 50%, #fff 0%, #fff 32%, rgba(255,255,255,.85) 62%, rgba(255,255,255,.4) 100%)"; tv.style.opacity = "1"; }   // ⚡ blooming hyperspace WHITE PUNCH
           else { tv.style.background = "#000"; tv.style.opacity = "1"; }                  // settle to black for the cut
         }
-        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; this._warp = 1; this._diveP = null; if (tv) { tv.style.background = "#000"; tv.style.opacity = "1"; } if (cb) cb(); veilT = VEIL_FADE; shakeAdd(7); flashAdd(0.3); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.5, 0.6); }   // land: iris opens over the base + impact shockwave
+        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive, gg = fl.g; this.flight = null; this._warp = 1; this._diveP = null; if (tv) { tv.style.background = "#000"; tv.style.opacity = "1"; } if (cb) cb();
+          veilT = VEIL_FADE; landT = LAND_DUR; camZoom = camFit * 2.3;                    // arrive zoomed on the base, then pull back
+          shakeAdd(9); flashAdd(0.4); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);   // landing impact
+          const lt = $("land-title"); if (lt) { lt.textContent = galName(gg).toUpperCase() + "  ·  " + sysName(gg); lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
+        }
       }
       this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (this._diveP != null) { const sh = this._diveP * this._diveP * 10; c.translate((Math.random() * 2 - 1) * sh, (Math.random() * 2 - 1) * sh); }   // build-up camera shake during the dive
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
       const warp = this._warp || 0;
       if (warp > 0.05) {   // hyperspace: stars stretch radially away from centre as you dive in
@@ -1496,6 +1519,12 @@
         c.restore();
         c.fillStyle = "rgba(255,255,255,0.9)"; c.font = "bold 10px ui-monospace,monospace"; c.textAlign = "center";
         c.fillText("⟶ " + galName(tv.to) + "  " + fmtTime(Math.max(0, tv.dur - tv.t)), sp.x, sp.y - r - 6);
+      }
+      // dive-only juice: tunnel vignette + a lens-flare starburst right before the white punch
+      if (this.flight && this._diveP != null) {
+        const dp = this._diveP, cx2 = this.w / 2, cy2 = this.h / 2;
+        const vg = c.createRadialGradient(cx2, cy2, this.h * 0.18, cx2, cy2, this.h * 0.78); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0," + (0.55 * dp).toFixed(2) + ")"); c.fillStyle = vg; c.fillRect(0, 0, this.w, this.h);
+        if (dp > 0.46 && dp < 0.74) { const fa = (dp - 0.46) / 0.28; c.strokeStyle = "#fff"; c.lineCap = "round"; for (let k = 0; k < 10; k++) { const a2 = k / 10 * TAU + this.t * 0.6, len = 30 + 300 * fa * fa; c.globalAlpha = fa * 0.85; c.lineWidth = (k % 2 ? 1.5 : 3.5) * (1 + fa); c.beginPath(); c.moveTo(cx2, cy2); c.lineTo(cx2 + Math.cos(a2) * len, cy2 + Math.sin(a2) * len); c.stroke(); } c.globalAlpha = fa; c.fillStyle = "#fff"; c.beginPath(); c.arc(cx2, cy2, 6 + 60 * fa * fa, 0, TAU); c.fill(); c.globalAlpha = 1; }
       }
       // ENTERING <PLANET> banner during the dive — fades in, then the iris swallows it
       if (this.flight && this._diveP != null) {
@@ -1673,6 +1702,7 @@
   let last = 0, saveAcc = 0;
   function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt);
     if (veilT > 0) { veilT = Math.max(0, veilT - dt); setVeil(135 * (1 - veilT / VEIL_FADE)); }   // iris the black veil open over the base after landing
+    if (landT > 0) { landT = Math.max(0, landT - dt); camZoom += (camFit - camZoom) * Math.min(1, dt * 3.5); if (landT === 0) { camZoom = camFit; const root = $("root"); if (root) root.classList.remove("cinematic"); } }   // camera pulls back to the base, then letterbox retracts
     saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
   if ($("version")) $("version").textContent = VERSION;

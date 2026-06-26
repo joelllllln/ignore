@@ -12,10 +12,13 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v1.5</div>
+  <div id="version" class="layer">v1.6</div>
 
-  <!-- screen-wipe veil for the zoom-into-base transition -->
+  <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
+  <div id="cine-top" class="cine"></div>
+  <div id="cine-bottom" class="cine"></div>
   <div id="transition"></div>
+  <div id="land-title"></div>
 
   <!-- TOP BAR -->
   <div id="top" class="layer">

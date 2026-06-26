@@ -32,6 +32,12 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   border-radius:10px;color:var(--text);font-size:12px;letter-spacing:-1px;line-height:1;font-family:var(--mono)}
 #version{top:94px;right:8px;width:38px;text-align:center;font:600 9px var(--mono);color:var(--dim);letter-spacing:.3px;opacity:.85;pointer-events:none}
 #transition{position:absolute;inset:0;z-index:60;opacity:0;pointer-events:none}
+.cine{position:absolute;left:0;right:0;height:0;background:#000;z-index:58;pointer-events:none;transition:height .4s cubic-bezier(.6,0,.2,1)}
+#cine-top{top:0}#cine-bottom{bottom:0}
+#root.cinematic .cine{height:8.5%}
+#land-title{position:absolute;top:30%;left:0;right:0;text-align:center;z-index:62;pointer-events:none;color:#fff;font:800 22px var(--mono);letter-spacing:1px;opacity:0;text-shadow:0 0 24px rgba(0,0,0,.9),0 0 8px rgba(255,255,255,.4)}
+#land-title.show{animation:landtitle 2.4s ease forwards}
+@keyframes landtitle{0%{opacity:0;transform:translateY(14px) scale(.94);letter-spacing:6px}16%{opacity:1;transform:none}68%{opacity:1}100%{opacity:0;letter-spacing:3px}}
 
 /* reactive button feel */
 .u-buy,.u-up,.u-info,.act,.ab,.big,.tab,.si-btn,.gm-go,.mbtn,#buymode,.x{transition:transform .08s ease, box-shadow .12s ease, opacity .12s ease}
