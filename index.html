@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v2.3</div>
+  <div id="version" class="layer">v2.4</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -110,13 +110,12 @@
     <div id="gm-info" class="gm-info"></div>
   </div>
 
-  <!-- EXCHANGE (background empire) -->
-  <div id="exchange" class="modal">
-    <div class="card">
-      <div class="card-head"><h2>⇄ Exchange</h2><button class="x" id="exch-close">✕</button></div>
-      <p class="muted" id="exch-sub"></p>
-      <div id="exch-list"></div>
-    </div>
+  <!-- FX MARKET (full page: wallets · live rates · choose amount · mass convert) -->
+  <div id="fxpage" class="modal fxmodal">
+    <div class="fx-head"><div class="fx-title">⇄ FX MARKET <span id="fx-into" class="muted"></span></div><button class="x" id="fx-close">✕</button></div>
+    <div id="fx-budget" class="fx-budget"></div>
+    <div id="fx-scroll" class="fx-scroll"><div id="fx-list"></div></div>
+    <div class="fx-foot"><span id="fx-massinfo" class="fx-massinfo"></span><button id="fx-massconvert" class="fx-mass">CONVERT ALL</button></div>
   </div>
 
   <!-- WELCOME BACK -->
