@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.2";
+  const VERSION = "v2.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -248,7 +248,7 @@
   const UPS = [
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 20, mul: 1.55, desc: () => curSym(S.galaxy) + " " + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 30, mul: 1.42, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" + (derived.spawnSurplus > 0.05 ? "  ·  up to +" + Math.round(5 * derived.spawnSurplus) + "% menace when full" : "") },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" + (derived.spawnSurplus > 0.05 ? "  ·  up to +" + Math.round(5 * Math.min(derived.spawnSurplus, 60)) + "% menace when full" : "") },
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
@@ -387,6 +387,9 @@
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", listRows = {}, tabBtns = {};
+  const BUY_AMTS = [1, 10, 100, "max"];               // bulk-buy multipliers (test mode) — cycled by the BUY ×N button
+  let buyIdx = 0;                                      // index into BUY_AMTS
+  const buyN = () => BUY_AMTS[buyIdx] === "max" ? 100000 : BUY_AMTS[buyIdx];   // "max" = buy until unaffordable/maxed
 
   function recompute() {
     const L = S.lv, m = META;
@@ -726,7 +729,7 @@
     // DYNAMIC menace: only when the field is genuinely full (you can't keep up) does surplus Spawn
     // Rate turn into toughness. Clear the field fast and menace stays ~1 — you just get MORE dots.
     const sat = clamp((dots.length / cap - 0.7) / 0.3, 0, 1);                 // 0 until ~70% full, ramps to 1 at the cap
-    const targetMenace = 1 + 0.05 * (derived.spawnSurplus || 0) * sat;
+    const targetMenace = 1 + 0.05 * Math.min(derived.spawnSurplus || 0, 60) * sat;   // surplus capped at 60 → menace tops out ~4× so dots stay KILLABLE; runaway menace (25×+) was pinning the field at 400 unkillable tanks and tanking FPS
     derived.spawnMenace += (targetMenace - derived.spawnMenace) * Math.min(1, dt * 2);   // smooth so it doesn't jitter
     spawnAcc += dt * derived.spawnPerSec * galSpawnMul(S.galaxy);
     while (spawnAcc >= 1 && dots.length < cap) { spawnDot(); spawnAcc -= 1; }
@@ -868,6 +871,7 @@
     if (blackholeT > 0) { ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, TAU); ctx.fill(); }
     for (const b of beams) { const a = clamp(b.life / (b.w > 2 ? 0.13 : 0.08), 0, 1); ctx.strokeStyle = b.color; ctx.globalAlpha = a * 0.25; ctx.lineWidth = (b.w || 2) * 2.4; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.globalAlpha = a; ctx.lineWidth = b.w || 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
+    const lod = dots.length > 150;   // render LOD: when the field is busy, skip per-dot spikes/rings/race decorations (keep core + threat rings + HP bar) so a crowded field stays at 60fps
     for (const d of dots) {
       if (d.boss) { drawBoss(d); continue; }
       const pulse = d.pulse !== undefined ? 1 + 0.12 * Math.sin(d.born * 0.1 + d.pulse * 4) : 1;
@@ -876,12 +880,13 @@
       if (d.kind === "swift" || d.kind === "zigzag") { ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.vx * 0.12, d.y - d.vy * 0.12); ctx.stroke(); }  // motion streak
       if (d.blink !== undefined && d.bx !== undefined) { ctx.globalAlpha = clamp(0.35 - d.blink * 0.22, 0, 0.35); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.bx, d.by, dr2 * 0.8, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }  // Wraith after-image
       // HP-tier spikes: tougher dots grow rotating spikes around the core
-      if (d.tier >= 1) { ctx.globalAlpha = ga; ctx.strokeStyle = d.color; ctx.lineWidth = 1.5 + d.tier * 0.3; const ns = 3 + d.tier * 2; for (let k = 0; k < ns; k++) { const a = d.spin + k / ns * TAU, i0 = dr2 * 0.9, o0 = dr2 + 3 + d.tier * 1.6; ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * i0, d.y + Math.sin(a) * i0); ctx.lineTo(d.x + Math.cos(a) * o0, d.y + Math.sin(a) * o0); ctx.stroke(); } ctx.globalAlpha = 1; }
+      if (!lod && d.tier >= 1) { ctx.globalAlpha = ga; ctx.strokeStyle = d.color; ctx.lineWidth = 1.5 + d.tier * 0.3; const ns = 3 + d.tier * 2; for (let k = 0; k < ns; k++) { const a = d.spin + k / ns * TAU, i0 = dr2 * 0.9, o0 = dr2 + 3 + d.tier * 1.6; ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * i0, d.y + Math.sin(a) * i0); ctx.lineTo(d.x + Math.cos(a) * o0, d.y + Math.sin(a) * o0); ctx.stroke(); } ctx.globalAlpha = 1; }
       ctx.globalAlpha = ga; ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, dr2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
       // tier rings inside (segmented core)
-      if (d.tier >= 2) { ctx.globalAlpha = ga * 0.8; ctx.strokeStyle = "#000"; ctx.lineWidth = 1; for (let k = 1; k < d.tier; k++) { ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * (k / d.tier), 0, TAU); ctx.stroke(); } ctx.globalAlpha = 1; }
+      if (!lod && d.tier >= 2) { ctx.globalAlpha = ga * 0.8; ctx.strokeStyle = "#000"; ctx.lineWidth = 1; for (let k = 1; k < d.tier; k++) { ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * (k / d.tier), 0, TAU); ctx.stroke(); } ctx.globalAlpha = 1; }
       if (d.special) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
       if (d.armored) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 - 2, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 3, 0, TAU); ctx.stroke(); }
+      if (lod) { if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); } continue; }
       if (d.kind === "splitter") { ctx.fillStyle = "#000"; for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.arc(d.x + (k ? dr2 * 0.35 : -dr2 * 0.35), d.y, dr2 * 0.28, 0, TAU); ctx.fill(); } }  // cell-division look
       if (d.kind === "regen") { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x - dr2 * 0.45, d.y); ctx.lineTo(d.x + dr2 * 0.45, d.y); ctx.moveTo(d.x, d.y - dr2 * 0.45); ctx.lineTo(d.x, d.y + dr2 * 0.45); ctx.stroke(); }  // + cross
       if (d.kind === "orbiter") { ctx.fillStyle = "#fff"; const sc = d.sat || 3; for (let k = 0; k < sc; k++) { const a = d.spin * 2 + k / sc * TAU, rr = d.r + 9; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, 2.4, 0, TAU); ctx.fill(); } }  // orbiting satellites
@@ -987,7 +992,7 @@
     $("galaxy-fill").style.width = clamp(conq ? 1 : curEarned / tgt, 0, 1) * 100 + "%";
     const last = S.galaxy >= TOTAL_PLANETS;
     let label, dis = true, ready = false, enroute = false;
-    if (S.travel) { label = "EN ROUTE … " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)); enroute = true; }
+    if (S.travel) { enroute = true; if (S.free) { label = "▸▸ SKIP JOURNEY (" + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + ")"; dis = false; } else { label = "EN ROUTE … " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)); } }
     else if (conq || S.free) {
       if (last) { label = "★ FINAL WORLD"; }
       else { const cost = travelCost(); ready = true; dis = !(S.free || S.cash >= cost); label = "LAUNCH ⟶ " + (S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(cost)); }
@@ -1048,15 +1053,25 @@
   }
   function buyUnit(type) {
     const list = classList(type);
-    if ((!S.free && S.peakGalaxy < TY(type).gal) || countType(type) >= TY(type).max) return;   // unlocked once you've REACHED its planet (permanent); free mode ignores it
-    const c = unitBuyCost(type); if (!S.free && S.cash < c) return;
-    if (!S.free) S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); if (isCol(type)) syncCollectors();
+    if (!S.free && S.peakGalaxy < TY(type).gal) return;   // unlocked once you've REACHED its planet (permanent); free mode ignores it
+    let bought = 0;
+    for (let i = 0; i < buyN(); i++) {
+      if (countType(type) >= TY(type).max) break;
+      const c = unitBuyCost(type); if (!S.free && S.cash < c) break;
+      if (!S.free) S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); bought++;
+    }
+    if (!bought) return;
+    if (isCol(type)) syncCollectors();
     Audio_buy(); renderList(); save();
   }
   function buyUpgrade(u) {
-    const lvl = S.lv[u.id]; if (u.max != null && lvl >= u.max) return;
-    const c = upCost(u); if (!S.free && S.cash < c) return;
-    if (!S.free) S.cash -= c; S.lv[u.id]++;
+    let bought = 0;
+    for (let i = 0; i < buyN(); i++) {
+      const lvl = S.lv[u.id]; if (u.max != null && lvl >= u.max) break;
+      const c = upCost(u); if (!S.free && S.cash < c) break;
+      if (!S.free) S.cash -= c; S.lv[u.id]++; bought++;
+    }
+    if (!bought) return;
     Audio_buy(); recompute(); syncHUD(); save();
   }
   function Audio_buy() {}  // (silent build)
@@ -1214,6 +1229,13 @@
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (!S.free && S.cash < c) return;
     if (!S.free) S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
   }
+  function allocAll(type) {   // test-mode: instantly allocate the WHOLE tree (skips cost/affordability — free sandbox only)
+    if (!S.free) return;
+    const G = buildTree(type), set = S.classNodes[type] || (S.classNodes[type] = {});
+    let guard = 0;
+    for (;;) { const next = G.nodes.find(n => n.kind !== "start" && nodeAllocatable(type, n)); if (!next || guard++ > 5000) break; set[next.id] = true; }
+    recompute(); syncHUD(); save();
+  }
   // before/after stat preview if this node were allocated.
   function nodePreview(type, n) {
     const before = statLine(type), set = S.classNodes[type] || (S.classNodes[type] = {}), had = set[n.id];
@@ -1303,7 +1325,7 @@
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } } if (!best) { this.sel = null; $("st-info").classList.remove("show"); return; } showNodeInfo(best.n); },
   };
-  function openSkillTree(type) { selType = type; $("skilltree").classList.add("show"); STree.open(type); }
+  function openSkillTree(type) { selType = type; $("skilltree").classList.add("show"); STree.open(type); if ($("st-max")) $("st-max").style.display = S.free ? "" : "none"; }
   function closeSkillTree() { $("skilltree").classList.remove("show"); }
   function sellOne() {
     const list = classList(selType), i = list.findIndex(u => u.type === selType);
@@ -1670,6 +1692,7 @@
   function unlockAll() {
     S.free = !S.free;                                       // toggle free sandbox
     if (S.free) { S.peakGalaxy = TOTAL_PLANETS; S.cash = Math.max(S.cash, 1e12); }   // all planets jumpable; cash just for show (buys are free)
+    if ($("buymode")) { $("buymode").style.display = S.free ? "" : "none"; $("buymode").textContent = "BUY ×" + BUY_AMTS[buyIdx]; }   // bulk-buy control is a test-mode tool
     syncCollectors(); recompute(); renderList(); syncHUD(); save();
     return S.free;
   }
@@ -1712,10 +1735,12 @@
 
   /* ----------------------------- wiring -------------------------- */
   for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); renderList(); }; }
+  const syncBuyMode = () => { const b = $("buymode"); if (!b || !S) return; b.style.display = S.free ? "" : "none"; b.textContent = "BUY ×" + BUY_AMTS[buyIdx]; };
+  if ($("buymode")) $("buymode").onclick = () => { buyIdx = (buyIdx + 1) % BUY_AMTS.length; syncBuyMode(); renderList(); };
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
   for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
   $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
-  $("btn-travel").onclick = travel;
+  $("btn-travel").onclick = () => { if (S.travel) { if (S.free) S.travel.t = S.travel.dur; return; } travel(); };   // free mode: tapping while EN ROUTE skips the journey timer (arrival is processed next update tick)
   $("btn-exchange").onclick = () => { openExchange(); $("exchange").classList.add("show"); };
   $("exch-close").onclick = () => $("exchange").classList.remove("show");
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
@@ -1728,6 +1753,7 @@
     const G = buildTree(type), onward = (G.adj[node.id] || []).map(a => G.map[a]).filter(m => nodeAllocatable(type, m));
     showNodeInfo(onward.length === 1 ? onward[0] : node);
   };
+  if ($("st-max")) $("st-max").onclick = () => { allocAll(STree.type); showNodeInfo(STree.selNode()); };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
   $("gm-exchange").onclick = () => { openExchange(); $("exchange").classList.add("show"); };
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
@@ -1774,7 +1800,7 @@
     saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
   if ($("version")) $("version").textContent = VERSION;
-  load(); resize(); syncCollectors(); renderList(); GMap.init(); STree.init(); setScreen("home");
+  load(); resize(); syncCollectors(); renderList(); GMap.init(); STree.init(); setScreen("home"); syncBuyMode();
   if (S._welcome) { $("welcome-text").textContent = "Your defenders kept firing for " + fmtTime(S._welcome.elapsed) + "."; $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(S._welcome.gain); $("welcome").classList.add("show"); S._welcome = null; }
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
