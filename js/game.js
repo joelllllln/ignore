@@ -1232,7 +1232,7 @@
     open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
     cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
     reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.7; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
-    ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, panMode: false, hit: [], stars: [], sel: 0,
+    ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, rotMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("contextmenu", e => e.preventDefault());
@@ -1240,21 +1240,21 @@
         try { this.cv.setPointerCapture(e.pointerId); } catch (_) {}
         const p = this.pt(e); this.ptrs.set(e.pointerId, p); this.moved = false;
         this.lx = p.x; this.ly = p.y; this.sx0 = p.x; this.sy0 = p.y;
-        this.panMode = e.shiftKey || e.button === 2;   // desktop: shift / right-drag to MOVE instead of rotate
+        this.rotMode = e.shiftKey || e.button === 2;   // desktop: shift / right-drag to ROTATE instead of move
         if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); this.midX = (a[0].x + a[1].x) / 2; this.midY = (a[0].y + a[1].y) / 2; }
       });
       this.cv.addEventListener("pointermove", e => {
         if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) {   // TWO fingers: pinch to zoom in/out, drag up/down/left/right to MOVE
+        if (this.ptrs.size >= 2) {   // TWO fingers: pinch to zoom in/out, drag up/down/left/right = change camera ANGLE
           const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
           if (this.pinchD) this.zoomAt(d / this.pinchD, mx, my);
-          if (this.midX != null) this.panTo(this.midX, this.midY, mx, my);
+          if (this.midX != null) { this.yaw += (mx - this.midX) * 0.01; this.pitch = clamp(this.pitch - (my - this.midY) * 0.012, -1.5, 1.5); }   // free tilt — look from above, level, or underneath
           this.pinchD = d; this.midX = mx; this.midY = my; this.moved = true; return;
         }
         const dx = p.x - this.lx, dy = p.y - this.ly;
         if (Math.hypot(p.x - this.sx0, p.y - this.sy0) > 5) this.moved = true;
-        if (this.panMode) this.panTo(this.lx, this.ly, p.x, p.y);                                       // shift / right-drag moves the map
-        else { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.01, -1.35, -0.12); }        // SINGLE finger: change camera angle (left/right = yaw, up/down = pitch)
+        if (this.rotMode) { this.yaw += dx * 0.01; this.pitch = clamp(this.pitch - dy * 0.012, -1.5, 1.5); }   // shift / right-drag rotates (desktop)
+        else this.panTo(this.lx, this.ly, p.x, p.y);                                                          // SINGLE finger: move the map
         this.lx = p.x; this.ly = p.y;
       });
       const up = e => {
