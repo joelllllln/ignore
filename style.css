@@ -88,7 +88,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .act{flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:11px;color:var(--text);
   padding:9px 6px;font-size:13px;font-weight:800;letter-spacing:.5px}
 .act.travel{color:#fff;border-color:rgba(255,255,255,.35)}
-.act.travel.ready{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none;animation:pulse 1.4s infinite}
+.act.travel.ready{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none}
+.act.travel.ready:disabled{opacity:.5}
+.act.enroute{color:var(--text);border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.07)}
 .act.dust,.act.rebirth{color:var(--sd);border-color:rgba(255,255,255,.35);flex:0 0 auto;padding:9px 13px}
 .act.rebirth{background:rgba(255,255,255,.1);animation:pulse 1.6s infinite}
 

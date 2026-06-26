@@ -237,7 +237,9 @@
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
   // days each by the late planets.
-  const travelCost = g => Math.floor(5e9 * Math.pow(3.2, Math.pow(g - 1, 1.12)));
+  // Launching an expedition to the next planet costs most of your treasury (you fund the fleet) —
+  // pegged to your bank ceiling so it's always achievable by filling up, and scales with the planet.
+  const travelCost = () => Math.max(1, Math.round((derived.capacity || eco(S.galaxy) * 220) * 0.8));
   // PLANET LAYERS: every planet is a self-contained run of the SAME base difficulty —
   // its identity comes from its native RACE and your in-planet Value ramp, not raw HP.
   // So base HP/spawn are FLAT across planets (a fresh army can always start killing);
@@ -300,7 +302,7 @@
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
-    return { cash: Math.floor(eco(1) * 45), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {} };
+    return { cash: Math.floor(eco(1) * 45), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null };
   }
   // trim a unit/collector list down to each type's max (enforces caps on load)
   function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type, m = TY(t) ? TY(t).max : 99; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }
@@ -382,6 +384,7 @@
           if (d.cps > 0 && e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; }
           // background empire kept earning while away
           if (S.vault) for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) v.cash = (v.cash || 0) + v.bgRate * e; }
+          if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;   // an in-flight expedition keeps travelling while away
         }
       }
     } catch (e) {}
@@ -606,6 +609,10 @@
 
   /* ----------------------------- update -------------------------- */
   function update(dt) {
+    if (S.travel) {   // an expedition is in transit — advance it and arrive (ticks on any screen)
+      S.travel.t += dt;
+      if (S.travel.t >= S.travel.dur) { const to = S.travel.to; S.travel = null; snapshotActive(); flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); activatePlanet(to); save(); }
+    }
     if (state !== "play") return;
     recompute();
     META.stats.playSec += dt; S.runSec += dt;
@@ -826,9 +833,17 @@
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
     const tgt = conquerTarget(S.galaxy), conq = planetMeta(S.galaxy).conquered;
     $("galaxy-fill").style.width = clamp(conq ? 1 : curEarned / tgt, 0, 1) * 100 + "%";
-    const ready = conq || S.free;
-    $("btn-travel").textContent = ready ? "TRAVEL ▸" : "CONQUER " + Math.floor(clamp(curEarned / tgt, 0, 1) * 100) + "%";
-    $("btn-travel").disabled = !ready; $("btn-travel").classList.toggle("ready", ready);
+    const last = S.galaxy >= TOTAL_PLANETS;
+    let label, dis = true, ready = false, enroute = false;
+    if (S.travel) { label = "EN ROUTE … " + Math.ceil(Math.max(0, S.travel.dur - S.travel.t)) + "s"; enroute = true; }
+    else if (conq || S.free) {
+      if (last) { label = "★ FINAL WORLD"; }
+      else { const cost = travelCost(); ready = true; dis = !(S.free || S.cash >= cost); label = "LAUNCH ⟶ " + (S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(cost)); }
+    } else { label = "CONQUER " + Math.floor(clamp(curEarned / tgt, 0, 1) * 100) + "%"; }
+    const bt = $("btn-travel");
+    if (bt.textContent !== label) bt.textContent = label;   // write only on change — no per-frame repaint flicker
+    if (bt.disabled !== dis) bt.disabled = dis;
+    bt.classList.toggle("ready", ready); bt.classList.toggle("enroute", enroute);
     for (const k in ABIL_CD) { $("ab-" + k).disabled = abil[k] > 0; $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : ""; }
     for (const id in listRows) {
       const row = listRows[id];
@@ -1368,6 +1383,24 @@
         c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - r - 7);
         c.globalAlpha = 1;
       }
+      // ── your expedition in transit: dashed trajectory + a little ship riding it ──
+      if (S && S.travel) {
+        const tv = S.travel, a = this.planetWorld(tv.from), b = this.planetWorld(tv.to), pr = clamp(tv.t / tv.dur, 0, 1);
+        const pa = this.proj(a.x, a.y, a.z), pb = this.proj(b.x, b.y, b.z);
+        c.save();
+        c.setLineDash([4, 6]); c.lineWidth = 1.3; c.strokeStyle = "rgba(255,255,255,0.45)";
+        c.beginPath(); c.moveTo(pa.x, pa.y); c.lineTo(pb.x, pb.y); c.stroke(); c.setLineDash([]);
+        // arced ship position (lifts off the orbital plane mid-flight)
+        const sx = a.x + (b.x - a.x) * pr, sz = a.z + (b.z - a.z) * pr, sy = a.y + (b.y - a.y) * pr - Math.sin(pr * Math.PI) * 60;
+        const sp = this.proj(sx, sy, sz), ang = Math.atan2(pb.y - pa.y, pb.x - pa.x), r = clamp(7 * sp.f, 4, 12);
+        c.strokeStyle = "rgba(255,255,255,0.55)"; c.lineWidth = 2;                                   // exhaust trail
+        c.beginPath(); c.moveTo(sp.x - Math.cos(ang) * r * 2.6, sp.y - Math.sin(ang) * r * 2.6); c.lineTo(sp.x, sp.y); c.stroke();
+        c.translate(sp.x, sp.y); c.rotate(ang);                                                       // ship triangle, nose toward target
+        c.fillStyle = "#fff"; c.beginPath(); c.moveTo(r, 0); c.lineTo(-r * 0.7, r * 0.62); c.lineTo(-r * 0.7, -r * 0.62); c.closePath(); c.fill();
+        c.restore();
+        c.fillStyle = "rgba(255,255,255,0.9)"; c.font = "bold 10px ui-monospace,monospace"; c.textAlign = "center";
+        c.fillText("⟶ " + galName(tv.to) + "  " + Math.ceil(Math.max(0, tv.dur - tv.t)) + "s", sp.x, sp.y - r - 6);
+      }
     },
     tap(x, y) { let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } }
       if (!best) return;
@@ -1392,8 +1425,19 @@
     dots = []; orbs = []; beams = []; parts = []; selUnit = -1;
     syncCollectors(); recompute(); renderList(); syncHUD(); GMap.reset && 0;
   }
-  function travel() { const g = S.galaxy; if (!S.free && !planetMeta(g).conquered) return;   // must CONQUER the current planet first
-    snapshotActive(); META.stats.travels++; flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); activatePlanet(g + 1); save(); }
+  // journey time between two planets — scales with the real distance on the star map (cross-system jumps take longer)
+  function travelDur(a, b) { let d = 600; try { const pa = GMap.planetWorld(a), pb = GMap.planetWorld(b); d = Math.hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z); } catch (e) {} return clamp(d / 16, 18, 75); }
+  function travel() {   // LAUNCH an expedition to the next planet: costs treasury + takes a real journey
+    const g = S.galaxy;
+    if (S.travel) return;                                   // already en route
+    if (g >= TOTAL_PLANETS) return;                         // no planet beyond the last
+    if (!S.free && !planetMeta(g).conquered) return;        // must conquer the current planet first
+    const cost = travelCost();
+    if (!S.free && S.cash < cost) return;                   // need the launch funds banked
+    if (!S.free) { S.cash -= cost; }
+    S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g, g + 1) };
+    META.stats.travels++; flashAdd(0.35); shakeAdd(2); recompute(); syncHUD(); save();
+  }
   // jump to ANY reached planet (revisit & upgrade your background empire, or test)
   function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; snapshotActive(); flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); activatePlanet(g); save(); }
   // EXCHANGE: convert a background planet's currency into the one you're spending now (HARSH rate, see exchangeAmt)
