@@ -1168,7 +1168,7 @@
     const conqHere = planetMeta(S.galaxy).conquered || S.free;
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span>"
-      : reached ? "<button id='gi-jump'>▶ Play this world</button>"   // jump in and play your save on this planet
+      : reached ? "<button id='gi-jump'>⊙ Visit ▸</button>"   // dive into & play your save on this visited world
       : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>🔒 Conquer " + galName(S.galaxy) + " first</span>")
       : "<span class='gi-tag'>🔒 Locked</span>";
     const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g), pv = S.vault[g];
@@ -1190,7 +1190,7 @@
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
     $("gm-info").classList.add("show");
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
-    const j = $("gi-jump"); if (j) j.onclick = () => { jumpTo(g); $("gm-info").classList.remove("show"); };
+    const j = $("gi-jump"); if (j) j.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { jumpTo(g); $("galaxy-map").classList.remove("show"); GMap.hide(); }); };
   }
 
   const INFO = {
@@ -1258,6 +1258,7 @@
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("contextmenu", e => e.preventDefault());
       this.cv.addEventListener("pointerdown", e => {
+        if (this.flight) return;                              // ignore input mid-dive
         try { this.cv.setPointerCapture(e.pointerId); } catch (_) {}
         const p = this.pt(e); this.ptrs.set(e.pointerId, p); this.moved = false;
         this.lx = p.x; this.ly = p.y; this.sx0 = p.x; this.sy0 = p.y;
@@ -1287,7 +1288,7 @@
       this.cv.addEventListener("wheel", e => { e.preventDefault(); const p = this.pt(e); this.zoomAt(1 - e.deltaY * 0.0015, p.x, p.y); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
-    show() { this.open = true; this.resize(); if (!this.stars.length) for (let i = 0; i < 120; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show"); },
+    show() { this.open = true; this.flight = null; this.zoom = 0.7; this.resize(); if (!this.stars.length) for (let i = 0; i < 120; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.5) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show"); },
     hide() { this.open = false; },
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } },
@@ -1353,9 +1354,17 @@
       c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x - r * 0.32, p.y - r * 0.32, r * 0.5, 0, TAU); c.fill();   // lit crescent
       c.globalAlpha = 1;
     },
+    // cinematic dive: glide focus onto a planet and keep accelerating the zoom, then drop into the world
+    flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.5, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; },
     render(dt) {
       if (!this.cv) return; const c = this.c;
       this.t += dt;
+      if (this.flight) {                                     // zoom-into-base animation overrides the camera
+        const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), w = this.planetWorld(fl.g);
+        this.cx = fl.cx0 + (w.x - fl.cx0) * clamp(p * 1.7, 0, 1); this.cz = fl.cz0 + (w.z - fl.cz0) * clamp(p * 1.7, 0, 1);
+        this.tcx = this.cx; this.tcz = this.cz; this.zoom = fl.z0 + (22 - fl.z0) * (p * p * p);   // ease-in → keeps zooming faster
+        if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive; this.flight = null; if (cb) cb(); }
+      }
       this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
