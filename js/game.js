@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.0";
+  const VERSION = "v2.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -303,20 +303,20 @@
   const CONQUER_BASE = 6e7, CONQUER_ESCALATE = 1.2;
   const conquerTarget = g => Math.ceil(eco(g) * CONQUER_BASE * Math.pow(CONQUER_ESCALATE, Math.max(1, g) - 1));
   const BG_EFF = 0.4;                                                // a conquered planet earns at this fraction of its live rate, idle
-  // EXCHANGE is deliberately HARSH — you really start fresh on each world (AdCap "moon" style).
-  // You keep only ~8% of value, and currency from FAR-behind worlds is "stale" (decays per planet
-  // of distance), so the background empire is a small leg-up, never a buy-past-it snowball.
-  const EXCHANGE_KEEP = 0.08;
+  // EXCHANGE is BRUTAL — you really start fresh on each world (AdCap "moon" style). You keep only ~2% of
+  // value, EVERY pair's market spread is below 1 (so it's always a loss even at peak), far-behind worlds
+  // decay hard, and a tiny hard cap applies. The background empire is a faint leg-up, never a buy-past-it.
+  const EXCHANGE_KEEP = 0.02;
   // ── FLOATING FX MARKET — every currency PAIR has a unique seeded base spread that ALSO drifts over real
   // time (a live market you can time). The conversion stays value-anchored (worth ratio) + harsh keep +
   // distance decay + a hard cap, so it can NEVER flood an economy or shortcut a conquest. ──
   const fxHash = (a, b) => Math.imul(Math.min(a, b) * 131 + Math.max(a, b) * 977 + 17, 2654435761) >>> 0;
-  const fxBase = (a, b) => 0.65 + ((fxHash(a, b) >>> 9) & 1023) / 1023 * 0.95;                          // unique base spread per pair ~[0.65,1.60]
+  const fxBase = (a, b) => 0.28 + ((fxHash(a, b) >>> 9) & 1023) / 1023 * 0.4;                            // unique base spread per pair ~[0.28,0.68] — even ×1.3 peak drift stays <1 (ALWAYS a loss)
   const fxDriftAt = (a, b, t) => { const h = fxHash(a, b), ph1 = ((h >>> 3) & 255) / 255 * TAU, ph2 = ((h >>> 13) & 255) / 255 * TAU, f1 = 0.02 + ((h >>> 21) & 15) / 15 * 0.04, f2 = 0.07 + ((h >>> 25) & 15) / 15 * 0.11; return 1 + 0.2 * Math.sin(t * f1 + ph1) + 0.1 * Math.sin(t * f2 + ph2); };
   const fxMarketAt = (a, b, t) => fxBase(a, b) * fxDriftAt(a, b, t);                                    // the live "rate" the player sees, floats ~[0.45,2.1]
   const fxMarket = (a, b) => fxMarketAt(a, b, Date.now() / 1000);
-  const fxRate = (fromG, toG) => (curWorth(fromG) / curWorth(toG)) * EXCHANGE_KEEP * Math.pow(0.6, Math.max(0, Math.abs(toG - fromG) - 1)) * fxMarket(fromG, toG);
-  const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; return Math.floor(Math.min(cash * fxRate(fromG, S.galaxy), conquerTarget(S.galaxy) * 0.04)); };   // hard cap = 4% of a conquest → never broken, can't shortcut
+  const fxRate = (fromG, toG) => (curWorth(fromG) / curWorth(toG)) * EXCHANGE_KEEP * Math.pow(0.5, Math.max(0, Math.abs(toG - fromG) - 1)) * fxMarket(fromG, toG);   // steep distance decay
+  const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; return Math.floor(Math.min(cash * fxRate(fromG, S.galaxy), conquerTarget(S.galaxy) * 0.015)); };   // hard cap = 1.5% of a conquest → faint leg-up, never broken
   // per-class buy-cost factors (× eco(active) × 1.9^count) — keeps class differentiation but planet-local
   const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650 };
   // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
@@ -1644,7 +1644,7 @@
     const got = exchangeAmt(g, v.cash); v.cash = 0; S.cash += got; recompute(); syncHUD(); save(); return got; }
   function openExchange() {
     const wrap = $("exch-list"); wrap.innerHTML = "";
-    $("exch-sub").textContent = "LIVE FX market into " + curSym(S.galaxy) + " " + curName(S.galaxy) + " — every currency pair has its own rate that drifts over time. You keep ~8% of value (far worlds decay) and it's capped, so it's a leg-up, not a free ride. Convert when a rate spikes ↗.";
+    $("exch-sub").textContent = "LIVE FX market into " + curSym(S.galaxy) + " " + curName(S.galaxy) + " — every pair has its own rate that drifts over time. Rates are BRUTAL: you keep only ~1–2% of value, every spread is below 1, far worlds decay hard, and it's tightly capped. A faint leg-up, never a free ride — convert on a spike ↗.";
     let any = false;
     for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (!v || !v.conquered) continue; any = true;
       const bal = Math.floor(v.cash || 0);
