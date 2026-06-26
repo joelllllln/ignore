@@ -444,7 +444,7 @@
   };
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
-  const BOSS_INTERVAL = 300;   // seconds of active (boss-free) play between bosses
+  const BOSS_INTERVAL = 600;   // seconds of active (boss-free) play between bosses
   const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
   const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
   function spawnBoss() {
