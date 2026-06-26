@@ -444,13 +444,13 @@
   };
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   function spawnDot(special) {
-    const g = S.galaxy, vscale = derived.valueMul, base = 14 * enemyHpMul(g) * vscale, avg = base * 1.3;   // HP now scales LINEARLY with Value (was sqrt) — Value genuinely toughens enemies; cash is unaffected (it keys off hp/avg, where base cancels)
+    const g = S.galaxy, vscale = Math.pow(derived.valueMul, 1.3), base = 18 * enemyHpMul(g) * vscale, avg = base * 1.3;   // HP scales SUPER-linearly with Value — Value genuinely & heavily toughens enemies; cash is unaffected (it keys off hp/avg, where base cancels)
     const men = S.free ? 1.0 : clamp(S.lv.value / 28, 0, 3.5);   // "menace": Value drives how tough/common the hard dots are — steeper & high cap so the strongest become real multi-second tanks
     const men01 = S.free ? 1 : Math.min(1, men);                  // 0..1 gate — keeps dots BASIC until Value is invested
-    let roll = rnd(0.7, 1.0 + men * 4.5), armored = false, kind = "normal", cfg = null, mv = 20;
+    let roll = rnd(0.7, 1.0 + men * 5.0), armored = false, kind = "normal", cfg = null, mv = 20;
     // difficulty & craziness are bought with VALUE: at Value 0 every dot is the
     // plainest tier-0 grey. armored elites & exotic kinds only appear once you invest.
-    if (Math.random() < armorChance(g) * men01 + men * 0.08) { armored = true; roll *= rnd(6, 10) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
+    if (Math.random() < armorChance(g) * men01 + men * 0.08) { armored = true; roll *= rnd(7, 12) * (1 + men); mv = 9; }   // super-advanced elite: LOTS of health
     else if (Math.random() < kindChance(g) * men01 + men * 0.06) {
       // mostly THIS planet's native race, sometimes an earlier planet's race (variety)
       const gi = Math.min(g, RACES.length - 1);
