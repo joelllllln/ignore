@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v1.7";
+  const VERSION = "v1.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -474,11 +474,42 @@
     const hp = Math.max(base * 30, dps * 60);
     const r = clamp(40 + Math.log10(hp + 10) * 2.4, 42, 60);
     const val = Math.max(1, Math.round(DROP_BASE * galValueMul(g) * vm * derived.incomeMul * 120));   // fat bounty for a hard kill
+    // each planet's boss gets its OWN seeded movement personality (not the lazy drift-to-centre)
+    const mh = Math.imul((g + 13) * 2654435761, 40503) >>> 0, mr = k => ((mh >>> (k * 4)) & 15) / 15;
+    const styles = ["lissajous", "orbit", "charge", "pace", "prowl", "dash"];
     dots.push({ x: W / 2, y: H * 0.3, vx: rnd(-18, 18), vy: rnd(-8, 8), hp, maxHp: hp, value: val, value0: val,
       r, r0: r, tier: 6, spin: Math.random() * TAU, special: false, armored: true, kind: "boss", boss: true, bg: g,
       shieldMax: hp * 0.35, shield: hp * 0.35, armorUp: 0, regen: 0.012, add: 0,
+      mstyle: styles[Math.floor(mr(0) * styles.length)], mt: 0, mphase: mr(1) * TAU, mfx: 0.5 + mr(2) * 0.9, mfy: 0.45 + mr(3) * 0.9, mdir: mr(4) < 0.5 ? -1 : 1, mrad: 95 + mr(5) * 75, mtimer: 0, mtx: W / 2, mty: H * 0.35, mdash: false,
       weight: 5, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#ffffff" });
     floatTxt(W / 2, H / 2 - 70, "⚠ " + bossName(g) + " ⚠"); flashAdd(0.55); shakeAdd(9);
+  }
+  // boss movement with personality — each style roams the upper field very differently
+  function bossMove(d, dt) {
+    d.mt += dt; const t = d.mt;
+    const L = 52, R = W - 52, T = 72, B = H * 0.6, cx = (L + R) / 2, cy = (T + B) / 2;
+    if (d.mstyle === "lissajous") {                                   // graceful serpentine figure-weave
+      const tx = cx + Math.sin(t * d.mfx + d.mphase) * (R - L) / 2 * 0.86, ty = cy + Math.sin(t * d.mfy * 1.4) * (B - T) / 2 * 0.82;
+      d.x += (tx - d.x) * Math.min(1, dt * 1.7); d.y += (ty - d.y) * Math.min(1, dt * 1.7);
+    } else if (d.mstyle === "orbit") {                                // territorial guardian, circling
+      const a = t * 0.55 * d.mdir + d.mphase, tx = cx + Math.cos(a) * d.mrad, ty = cy + Math.sin(a) * d.mrad * 0.6;
+      d.x += (tx - d.x) * Math.min(1, dt * 2.3); d.y += (ty - d.y) * Math.min(1, dt * 2.3);
+    } else if (d.mstyle === "charge") {                               // aggressive bruiser: lunges, recoils, repicks
+      d.mtimer -= dt; if (d.mtimer <= 0) { d.mtx = rnd(L, R); d.mty = rnd(T, B); d.mtimer = rnd(1.1, 2.1); burst(d.x, d.y, 5, 50, 1.2); }
+      d.vx = (d.vx || 0) * 0.9 + (d.mtx - d.x) * 0.07; d.vy = (d.vy || 0) * 0.9 + (d.mty - d.y) * 0.07;
+      const sp = Math.hypot(d.vx, d.vy); if (sp > 280) { d.vx *= 280 / sp; d.vy *= 280 / sp; } d.x += d.vx * dt; d.y += d.vy * dt;
+    } else if (d.mstyle === "pace") {                                 // pacing sentinel along the top, bobbing
+      const tx = cx + Math.sin(t * 0.9 * d.mdir + d.mphase) * (R - L) / 2 * 0.92, ty = T + 38 + Math.abs(Math.sin(t * 2)) * 34;
+      d.x += (tx - d.x) * Math.min(1, dt * 3); d.y += (ty - d.y) * Math.min(1, dt * 2.4);
+    } else if (d.mstyle === "prowl") {                                // erratic predator: sudden bursts & turns
+      d.mtimer -= dt; if (d.mtimer <= 0) { const a = Math.random() * TAU, sp = rnd(70, 175); d.vx = Math.cos(a) * sp; d.vy = Math.sin(a) * sp; d.mtimer = rnd(0.5, 1.4); }
+      d.x += (d.vx || 0) * dt; d.y += (d.vy || 0) * dt; if (d.x < L || d.x > R) d.vx *= -1; if (d.y < T || d.y > B) d.vy *= -1;
+    } else {                                                          // dash: twitchy — holds, then darts to a new spot
+      d.mtimer -= dt;
+      if (d.mdash) { const dx = d.mtx - d.x, dy = d.mty - d.y, dl = Math.hypot(dx, dy) || 1; if (dl < 12 || d.mtimer <= 0) { d.mdash = false; d.mtimer = rnd(0.8, 1.7); burst(d.x, d.y, 9, 90, 1.7); ring(d.x, d.y, d.r, d.r + 34, 0.3); } else { const step = Math.min(dl, 560 * dt); d.x += dx / dl * step; d.y += dy / dl * step; } }
+      else if (d.mtimer <= 0) { d.mdash = true; d.mtx = rnd(L, R); d.mty = rnd(T, B); d.mtimer = 0.7; }
+    }
+    d.x = clamp(d.x, L, R); d.y = clamp(d.y, T, B);
   }
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.pow(derived.valueMul, 1.3), base = 18 * enemyHpMul(g) * vscale, avg = base * 1.3;   // HP scales SUPER-linearly with Value — Value genuinely & heavily toughens enemies; cash is unaffected (it keys off hp/avg, where base cancels)
@@ -706,6 +737,7 @@
       if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 22500) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 135 * dt; o.y += dy / dl * 135 * dt; if (q < (d.r + 9) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.06); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals
       if (d.spawner !== undefined) { d.spawner += dt; if (d.spawner > 3.8 && dots.length < cap) { d.spawner = 0; const hp = d.maxHp * 0.18, mr = Math.max(5, d.r0 * 0.5); dots.push({ x: d.x + rnd(-14, 14), y: d.y + rnd(-14, 14), vx: rnd(-55, 55), vy: rnd(-55, 55), hp, maxHp: hp, value: Math.max(1, Math.round((d.value0 || d.value) * 0.18)), value0: 1, r: mr, r0: mr, tier: 0, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" }); burst(d.x, d.y, 4, 40, 1.2); } }   // Null Spawn births minions
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
+      else if (d.boss) { bossMove(d, dt); }   // bosses roam with their own personality, not the slow drift-to-centre
       else {   // wave drift: gentle pull toward the centre + a little wander, capped to a slow creep
         const cxp = W / 2 - d.x, cyp = H / 2 - d.y, cdp = Math.hypot(cxp, cyp) || 1;
         d.vx += (cxp / cdp) * 9 * dt + rnd(-13, 13) * dt; d.vy += (cyp / cdp) * 9 * dt + rnd(-13, 13) * dt;
