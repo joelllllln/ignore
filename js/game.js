@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.9";
+  const VERSION = "v3.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -227,22 +227,25 @@
   // as you buy more — like beer-pong cups: a lone unit sits centre, a handful
   // form a neat ring, more fill concentric rings (the last ring always spread
   // evenly), so 5 and 50 read as different but equally organised shapes.
-  let _form = { n: -1, pts: [] };
-  function formation(n) {
-    if (_form.n === n) return _form.pts;
-    const pts = [], GAP = 36;
-    if (n >= 1) pts.push({ x: 0, y: 0 });
-    let placed = 1, ring = 1;
-    while (placed < n) {
-      const radius = ring * 40, cap = Math.max(1, Math.floor(TAU * radius / GAP)), take = Math.min(cap, n - placed);
-      const phase = (ring % 2 ? Math.PI / take : 0) - Math.PI / 2;
-      for (let k = 0; k < take; k++) { const a = k / take * TAU + phase; pts.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius * 1.35 }); }   // stretch vertically to use the tall portrait field & keep units off the side edges
-      placed += take; ring++;
-    }
-    _form = { n, pts };
+  let _form = { sig: " ", pts: [] };
+  // Defenders arrange by COMPOSITION: each type forms its own centred, evenly-spaced row, and the rows
+  // stack symmetrically around the field centre. So 4 turrets + 2 mortars reads as a row of 4 over a row
+  // of 2 (each centred → left/right symmetric), distinct from any other mix — tidy, balanced, legible.
+  function unitFormation() {
+    const sig = S.units.map(u => u.type).join(",");
+    if (_form.sig === sig) return _form.pts;
+    const byType = {}; S.units.forEach((u, i) => { (byType[u.type] || (byType[u.type] = [])).push(i); });
+    const rows = DEF_ORDER.filter(t => byType[t]).map(t => byType[t]);   // one row per present type, in canonical order
+    const pts = new Array(S.units.length).fill(null);
+    const SX = 60, SY = 64, totalH = (rows.length - 1) * SY;             // even gaps; whole block vertically centred
+    rows.forEach((idxs, r) => {
+      const y = -totalH / 2 + r * SY, w = (idxs.length - 1) * SX;        // each row horizontally centred → symmetric
+      idxs.forEach((ui, k) => { pts[ui] = { x: -w / 2 + k * SX, y }; });
+    });
+    _form = { sig, pts };
     return pts;
   }
-  function unitPos(i, n) { const p = formation(n)[i] || { x: 0, y: 0 }; return { x: W / 2 + p.x, y: H / 2 + p.y }; }
+  function unitPos(i) { const p = unitFormation()[i] || { x: 0, y: 0 }; return { x: W / 2 + p.x, y: H / 2 + p.y }; }
 
   /* ----------------------- drone + economy upgrades -------------- */
   const UPS = [
@@ -380,7 +383,7 @@
   function ring(x, y, r0, r1, life) { if (parts.length > MAXP) return; parts.push({ t: 1, x, y, r: r0, r1, life, max: life }); }
   function floatTxt(x, y, txt) { if (parts.length > MAXP) return; parts.push({ t: 2, x, y, vy: -40, life: 0.95, max: 0.95, txt }); }
   function spark(x, y) { if (parts.length > MAXP) return; parts.push({ t: 3, x, y, life: 0.22, max: 0.22 }); }
-  function shakeAdd(a) { shake = Math.min(7, shake + a); }   // lower cap so dense late-game kills don't rattle the screen
+  function shakeAdd(a) { shake = Math.min(4.5, shake + a); }   // capped low so dense late-game kills can't pin the screen into a constant rattle
   function flashAdd(a) { flash = Math.min(0.9, flash + a); }
   function stepFx(dt) {
     for (const p of parts) { p.life -= dt; if (p.t === 0 || p.t === 4) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; if (p.t === 4) p.ang += p.spin * dt; } else if (p.t === 2) { p.y += p.vy * dt; p.vy *= 0.9; } }
@@ -694,14 +697,14 @@
       const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (d.armored) s.armored = (s.armored || 0) + 1; if (src) s.kills[src] = (s.kills[src] || 0) + 1;
       const nb = Math.min(28, 6 + (d.tier || 0) * 4 + (d.armored ? 8 : 0));
       burst(d.x, d.y, nb, 90 + (d.tier || 0) * 24 + (d.armored ? 60 : 0), 2 + (d.tier || 0) * 0.3);
-      ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored || (d.tier || 0) >= 4) shakeAdd(d.armored ? 1.8 : 1);
+      ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored) shakeAdd(0.5);   // only armored elites nudge the screen — tier-4+ became common late game and pinned the shake
       if (d.splits && (d.gen || 0) < (d.maxGen || 1)) for (let i = 0; i < d.splits; i++) {
         const hp = d.maxHp * 0.42, cv = Math.max(1, Math.round(d.value * 0.4)), cr = Math.max(6, d.r * 0.66);
         dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-50, 50), vy: rnd(-50, 50), hp, maxHp: hp,
           value: cv, value0: cv, r: cr, r0: cr, tier: 0, spin: 0, special: false, armored: false,
           kind: "splitter", splits: d.splits, maxGen: d.maxGen, gen: (d.gen || 0) + 1, weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: d.color });
       }
-      if (d.bomb) { ring(d.x, d.y, d.r, d.r + 75, 0.5); burst(d.x, d.y, 18, 170, 2.6); shakeAdd(2.5); flashAdd(0.12);
+      if (d.bomb) { ring(d.x, d.y, d.r, d.r + 75, 0.5); burst(d.x, d.y, 18, 170, 2.6); shakeAdd(1.0); flashAdd(0.12);
         for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = o.x - d.x, dy = o.y - d.y, q = dx * dx + dy * dy; if (q < 8100) { const dl = Math.sqrt(q) || 1; o.x = clamp(o.x + dx / dl * 70, 20, W - 20); o.y = clamp(o.y + dy / dl * 70, 40, H - 110); o.t += 3.5; } }   // Pyreling detonation scatters & ages your loot
       }
     }
