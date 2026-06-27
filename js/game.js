@@ -12,9 +12,10 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.4";
+  const VERSION = "v4.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
-  const WORLD_SCALE = 2.18;   // the playfield is this much bigger than the screen (~50% bigger than before; the camera fits the whole world by default, so a bigger world also reads as zoomed-out) — pinch in to close on the action
+  const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
+  const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
   const Sfx = {
     ctx: null, nb: null,
@@ -1922,7 +1923,7 @@
   canvas.addEventListener("pointermove", e => {
     if (state !== "play") return;
     if (gptrs.has(e.pointerId)) { const q = ptr(e); gptrs.set(e.pointerId, { sx: q.sx, sy: q.sy }); }
-    if (gptrs.size >= 2) { const a = [...gptrs.values()], d = Math.hypot(a[0].sx - a[1].sx, a[0].sy - a[1].sy); if (pinchD0) camZoom = clamp(camZoom * d / pinchD0, camFit, 1.15); pinchD0 = d; return; }   // pinch to zoom the playfield
+    if (gptrs.size >= 2) { const a = [...gptrs.values()], d = Math.hypot(a[0].sx - a[1].sx, a[0].sy - a[1].sy); if (pinchD0) camZoom = clamp(camZoom * d / pinchD0, camFit * ZOOM_OUT, 1.15); pinchD0 = d; return; }   // pinch to zoom the playfield
     if (!drawing) return;
     const p = ptr(e), dx = p.x - lastDraw.x, dy = p.y - lastDraw.y, dist = Math.hypot(dx, dy), steps = Math.max(1, Math.floor(dist / 14));
     for (let i = 1; i <= steps; i++) { const bx = lastDraw.x + dx * i / steps, by = lastDraw.y + dy * i / steps; brushAt(bx, by); collectAt(bx, by); }
@@ -1930,7 +1931,7 @@
   });
   const endDraw = e => { if (e && e.pointerId !== undefined) gptrs.delete(e.pointerId); if (gptrs.size < 2) pinchD0 = 0; drawing = false; };
   canvas.addEventListener("pointerup", endDraw); canvas.addEventListener("pointercancel", endDraw); canvas.addEventListener("pointerleave", endDraw);
-  canvas.addEventListener("wheel", e => { if (state !== "play") return; e.preventDefault(); camZoom = clamp(camZoom * (1 - e.deltaY * 0.0012), camFit, 1.15); }, { passive: false });
+  canvas.addEventListener("wheel", e => { if (state !== "play") return; e.preventDefault(); camZoom = clamp(camZoom * (1 - e.deltaY * 0.0012), camFit * ZOOM_OUT, 1.15); }, { passive: false });
 
   /* ----------------------------- wiring -------------------------- */
   for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); renderList(); }; }
@@ -1987,7 +1988,7 @@
     DPR = Math.min(window.devicePixelRatio || 1, 2); SW = canvas.clientWidth; SH = canvas.clientHeight;
     canvas.width = SW * DPR | 0; canvas.height = SH * DPR | 0; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     W = SW * WORLD_SCALE; H = SH * WORLD_SCALE; camFit = Math.min(SW / W, SH / H);   // fit the whole world on screen by default
-    camZoom = camZoom ? clamp(camZoom, camFit, 1.15) : camFit;
+    camZoom = camZoom ? clamp(camZoom, camFit * ZOOM_OUT, 1.15) : camFit;            // default still fills the screen; you can now pull back to camFit*ZOOM_OUT to see more
     for (const dr of drones) { dr.x = clamp(dr.x, 0, W); dr.y = clamp(dr.y, 0, H); }
     if (GMap.open) GMap.resize();
     if ($("skilltree").classList.contains("show")) STree.resize();
