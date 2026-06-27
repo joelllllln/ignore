@@ -12,9 +12,9 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.1";
+  const VERSION = "v4.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
-  const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
+  const WORLD_SCALE = 2.18;   // the playfield is this much bigger than the screen (~50% bigger than before; the camera fits the whole world by default, so a bigger world also reads as zoomed-out) — pinch in to close on the action
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
   const Sfx = {
     ctx: null, nb: null,
@@ -1350,12 +1350,12 @@
       this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
       this.cv.addEventListener("pointermove", e => {
         if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.35, 3); this.pinchD = d; this.moved = true; this.clampPan(); this.lx = p.x; this.ly = p.y; return; }
+        if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.5, 3); this.pinchD = d; this.moved = true; this.clampPan(); this.lx = p.x; this.ly = p.y; return; }
         const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 5) this.moved = true; this.cx += dx; this.cy += dy; this.clampPan(); this.lx = p.x; this.ly = p.y;
       });
       const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; } if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
       this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; });
-      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.35, 3); this.clampPan(); }, { passive: false });
+      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.5, 3); this.clampPan(); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
@@ -1502,9 +1502,9 @@
   }
   // interactive pseudo-3D black & white star map
   const GMap = {
-    open: false, yaw: 0.45, pitch: -0.72, zoom: 0.45, t: 0, cv: null, c: null, w: 0, h: 0,
+    open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
     cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
-    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.45; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
+    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.7; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
     ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, rotMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
@@ -1630,7 +1630,7 @@
       if (this.intro != null) {                              // FULL hyperspace arrival when the map opens
         this.intro += dt; const p = clamp(this.intro / this.introDur, 0, 1), q = (1 - p) * (1 - p);
         this._warp = 1.7 * q;                                 // stars streak fast, then decelerate to points
-        this.zoom = 0.45 + (this.iz0 - 0.45) * q;             // drop out: ease the zoom from close-in out to the resting (wider) galaxy view
+        this.zoom = 0.7 + (this.iz0 - 0.7) * q;             // drop out: ease the zoom from close-in out to the resting (wider) galaxy view
         if (p >= 1) { this.intro = null; this._warp = 0; this.zoom = 0.7; }
       }
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
@@ -1681,7 +1681,7 @@
       pts.sort((a, b) => b.p.z - a.p.z);
       for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-        const r = clamp(10.5 * p.f * this.planetStyle(g).sizeMul, 3.5, 30), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
+        const r = clamp(7 * p.f * this.planetStyle(g).sizeMul, 2.5, 20), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
         this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 11, 24) });
         this.planet(p, r, bright, current, g === this.sel, g);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
