@@ -45,26 +45,28 @@
   // Each class has a NICHE: vsBig = bonus damage to armored/tanky dots, vsSwarm =
   // bonus to weak/small/fast dots. So mixing classes beats stacking one.
   const DEF_TYPES = {
-    turret:  { name: "Turret",  base: 60,     gal: 1, dmg: 5,  rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2, dmg: 9,  rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
-    plasma:  { name: "Plasma",  base: 4000,   gal: 3, dmg: 26, rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
-    laser:   { name: "Laser",   base: 30000,  gal: 5, dmg: 3,  rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
-    railgun: { name: "Railgun", base: 250000, gal: 7, dmg: 90, rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
+    turret:  { name: "Turret",  base: 60,     gal: 1,  dmg: 5,   rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2,  dmg: 9,   rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
+    plasma:  { name: "Plasma",  base: 4000,   gal: 5,  dmg: 26,  rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
+    laser:   { name: "Laser",   base: 30000,  gal: 8,  dmg: 3,   rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
+    railgun: { name: "Railgun", base: 250000, gal: 11, dmg: 90,  rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
+    nova:    { name: "Nova",    base: 4.0e6,  gal: 14, dmg: 340, rate: 0.5, range: 380, splash: 72, max: 4, vsBig: 3.2, vsSwarm: 2.6, niche: "void bombardment — Erebus-forged, splash that devastates everything" },
   };
-  const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun"];
+  const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun", "nova"];
   /* ----------------------- collector types ----------------------- */
   // Collectors gather the cash orbs dots drop. Like defenders they come in
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 60,         gal: 1, speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5, mode: "chase", sides: 4, max: 4 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 2, speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7, mode: "swarm", sides: 3, max: 2 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 3, speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7, mode: "chase", sides: 6, max: 2 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 4, speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8, mode: "chase", sides: 5, max: 2 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 5, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9, mode: "chase", sides: 8, max: 2 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 6, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 2 },
+    drone:       { name: "Drone",          base: 60,         gal: 1,  speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5,  mode: "chase", sides: 4, max: 4 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 3,  speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7,  mode: "swarm", sides: 3, max: 2 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 6,  speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7,  mode: "chase", sides: 6, max: 2 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 9,  speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8,  mode: "chase", sides: 5, max: 2 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 11, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9,  mode: "chase", sides: 8, max: 2 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 13, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 2 },
+    wormhole:    { name: "Wormhole",       base: 5.0e9,      gal: 16, speed: 64,  suction: 330, collect: 64, yield: 3.4, cap: 20, mode: "hole",  sides: 0, max: 2 },
   };
-  const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity"];
+  const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity", "wormhole"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
   const isCol = type => !!COL_TYPES[type];
   const TY = type => DEF_TYPES[type] || COL_TYPES[type];
@@ -93,7 +95,7 @@
   // Defender baseline (turret = tier 1). Later classes scale UP via DEF_SCALE, so a
   // gal-7 Railgun tree is FAR stronger per node than a gal-1 Turret — "scaled correctly."
   const MAG_DEF = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 2.0, maj: 4.5, key: 11 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 } };   // range = flat px/node, tuned so a FULL branch ~covers the field (not 2-3x beyond) and every node still grows the circle a visible amount; int = "Mind": smarter targeting (no overkill / coordination), additive toward fully-smart=1
-  const DEF_SCALE = { turret: 1.0, mortar: 1.35, plasma: 1.8, laser: 2.4, railgun: 3.2 };
+  const DEF_SCALE = { turret: 1.0, mortar: 1.35, plasma: 1.8, laser: 2.4, railgun: 3.2, nova: 4.2 };
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
@@ -147,7 +149,7 @@
   const SPECS = ["explosive", "chain", "pierce"];
   // Each defender has a SIGNATURE specialization its keystones all reinforce (stacking
   // = stronger), matching its niche: bombs for the splash class, beams for the snipers…
-  const CLASS_SPEC = { turret: "chain", mortar: "explosive", plasma: "chain", laser: "pierce", railgun: "pierce" };
+  const CLASS_SPEC = { turret: "chain", mortar: "explosive", plasma: "chain", laser: "pierce", railgun: "pierce", nova: "explosive" };
   // Speed is capped so a maxed Speed tree makes collectors fast & agile, not so
   // fast they teleport PAST orbs (which used to zero out collection). Suction
   // (the pull/ring radius) is capped well under the field so collectors must keep
@@ -270,7 +272,7 @@
   // So base HP/spawn are FLAT across planets (a fresh army can always start killing);
   // only the CURRENCY scale (galValueMul) grows, and costs scale with it (eco), so each
   // planet plays identically in bigger numbers and conquer time stays constant.
-  const enemyHpMul = g => 1;                            // flat: dots aren't tankier on later planets (in-planet Value still ramps them)
+  const enemyHpMul = g => Math.pow(diff(g), 0.4);       // dampened difficulty → dots get tankier per planet, ~doubling at each new solar system: the COMBAT wall a fresh fleet feels on landing (in-planet Value ramps them further)
   const galValueMul = g => Math.pow(2.2, g - 1);        // currency scale of planet g (income AND costs both ride this, so it cancels)
   const galSpawnMul = g => 1;                           // flat base spawn (you raise it in-planet with Spawn Rate)
   const galCap = g => 400;                              // flat field cap
@@ -299,14 +301,19 @@
   // Each planet's currency is worth MORE than the previous — by a SEEDED, varying step (×1.6…×2.8), so the
   // magnitudes are distinct/non-uniform yet ALWAYS climbing. conquerTarget AND income both ride eco(g), so
   // the steps cancel in time-to-conquer — pacing is provably unchanged.
-  const ecoStep = k => 1.6 + ((Math.imul((k + 11) * 2654435761, 40503) >>> 0 >>> 7) & 1023) / 1023 * 1.2;   // ×1.6…×2.8 vs the previous planet, seeded, always > 1
-  const eco = g => { g = Math.max(1, g); let v = CUR_BASE; for (let k = 2; k <= g; k++) v *= ecoStep(k); return v; };   // strictly-increasing, distinct currency scale of planet g
-  const startMul = g => 28 + ((Math.imul((Math.max(1, g) + 19) * 2654435761, 40503) >>> 0 >>> 6) & 511) / 511 * 64;   // seeded fresh-landing purse: eco(g) × [28..92], distinct per planet
-  const CUR_NAMES = ["Dust","Sparks","Slag","Embers","Brine","Spores","Cobalt","Gusts","Glimmer","Charge","Shade","Rime","Shards","Wisps","Ash","Voidstone","Bile","Null"];
-  const CUR_SYM   = ["✦","✷","◆","✸","≋","✤","◈","❂","✧","⚡","◐","❄","◇","∿","▲","⬟","☣","⊘"];   // each planet's currency has its own symbol
-  const curName = g => CUR_NAMES[Math.min(Math.max(g,1),CUR_NAMES.length)-1] || "Null";
-  const curSym  = g => CUR_SYM[Math.min(Math.max(g,1),CUR_SYM.length)-1] || "✦";
-  const curWorth = g => eco(g);                                      // exchange value of one unit of planet g's currency
+  // HYBRID DIFFICULTY: ONE global currency, but each planet's NUMBER-MAGNITUDE scales by difficulty.
+  // Inside a solar system difficulty creeps up gently (WITHIN_STEP); crossing into a NEW system it
+  // JUMPS (SYS_JUMP). Your Conquest multiplier (CONQ_STEP, below) grows per planet conquered, so
+  // WITHIN a system you outpace the creep and steamroll, but a fresh system jump outruns you and you
+  // feel small again — three power-fantasy arcs, one per solar system. (See research: "Travel = Prestige".)
+  const SYS_JUMP = 6.0, WITHIN_STEP = 1.5;
+  const diff = g => { g = Math.max(1, Math.min(g, TOTAL_PLANETS)); let v = 1; for (let k = 2; k <= g; k++) v *= (PLANET_LOCAL[planetIdx(k)] === 0 ? SYS_JUMP : WITHIN_STEP); return v; };
+  const eco = g => CUR_BASE * diff(g);   // planet number-magnitude (single global currency; costs & drops BOTH ride this so it cancels — real progression is the Conquest multiplier)
+  const startMul = g => 40;              // flat fresh-landing starter purse (× eco(g)) — you rebuild from scratch on every planet
+  // ONE global currency now — no per-planet money, no exchange. (kept as helpers so existing call-sites resolve.)
+  const curName = g => "Credits";
+  const curSym  = g => "✦";
+  const curWorth = g => eco(g);
   // Conquering a planet is a ~day-long active grind (proper idle pacing), escalating per planet.
   // CALIBRATED TO REAL ACTIVE PLAY: a skilled player (drawing to kill + abilities + the Spawn-Rate
   // menace buff) banks ~40× faster than a passive upgrade-only sim, finishing the old eco*1.5M target
@@ -315,7 +322,13 @@
   // power (S.cash), never conquer progress (curEarned), so the day-per-planet floor can't be bought past.
   const CONQUER_BASE = 6e7, CONQUER_ESCALATE = 1.2;
   const conquerTarget = g => Math.ceil(eco(g) * CONQUER_BASE * Math.pow(CONQUER_ESCALATE, Math.max(1, g) - 1));
-  const BG_EFF = 0.4;                                                // a conquered planet earns at this fraction of its live rate, idle
+  // CONQUEST MULTIPLIER — the core cross-planet progression. Conquering a planet permanently multiplies
+  // ALL your income by CONQ_STEP (≈×1.8/planet). It carries forever (your "RPG level"); it is NOT spendable
+  // cash, so it can't instant-max a fresh planet — you still land at ~0 and rebuild, just EARN faster. Over
+  // 18 planets it compounds to ~×9000, and difficulty (diff above) is tuned to be outpaced within a system
+  // and to leap ahead at each new system. This replaces the old per-planet currency exchange entirely.
+  const CONQ_STEP = 1.8;
+  const BG_EFF = 0.4;                                                // a conquered planet feeds this fraction of its live rate into your global treasury, idle
   // EXCHANGE is BRUTAL — you really start fresh on each world (AdCap "moon" style). You keep only ~2% of
   // value, EVERY pair's market spread is below 1 (so it's always a loss even at peak), far-behind worlds
   // decay hard, and a tiny hard cap applies. The background empire is a faint leg-up, never a buy-past-it.
@@ -338,7 +351,7 @@
   const importRoom = () => Math.max(0, IMPORT_CAP(S.galaxy) - importUsed());
   const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; return Math.floor(Math.min(cash * fxRate(fromG, S.galaxy), importRoom())); };   // what `cash` of fromG converts to NOW, clamped to remaining import room
   // per-class buy-cost factors (× eco(active) × 1.9^count) — keeps class differentiation but planet-local
-  const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650 };
+  const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, nova: 820, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650, wormhole: 1150 };
   // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
   // not a collector yield multiplier. DROP_BASE is the cash a plain dot drops;
   // TOUGH_POW makes reward scale SUPER-linearly with a dot's toughness, so tanky
@@ -358,7 +371,7 @@
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
-    return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null, imported: {} };
+    return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null, imported: {}, conquest: 1 };
   }
   // trim a unit/collector list down to each type's max (enforces caps on load)
   function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type, m = TY(t) ? TY(t).max : 99; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }
@@ -410,8 +423,8 @@
 
   function recompute() {
     const L = S.lv, m = META;
-    derived.incomeMul = 1;
-    derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity);   // planet-local cash ceiling (scales with the planet's currency)
+    derived.incomeMul = S.conquest || 1;               // permanent cross-planet Conquest multiplier — every income source rides this (this IS your progression)
+    derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity) * (S.conquest || 1);   // cash ceiling scales with difficulty AND conquest so it never lags your income
     derived.valueMul = 1 + 0.08 * L.value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace"
     // Spawn Rate: each level wants +2 dots/sec. But the field caps at galCap (400) dots, so past a
     // soft cap the screen can't hold more — instead of wasting the upgrade, the surplus "spills over"
@@ -426,7 +439,7 @@
   }
 
   /* ----------------------------- save ---------------------------- */
-  const KEY = "ids_clone.v2";
+  const KEY = "ids_clone.v3";   // bumped for the v3 economy (single global currency + Conquest multiplier) — old saves start fresh on the new model
   let wiping = false;
   function save() { if (wiping) return; try { if (S && S.vault) { const v = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }); v.earned = curEarned; } localStorage.setItem(KEY, JSON.stringify({ S, META, ts: Date.now(), cps })); } catch (e) {} }
   function wipeSave() { wiping = true; try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
@@ -443,8 +456,8 @@
           META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {}); }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, 12 * 3600);
           if (d.cps > 0 && e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; }
-          // background empire kept earning while away
-          if (S.vault) for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) v.cash = (v.cash || 0) + v.bgRate * e; }
+          // background empire kept earning while away — straight into the global treasury (one currency)
+          if (S.vault) { let bg = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) bg += v.bgRate; } if (bg > 0) { S.cash += bg * e; S.totalRun += bg * e; META.totalEver += bg * e; } }
           if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + Math.max(0, (Date.now() - d.ts) / 1000);   // expedition keeps travelling while away (uncapped — long trips must finish)
         }
       }
@@ -842,9 +855,9 @@
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
-      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, cps * BG_EFF); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED"); flashAdd(0.4); shakeAdd(3); } }
-    // background empire: every conquered, non-active planet keeps earning its own currency
-    for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) v.cash = (v.cash || 0) + v.bgRate * dt; }
+      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, cps * BG_EFF); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4); } }
+    // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
+    { let bgSum = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) bgSum += v.bgRate; } if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.min(derived.capacity, S.cash + add); S.totalRun += add; META.totalEver += add; } }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
@@ -1011,7 +1024,7 @@
   /* ----------------------------- HUD ----------------------------- */
   function syncHUD() {
     let bg = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered) bg += v.bgRate || 0; }
-    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = " " + curName(S.galaxy) + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");
+    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = " " + curName(S.galaxy) + ((S.conquest || 1) > 1.001 ? "  ·  ⚔×" + fmt(S.conquest) + " conquest" : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
     const tgt = conquerTarget(S.galaxy), conq = planetMeta(S.galaxy).conquered;
@@ -1140,7 +1153,7 @@
     const setSpec = () => { if (CLASS_SPEC[type]) nodes[nodes.length - 1].spec = CLASS_SPEC[type]; };   // defenders only; call right after an add("K",…)
     const stats = [1, 2, 3, 4], NP = stats.length;   // 4 primaries: defenders = dmg/rate/range/Mind, collectors = speed/pull/reach/Capacity
     for (let i = NP - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [stats[i], stats[j]] = [stats[j], stats[i]]; }
-    const deep = { turret: 0, mortar: 0, plasma: 1, laser: 1, railgun: 2 }[type] || 0;   // later classes get deeper trees
+    const deep = { turret: 0, mortar: 0, plasma: 1, laser: 1, railgun: 2, nova: 3 }[type] || 0;   // later classes get deeper trees
     const col = isCol(type);
     const nW = ri(5, 7) + deep, rot = R() * Math.PI * 2;     // far more wings — bigger trees
     // COLLECTORS ONLY: one whole wing is dedicated to Process/consumption (the x-branch),
@@ -1835,8 +1848,8 @@
   for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
   $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
   $("btn-travel").onclick = () => { if (S.travel) { if (S.free) S.travel.t = S.travel.dur; return; } travel(); };   // free mode: tapping while EN ROUTE skips the journey timer (arrival is processed next update tick)
-  const openFx = () => { openExchange(); $("fxpage").classList.add("show"); };
-  $("btn-exchange").onclick = openFx;
+  const openFx = () => { if (!$("fxpage")) return; openExchange(); $("fxpage").classList.add("show"); };   // EXCHANGE retired — one global currency now; guarded so the removed buttons can't throw
+  if ($("btn-exchange")) $("btn-exchange").onclick = openFx;
   if ($("fx-close")) $("fx-close").onclick = () => $("fxpage").classList.remove("show");
   if ($("fx-massconvert")) $("fx-massconvert").onclick = () => { exchangeAll(); openExchange(); };
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
@@ -1851,7 +1864,7 @@
   };
   if ($("st-max")) $("st-max").onclick = () => { allocAll(STree.type); showNodeInfo(STree.selNode()); };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
-  $("gm-exchange").onclick = openFx;
+  if ($("gm-exchange")) $("gm-exchange").onclick = openFx;
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };

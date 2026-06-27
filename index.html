@@ -46,7 +46,6 @@
     <div id="up-list"></div>
     <div id="actions">
       <button class="act travel" id="btn-travel">TRAVEL ▸</button>
-      <button class="act" id="btn-exchange">⇄ EXCHANGE</button>
     </div>
   </div>
 
@@ -105,17 +104,9 @@
   <!-- GALAXY MAP (interactive 3D) -->
   <div id="galaxy-map" class="modal mapmodal">
     <canvas id="gmap"></canvas>
-    <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-exchange">⇄ Exchange</button><button class="mbtn" id="gm-reset">⟲ Recenter</button><button class="x" id="gm-close">✕</button></div></div>
+    <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-reset">⟲ Recenter</button><button class="x" id="gm-close">✕</button></div></div>
     <div class="map-hint">one finger = move · two fingers: pinch to zoom, drag to rotate · scroll = zoom · tap a ★ sun to centre · tap a planet to visit</div>
     <div id="gm-info" class="gm-info"></div>
-  </div>
-
-  <!-- FX MARKET (full page: wallets · live rates · choose amount · mass convert) -->
-  <div id="fxpage" class="modal fxmodal">
-    <div class="fx-head"><div class="fx-title">⇄ FX MARKET <span id="fx-into" class="muted"></span></div><button class="x" id="fx-close">✕</button></div>
-    <div id="fx-budget" class="fx-budget"></div>
-    <div id="fx-scroll" class="fx-scroll"><div id="fx-list"></div></div>
-    <div class="fx-foot"><span id="fx-massinfo" class="fx-massinfo"></span><button id="fx-massconvert" class="fx-mass">CONVERT ALL</button></div>
   </div>
 
   <!-- WELCOME BACK -->

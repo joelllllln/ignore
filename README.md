@@ -90,11 +90,16 @@ Each has a distinct **niche**, a **signature specialization**, and a **deeper,
 stronger tree** than the last (a gal-7 Railgun tree is ~140 nodes and *far*
 stronger per node than a gal-1 Turret — so mixing classes beats spamming one):
 
-- **Turret** — all-rounder backbone, even vs everything · ✦Chain · smallest tree
-- **Mortar** — splash, **×2.2 vs swarms** · ✦Explosive (bombs) · deeper tree
-- **Plasma** — **×2.4 vs armored/tanky** · ✦Chain · deep tree
-- **Laser** — rapid, **×2.6 vs fast/weak swarms** · ✦Piercing Laser · deep tree
-- **Railgun** — **×4 vs armored** (weak vs swarms) · ✦Piercing Laser · huge tree
+- **Turret** (Helios) — all-rounder backbone, even vs everything · ✦Chain · smallest tree
+- **Mortar** (Helios) — splash, **×2.2 vs swarms** · ✦Explosive (bombs) · deeper tree
+- **Plasma** (Cygnus) — **×2.4 vs armored/tanky** · ✦Chain · deep tree
+- **Laser** (Cygnus) — rapid, **×2.6 vs fast/weak swarms** · ✦Piercing Laser · deep tree
+- **Railgun** (Erebus) — **×4 vs armored** (weak vs swarms) · ✦Piercing Laser · huge tree
+- **Nova** (Erebus) — endgame void bombardment, **splash that devastates everything** · ✦Explosive · deepest tree
+
+Class unlocks are spread across **all three solar systems** (not just the
+opening worlds), so every system you enter hands you a fresh weapon to meet its
+difficulty wall — the brutal outer **Erebus** is where Railgun and **Nova** arrive.
 
 Units **visibly reflect their build** — all in stark **black & white**, no colour
 and no idle motion. Each upgrade branch leaves its own small, name-matched mark so
@@ -166,10 +171,12 @@ unlock your roster *as* you progress.
 ## Collectors
 
 The **COLLECTORS** tab gathers the cash orbs dots drop. Buy more and unlock new
-classes as you travel: **Drone → Drone Swarm → Collector → Magnet → Tractor →
-Singularity** (a black hole that slowly drags every orb, and nearby dots,
-inward). Each collector class has its **own skill web** (Speed / Suction /
-Reach / **Capacity** / **Process**) — pure logistics, **no income multiplier**.
+classes as you travel (spread across all three systems): **Drone → Drone Swarm →
+Collector → Magnet → Tractor → Black Hole → Wormhole** — the last two are
+singularities that slowly drag every orb (and nearby dots) inward, **Wormhole**
+being the Erebus-tier monster. Each collector class has its **own skill web**
+(Speed / Suction / Reach / **Capacity** / **Process**) — pure logistics, **no
+income multiplier**.
 
 Collectors are about **speed and agility**, not becoming stationary magnets — and
 they no longer multiply your cash (that lives in the Economy tab now):
@@ -224,30 +231,37 @@ Each runs on a cooldown — save them for dense or high-value screens.
   **Helios** (4 planets), **Cygnus** (6), and the brutal outer **Erebus** (8).
 - The **Star Map** is interactive: the three suns sit in a row and each planet
   orbits its own sun on a white ring, slowly drifting. Drag to rotate, scroll/
-  pinch to zoom, tap a planet to inspect or travel. All weapon/collector classes
-  unlock by the time you cross Cygnus.
-### Planet Layers — every planet is its own run
+  pinch to zoom, tap a planet to inspect or travel. New weapon/collector classes
+  unlock across **all three systems**, so each system opens with a fresh toy.
 
-Each planet has its **own currency** and is a **self-contained mini-run** — all
-costs are rebased to that planet's scale, so every planet plays the same shape in
-bigger numbers (no single curve that walls out). The loop:
+### Planet Layers — Travel = Prestige, and the Conquest multiplier
 
-- **Land & build from scratch** with a little starter currency, using everything
+There is **one global currency** (no per-planet money, no exchange). The thing
+that carries across planets is **not** your wealth — it's a permanent **Conquest
+multiplier**. Think of it as your RPG level. The loop:
+
+- **Land & build from scratch** with a little starter cash, using everything
   you've *unlocked* so far (classes stay unlocked permanently — your knowledge
   carries, your build doesn't).
-- **Earn that planet's currency** by killing its native race until you hit the
-  **conquer** bar — that unlocks **Travel**.
-- **Conquer → it joins your background empire**, earning its currency *passively*
-  (online **and** offline) at the rate you left it. **Revisit** any conquered
-  planet to upgrade it and raise that idle rate.
-- **⇄ Exchange** converts a background planet's currency into the one you're
-  spending now — but at a **harsh rate** (you keep ~8%, and far-off worlds are
-  "stale" and decay further). It's a small leg-up, **not** a buy-past-it
-  snowball: you genuinely **start fresh on every world**.
+- **Earn** by killing the planet's native race until you fill the **conquer**
+  bar — that unlocks **Travel**.
+- **Conquer → your Conquest multiplier permanently grows (×1.8)** and the planet
+  **joins your empire**, feeding idle income straight into your global treasury
+  (online **and** offline). **Revisit** any conquered planet anytime to keep
+  upgrading it.
 
-Because each planet balances against itself, conquer time stays roughly constant
-planet-to-planet instead of exploding — the cross-planet growth lives in your
-**background portfolio**, which is additive and parallel.
+The Conquest multiplier boosts **all** your income forever, but it is **not
+spendable cash** — you still land on each new world at ~zero and have to play, so
+it can never *instant-max* a fresh planet. It just lets you earn (and rebuild)
+faster, and it lets you flatten every world you've already beaten.
+
+**Difficulty is hybrid.** Inside a solar system, your Conquest multiplier
+out-grows the gentle difficulty creep, so each planet is quicker than the last —
+you **steamroll** and feel like a god. Crossing into a **new** system, dot
+toughness **doubles** in a jump that outruns your multiplier — you **feel small
+again** and have to climb back. Three power-fantasy arcs (Helios → Cygnus →
+Erebus), each with a wall at its mouth. (Run `node tools/pacing-sim.js` to see
+the curve and the two invariants this guarantees.)
 
 ## Idle, offline & saving
 
@@ -279,8 +293,9 @@ icon.svg     App icon
 tools/       Headless balancing aids (run with Node):
   balance-check.js   audits economy upgrade cost-vs-effect ratios for
                      infinite-money exploits
-  pacing-sim.js      models an optimal idle player and reports days-to-reach
-                     each galaxy, used to tune the travel-cost curve
+  pacing-sim.js      models the v3 Conquest-multiplier vs hybrid-difficulty
+                     curve; reports per-planet pace + the steamroll/wall
+                     invariants (within-system pace <1, system-wall pace >1)
 ```
 
 Everything runs client-side in one `requestAnimationFrame` loop.
