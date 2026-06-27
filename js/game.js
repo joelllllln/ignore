@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.5";
+  const VERSION = "v2.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1693,6 +1693,7 @@
   }
   const fxWallets = () => { const out = []; for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (v && v.conquered) out.push(g); } return out; };
   let fxPct = {};   // per-wallet convert fraction (0..1) chosen via slider
+  let fxOpen = null;   // which wallet (planet g) is expanded in the accordion
   const FX_CHIPS = [["25%", 25], ["50%", 50], ["75%", 75], ["MAX", 100]];
   function openExchange() {
     const sym = curSym(S.galaxy);
@@ -1700,23 +1701,31 @@
     const wrap = $("fx-list"); if (!wrap) return; wrap.innerHTML = "";
     const wallets = fxWallets();
     if (!wallets.length) { wrap.innerHTML = "<p class='muted' style='padding:24px 18px;text-align:center'>No foreign wallets yet.<br>Conquer this world, travel onward, and each planet's idle currency pools into its own wallet here — ready to bankroll your next fresh start.</p>"; refreshExchange(); return; }
+    wallets.sort((a, b) => Math.floor((S.vault[b].cash) || 0) - Math.floor((S.vault[a].cash) || 0));   // funded wallets at top, empties drop to the bottom as a market-view list
+    if (fxOpen == null || !wallets.includes(fxOpen)) { const top = wallets.find(g => (S.vault[g].cash || 0) > 0); fxOpen = top == null ? null : top; }   // default-expand the richest wallet
     for (const g of wallets) {
-      const bal = Math.floor((S.vault[g].cash) || 0), has = bal > 0;
+      const bal = Math.floor((S.vault[g].cash) || 0), has = bal > 0, isOpen = g === fxOpen;
       if (fxPct[g] == null) fxPct[g] = 1;
-      const el = document.createElement("div"); el.className = "fx-row" + (has ? "" : " locked"); el.dataset.fxg = g;
+      const el = document.createElement("div"); el.className = "fx-row" + (has ? "" : " locked") + (isOpen ? " open" : ""); el.dataset.fxg = g;
       const chips = FX_CHIPS.map(([lab, p]) => `<button class="fx-chip" data-g="${g}" data-p="${p}">${lab}</button>`).join("");
-      el.innerHTML =
-        `<div class="fx-r-top"><span class="fx-sym">${curSym(g)}</span><span class="fx-name">${curName(g)}</span><span class="fx-rate" data-g="${g}"></span></div>` +
-        `<div class="fx-line"><span class="fx-k">Wallet</span><span class="fx-v fx-bal-v">${curSym(g)} ${fmt(bal)}</span></div>` +
-        (has
-          ? `<div class="fx-ctrl"><input type="range" class="fx-slider" min="1" max="100" value="${Math.round(fxPct[g]*100)}" data-g="${g}"><span class="fx-pct" data-g="${g}">${Math.round(fxPct[g]*100)}%</span></div>` +
-            `<div class="fx-chips">${chips}</div>` +
-            `<div class="fx-line"><span class="fx-k">Convert</span><span class="fx-v fx-send" data-g="${g}"></span></div>` +
-            `<div class="fx-line fx-rcv"><span class="fx-k">Receive</span><span class="fx-v fx-amt" data-g="${g}"></span></div>` +
-            `<button class="fx-go" data-g="${g}">CONVERT</button>`
-          : `<div class="fx-line"><span class="fx-k fx-dim">—</span><span class="fx-v fx-dim">market view only</span></div>`);
+      // compact tappable header: symbol, name, balance, live rate, chevron (all 18 fit at a glance)
+      let html =
+        `<div class="fx-head-row" data-g="${g}"><span class="fx-sym">${curSym(g)}</span><span class="fx-name">${curName(g)}</span>` +
+        `<span class="fx-bal2 ${has ? "" : "fx-dim"}" data-g="${g}">${curSym(g)} ${fmt(bal)}</span>` +
+        `<span class="fx-rate" data-g="${g}"></span><span class="fx-chev">${has ? (isOpen ? "▾" : "▸") : ""}</span></div>`;
+      // expanded converter body only on the open, funded row
+      if (has && isOpen) html +=
+        `<div class="fx-body">` +
+          `<div class="fx-ctrl"><input type="range" class="fx-slider" min="1" max="100" value="${Math.round(fxPct[g]*100)}" data-g="${g}"><span class="fx-pct" data-g="${g}">${Math.round(fxPct[g]*100)}%</span></div>` +
+          `<div class="fx-chips">${chips}</div>` +
+          `<div class="fx-line"><span class="fx-k">Convert</span><span class="fx-v fx-send" data-g="${g}"></span></div>` +
+          `<div class="fx-line fx-rcv"><span class="fx-k">Receive</span><span class="fx-v fx-amt" data-g="${g}"></span></div>` +
+          `<button class="fx-go" data-g="${g}">CONVERT</button>` +
+        `</div>`;
+      el.innerHTML = html;
       wrap.appendChild(el);
-      if (has) {
+      el.querySelector(".fx-head-row").onclick = () => { if (!has) return; fxOpen = (fxOpen === g ? null : g); openExchange(); };
+      if (has && isOpen) {
         const sl = el.querySelector(".fx-slider"), pct = el.querySelector(".fx-pct");
         const setPct = p => { fxPct[g] = clamp(p / 100, 0.01, 1); sl.value = Math.round(fxPct[g] * 100); pct.textContent = Math.round(fxPct[g] * 100) + "%"; refreshExchange(); };
         sl.oninput = () => setPct(+sl.value);
@@ -1742,6 +1751,7 @@
     list.querySelectorAll("[data-fxg]").forEach(row => {
       const g = +row.dataset.fxg, v = S.vault[g], bal = Math.floor((v && v.cash) || 0), frac = fxPct[g] == null ? 1 : fxPct[g];
       const send = Math.floor(bal * frac), conv = exchangeAmt(g, send);
+      const b2 = row.querySelector(".fx-bal2"); if (b2) b2.textContent = curSym(g) + " " + fmt(bal);
       const se = row.querySelector(".fx-send"); if (se) se.textContent = curSym(g) + " " + fmt(send);
       const amt = row.querySelector(".fx-amt"); if (amt) amt.textContent = sym + " " + fmt(conv);
       const b = row.querySelector(".fx-go"); if (b) { b.disabled = conv <= 0; b.textContent = conv > 0 ? "CONVERT → " + sym + " " + fmt(conv) : (room <= 0 ? "BUDGET FULL" : "CONVERT"); }

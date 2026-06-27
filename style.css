@@ -184,13 +184,20 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 /* list */
 .fx-scroll{flex:1 1 auto;overflow-y:auto;padding:0 16px 8px;-webkit-overflow-scrolling:touch}
 #fx-list{display:flex;flex-direction:column;gap:10px}
-.fx-row{border:1px solid var(--edge);border-radius:13px;padding:12px 13px 13px;background:var(--panel)}
-.fx-row.locked{opacity:.55;background:rgba(255,255,255,.015)}
-.fx-r-top{display:flex;align-items:baseline;gap:9px;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid rgba(255,255,255,.08)}
-.fx-sym{font-size:16px;color:#fff;width:18px;text-align:center}
-.fx-name{flex:1;font-weight:700;color:#fff;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fx-rate{font-family:var(--mono);font-size:13px;color:#fff;flex:0 0 auto}
+.fx-row{border:1px solid var(--edge);border-radius:12px;background:var(--panel);overflow:hidden}
+.fx-row.locked{opacity:.5;background:rgba(255,255,255,.012)}
+.fx-row.open{border-color:rgba(255,255,255,.4)}
+/* compact tappable header — one tight line per currency; columns align down the whole list */
+.fx-head-row{display:grid;grid-template-columns:18px minmax(0,1fr) 86px 56px 13px;align-items:center;column-gap:8px;padding:11px 12px;cursor:pointer}
+.fx-row.open .fx-head-row{border-bottom:1px solid rgba(255,255,255,.1)}
+.fx-sym{font-size:15px;color:#fff;width:18px;text-align:center}
+.fx-name{font-weight:700;color:#fff;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx-bal2{font-family:var(--mono);font-size:12.5px;color:#fff;text-align:right;white-space:nowrap}
+.fx-rate{font-family:var(--mono);font-size:12.5px;color:#fff;text-align:right;white-space:nowrap}
 .fx-rate.dn{color:var(--dim)}
+.fx-chev{font-size:11px;color:var(--dim);text-align:center}
+/* expanded converter body */
+.fx-body{padding:4px 12px 12px}
 /* aligned label/value lines — values share one right-aligned column so every number lines up */
 .fx-line{display:grid;grid-template-columns:72px 1fr;align-items:baseline;column-gap:10px;padding:3px 0}
 .fx-k{font:600 10px var(--mono);letter-spacing:.7px;color:var(--dim);text-transform:uppercase}
