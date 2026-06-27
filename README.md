@@ -301,6 +301,8 @@ tools/       Headless balancing aids (run with Node):
                      weapon/collector unlock gates correctly, travel stays
                      affordable, Conquest compounds, and no planet walls
                      (needs Playwright: npm i -D playwright)
+  active-sim.js      same real-game drive at 4 engagement levels (0/10/35/100%
+                     active) — per-planet conquer/cumulative timeline each
 ```
 
 Everything runs client-side in one `requestAnimationFrame` loop.

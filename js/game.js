@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.7";
+  const VERSION = "v3.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -312,23 +312,20 @@
   const curName = g => "Credits";
   const curSym  = g => "✦";
   const curWorth = g => eco(g);
-  // Conquering a planet is a ~day-long active grind (proper idle pacing), escalating per planet.
-  // CALIBRATED TO REAL ACTIVE PLAY: a skilled player (drawing to kill + abilities + the Spawn-Rate
-  // menace buff) banks ~40× faster than a passive upgrade-only sim, finishing the old eco*1.5M target
-  // in ~40 min. So the base is eco*6e7 ≈ ~27h of active play on planet 1; ×1.2 per planet makes later
-  // worlds progressively longer (planet 18 is a months-long journey). EXCHANGE only adds spending
-  // power (S.cash), never conquer progress (curEarned), so the day-per-planet floor can't be bought past.
-  const CONQUER_BASE = 6e7, CONQUER_ESCALATE = 1.2;
-  // MINIMUM CONQUER TIME FLOOR. Without this the Conquest multiplier eventually makes late planets fall in
-  // minutes (income ×conquest outruns a fixed target). The floor scales the target WITH your Conquest
-  // multiplier, so no planet drops below CONQUER_FLOOR_HOURS of PASSIVE play no matter how strong you get.
-  // Active play (draw-to-kill + abilities, ~40× income) still blows straight through it — the floor is on
-  // IDLE pace, not wall-clock. PASSIVE_RATE_REF anchors the floor to a representative maxed passive build
-  // (kills/sec × value-mult, per tools/pacing & playthrough sims); the early planets are naturally well
-  // above the floor (the natural CONQUER_ESCALATE curve), so the steamroll still shows until it kicks in.
-  const CONQUER_FLOOR_HOURS = 6, PASSIVE_RATE_REF = 34.7 * 2.44;
-  const conquerFloor = g => eco(g) * (S.conquest || 1) * PASSIVE_RATE_REF * CONQUER_FLOOR_HOURS * 3600;
-  const conquerTarget = g => Math.ceil(Math.max(eco(g) * CONQUER_BASE * Math.pow(CONQUER_ESCALATE, Math.max(1, g) - 1), conquerFloor(g)));
+  // CONQUER-TIME CURVE (designed, expressed in PASSIVE hours): each planet is slightly QUICKER than the
+  // last — a gentle steamroll — EXCEPT a new solar system SPIKES it back up (the wall). The curve is
+  // anchored so the fastest planet (the very last) sits exactly at CONQUER_FLOOR_HOURS of PASSIVE play, so
+  // 6h is the floor reached at the end while every earlier planet is a touch above it. The target scales
+  // with eco(g) AND your Conquest multiplier, so the passive TIME follows this shape no matter how strong
+  // you get; active play (~40× income) blows through proportionally faster (the curve is on idle pace, not
+  // wall-clock). PASSIVE_RATE_REF anchors the hours to a representative maxed passive build (kills/sec ×
+  // value-mult, per the pacing/playthrough sims). Tunables: FLOOR_HOURS (end speed), DECLINE (per-planet
+  // steamroll within a system), SYS_SPIKE (how hard a new solar system throws you back).
+  const CONQUER_FLOOR_HOURS = 6, CONQUER_DECLINE = 0.90, CONQUER_SYS_SPIKE = 1.65, PASSIVE_RATE_REF = 34.7 * 2.44;
+  const conquerShape = g => { g = Math.max(1, Math.min(g, TOTAL_PLANETS)); let h = 1; for (let k = 2; k <= g; k++) h *= (PLANET_LOCAL[planetIdx(k)] === 0 ? CONQUER_SYS_SPIKE : CONQUER_DECLINE); return h; };
+  let _conqMin = Infinity; for (let _g = 1; _g <= TOTAL_PLANETS; _g++) _conqMin = Math.min(_conqMin, conquerShape(_g));
+  const conquerHours = g => CONQUER_FLOOR_HOURS * conquerShape(g) / _conqMin;   // passive hours for planet g (gentle decline + system spikes; min = FLOOR at the last planet)
+  const conquerTarget = g => Math.ceil(eco(g) * (S.conquest || 1) * PASSIVE_RATE_REF * conquerHours(g) * 3600);
   // CONQUEST MULTIPLIER — the core cross-planet progression. Conquering a planet permanently multiplies
   // ALL your income by CONQ_STEP (≈×1.8/planet). It carries forever (your "RPG level"); it is NOT spendable
   // cash, so it can't instant-max a fresh planet — you still land at ~0 and rebuild, just EARN faster. Over
