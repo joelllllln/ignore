@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.2";
+  const VERSION = "v3.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1386,7 +1386,7 @@
     const nDef = current ? S.units.length : (pv && pv.units ? pv.units.length : 0);
     const nCol = current ? S.collectors.length : (pv && pv.collectors ? pv.collectors.length : 0);
     const nNodes = (() => { const cn = current ? S.classNodes : (pv ? pv.classNodes : null); let n = 0; if (cn) for (const k in cn) n += Object.keys(cn[k] || {}).length; return n; })();
-    const prog = current ? (planetMeta(g).conquered ? "✓ conquered" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer")
+    const prog = current ? (planetMeta(g).conquered ? "✓ conquered  ·  ⚔ ×" + CONQ_STEP.toFixed(1) + " banked" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer  ·  ⚔ +×" + CONQ_STEP.toFixed(1) + " income on conquer")
       : (pv && pv.conquered ? "✓ conquered" : (reached ? "visited — not conquered" : "unexplored"));
     const stats = "<div class='gi-unlock'>" + curSym(g) + " <b>" + curName(g) + "</b> · bank " + fmt(bank) +
       (pv && pv.conquered ? " · <b>+" + fmt(pv.bgRate || 0) + "/s</b> idle" : "") +
