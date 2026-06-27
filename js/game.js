@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.9";
+  const VERSION = "v4.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1563,12 +1563,34 @@
       c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
       c.globalAlpha = lit ? 1 : 0.7; c.fillStyle = "#fff"; c.font = "bold 11px ui-monospace,monospace"; c.textAlign = "center"; c.fillText("★ " + label.toUpperCase(), p.x, p.y - r * 2.6 - 4); c.globalAlpha = 1;
     },
-    planet(p, r, bright, current, seld) {
-      const c = this.c;
+    // each planet has a SEEDED black&white identity: a distinct size, and a mix of a ring, latitude
+    // bands, craters, an inverted (light) disc, and a phase direction — so the map reads as 18 unique
+    // worlds while staying strictly minimalist monochrome. Deterministic per planet index (stable look).
+    planetStyle(g) {
+      const cache = this._pst || (this._pst = {});
+      if (cache[g]) return cache[g];
+      const rnd = n => ((Math.imul(((g + 1) * 374761393) ^ ((n + 1) * 668265263), 2654435761) >>> 0) / 4294967296);
+      return cache[g] = {
+        sizeMul: 0.72 + rnd(1) * 0.92,                                   // 0.72×–1.64× — clearly different sizes
+        ring: rnd(2) < 0.34, ringAng: (rnd(3) - 0.5) * 1.3, ringTilt: 0.16 + rnd(4) * 0.34,   // ~1/3 ringed
+        bands: rnd(5) < 0.42 ? 1 + Math.floor(rnd(6) * 3) : 0,           // some banded (gas-giant latitude lines)
+        craters: rnd(7) < 0.5 ? 1 + Math.floor(rnd(8) * 3) : 0,          // some cratered
+        light: rnd(9) < 0.38, phase: rnd(10) * TAU, cs: rnd(11),         // some inverted (white disc), varied terminator
+      };
+    },
+    planet(p, r, bright, current, seld, g) {
+      const c = this.c, st = this.planetStyle(g), lit = st.light;
       if (current || seld) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r + 5 + pulse * 3, 0, TAU); c.stroke(); }
-      c.globalAlpha = bright; c.fillStyle = "#000"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
-      c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.stroke();
-      c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x - r * 0.32, p.y - r * 0.32, r * 0.5, 0, TAU); c.fill();   // lit crescent
+      c.globalAlpha = bright;
+      c.fillStyle = lit ? "#fff" : "#000"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();                 // disc (dark, or inverted light)
+      c.save(); c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.clip();                                            // surface features clipped to the disc
+      const ink = lit ? "rgba(0,0,0,0.85)" : "#fff";
+      c.fillStyle = ink; c.beginPath(); c.arc(p.x - Math.cos(st.phase) * r * 0.5, p.y - Math.sin(st.phase) * r * 0.5, r * 0.6, 0, TAU); c.fill();   // lit crescent / terminator (varied direction)
+      if (st.bands) { c.strokeStyle = lit ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.45)"; c.lineWidth = Math.max(0.7, r * 0.08); for (let b = 0; b < st.bands; b++) { const yy = p.y - r * 0.5 + (b + 1) / (st.bands + 1) * r; c.beginPath(); c.moveTo(p.x - r, yy); c.lineTo(p.x + r, yy); c.stroke(); } }   // latitude bands
+      if (st.craters) { c.fillStyle = lit ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)"; for (let k = 0; k < st.craters; k++) { const a = st.cs * TAU + k * 2.39903, rr = r * (0.18 + ((st.cs * (k + 3)) % 1) * 0.5); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * 0.13, 0, TAU); c.fill(); } }   // craters
+      c.restore();
+      c.strokeStyle = lit ? "rgba(255,255,255,0.55)" : "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();   // rim
+      if (st.ring) { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.78; c.lineWidth = 1.1; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.38; c.beginPath(); c.arc(0, 0, r * 2.05, 0, TAU); c.stroke(); c.restore(); }   // tilted ring (one thin + one faint outer)
       c.globalAlpha = 1;
     },
     // cinematic dive: glide focus onto a planet, accelerate the zoom, white-wipe over the cut, drop into the world
@@ -1631,9 +1653,9 @@
       pts.sort((a, b) => b.p.z - a.p.z);
       for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-        const r = clamp(7 * p.f, 3, 15), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
+        const r = clamp(7 * p.f * this.planetStyle(g).sizeMul, 2.5, 20), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
         this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 11, 24) });
-        this.planet(p, r, bright, current, g === this.sel);
+        this.planet(p, r, bright, current, g === this.sel, g);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
         c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - r - 7);
         c.globalAlpha = 1;
