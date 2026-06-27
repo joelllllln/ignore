@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.8";
+  const VERSION = "v3.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -289,10 +289,12 @@
      your BACKGROUND empire, earning its currency passively (online + offline) at the rate
      you left it; revisit to upgrade it. The EXCHANGE converts any planet's currency into
      the one you're spending now, so a fresh landing is a running start, never a grind. */
-  // Big idle-game numbers: planet 1's currency starts in the millions and each planet
-  // is ×2.2 bigger, so progression runs millions → billions → trillions+. This is purely
-  // the SCALE — income and every cost ride the same eco(g), so pacing is unchanged.
-  const CUR_BASE = 5e6;
+  // GLOBAL MONEY SCALE — the single root every cash number rides (eco(g) = CUR_BASE × diff(g), and the
+  // starter purse, costs, dot drops, capacity and conquer targets all key off eco). Lower it and ALL money
+  // scales down uniformly; because income AND costs ride it equally, pacing/conquer-times are unchanged.
+  // At 2.5 you LAND with ~$100, first upgrade ~$25, plain dots drop a couple bucks — a humble idle start
+  // that grows to billions+. (Bump it for bigger headline numbers; it only moves the decimal point.)
+  const CUR_BASE = 2.5;
   // Each planet's currency has its OWN seeded magnitude (distinct, non-uniform) on top of the ×2.2 ladder.
   // conquerTarget AND income both ride eco(g), so this per-planet bump CANCELS in time-to-conquer — pacing
   // is provably unchanged; it only makes each planet's numbers feel unique and its starting purse distinct.
