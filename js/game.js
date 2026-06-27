@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.8";
+  const VERSION = "v2.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -248,7 +248,7 @@
   const UPS = [
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 20, mul: 1.55, desc: () => curSym(S.galaxy) + " " + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 30, mul: 1.42, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => { const raw = derived.spawnPerSec || 0, om = raw > SPAWN_SMOOTH ? Math.min(Math.pow(raw / SPAWN_SMOOTH, 0.7), 8) : 1; return raw.toFixed(1) + " /s" + (om > 1.02 ? "  ·  " + SPAWN_SMOOTH + "/s spawn, overflow → ×" + om.toFixed(1) + " tougher" : ""); } },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => { const raw = derived.spawnPerSec || 0, om = spawnOver(raw); return raw.toFixed(1) + " /s" + (om > 1.02 ? "  ·  ~" + spawnVis(raw).toFixed(0) + "/s on screen + ×" + om.toFixed(1) + " tougher" : ""); } },
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
@@ -271,7 +271,13 @@
   const galValueMul = g => Math.pow(2.2, g - 1);        // currency scale of planet g (income AND costs both ride this, so it cancels)
   const galSpawnMul = g => 1;                           // flat base spawn (you raise it in-planet with Spawn Rate)
   const galCap = g => 400;                              // flat field cap
-  const SPAWN_SMOOTH = 26;                              // max NEW dots/sec on screen — a cleared field refills as a gentle trickle, never an instant wall (no respawn stutter). Spawn Rate above this becomes TOUGHNESS, not churn.
+  // SOFT spawn ceiling. Below SPAWN_SMOOTH/sec dots spawn 1:1 with Spawn Rate. Above it, the on-screen
+  // count keeps GROWING (so Spawn Rate is never pointless) but gently tapered — only ~25% of the extra
+  // rate becomes new bodies, the other ~75% becomes per-dot TOUGHNESS. So the field has room to breathe
+  // (no instant 1:1 respawn wall) yet every Spawn-Rate level still visibly adds dots AND beef.
+  const SPAWN_SMOOTH = 26, SPAWN_PASS = 0.25;
+  const spawnVis = raw => raw <= SPAWN_SMOOTH ? raw : SPAWN_SMOOTH + (raw - SPAWN_SMOOTH) * SPAWN_PASS;   // visible dots/sec (soft-capped)
+  const spawnOver = raw => { const v = spawnVis(raw); return raw > v ? Math.min(Math.pow(raw / v, 0.69), 8) : 1; };   // un-spawned share → toughness (income-neutral vs the old uncapped spawn)
 
   /* ====================== PLANET LAYERS (per-planet economy) ======================
      Each planet has its OWN currency and is its OWN fresh run. eco(g) is that planet's
@@ -737,22 +743,20 @@
     const baseCap = galCap(S.galaxy);
     const sup = Math.min(derived.spawnSurplus || 0, 80);
     const rawRate = derived.spawnPerSec * galSpawnMul(S.galaxy);
-    // SMOOTH SPAWNING + quantity → toughness. New dots appear at most SPAWN_SMOOTH/sec, so a cleared
-    // field refills as a gentle trickle instead of slamming 120 back in at once (that instant 1:1 respawn
-    // was the stutter). Spawn Rate bought beyond that ceiling is NOT wasted — it converts to per-dot
-    // TOUGHNESS, and the exponent is tuned (×0.7, against TOUGH_POW 1.45) so it's income-NEUTRAL: you kill
-    // fewer dots but each is worth the difference. Net on every planet: late game is a handful of beefy
-    // tanks at a calm cadence, not a churning 120-dot blizzard. Easier to read, kinder to the framerate.
-    const visRate = Math.min(rawRate, SPAWN_SMOOTH);
-    const overflowMen = rawRate > SPAWN_SMOOTH ? Math.min(Math.pow(rawRate / SPAWN_SMOOTH, 0.7), 8) : 1;   // income-neutral redistribution, capped ×8 so dots stay killable & the field stays light
+    // SOFT-SMOOTHED SPAWNING. The field has room to BREATHE — a cleared screen refills as a gentle pulse,
+    // not an instant 1:1 wall (that was the stutter). But Spawn Rate is never pointless: dots keep growing
+    // with it (soft-capped via spawnVis), and the rest converts to per-dot TOUGHNESS (spawnOver, tuned
+    // income-neutral). So every Spawn-Rate level still visibly adds bodies AND beef.
+    const visRate = spawnVis(rawRate);
+    const overflowMen = spawnOver(rawRate);
     const thin = clamp(1 - 0.011 * sup, 0.3, 1);                             // late game also THINS the standing count
     const cap = Math.max(50, Math.round(baseCap * thin));
     const sat = clamp((dots.length / cap - 0.6) / 0.4, 0, 1);                // extra toughness only if the field genuinely backs up (you can't keep up)
     const targetMenace = overflowMen * (1 + sat * 0.6);
     derived.spawnMenace += (targetMenace - derived.spawnMenace) * Math.min(1, dt * 2);   // smooth so it doesn't jitter
     spawnAcc += dt * visRate;
-    let _spawned = 0; while (spawnAcc >= 1 && dots.length < cap && _spawned < 3) { spawnDot(); spawnAcc -= 1; _spawned++; }   // hard per-frame cap kills the burst-spawn frame spike
-    if (spawnAcc > 2) spawnAcc = 2;
+    let _spawned = 0; while (spawnAcc >= 1 && dots.length < cap && _spawned < 4) { spawnDot(); spawnAcc -= 1; _spawned++; }   // small per-frame cap softens bursts (no frame spike)
+    if (spawnAcc > 4) spawnAcc = 4;                                          // tiny buffer — lets a cleared field release a gentle pulse, never a robotic one-at-a-time nor an instant wall
     // mini-boss: one at a time; timer only counts while no boss is on the field
     if (!dots.some(d => d.boss)) { bossAcc += dt; if (bossAcc >= BOSS_INTERVAL) { bossAcc = 0; spawnBoss(); } }
 
