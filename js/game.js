@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.9";
+  const VERSION = "v5.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1361,7 +1361,7 @@
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
     reset() { this.cx = 0; this.cy = 0; this.zoom = 1; },
-    clampPan() { const u = Math.min(this.w, this.h) * 0.078 * this.zoom, m = 6.8 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },
+    clampPan() { const u = Math.min(this.w, this.h) * 0.078 * this.zoom, m = 13 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },   // roomier pan so nothing's locked off-screen
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); this.clampPan(); },
     nodeRad(n, u) { return n.kind === "key" ? clamp(u * 0.30, 13, 26) : n.kind === "major" ? clamp(u * 0.22, 10, 18) : n.kind === "start" ? clamp(u * 0.26, 12, 22) : clamp(u * 0.15, 7, 12); },
     sc(nx, ny) { const u = Math.min(this.w, this.h) * 0.078 * this.zoom; return { x: this.w / 2 + this.cx + nx * u, y: this.h / 2 + this.cy + ny * u, u }; },
@@ -1553,7 +1553,7 @@
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } this.clampFocus(); },
     // keep the camera focus inside the galaxy so it can NEVER fly off to infinity
-    clampFocus() { this.cx = clamp(this.cx, -1100, 1100); this.cz = clamp(this.cz, -750, 850); this.tcx = clamp(this.tcx, -1100, 1100); this.tcz = clamp(this.tcz, -750, 850); },
+    clampFocus() { this.cx = clamp(this.cx, -1700, 1700); this.cz = clamp(this.cz, -1300, 1300); this.tcx = clamp(this.tcx, -1700, 1700); this.tcz = clamp(this.tcz, -1300, 1300); },   // wider bounds so you can roam the whole map
     // ALWAYS-STABLE pan: a screen drag moves the focus in the camera's ground plane, bounded — no perspective
     // inversion (which blew up near edge-on), so it can't rocket the view away.
     pan(dx, dy) {
@@ -1563,7 +1563,7 @@
       this.cx += wx * cy - wz * sy; this.cz += wx * sy + wz * cy; this.tcx = this.cx; this.tcz = this.cz; this.clampFocus();
     },
     zoomBy(factor) { this.zoom = clamp(this.zoom * factor, 0.4, 4.5); },                       // zoom toward centre — predictable, no drift
-    rotate(dx, dy) { this.yaw += dx * 0.009; this.pitch = clamp(this.pitch - dy * 0.009, -1.45, -0.12); },   // gentler, safe pitch range (never edge-on)
+    rotate(dx, dy) { this.yaw += dx * 0.009; this.pitch = clamp(this.pitch - dy * 0.009, -1.5, 1.5); },   // full tilt: from straight-down, through edge-on, all the way under to view from below
     proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
     // THREE widely-spaced solar systems (a big triangle). Each planet rides its OWN
     // orbit: a distinct ellipse, inclination (tilt) and orientation, seeded by planet.
@@ -1606,7 +1606,8 @@
       const SZ = [0.6, 1.3, 0.85, 1.7, 1.1, 0.55, 1.45, 2.0, 0.75, 1.25, 0.95, 1.6, 0.7, 1.35, 1.05, 0.65, 1.85, 2.2];   // dramatic size spread: tiny moons → huge giants
       const i = Math.min(Math.max(g, 1), 18) - 1;
       const rnd = n => ((Math.imul(((g + 1) * 374761393) ^ ((n + 1) * 668265263), 2654435761) >>> 0) / 4294967296);
-      return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv" };
+      return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv",
+        halo: rnd(6) < 0.5, haloR: 1.16 + rnd(7) * 0.3, rim2: rnd(8) < 0.4, oblate: 0.82 + rnd(9) * 0.36 };   // seeded extras: atmosphere glow, inner rim line, slight oblateness — multiply the variety
     },
     planet(p, r, bright, current, seld, g) {
       const c = this.c, st = this.planetStyle(g), A = st.arch, lit = st.inv, cs = st.cs;
@@ -1645,6 +1646,8 @@
       else crescent(0.5);
       c.restore();
       c.strokeStyle = lit ? "rgba(255,255,255,0.6)" : "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();   // rim
+      if (st.rim2) { c.strokeStyle = lit ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)"; c.lineWidth = 1; c.beginPath(); c.arc(p.x, p.y, r * 0.82, 0, TAU); c.stroke(); }   // faint inner rim on some
+      if (st.halo) { c.globalAlpha = bright * 0.3; c.strokeStyle = "#fff"; c.lineWidth = 1; c.beginPath(); c.arc(p.x, p.y, r * st.haloR, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.14; c.beginPath(); c.arc(p.x, p.y, r * (st.haloR + 0.16), 0, TAU); c.stroke(); c.globalAlpha = bright; }   // atmosphere glow on some
       if (A === "ring" || A === "doublering") { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.85; c.lineWidth = 1.4; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); if (A === "doublering") { c.globalAlpha = bright * 0.5; c.beginPath(); c.arc(0, 0, r * 2.12, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.72; c.beginPath(); c.arc(0, 0, r * 1.45, 0, TAU); c.stroke(); } c.restore(); c.globalAlpha = bright; }   // tilted ring(s)
       if (A === "icy") { c.fillStyle = "#fff"; const ns = 14; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.1) * r * 1.02, p.y + Math.sin(a - 0.1) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.3, p.y + Math.sin(a) * r * 1.3); c.closePath(); c.fill(); } }   // crystalline spikes
       if (A === "pulsar") { c.strokeStyle = "rgba(255,255,255,0.85)"; c.lineWidth = 1.4; const ns = 8; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU, ext = 1.5 + 0.25 * Math.sin(this.t * 3 + k); c.beginPath(); c.moveTo(p.x + Math.cos(a) * r * 0.7, p.y + Math.sin(a) * r * 0.7); c.lineTo(p.x + Math.cos(a) * r * ext, p.y + Math.sin(a) * r * ext); c.stroke(); } c.strokeStyle = "rgba(255,255,255,0.3)"; c.beginPath(); c.arc(p.x, p.y, r * 1.35, 0, TAU); c.stroke(); }   // radiating energy + aura
@@ -1818,11 +1821,11 @@
   // journey time is RELATIVE TO THE REAL MAP DISTANCE between the two planets (the line the ship
   // flies). Calibrated so the first short hop ≈ 3h; far planets & inter-system hauls scale up
   // naturally (the big cross-system jumps land around a day+).
-  const TRAVEL_SEC_PER_UNIT = 80.5;
+  const TRAVEL_SEC_PER_UNIT = 26.8;   // ~1/3 of the old pace — journeys are a third as long
   function travelDur(a) {
     let d = 67;
     try { const pa = GMap.planetWorld(a), pb = GMap.planetWorld(a + 1); d = Math.hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z); } catch (e) {}
-    return Math.max(1800, Math.round(d * TRAVEL_SEC_PER_UNIT));
+    return Math.max(600, Math.round(d * TRAVEL_SEC_PER_UNIT));
   }
   function travel() {   // LAUNCH an expedition to the next planet: costs treasury + takes a real journey
     const g = S.galaxy;
