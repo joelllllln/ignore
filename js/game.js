@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.3";
+  const VERSION = "v3.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -224,7 +224,7 @@
   const sysName = g => SYSTEMS[PLANET_SYS[planetIdx(g)]].name;
   const galName = g => PLANET_NAMES[g - 1] || (PLANET_NAMES[PLANET_NAMES.length - 1] + " " + g);
   const galDesc = g => PLANET_DESC[planetIdx(g)];
-  const uColor = u => u.type === "mortar" ? "#9a9a9a" : u.type === "turret" ? "#ffffff" : "#cccccc";
+  const uColor = u => u.type === "mortar" ? "#9a9a9a" : (u.type === "turret" || u.type === "nova") ? "#ffffff" : "#cccccc";   // nova glows bright white like the endgame weapon it is
   // Defenders auto-arrange into a tidy, centred formation that re-racks itself
   // as you buy more — like beer-pong cups: a lone unit sits centre, a handful
   // form a neat ring, more fill concentric rings (the last ring always spread
@@ -973,7 +973,7 @@
       if (c.n.range > 0) { const sl = Math.min(5 + c.n.range * 3.5, 40); ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(blen + 2, 0); ctx.lineTo(blen + 2 + sl, 0); ctx.stroke(); }
       ctx.restore();
       // --- body (size = damage) · distinct per-class silhouette: turret circle · mortar hex · plasma diamond · laser triangle · railgun square ---
-      const shp = { mortar: [6, 0], plasma: [4, Math.PI / 4], laser: [3, -Math.PI / 2], railgun: [4, 0] }[u.type];
+      const shp = { mortar: [6, 0], plasma: [4, Math.PI / 4], laser: [3, -Math.PI / 2], railgun: [4, 0], nova: [8, Math.PI / 8] }[u.type];   // nova = octagon "void burst"
       const body = r => { if (!shp) { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill(); } else { ctx.beginPath(); for (let k = 0; k < shp[0]; k++) { const a = shp[1] + k / shp[0] * TAU, x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.fill(); } };
       ctx.fillStyle = "#222"; body(bodyR + 3.5);
       ctx.fillStyle = uColor(u); body(bodyR);
@@ -1000,9 +1000,9 @@
       const cs = (1 + Math.min(Math.log10(cIngest(dr.type)) * 0.5, 1.4)) * (1 + Math.max(0, dr.pop || 0) * 1.6);   // Process -> bigger maw; chomp-pop when banking big loot
       ctx.save(); ctx.translate(dr.x, dr.y); ctx.scale(cs, cs);
       if (mode === "hole") {
-        const rot = Date.now() / 600;
-        for (let k = 0; k < 3; k++) { ctx.strokeStyle = "rgba(255,255,255," + (0.5 - k * 0.13) + ")"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 7 + k * 5, rot + k, rot + k + 4.2); ctx.stroke(); }
-        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, TAU); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
+        const worm = dr.type === "wormhole", rings = worm ? 5 : 3, rot = Date.now() / (worm ? 420 : 600) * (worm ? -1 : 1);   // Wormhole spins tighter, more accretion rings, counter-rotating — distinct from the Black Hole
+        for (let k = 0; k < rings; k++) { ctx.strokeStyle = "rgba(255,255,255," + (0.55 - k * (worm ? 0.09 : 0.13)) + ")"; ctx.lineWidth = worm ? 2.4 : 2; ctx.beginPath(); ctx.arc(0, 0, (worm ? 6 : 7) + k * (worm ? 4 : 5), rot + k, rot + k + 4.2); ctx.stroke(); }
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(0, 0, worm ? 7 : 6, 0, TAU); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = worm ? 2 : 1.5; ctx.stroke();
       } else if (dr.type === "swarm") {
         ctx.rotate(Date.now() / 240); ctx.fillStyle = "#eee";
         for (let k = 0; k < 3; k++) { const a = k / 3 * TAU; ctx.beginPath(); ctx.arc(Math.cos(a) * 6, Math.sin(a) * 6, 3.2, 0, TAU); ctx.fill(); }
