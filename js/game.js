@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.2";
+  const VERSION = "v4.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 2.18;   // the playfield is this much bigger than the screen (~50% bigger than before; the camera fits the whole world by default, so a bigger world also reads as zoomed-out) — pinch in to close on the action
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1569,8 +1569,8 @@
       if (!this._orb) this._orb = {}; if (this._orb[g]) return this._orb[g];
       const i = planetIdx(g), L = PLANET_LOCAL[i], si = PLANET_SYS[i];
       const h = Math.imul(g + si * 131 + 7, 2654435761) >>> 0, r = k => ((h >>> (k * 5)) & 31) / 31;
-      const base = 60 + L * 40;                                  // way more spaced out
-      const a = base * (0.8 + r(0) * 0.6), b = base * (0.5 + r(1) * 0.55);   // ellipse semi-axes
+      const base = 66 + L * 56;                                  // wider per-ring spacing so neighbours (e.g. Ember/Cinder) don't crowd
+      const a = base * (0.9 + r(0) * 0.26), b = base * (0.64 + r(1) * 0.3);   // tighter random spread → orbits keep their order, no overlap
       const inc = (r(2) - 0.5) * 1.3, node = r(3) * TAU, ph = L * 2.1 + r(4) * TAU, sp = (0.08 + r(5) * 0.06) / Math.sqrt(L + 1) * (r(0) < 0.5 ? -1 : 1);
       return this._orb[g] = { a, b, inc, node, ph, sp };
     },
@@ -1620,6 +1620,25 @@
       c.strokeStyle = lit ? "rgba(255,255,255,0.55)" : "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();   // rim
       if (st.ring) { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.78; c.lineWidth = 1.1; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.38; c.beginPath(); c.arc(0, 0, r * 2.05, 0, TAU); c.stroke(); c.restore(); }   // tilted ring (one thin + one faint outer)
       c.globalAlpha = 1;
+    },
+    // the expedition ship — a detailed black&white craft (matching the game's stark unit style) with
+    // MOVING PARTS: flickering twin engine exhaust + a blinking nav light. Drawn nose-along `ang`.
+    drawShip(x, y, ang, r) {
+      const c = this.c, t = this.t;
+      c.save(); c.translate(x, y); c.rotate(ang);
+      const fl = 0.55 + 0.45 * Math.abs(Math.sin(t * 22));                                            // exhaust flicker
+      c.fillStyle = "rgba(255,255,255,0.8)";
+      for (const wy of [-r * 0.34, r * 0.34]) { c.beginPath(); c.moveTo(-r * 0.85, wy - r * 0.16); c.lineTo(-r * (1.5 + fl * 0.9), wy); c.lineTo(-r * 0.85, wy + r * 0.16); c.closePath(); c.fill(); }   // twin engine flames
+      c.fillStyle = "#bbb";                                                                            // swept wings
+      c.beginPath(); c.moveTo(-r * 0.1, r * 0.28); c.lineTo(-r * 0.95, r * 0.95); c.lineTo(-r * 0.8, r * 0.3); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(-r * 0.1, -r * 0.28); c.lineTo(-r * 0.95, -r * 0.95); c.lineTo(-r * 0.8, -r * 0.3); c.closePath(); c.fill();
+      c.fillStyle = "#fff";                                                                            // hull: pointed nose, tapered tail
+      c.beginPath(); c.moveTo(r * 1.45, 0); c.lineTo(r * 0.3, r * 0.42); c.lineTo(-r * 0.85, r * 0.34); c.lineTo(-r * 0.7, 0); c.lineTo(-r * 0.85, -r * 0.34); c.lineTo(r * 0.3, -r * 0.42); c.closePath(); c.fill();
+      c.strokeStyle = "#222"; c.lineWidth = 1.1; c.stroke();
+      c.fillStyle = "#333"; for (const wy of [-r * 0.34, r * 0.34]) { c.beginPath(); c.arc(-r * 0.8, wy, r * 0.16, 0, TAU); c.fill(); }   // engine pods
+      c.fillStyle = "#000"; c.beginPath(); c.ellipse(r * 0.45, 0, r * 0.3, r * 0.2, 0, 0, TAU); c.fill();   // cockpit window
+      if (Math.sin(t * 6) > 0.4) { c.fillStyle = "#fff"; c.beginPath(); c.arc(r * 1.12, 0, r * 0.12, 0, TAU); c.fill(); }   // blinking nav light
+      c.restore();
     },
     // cinematic dive: glide focus onto a planet, accelerate the zoom, white-wipe over the cut, drop into the world
     flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.45, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; Sfx.warp(1.45); const root = $("root"); if (root) root.classList.add("cinematic"); },
@@ -1688,23 +1707,28 @@
         c.fillText((current ? "▶ " : "") + galName(g), p.x, p.y - r - 7);
         c.globalAlpha = 1;
       }
-      // ── your expedition in transit: dashed trajectory + a little ship riding it ──
+      // ── your expedition in transit: a STATIC dashed trajectory (frozen at launch), an OUTLINE of the
+      //    destination where you're headed, and a detailed little ship riding ON the line ──
       if (S && S.travel) {
-        const tv = S.travel, a = tv.fromW || this.planetWorld(tv.from), b = this.planetWorld(tv.to), pr = clamp(tv.t / tv.dur, 0, 1);
+        const tv = S.travel, a = tv.fromW || this.planetWorld(tv.from), b = tv.toW || this.planetWorld(tv.to), pr = clamp(tv.t / tv.dur, 0, 1);
         const pa = this.proj(a.x, a.y, a.z), pb = this.proj(b.x, b.y, b.z);
         c.save();
-        c.setLineDash([4, 6]); c.lineWidth = 1.3; c.strokeStyle = "rgba(255,255,255,0.45)";
+        // destination OUTLINE — a ghost ring of the planet you're flying to, at the frozen target point
+        { const st = this.planetStyle(tv.to), dr = clamp(7 * pb.f * st.sizeMul, 3, 18);
+          c.setLineDash([3, 4]); c.lineWidth = 1.2; c.strokeStyle = "rgba(255,255,255,0.55)";
+          c.beginPath(); c.arc(pb.x, pb.y, dr + 3, 0, TAU); c.stroke(); c.setLineDash([]);
+          c.fillStyle = "rgba(255,255,255,0.85)"; c.font = "9px ui-monospace,monospace"; c.textAlign = "center";
+          c.fillText("◎ " + galName(tv.to), pb.x, pb.y - dr - 8); }
+        // STATIC dashed trajectory — frozen endpoints, so it never drifts as the planets orbit
+        c.setLineDash([4, 6]); c.lineWidth = 1.3; c.strokeStyle = "rgba(255,255,255,0.4)";
         c.beginPath(); c.moveTo(pa.x, pa.y); c.lineTo(pb.x, pb.y); c.stroke(); c.setLineDash([]);
-        // arced ship position (lifts off the orbital plane mid-flight)
-        const sx = a.x + (b.x - a.x) * pr, sz = a.z + (b.z - a.z) * pr, sy = a.y + (b.y - a.y) * pr - Math.sin(pr * Math.PI) * 60;
-        const sp = this.proj(sx, sy, sz), ang = Math.atan2(pb.y - pa.y, pb.x - pa.x), r = clamp(7 * sp.f, 4, 12);
-        c.strokeStyle = "rgba(255,255,255,0.55)"; c.lineWidth = 2;                                   // exhaust trail
-        c.beginPath(); c.moveTo(sp.x - Math.cos(ang) * r * 2.6, sp.y - Math.sin(ang) * r * 2.6); c.lineTo(sp.x, sp.y); c.stroke();
-        c.translate(sp.x, sp.y); c.rotate(ang);                                                       // ship triangle, nose toward target
-        c.fillStyle = "#fff"; c.beginPath(); c.moveTo(r, 0); c.lineTo(-r * 0.7, r * 0.62); c.lineTo(-r * 0.7, -r * 0.62); c.closePath(); c.fill();
+        // ship rides ON the (screen-space) line — interpolate the projected endpoints, no off-plane arc
+        const sp = { x: pa.x + (pb.x - pa.x) * pr, y: pa.y + (pb.y - pa.y) * pr, f: pa.f + (pb.f - pa.f) * pr };
+        const ang = Math.atan2(pb.y - pa.y, pb.x - pa.x), r = clamp(8 * sp.f, 6, 14);
         c.restore();
+        this.drawShip(sp.x, sp.y, ang, r);
         c.fillStyle = "rgba(255,255,255,0.9)"; c.font = "bold 10px ui-monospace,monospace"; c.textAlign = "center";
-        c.fillText("⟶ " + galName(tv.to) + "  " + fmtTime(Math.max(0, tv.dur - tv.t)), sp.x, sp.y - r - 6);
+        c.fillText(fmtTime(Math.max(0, tv.dur - tv.t)) + " ⟶", sp.x, sp.y - r - 9);
       }
       // dive-only juice: tunnel vignette + a lens-flare starburst right before the white punch
       if (this.flight && this._diveP != null) {
@@ -1763,8 +1787,8 @@
     const cost = travelCost();
     if (!S.free && S.cash < cost) return;                   // need the launch funds banked
     if (!S.free) { S.cash -= cost; }
-    let fromW = null; try { const w = GMap.planetWorld(g); fromW = { x: w.x, y: w.y, z: w.z }; } catch (e) {}   // freeze the DEPARTURE point in space at launch — the ship then flies a stable line from here, not a rubber-band between two orbiting planets
-    S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g), fromW };
+    let fromW = null, toW = null; try { const w = GMap.planetWorld(g), w2 = GMap.planetWorld(g + 1); fromW = { x: w.x, y: w.y, z: w.z }; toW = { x: w2.x, y: w2.y, z: w2.z }; } catch (e) {}   // freeze BOTH endpoints at launch — the trajectory line is fixed in space and never drifts as the planets orbit
+    S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g), fromW, toW };
     META.stats.travels++; flashAdd(0.35); shakeAdd(2); recompute(); syncHUD(); save();
   }
   // jump to ANY reached planet (revisit & upgrade your background empire, or test)
