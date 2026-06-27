@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.6";
+  const VERSION = "v4.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1599,8 +1599,8 @@
     planetStyle(g) {
       const cache = this._pst || (this._pst = {});
       if (cache[g]) return cache[g];
-      const LOOK = ["crater", "bands", "cresc", "ring", "spot", "speck", "moon", "ring2", "inv", "bandsX", "crack", "spike", "half", "swirl", "spot2", "speckX", "ringc", "crackspike"];
-      const SZ = [0.82, 1.05, 0.95, 1.22, 1.06, 0.8, 1.0, 1.28, 0.9, 1.34, 1.06, 0.9, 1.12, 1.0, 1.18, 0.96, 1.12, 1.5];
+      const LOOK = ["crater", "bands", "cresc", "ring", "spot", "speck", "moon", "doublering", "inv", "vstripe", "crack", "icy", "half", "swirl", "eye", "dunes", "facet", "pulsar"];   // 18 UNIQUE looks, no repeats
+      const SZ = [0.82, 1.05, 0.95, 1.22, 1.06, 0.8, 1.0, 1.3, 0.9, 1.1, 1.06, 0.92, 1.12, 1.0, 1.16, 1.04, 0.98, 1.5];
       const i = Math.min(Math.max(g, 1), 18) - 1;
       const rnd = n => ((Math.imul(((g + 1) * 374761393) ^ ((n + 1) * 668265263), 2654435761) >>> 0) / 4294967296);
       return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv" };
@@ -1611,55 +1611,69 @@
       c.globalAlpha = bright;
       const ink = lit ? "rgba(0,0,0,0.82)" : "#fff", soft = lit ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)";
       const crescent = off => { c.fillStyle = ink; c.beginPath(); c.arc(p.x - Math.cos(st.phase) * r * off, p.y - Math.sin(st.phase) * r * off, r * (off > 0.45 ? 0.6 : 0.8), 0, TAU); c.fill(); };
-      const bands = n => { c.strokeStyle = soft; for (let b = 0; b < n; b++) { c.lineWidth = Math.max(1, r * (0.07 + ((cs * (b + 2)) % 1) * 0.06)); const yy = p.y - r * 0.78 + (b + 1) / (n + 1) * r * 1.56; c.beginPath(); c.moveTo(p.x - r, yy); c.lineTo(p.x + r, yy); c.stroke(); } };
-      const craters = n => { c.fillStyle = lit ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.62)"; for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.39996, rr = r * (0.12 + ((cs * (k + 3) * 1.7) % 1) * 0.55); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * (0.1 + ((cs * (k + 1)) % 1) * 0.14), 0, TAU); c.fill(); } };
+      const bands = (n, vert) => { c.strokeStyle = soft; for (let b = 0; b < n; b++) { c.lineWidth = Math.max(1, r * (0.07 + ((cs * (b + 2)) % 1) * 0.06)); const o = -r * 0.78 + (b + 1) / (n + 1) * r * 1.56; c.beginPath(); if (vert) { c.moveTo(p.x + o, p.y - r); c.lineTo(p.x + o, p.y + r); } else { c.moveTo(p.x - r, p.y + o); c.lineTo(p.x + r, p.y + o); } c.stroke(); } };
+      const craters = n => { c.fillStyle = lit ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.62)"; for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.39996, rr = r * (0.12 + ((cs * (k + 3) * 1.7) % 1) * 0.55); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * (0.1 + ((cs * (k + 1)) % 1) * 0.15), 0, TAU); c.fill(); } };
       const specks = n => { c.fillStyle = soft; for (let k = 0; k < n; k++) { const a = cs * 99 + k * 1.733, rr = r * (((cs * 13 + k * 7) % 100) / 100) * 0.9; c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * 0.06, 0, TAU); c.fill(); } };
-      const cracks = n => { c.strokeStyle = lit ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.6)"; c.lineWidth = Math.max(1, r * 0.06); for (let k = 0; k < n; k++) { c.beginPath(); c.moveTo(p.x, p.y); let rr = 0, aa = cs * TAU + k / n * TAU; for (let s = 0; s < 3; s++) { rr += r / 3; aa += (((cs * (k + s + 1)) % 1) - 0.5) * 0.7; c.lineTo(p.x + Math.cos(aa) * rr, p.y + Math.sin(aa) * rr); } c.stroke(); } };
-      const spot = n => { c.fillStyle = ink; for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.2, rr = r * 0.4; c.save(); c.translate(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr); c.rotate(st.rot); c.beginPath(); c.ellipse(0, 0, r * 0.34, r * 0.22, 0, 0, TAU); c.fill(); c.restore(); } };
+      const cracks = n => { c.strokeStyle = lit ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.65)"; c.lineWidth = Math.max(1, r * 0.06); for (let k = 0; k < n; k++) { c.beginPath(); c.moveTo(p.x, p.y); let rr = 0, aa = cs * TAU + k / n * TAU; for (let s = 0; s < 3; s++) { rr += r / 3; aa += (((cs * (k + s + 1)) % 1) - 0.5) * 0.7; c.lineTo(p.x + Math.cos(aa) * rr, p.y + Math.sin(aa) * rr); } c.stroke(); } };
+      const spot = big => { c.fillStyle = ink; const a = cs * TAU, rr = r * 0.36; c.save(); c.translate(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr); c.rotate(st.rot); c.beginPath(); c.ellipse(0, 0, r * (big ? 0.44 : 0.3), r * (big ? 0.3 : 0.2), 0, 0, TAU); c.fill(); c.restore(); };
+      const eye = n => { c.strokeStyle = soft; c.lineWidth = Math.max(1, r * 0.07); for (let k = 1; k <= n; k++) { c.beginPath(); c.arc(p.x, p.y, r * k / (n + 0.4), 0, TAU); c.stroke(); } c.fillStyle = ink; c.beginPath(); c.arc(p.x, p.y, r * 0.18, 0, TAU); c.fill(); };
+      const dunes = n => { c.strokeStyle = soft; c.lineWidth = Math.max(1, r * 0.07); for (let b = 0; b < n; b++) { const o = -r * 0.7 + (b + 1) / (n + 1) * r * 1.4; c.beginPath(); for (let s = 0; s <= 10; s++) { const xx = p.x - r + s / 10 * 2 * r, yy = p.y + o + Math.sin(s * 0.9 + cs * 6 + b) * r * 0.12; s ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.stroke(); } };
+      const facets = () => { const sd = 6; c.strokeStyle = soft; c.lineWidth = 1; c.beginPath(); for (let k = 0; k <= sd; k++) { const a = st.rot + k / sd * TAU, x = p.x + Math.cos(a) * r * 0.92, y = p.y + Math.sin(a) * r * 0.92; k ? c.lineTo(x, y) : c.moveTo(x, y); } c.closePath(); c.stroke(); for (let k = 0; k < sd; k++) { const a = st.rot + k / sd * TAU; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(a) * r * 0.92, p.y + Math.sin(a) * r * 0.92); c.stroke(); } };
       c.fillStyle = lit ? "#fff" : "#000"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();                 // base disc
       c.save(); c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.clip();                                            // surface features clipped to the disc
-      if (A === "crater") { crescent(0.5); craters(5); }
-      else if (A === "bands") bands(3);
-      else if (A === "bandsX") bands(5);
-      else if (A === "cresc") crescent(0.36);
-      else if (A === "ring" || A === "ring2") crescent(0.5);
-      else if (A === "ringc") { crescent(0.5); craters(3); }
-      else if (A === "spot") { bands(2); spot(1); }
-      else if (A === "spot2") { bands(3); spot(2); }
-      else if (A === "speck") { crescent(0.55); specks(12); }
-      else if (A === "speckX") specks(20);
+      if (A === "crater") { crescent(0.5); craters(6); }
+      else if (A === "bands") { bands(4); spot(false); }
+      else if (A === "cresc") crescent(0.34);
+      else if (A === "ring") crescent(0.5);
+      else if (A === "spot") { bands(3); spot(true); }
+      else if (A === "speck") { crescent(0.55); specks(16); }
       else if (A === "moon") crescent(0.5);
-      else if (A === "inv") { crescent(0.42); craters(2); }
-      else if (A === "crack") { crescent(0.55); cracks(5); }
-      else if (A === "crackspike") cracks(7);
-      else if (A === "spike") crescent(0.5);
+      else if (A === "doublering") crescent(0.5);
+      else if (A === "inv") { crescent(0.42); craters(3); }
+      else if (A === "vstripe") bands(5, true);
+      else if (A === "crack") { crescent(0.55); cracks(6); }
+      else if (A === "icy") { specks(6); cracks(4); }
       else if (A === "half") { c.fillStyle = ink; c.save(); c.translate(p.x, p.y); c.rotate(st.phase); c.fillRect(-r, -r, r, 2 * r); c.restore(); }
-      else if (A === "swirl") { c.strokeStyle = ink; c.lineWidth = Math.max(1.4, r * 0.16); c.beginPath(); for (let s = 0; s <= 28; s++) { const t2 = s / 28, aa = st.rot + t2 * 7, rr = r * 0.9 * t2, x = p.x + Math.cos(aa) * rr, y = p.y + Math.sin(aa) * rr; s ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
+      else if (A === "swirl") { c.strokeStyle = ink; c.lineWidth = Math.max(1.4, r * 0.16); c.beginPath(); for (let s = 0; s <= 30; s++) { const t2 = s / 30, aa = st.rot + t2 * 8, rr = r * 0.95 * t2, x = p.x + Math.cos(aa) * rr, y = p.y + Math.sin(aa) * rr; s ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
+      else if (A === "eye") eye(3);
+      else if (A === "dunes") dunes(5);
+      else if (A === "facet") facets();
+      else if (A === "pulsar") { c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x, p.y, r * 0.5, 0, TAU); c.fill(); }
       else crescent(0.5);
       c.restore();
       c.strokeStyle = lit ? "rgba(255,255,255,0.6)" : "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();   // rim
-      if (A === "ring" || A === "ring2" || A === "ringc") { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.82; c.lineWidth = 1.3; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); if (A === "ring2") { c.globalAlpha = bright * 0.5; c.beginPath(); c.arc(0, 0, r * 2.1, 0, TAU); c.stroke(); } c.restore(); c.globalAlpha = bright; }   // tilted ring(s)
-      if (A === "spike" || A === "crackspike") { c.fillStyle = "#fff"; const ns = 12; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.12) * r * 1.02, p.y + Math.sin(a - 0.12) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.32, p.y + Math.sin(a) * r * 1.32); c.closePath(); c.fill(); } }   // icy spikes around the rim
+      if (A === "ring" || A === "doublering") { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.85; c.lineWidth = 1.4; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); if (A === "doublering") { c.globalAlpha = bright * 0.5; c.beginPath(); c.arc(0, 0, r * 2.12, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.72; c.beginPath(); c.arc(0, 0, r * 1.45, 0, TAU); c.stroke(); } c.restore(); c.globalAlpha = bright; }   // tilted ring(s)
+      if (A === "icy") { c.fillStyle = "#fff"; const ns = 14; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.1) * r * 1.02, p.y + Math.sin(a - 0.1) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.3, p.y + Math.sin(a) * r * 1.3); c.closePath(); c.fill(); } }   // crystalline spikes
+      if (A === "pulsar") { c.strokeStyle = "rgba(255,255,255,0.85)"; c.lineWidth = 1.4; const ns = 8; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU, ext = 1.5 + 0.25 * Math.sin(this.t * 3 + k); c.beginPath(); c.moveTo(p.x + Math.cos(a) * r * 0.7, p.y + Math.sin(a) * r * 0.7); c.lineTo(p.x + Math.cos(a) * r * ext, p.y + Math.sin(a) * r * ext); c.stroke(); } c.strokeStyle = "rgba(255,255,255,0.3)"; c.beginPath(); c.arc(p.x, p.y, r * 1.35, 0, TAU); c.stroke(); }   // radiating energy + aura
       if (A === "moon") { const ma = st.rot, mr = r * 0.32, md = r * 2.0, mx = p.x + Math.cos(ma) * md, my = p.y + Math.sin(ma) * md; c.fillStyle = "#000"; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill(); c.strokeStyle = "#fff"; c.lineWidth = 1.2; c.stroke(); c.fillStyle = "#fff"; c.beginPath(); c.arc(mx - mr * 0.3, my - mr * 0.3, mr * 0.45, 0, TAU); c.fill(); }   // a little satellite moon
       c.globalAlpha = 1;
     },
-    // the expedition ship — a detailed black&white craft (matching the game's stark unit style) with
-    // MOVING PARTS: flickering twin engine exhaust + a blinking nav light. Drawn nose-along `ang`.
+    // the expedition ship — a HYPER-FUTURISTIC interceptor in stark B&W: long angular dart hull, swept
+    // delta wings, glowing twin ion engines (bloom + bright core) trailing energy streaks, a lit canopy,
+    // panel lines and blinking wing-tip lights. All animated. Drawn nose-along `ang`.
     drawShip(x, y, ang, r) {
-      const c = this.c, t = this.t;
+      const c = this.c, t = this.t, pulse = 0.6 + 0.4 * Math.sin(t * 16);
       c.save(); c.translate(x, y); c.rotate(ang);
-      const fl = 0.55 + 0.45 * Math.abs(Math.sin(t * 22));                                            // exhaust flicker
-      c.fillStyle = "rgba(255,255,255,0.8)";
-      for (const wy of [-r * 0.34, r * 0.34]) { c.beginPath(); c.moveTo(-r * 0.85, wy - r * 0.16); c.lineTo(-r * (1.5 + fl * 0.9), wy); c.lineTo(-r * 0.85, wy + r * 0.16); c.closePath(); c.fill(); }   // twin engine flames
-      c.fillStyle = "#bbb";                                                                            // swept wings
-      c.beginPath(); c.moveTo(-r * 0.1, r * 0.28); c.lineTo(-r * 0.95, r * 0.95); c.lineTo(-r * 0.8, r * 0.3); c.closePath(); c.fill();
-      c.beginPath(); c.moveTo(-r * 0.1, -r * 0.28); c.lineTo(-r * 0.95, -r * 0.95); c.lineTo(-r * 0.8, -r * 0.3); c.closePath(); c.fill();
-      c.fillStyle = "#fff";                                                                            // hull: pointed nose, tapered tail
-      c.beginPath(); c.moveTo(r * 1.45, 0); c.lineTo(r * 0.3, r * 0.42); c.lineTo(-r * 0.85, r * 0.34); c.lineTo(-r * 0.7, 0); c.lineTo(-r * 0.85, -r * 0.34); c.lineTo(r * 0.3, -r * 0.42); c.closePath(); c.fill();
-      c.strokeStyle = "#222"; c.lineWidth = 1.1; c.stroke();
-      c.fillStyle = "#333"; for (const wy of [-r * 0.34, r * 0.34]) { c.beginPath(); c.arc(-r * 0.8, wy, r * 0.16, 0, TAU); c.fill(); }   // engine pods
-      c.fillStyle = "#000"; c.beginPath(); c.ellipse(r * 0.45, 0, r * 0.3, r * 0.2, 0, 0, TAU); c.fill();   // cockpit window
-      if (Math.sin(t * 6) > 0.4) { c.fillStyle = "#fff"; c.beginPath(); c.arc(r * 1.12, 0, r * 0.12, 0, TAU); c.fill(); }   // blinking nav light
+      c.strokeStyle = "rgba(255,255,255,0.22)"; c.lineWidth = 1;                                       // hyperdrive energy streaks
+      for (const wy of [-r * 0.46, 0, r * 0.46]) { c.beginPath(); c.moveTo(-r * 1.1, wy); c.lineTo(-r * (2.8 + pulse * 1.2), wy); c.stroke(); }
+      for (const wy of [-r * 0.42, r * 0.42]) {                                                        // twin ion-engine bloom → bright core
+        c.fillStyle = "rgba(255,255,255,0.28)"; c.beginPath(); c.arc(-r * 1.05, wy, r * (0.55 + pulse * 0.35), 0, TAU); c.fill();
+        c.fillStyle = "rgba(255,255,255,0.6)"; c.beginPath(); c.arc(-r * 1.0, wy, r * 0.34, 0, TAU); c.fill();
+        c.fillStyle = "#fff"; c.beginPath(); c.arc(-r * 0.95, wy, r * 0.16, 0, TAU); c.fill();
+      }
+      c.fillStyle = "#9a9a9a";                                                                         // swept delta wings
+      c.beginPath(); c.moveTo(r * 0.1, r * 0.24); c.lineTo(-r * 0.5, r * 1.05); c.lineTo(-r * 0.95, r * 0.95); c.lineTo(-r * 0.5, r * 0.26); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r * 0.1, -r * 0.24); c.lineTo(-r * 0.5, -r * 1.05); c.lineTo(-r * 0.95, -r * 0.95); c.lineTo(-r * 0.5, -r * 0.26); c.closePath(); c.fill();
+      c.fillStyle = "#fff";                                                                            // long sharp dart hull
+      c.beginPath(); c.moveTo(r * 1.9, 0); c.lineTo(r * 0.5, r * 0.3); c.lineTo(-r * 0.7, r * 0.34); c.lineTo(-r * 1.05, r * 0.5); c.lineTo(-r * 0.85, 0); c.lineTo(-r * 1.05, -r * 0.5); c.lineTo(-r * 0.7, -r * 0.34); c.lineTo(r * 0.5, -r * 0.3); c.closePath(); c.fill();
+      c.strokeStyle = "#111"; c.lineWidth = 1.2; c.stroke();
+      c.strokeStyle = "rgba(0,0,0,0.45)"; c.lineWidth = 0.8;                                           // panel lines
+      c.beginPath(); c.moveTo(r * 1.7, 0); c.lineTo(-r * 0.7, 0); c.stroke();
+      c.beginPath(); c.moveTo(r * 0.3, r * 0.22); c.lineTo(-r * 0.6, r * 0.24); c.stroke();
+      c.beginPath(); c.moveTo(r * 0.3, -r * 0.22); c.lineTo(-r * 0.6, -r * 0.24); c.stroke();
+      c.fillStyle = "#000"; c.beginPath(); c.ellipse(r * 0.65, 0, r * 0.36, r * 0.18, 0, 0, TAU); c.fill();   // glowing canopy
+      c.fillStyle = "rgba(255,255,255,0.92)"; c.beginPath(); c.ellipse(r * 0.78, 0, r * 0.16, r * 0.08, 0, 0, TAU); c.fill();
+      if (Math.sin(t * 7) > 0) { c.fillStyle = "#fff"; for (const wy of [-r * 1.0, r * 1.0]) { c.beginPath(); c.arc(-r * 0.5, wy, r * 0.1, 0, TAU); c.fill(); } }   // blinking wing-tip nav lights
       c.restore();
     },
     // cinematic dive: glide focus onto a planet, accelerate the zoom, white-wipe over the cut, drop into the world
