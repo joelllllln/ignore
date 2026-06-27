@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.7";
+  const VERSION = "v4.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1414,8 +1414,11 @@
   function showGalaxyInfo(g) {
     const current = g === S.galaxy, reached = g <= S.peakGalaxy && !current, next = g === S.galaxy + 1;
     const conqHere = planetMeta(S.galaxy).conquered || S.free;
+    const enroute = !!S.travel;
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span> <button id='gi-visit'>⊙ Zoom to base ▸</button>"
+      : (enroute && g === S.travel.to) ? "<span class='gi-tag'>✈ En route — arriving in " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + "</span>"   // already flying here: no fresh-start button until you land
+      : enroute ? "<span class='gi-tag'>✈ In transit…</span>"                                                                                            // can't travel/visit elsewhere mid-flight
       : reached ? "<button id='gi-jump'>⊙ Visit ▸</button>"   // dive into & play your save on this visited world
       : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>🔒 Conquer " + galName(S.galaxy) + " first</span>")
       : "<span class='gi-tag'>🔒 Locked</span>";
