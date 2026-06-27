@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.5";
+  const VERSION = "v4.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1592,34 +1592,55 @@
       c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
       c.globalAlpha = lit ? 1 : 0.7; c.fillStyle = "#fff"; c.font = "bold 11px ui-monospace,monospace"; c.textAlign = "center"; c.fillText("★ " + label.toUpperCase(), p.x, p.y - r * 2.6 - 4); c.globalAlpha = 1;
     },
-    // each planet has a SEEDED black&white identity: a distinct size, and a mix of a ring, latitude
-    // bands, craters, an inverted (light) disc, and a phase direction — so the map reads as 18 unique
-    // worlds while staying strictly minimalist monochrome. Deterministic per planet index (stable look).
+    // EACH of the 18 planets gets a hand-assigned ARCHETYPE (+ seeded sub-variation) so every world reads
+    // clearly different while staying strict black & white: cratered moons, banded gas giants, ringed
+    // worlds, strong crescents, storm-spots, speckled rocks, a mooned world, inverted (white) discs,
+    // fractured & spiked worlds, a clean half-shadow, a swirl. Deterministic & stable per planet index.
     planetStyle(g) {
       const cache = this._pst || (this._pst = {});
       if (cache[g]) return cache[g];
+      const LOOK = ["crater", "bands", "cresc", "ring", "spot", "speck", "moon", "ring2", "inv", "bandsX", "crack", "spike", "half", "swirl", "spot2", "speckX", "ringc", "crackspike"];
+      const SZ = [0.82, 1.05, 0.95, 1.22, 1.06, 0.8, 1.0, 1.28, 0.9, 1.34, 1.06, 0.9, 1.12, 1.0, 1.18, 0.96, 1.12, 1.5];
+      const i = Math.min(Math.max(g, 1), 18) - 1;
       const rnd = n => ((Math.imul(((g + 1) * 374761393) ^ ((n + 1) * 668265263), 2654435761) >>> 0) / 4294967296);
-      return cache[g] = {
-        sizeMul: 0.72 + rnd(1) * 0.92,                                   // 0.72×–1.64× — clearly different sizes
-        ring: rnd(2) < 0.34, ringAng: (rnd(3) - 0.5) * 1.3, ringTilt: 0.16 + rnd(4) * 0.34,   // ~1/3 ringed
-        bands: rnd(5) < 0.42 ? 1 + Math.floor(rnd(6) * 3) : 0,           // some banded (gas-giant latitude lines)
-        craters: rnd(7) < 0.5 ? 1 + Math.floor(rnd(8) * 3) : 0,          // some cratered
-        light: rnd(9) < 0.38, phase: rnd(10) * TAU, cs: rnd(11),         // some inverted (white disc), varied terminator
-      };
+      return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv" };
     },
     planet(p, r, bright, current, seld, g) {
-      const c = this.c, st = this.planetStyle(g), lit = st.light;
+      const c = this.c, st = this.planetStyle(g), A = st.arch, lit = st.inv, cs = st.cs;
       if (current || seld) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r + 5 + pulse * 3, 0, TAU); c.stroke(); }
       c.globalAlpha = bright;
-      c.fillStyle = lit ? "#fff" : "#000"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();                 // disc (dark, or inverted light)
+      const ink = lit ? "rgba(0,0,0,0.82)" : "#fff", soft = lit ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)";
+      const crescent = off => { c.fillStyle = ink; c.beginPath(); c.arc(p.x - Math.cos(st.phase) * r * off, p.y - Math.sin(st.phase) * r * off, r * (off > 0.45 ? 0.6 : 0.8), 0, TAU); c.fill(); };
+      const bands = n => { c.strokeStyle = soft; for (let b = 0; b < n; b++) { c.lineWidth = Math.max(1, r * (0.07 + ((cs * (b + 2)) % 1) * 0.06)); const yy = p.y - r * 0.78 + (b + 1) / (n + 1) * r * 1.56; c.beginPath(); c.moveTo(p.x - r, yy); c.lineTo(p.x + r, yy); c.stroke(); } };
+      const craters = n => { c.fillStyle = lit ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.62)"; for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.39996, rr = r * (0.12 + ((cs * (k + 3) * 1.7) % 1) * 0.55); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * (0.1 + ((cs * (k + 1)) % 1) * 0.14), 0, TAU); c.fill(); } };
+      const specks = n => { c.fillStyle = soft; for (let k = 0; k < n; k++) { const a = cs * 99 + k * 1.733, rr = r * (((cs * 13 + k * 7) % 100) / 100) * 0.9; c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * 0.06, 0, TAU); c.fill(); } };
+      const cracks = n => { c.strokeStyle = lit ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.6)"; c.lineWidth = Math.max(1, r * 0.06); for (let k = 0; k < n; k++) { c.beginPath(); c.moveTo(p.x, p.y); let rr = 0, aa = cs * TAU + k / n * TAU; for (let s = 0; s < 3; s++) { rr += r / 3; aa += (((cs * (k + s + 1)) % 1) - 0.5) * 0.7; c.lineTo(p.x + Math.cos(aa) * rr, p.y + Math.sin(aa) * rr); } c.stroke(); } };
+      const spot = n => { c.fillStyle = ink; for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.2, rr = r * 0.4; c.save(); c.translate(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr); c.rotate(st.rot); c.beginPath(); c.ellipse(0, 0, r * 0.34, r * 0.22, 0, 0, TAU); c.fill(); c.restore(); } };
+      c.fillStyle = lit ? "#fff" : "#000"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();                 // base disc
       c.save(); c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.clip();                                            // surface features clipped to the disc
-      const ink = lit ? "rgba(0,0,0,0.85)" : "#fff";
-      c.fillStyle = ink; c.beginPath(); c.arc(p.x - Math.cos(st.phase) * r * 0.5, p.y - Math.sin(st.phase) * r * 0.5, r * 0.6, 0, TAU); c.fill();   // lit crescent / terminator (varied direction)
-      if (st.bands) { c.strokeStyle = lit ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.45)"; c.lineWidth = Math.max(0.7, r * 0.08); for (let b = 0; b < st.bands; b++) { const yy = p.y - r * 0.5 + (b + 1) / (st.bands + 1) * r; c.beginPath(); c.moveTo(p.x - r, yy); c.lineTo(p.x + r, yy); c.stroke(); } }   // latitude bands
-      if (st.craters) { c.fillStyle = lit ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)"; for (let k = 0; k < st.craters; k++) { const a = st.cs * TAU + k * 2.39903, rr = r * (0.18 + ((st.cs * (k + 3)) % 1) * 0.5); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * 0.13, 0, TAU); c.fill(); } }   // craters
+      if (A === "crater") { crescent(0.5); craters(5); }
+      else if (A === "bands") bands(3);
+      else if (A === "bandsX") bands(5);
+      else if (A === "cresc") crescent(0.36);
+      else if (A === "ring" || A === "ring2") crescent(0.5);
+      else if (A === "ringc") { crescent(0.5); craters(3); }
+      else if (A === "spot") { bands(2); spot(1); }
+      else if (A === "spot2") { bands(3); spot(2); }
+      else if (A === "speck") { crescent(0.55); specks(12); }
+      else if (A === "speckX") specks(20);
+      else if (A === "moon") crescent(0.5);
+      else if (A === "inv") { crescent(0.42); craters(2); }
+      else if (A === "crack") { crescent(0.55); cracks(5); }
+      else if (A === "crackspike") cracks(7);
+      else if (A === "spike") crescent(0.5);
+      else if (A === "half") { c.fillStyle = ink; c.save(); c.translate(p.x, p.y); c.rotate(st.phase); c.fillRect(-r, -r, r, 2 * r); c.restore(); }
+      else if (A === "swirl") { c.strokeStyle = ink; c.lineWidth = Math.max(1.4, r * 0.16); c.beginPath(); for (let s = 0; s <= 28; s++) { const t2 = s / 28, aa = st.rot + t2 * 7, rr = r * 0.9 * t2, x = p.x + Math.cos(aa) * rr, y = p.y + Math.sin(aa) * rr; s ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
+      else crescent(0.5);
       c.restore();
-      c.strokeStyle = lit ? "rgba(255,255,255,0.55)" : "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();   // rim
-      if (st.ring) { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.78; c.lineWidth = 1.1; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.38; c.beginPath(); c.arc(0, 0, r * 2.05, 0, TAU); c.stroke(); c.restore(); }   // tilted ring (one thin + one faint outer)
+      c.strokeStyle = lit ? "rgba(255,255,255,0.6)" : "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();   // rim
+      if (A === "ring" || A === "ring2" || A === "ringc") { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.82; c.lineWidth = 1.3; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); if (A === "ring2") { c.globalAlpha = bright * 0.5; c.beginPath(); c.arc(0, 0, r * 2.1, 0, TAU); c.stroke(); } c.restore(); c.globalAlpha = bright; }   // tilted ring(s)
+      if (A === "spike" || A === "crackspike") { c.fillStyle = "#fff"; const ns = 12; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.12) * r * 1.02, p.y + Math.sin(a - 0.12) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.32, p.y + Math.sin(a) * r * 1.32); c.closePath(); c.fill(); } }   // icy spikes around the rim
+      if (A === "moon") { const ma = st.rot, mr = r * 0.32, md = r * 2.0, mx = p.x + Math.cos(ma) * md, my = p.y + Math.sin(ma) * md; c.fillStyle = "#000"; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill(); c.strokeStyle = "#fff"; c.lineWidth = 1.2; c.stroke(); c.fillStyle = "#fff"; c.beginPath(); c.arc(mx - mr * 0.3, my - mr * 0.3, mr * 0.45, 0, TAU); c.fill(); }   // a little satellite moon
       c.globalAlpha = 1;
     },
     // the expedition ship — a detailed black&white craft (matching the game's stark unit style) with
@@ -1711,7 +1732,10 @@
       // ── your expedition in transit: a STATIC dashed trajectory (frozen at launch), an OUTLINE of the
       //    destination where you're headed, and a detailed little ship riding ON the line ──
       if (S && S.travel) {
-        const tv = S.travel, a = tv.fromW || this.planetWorld(tv.from), b = tv.toW || this.planetWorld(tv.to), pr = clamp(tv.t / tv.dur, 0, 1);
+        const tv = S.travel;
+        if (!tv.fromW) tv.fromW = this.planetWorld(tv.from);   // snapshot BOTH endpoints once (covers older saves) — from here the line is frozen and NEVER tracks the orbiting planets
+        if (!tv.toW) tv.toW = this.planetWorld(tv.to);
+        const a = tv.fromW, b = tv.toW, pr = clamp(tv.t / tv.dur, 0, 1);
         const pa = this.proj(a.x, a.y, a.z), pb = this.proj(b.x, b.y, b.z);
         c.save();
         // STILL DASHED DUPLICATE of the destination planet — frozen at the launch-time target (its real
