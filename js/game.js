@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.1";
+  const VERSION = "v3.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -267,13 +267,11 @@
   // need to invest in Capacity just to hold that much cash, then bank it. Escalates ×1.2 per planet.
   const TRAVEL_COST_K = 5e6;
   const travelCost = g => { g = g || S.galaxy; return Math.round(eco(g) * TRAVEL_COST_K * Math.pow(1.2, g - 1)); };
-  // PLANET LAYERS: every planet is a self-contained run of the SAME base difficulty —
-  // its identity comes from its native RACE and your in-planet Value ramp, not raw HP.
-  // So base HP/spawn are FLAT across planets (a fresh army can always start killing);
-  // only the CURRENCY scale (galValueMul) grows, and costs scale with it (eco), so each
-  // planet plays identically in bigger numbers and conquer time stays constant.
-  const enemyHpMul = g => Math.pow(diff(g), 0.4);       // dampened difficulty → dots get tankier per planet, ~doubling at each new solar system: the COMBAT wall a fresh fleet feels on landing (in-planet Value ramps them further)
-  const galValueMul = g => Math.pow(2.2, g - 1);        // currency scale of planet g (income AND costs both ride this, so it cancels)
+  // HYBRID DIFFICULTY (see diff/eco below): each planet's NUMBER-MAGNITUDE rides eco(g) — income AND
+  // costs both ride it, so it cancels and the per-planet loop has the same shape everywhere. What does
+  // NOT cancel is enemyHpMul: dots get genuinely tankier per planet (and ~double at each new solar
+  // system), the COMBAT wall a fresh fleet feels on landing. Your Conquest multiplier is what outpaces it.
+  const enemyHpMul = g => Math.pow(diff(g), 0.4);       // dampened difficulty → dots tankier per planet (in-planet Value ramps them further)
   const galSpawnMul = g => 1;                           // flat base spawn (you raise it in-planet with Spawn Rate)
   const galCap = g => 400;                              // flat field cap
   // SOFT spawn ceiling. Below SPAWN_SMOOTH/sec dots spawn 1:1 with Spawn Rate. Above it, the on-screen
@@ -1442,11 +1440,15 @@
     const defFleet = DEF_ORDER.filter(t => countType(t) > 0).map(t => `${TY(t).name} ×${countType(t)}`).join(" · ") || "—";
     const colFleet = COL_ORDER.filter(t => countType(t) > 0).map(t => `${TY(t).name} ×${countType(t)}`).join(" · ") || "—";
     let nodes = 0; ALL_TYPES.forEach(t => nodes += allocCount(t));
+    let conquered = 0, empireRate = 0; for (const k in S.vault) { const v = S.vault[k]; if (v && v.conquered) { conquered++; if (+k !== S.galaxy) empireRate += v.bgRate || 0; } }
     $("metrics-body").innerHTML =
       sec("Time &amp; progress", grid(
         row("Played (total)", fmtTime(s.playSec)) + row("This run", fmtTime(S.runSec)) +
         row("Planet", S.galaxy + " · " + galName(S.galaxy) + " (" + sysName(S.galaxy) + ")") + row("Peak planet", S.peakGalaxy) +
         row("Travels", s.travels))) +
+      sec("Empire &amp; conquest", grid(
+        row("⚔ Conquest multiplier", "×" + fmt(S.conquest || 1)) + row("Planets conquered", conquered + " / " + TOTAL_PLANETS) +
+        row("Empire idle income", curSym(S.galaxy) + " " + fmt(empireRate) + " /s"))) +
       sec("Economy", grid(
         row("Cash / sec", curSym(S.galaxy) + " " + fmt(cps)) + row("Capacity", curSym(S.galaxy) + " " + fmt(derived.capacity)) +
         row("Earned this run", curSym(S.galaxy) + " " + fmt(S.totalRun)) + row("Earned all-time", curSym(S.galaxy) + " " + fmt(META.totalEver)) +
@@ -1586,7 +1588,10 @@
         if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive, gg = fl.g; this.flight = null; this._warp = 1; this._diveP = null; if (tv) { tv.style.background = "#000"; tv.style.opacity = "1"; } if (cb) cb();
           veilT = VEIL_FADE; landT = LAND_DUR; camZoom = camFit * 2.3;                    // arrive zoomed on the base, then pull back
           shakeAdd(9); flashAdd(0.4); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);   // landing impact
-          const lt = $("land-title"); if (lt) { lt.textContent = galName(gg).toUpperCase() + "  ·  " + sysName(gg); lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
+          const lt = $("land-title"); if (lt) { const wall = PLANET_LOCAL[planetIdx(gg)] === 0 && gg > 1;   // first world of a NEW solar system = the difficulty wall
+            lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg) + (wall ? "<span class='lt-sub'>⚠ NEW FRONTIER — the dots here are far tougher. Rebuild and earn your footing.</span>" : "");
+            if (wall) { shakeAdd(6); flashAdd(0.25); }
+            lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
         }
       }
       this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide

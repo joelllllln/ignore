@@ -37,6 +37,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #root.cinematic .cine{height:8.5%}
 #land-title{position:absolute;top:30%;left:0;right:0;text-align:center;z-index:62;pointer-events:none;color:#fff;font:800 22px var(--mono);letter-spacing:1px;opacity:0;text-shadow:0 0 24px rgba(0,0,0,.9),0 0 8px rgba(255,255,255,.4)}
 #land-title.show{animation:landtitle 2.4s ease forwards}
+#land-title .lt-sub{display:block;margin-top:8px;font:600 12px var(--mono);letter-spacing:.5px;color:#ffd9d9;opacity:.92;text-shadow:0 0 14px rgba(0,0,0,.95)}
 @keyframes landtitle{0%{opacity:0;transform:translateY(14px) scale(.94);letter-spacing:6px}16%{opacity:1;transform:none}68%{opacity:1}100%{opacity:0;letter-spacing:3px}}
 
 /* reactive button feel */

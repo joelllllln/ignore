@@ -158,15 +158,15 @@ interconnected node map per class:
 
 ### Buying more units
 
-Extra defenders/collectors are paced **geometrically** across the galaxy. Income
-grows exponentially, so costs are spaced on the cash *log-scale* — `base ×
-(travel ÷ base)^frac` — landing each new unit roughly **15% → 30% → 45%** of the
-way through that galaxy *in time*, not as a flat slice of the final number. In
-Galaxy 1 (travel $12B) a 2nd turret is ~**$1K**, a 3rd ~**$19K**, a 4th ~**$326K**.
-Drones are the **first collector** and now also cap at 4, so they're priced the
-**same as turrets** (same unit costs *and* the same skill-tree node costs): cheap
-to start, a real investment by the 4th, always well under the travel wall — so you
-unlock your roster *as* you progress.
+Extra defenders/collectors are priced **geometrically** in the count
+(`base × 1.5^owned`), so the 2nd of a class is cheap and the 4th is a real
+investment — you build your rack up *over* a planet rather than buying it all at
+landing. Because costs ride the planet's difficulty scale (`eco(g)`) just like
+income does, the *shape* is identical on every world; what changes run-to-run is
+your **Conquest multiplier**, which lets you climb that same geometric curve
+faster the more planets you've conquered. Skill-tree nodes scale the same way
+(`base × 1.33^allocated`) — cheap early, steep late — so a full tree is a
+long-game goal, not a quick buy.
 
 ## Collectors
 
