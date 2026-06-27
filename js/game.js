@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.1";
+  const VERSION = "v5.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1609,61 +1609,66 @@
       return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv",
         halo: rnd(6) < 0.5, haloR: 1.16 + rnd(7) * 0.3, rim2: rnd(8) < 0.4, oblate: 0.82 + rnd(9) * 0.36 };   // seeded extras: atmosphere glow, inner rim line, slight oblateness — multiply the variety
     },
+    // bake a per-planet procedural ALBEDO texture (grayscale surface, unlit) into an offscreen canvas, once.
+    // The lit sphere is composited from this in planet(): texture × shading. Gives every world real detail.
+    bakeTexture(g) {
+      const cache = this._tex || (this._tex = {});
+      if (cache[g]) return cache[g];
+      const st = this.planetStyle(g), A = st.arch, lit = st.inv, TS = 128, C = TS / 2;
+      const oc = (typeof document !== "undefined") ? document.createElement("canvas") : null;
+      if (!oc) return null; oc.width = oc.height = TS; const o = oc.getContext("2d");
+      let s = (Math.imul((g + 5) * 2654435761, 40503) >>> 0) || 1; const rnd = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+      const dk = a => "rgba(0,0,0," + a + ")", lt = a => "rgba(255,255,255," + a + ")";
+      o.fillStyle = lit ? "#dadada" : "#727272"; o.fillRect(0, 0, TS, TS);                                   // base albedo
+      for (let layer = 0; layer < 4; layer++) { const n = 18 * (layer + 1), rad = TS * (0.2 / (layer * 0.7 + 1)); for (let i = 0; i < n; i++) { o.globalAlpha = 0.04 + 0.06 * rnd(); o.fillStyle = rnd() < 0.5 ? "#000" : "#fff"; o.beginPath(); o.arc(rnd() * TS, rnd() * TS, rad * (0.5 + rnd()), 0, TAU); o.fill(); } }   // fractal mottling
+      o.globalAlpha = 1;
+      const bandsT = (n, vert) => { for (let b = 0; b < n; b++) { const u = TS * (b + 1) / (n + 1); o.strokeStyle = b % 2 ? lt(0.16) : dk(0.28); o.lineWidth = TS * (0.04 + rnd() * 0.05); o.beginPath(); if (vert) { o.moveTo(u, 0); o.lineTo(u, TS); } else { o.moveTo(0, u); o.bezierCurveTo(TS * 0.33, u + TS * 0.03 * (rnd() - 0.5), TS * 0.66, u - TS * 0.03 * (rnd() - 0.5), TS, u); } o.stroke(); } };
+      const cratersT = n => { for (let k = 0; k < n; k++) { const x = rnd() * TS, y = rnd() * TS, cr = TS * (0.04 + rnd() * 0.09); o.fillStyle = dk(0.42); o.beginPath(); o.arc(x, y, cr, 0, TAU); o.fill(); o.fillStyle = dk(0.3); o.beginPath(); o.arc(x - Math.cos(st.phase) * cr * 0.3, y - Math.sin(st.phase) * cr * 0.3, cr * 0.62, 0, TAU); o.fill(); o.strokeStyle = lt(0.5); o.lineWidth = cr * 0.28; o.beginPath(); o.arc(x, y, cr * 0.85, st.phase - 1.4, st.phase + 1.4); o.stroke(); } };
+      if (A === "bands" || A === "ring" || A === "doublering" || A === "spot") { bandsT(A === "spot" ? 5 : 4); if (A === "spot") { o.save(); o.translate(C + TS * 0.16, C - TS * 0.1); o.rotate(st.rot); o.fillStyle = dk(0.36); o.beginPath(); o.ellipse(0, 0, TS * 0.17, TS * 0.11, 0, 0, TAU); o.fill(); o.strokeStyle = lt(0.22); o.lineWidth = TS * 0.02; o.beginPath(); o.ellipse(0, 0, TS * 0.12, TS * 0.075, 0, 0, TAU); o.stroke(); o.restore(); } }
+      else if (A === "crater") cratersT(11);
+      else if (A === "moon") cratersT(6);
+      else if (A === "inv") cratersT(7);
+      else if (A === "vstripe") bandsT(6, true);
+      else if (A === "dunes") { for (let b = 0; b < 7; b++) { const u = TS * (b + 1) / 8; o.strokeStyle = b % 2 ? lt(0.14) : dk(0.26); o.lineWidth = TS * 0.04; o.beginPath(); for (let sx = 0; sx <= 14; sx++) { const xx = sx / 14 * TS, yy = u + Math.sin(sx * 0.8 + b) * TS * 0.045; sx ? o.lineTo(xx, yy) : o.moveTo(xx, yy); } o.stroke(); } }
+      else if (A === "speck") { for (let i = 0; i < 80; i++) { o.fillStyle = rnd() < 0.5 ? dk(0.42) : lt(0.32); o.beginPath(); o.arc(rnd() * TS, rnd() * TS, TS * 0.018 * (1 + rnd()), 0, TAU); o.fill(); } }
+      else if (A === "crack" || A === "icy") { if (A === "icy") { o.fillStyle = "#ececec"; o.fillRect(0, 0, TS, TS); } o.strokeStyle = A === "icy" ? dk(0.3) : lt(0.55); o.lineWidth = TS * 0.014; for (let k = 0; k < 8; k++) { o.beginPath(); o.moveTo(C, C); let rr = 0, aa = rnd() * TAU; for (let sg = 0; sg < 4; sg++) { rr += TS / 8; aa += (rnd() - 0.5) * 0.8; o.lineTo(C + Math.cos(aa) * rr, C + Math.sin(aa) * rr); } o.stroke(); } }
+      else if (A === "swirl") { o.strokeStyle = lt(0.5); o.lineWidth = TS * 0.05; o.beginPath(); for (let sg = 0; sg <= 44; sg++) { const t2 = sg / 44, aa = st.rot + t2 * 8, rr = TS * 0.46 * t2, x = C + Math.cos(aa) * rr, y = C + Math.sin(aa) * rr; sg ? o.lineTo(x, y) : o.moveTo(x, y); } o.stroke(); }
+      else if (A === "eye") { for (let k = 1; k <= 3; k++) { o.strokeStyle = k % 2 ? lt(0.2) : dk(0.36); o.lineWidth = TS * 0.07; o.beginPath(); o.arc(C, C, TS * 0.46 * k / 3.1, 0, TAU); o.stroke(); } o.fillStyle = dk(0.42); o.beginPath(); o.arc(C, C, TS * 0.07, 0, TAU); o.fill(); }
+      else if (A === "facet") { const sd = 6; for (let k = 0; k < sd; k++) { const a0 = st.rot + k / sd * TAU, a1 = st.rot + (k + 1) / sd * TAU; o.fillStyle = k % 2 ? lt(0.1) : dk(0.2); o.beginPath(); o.moveTo(C, C); o.lineTo(C + Math.cos(a0) * C, C + Math.sin(a0) * C); o.lineTo(C + Math.cos(a1) * C, C + Math.sin(a1) * C); o.closePath(); o.fill(); } }
+      else if (A === "half") { o.fillStyle = dk(0.6); o.save(); o.translate(C, C); o.rotate(st.phase); o.fillRect(-C, -C, C, 2 * C); o.restore(); }
+      else if (A === "pulsar") { o.fillStyle = "#f6f6f6"; o.fillRect(0, 0, TS, TS); }
+      cache[g] = oc; return oc;
+    },
     planet(p, r, bright, current, seld, g) {
-      const c = this.c, st = this.planetStyle(g), A = st.arch, lit = st.inv, cs = st.cs, t = this.t;
-      if (current || seld) { const pulse = 0.5 + 0.5 * Math.sin(t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r + 6 + pulse * 3, 0, TAU); c.stroke(); }
+      const c = this.c, st = this.planetStyle(g), A = st.arch, lit = st.inv, t = this.t, ringed = A === "ring" || A === "doublering";
+      if (current || seld) { const pulse = 0.5 + 0.5 * Math.sin(t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r + 7 + pulse * 3, 0, TAU); c.stroke(); }
       c.globalAlpha = bright;
-      const lx = Math.cos(st.phase), ly = Math.sin(st.phase);                                                  // light direction (toward the lit limb)
-      const dark = a => "rgba(0,0,0," + a + ")", lite = a => "rgba(255,255,255," + a + ")";
-      // ── shaded-sphere body: radial gradient offset toward the light → highlight, midtone, terminator, limb-dark ──
-      const gx = p.x + lx * r * 0.42, gy = p.y + ly * r * 0.42;
-      const g0 = c.createRadialGradient(gx, gy, r * 0.04, p.x, p.y, r * 1.16);
-      if (lit) { g0.addColorStop(0, "#ffffff"); g0.addColorStop(0.5, "#dcdcdc"); g0.addColorStop(0.82, "#9c9c9c"); g0.addColorStop(1, "#5c5c5c"); }
-      else { g0.addColorStop(0, "#ededed"); g0.addColorStop(0.36, "#a8a8a8"); g0.addColorStop(0.68, "#454545"); g0.addColorStop(0.9, "#141414"); g0.addColorStop(1, "#040404"); }
-      c.fillStyle = g0; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
-      // ── surface features (clipped to the sphere) ──
+      const lx = Math.cos(st.phase), ly = Math.sin(st.phase), gx = p.x + lx * r * 0.4, gy = p.y + ly * r * 0.4, lite = a => "rgba(255,255,255," + a + ")";
+      // tilted ring annulus, clipped to its far (behind) or near (front) half for proper occlusion
+      const ringPass = front => { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.beginPath(); c.rect(-r * 3, front ? 0 : -r * 3, r * 6, r * 3); c.clip();
+        const rg = c.createRadialGradient(0, 0, r * 1.42, 0, 0, r * 2.3); rg.addColorStop(0, "rgba(255,255,255,0)"); rg.addColorStop(0.2, lite(bright * 0.95)); rg.addColorStop(0.4, lite(bright * 0.22)); rg.addColorStop(0.5, lite(bright * 0.55)); rg.addColorStop(0.66, lite(bright * 0.92)); rg.addColorStop(0.82, lite(bright * 0.3)); rg.addColorStop(1, "rgba(255,255,255,0)");
+        c.strokeStyle = rg; c.lineWidth = r * 0.86; c.beginPath(); c.arc(0, 0, r * 1.84, 0, TAU); c.stroke(); c.restore(); };
+      if (ringed) ringPass(false);                                                                            // back of the ring (behind the planet)
+      // ── textured, lit sphere ──
       c.save(); c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.clip();
-      const bands = (n, vert) => { for (let b = 0; b < n; b++) { const o = -r * 0.8 + (b + 1) / (n + 1) * r * 1.6; c.lineWidth = Math.max(1.4, r * (0.05 + ((cs * (b + 3)) % 1) * 0.07)); c.strokeStyle = b % 2 ? lite(0.13) : dark(0.3); c.beginPath(); if (vert) { c.moveTo(p.x + o, p.y - r); c.lineTo(p.x + o, p.y + r); } else { c.moveTo(p.x - r, p.y + o); c.quadraticCurveTo(p.x, p.y + o + r * 0.13, p.x + r, p.y + o); } c.stroke(); } };
-      const crater = (cx, cy, cr) => { c.fillStyle = dark(0.42); c.beginPath(); c.arc(cx, cy, cr, 0, TAU); c.fill(); c.fillStyle = dark(0.3); c.beginPath(); c.arc(cx - lx * cr * 0.28, cy - ly * cr * 0.28, cr * 0.66, 0, TAU); c.fill(); c.strokeStyle = lite(0.45); c.lineWidth = Math.max(0.8, cr * 0.2); c.beginPath(); c.arc(cx, cy, cr * 0.92, st.phase - 1.5, st.phase + 1.5); c.stroke(); };
-      const craters = n => { for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.39996, rr = r * (0.1 + ((cs * (k + 3) * 1.7) % 1) * 0.62), cr = r * (0.08 + ((cs * (k + 1)) % 1) * 0.17); crater(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, cr); } };
-      const specks = n => { for (let k = 0; k < n; k++) { const a = cs * 99 + k * 1.733, rr = r * (((cs * 13 + k * 7) % 100) / 100) * 0.9; c.fillStyle = (k % 2 ? lite(0.3) : dark(0.4)); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * 0.055, 0, TAU); c.fill(); } };
-      const cracks = n => { c.strokeStyle = lite(0.55); c.lineWidth = Math.max(1, r * 0.05); for (let k = 0; k < n; k++) { c.beginPath(); c.moveTo(p.x, p.y); let rr = 0, aa = cs * TAU + k / n * TAU; for (let s = 0; s < 3; s++) { rr += r / 3; aa += (((cs * (k + s + 1)) % 1) - 0.5) * 0.7; c.lineTo(p.x + Math.cos(aa) * rr, p.y + Math.sin(aa) * rr); } c.stroke(); } };
-      const greatSpot = big => { const a = cs * TAU, sx = p.x + Math.cos(a) * r * 0.32, sy = p.y + Math.sin(a) * r * 0.32, sw = r * (big ? 0.46 : 0.32), sh = r * (big ? 0.3 : 0.2); c.save(); c.translate(sx, sy); c.rotate(st.rot); c.fillStyle = dark(0.34); c.beginPath(); c.ellipse(0, 0, sw, sh, 0, 0, TAU); c.fill(); c.strokeStyle = lite(0.22); c.lineWidth = Math.max(1, r * 0.04); c.beginPath(); c.ellipse(0, 0, sw * 0.68, sh * 0.68, 0, 0, TAU); c.stroke(); c.restore(); };
-      const eye = n => { for (let k = 1; k <= n; k++) { c.strokeStyle = k % 2 ? lite(0.2) : dark(0.38); c.lineWidth = Math.max(1.4, r * 0.09); c.beginPath(); c.arc(p.x, p.y, r * k / (n + 0.4), 0, TAU); c.stroke(); } c.fillStyle = dark(0.45); c.beginPath(); c.arc(p.x, p.y, r * 0.16, 0, TAU); c.fill(); };
-      const dunes = n => { for (let b = 0; b < n; b++) { const o = -r * 0.7 + (b + 1) / (n + 1) * r * 1.4; c.strokeStyle = b % 2 ? lite(0.14) : dark(0.3); c.lineWidth = Math.max(1, r * 0.06); c.beginPath(); for (let s = 0; s <= 12; s++) { const xx = p.x - r + s / 12 * 2 * r, yy = p.y + o + Math.sin(s * 0.85 + cs * 6 + b) * r * 0.13; s ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.stroke(); } };
-      const facets = () => { const sd = 6; for (let k = 0; k < sd; k++) { const a0 = st.rot + k / sd * TAU, a1 = st.rot + (k + 1) / sd * TAU; c.fillStyle = k % 2 ? lite(0.08) : dark(0.16); c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(a0) * r, p.y + Math.sin(a0) * r); c.lineTo(p.x + Math.cos(a1) * r, p.y + Math.sin(a1) * r); c.closePath(); c.fill(); } c.strokeStyle = lite(0.3); c.lineWidth = 1; for (let k = 0; k < sd; k++) { const a = st.rot + k / sd * TAU; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(a) * r * 0.96, p.y + Math.sin(a) * r * 0.96); c.stroke(); } };
-      if (A === "crater") craters(7);
-      else if (A === "bands") { bands(4); greatSpot(false); }
-      else if (A === "cresc") { /* shading IS the crescent */ }
-      else if (A === "ring") bands(2);
-      else if (A === "spot") { bands(3); greatSpot(true); }
-      else if (A === "speck") specks(20);
-      else if (A === "moon") craters(3);
-      else if (A === "doublering") bands(2);
-      else if (A === "inv") craters(4);
-      else if (A === "vstripe") bands(5, true);
-      else if (A === "crack") cracks(6);
-      else if (A === "icy") { specks(6); cracks(4); }
-      else if (A === "half") { c.fillStyle = dark(0.62); c.save(); c.translate(p.x, p.y); c.rotate(st.phase); c.fillRect(-r, -r, r, 2 * r); c.restore(); }
-      else if (A === "swirl") { c.strokeStyle = lite(0.5); c.lineWidth = Math.max(1.4, r * 0.15); c.beginPath(); for (let s = 0; s <= 34; s++) { const t2 = s / 34, aa = st.rot + t2 * 8 + t * 0.15, rr = r * 0.95 * t2, x = p.x + Math.cos(aa) * rr, y = p.y + Math.sin(aa) * rr; s ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
-      else if (A === "eye") eye(3);
-      else if (A === "dunes") dunes(5);
-      else if (A === "facet") facets();
-      else if (A === "pulsar") { const pg = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r); pg.addColorStop(0, "#ffffff"); pg.addColorStop(0.5, "#fafafa"); pg.addColorStop(1, "#9a9a9a"); c.fillStyle = pg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill(); }
-      // soft terminator: deepen the night limb for a rounder sphere
-      if (!lit && A !== "pulsar" && A !== "half") { const tg = c.createRadialGradient(p.x - lx * r * 1.1, p.y - ly * r * 1.1, r * 0.2, p.x - lx * r * 0.3, p.y - ly * r * 0.3, r * 1.7); tg.addColorStop(0, "rgba(0,0,0,0.55)"); tg.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = tg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill(); }
-      c.restore();
-      // specular glint on the lit side
-      if (A !== "pulsar") { c.fillStyle = lite(0.5); c.beginPath(); c.arc(gx + lx * r * 0.12, gy + ly * r * 0.12, r * 0.1, 0, TAU); c.fill(); }
-      // crisp limb + a bright rim-light arc on the lit side
-      c.strokeStyle = "rgba(0,0,0,0.55)"; c.lineWidth = 1.4; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();
-      c.strokeStyle = lite(0.7); c.lineWidth = Math.max(1, r * 0.05); c.beginPath(); c.arc(p.x, p.y, r * 0.97, st.phase - 1.3, st.phase + 1.3); c.stroke();
-      // atmosphere glow (soft outer halo)
-      if (st.halo || A === "icy" || A === "pulsar") { const ag = c.createRadialGradient(p.x, p.y, r * 0.92, p.x, p.y, r * (st.haloR + 0.22)); ag.addColorStop(0, "rgba(255,255,255," + (bright * 0.32) + ")"); ag.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = ag; c.beginPath(); c.arc(p.x, p.y, r * (st.haloR + 0.22), 0, TAU); c.fill(); }
-      // tilted ring system (drawn over — reads as passing in front)
-      if (A === "ring" || A === "doublering") { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); const rg = c.createRadialGradient(0, 0, r * 1.45, 0, 0, r * 2.2); rg.addColorStop(0, "rgba(255,255,255,0)"); rg.addColorStop(0.25, "rgba(255,255,255," + (bright * 0.9) + ")"); rg.addColorStop(0.5, "rgba(255,255,255," + (bright * 0.35) + ")"); rg.addColorStop(0.62, "rgba(255,255,255," + (bright * 0.85) + ")"); rg.addColorStop(1, "rgba(255,255,255,0)"); c.strokeStyle = rg; c.lineWidth = r * 0.8; c.beginPath(); c.arc(0, 0, r * 1.78, 0, TAU); c.stroke(); c.restore(); c.globalAlpha = bright; }
-      if (A === "icy") { c.fillStyle = "#fff"; const ns = 14; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.1) * r * 1.02, p.y + Math.sin(a - 0.1) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.28, p.y + Math.sin(a) * r * 1.28); c.closePath(); c.fill(); } }   // crystalline spikes
-      if (A === "pulsar") { c.strokeStyle = "rgba(255,255,255,0.85)"; c.lineWidth = 1.5; const ns = 10; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU, ext = 1.45 + 0.28 * Math.sin(t * 3 + k); c.beginPath(); c.moveTo(p.x + Math.cos(a) * r * 0.8, p.y + Math.sin(a) * r * 0.8); c.lineTo(p.x + Math.cos(a) * r * ext, p.y + Math.sin(a) * r * ext); c.stroke(); } }   // radiating energy rays
+      const tex = this.bakeTexture(g);
+      if (tex) c.drawImage(tex, p.x - r, p.y - r, 2 * r, 2 * r); else { c.fillStyle = lit ? "#bbb" : "#555"; c.fill(); }
+      c.globalCompositeOperation = "multiply";                                                                // shade the albedo: highlight → terminator → limb-dark
+      const sg = c.createRadialGradient(gx, gy, r * 0.05, p.x, p.y, r * 1.14);
+      if (lit) { sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.55, "#e0e0e0"); sg.addColorStop(0.85, "#9c9c9c"); sg.addColorStop(1, "#6a6a6a"); }
+      else { sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.4, "#c2c2c2"); sg.addColorStop(0.7, "#4e4e4e"); sg.addColorStop(0.92, "#161616"); sg.addColorStop(1, "#050505"); }
+      c.fillStyle = sg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
+      c.globalCompositeOperation = "lighter";                                                                 // specular/illumination bloom on the lit cap
+      const hg = c.createRadialGradient(gx, gy, 0, gx, gy, r * 0.62); hg.addColorStop(0, lite(lit ? 0.5 : 0.4)); hg.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = hg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
+      c.restore();                                                                                            // (auto-resets composite op)
+      // crisp limb + a bright rim-light arc on the lit edge
+      c.strokeStyle = "rgba(0,0,0,0.5)"; c.lineWidth = 1.4; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();
+      c.strokeStyle = lite(0.75); c.lineWidth = Math.max(1, r * 0.045); c.beginPath(); c.arc(p.x, p.y, r * 0.97, st.phase - 1.25, st.phase + 1.25); c.stroke();
+      // atmosphere glow (soft Fresnel halo)
+      if (st.halo || A === "icy" || A === "pulsar") { const ag = c.createRadialGradient(p.x, p.y, r * 0.94, p.x, p.y, r * (st.haloR + 0.26)); ag.addColorStop(0, lite(bright * 0.34)); ag.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = ag; c.beginPath(); c.arc(p.x, p.y, r * (st.haloR + 0.26), 0, TAU); c.fill(); }
+      if (ringed) ringPass(true);                                                                             // front of the ring (passes in front of the planet)
+      if (A === "icy") { c.fillStyle = "#fff"; const ns = 14; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.1) * r * 1.02, p.y + Math.sin(a - 0.1) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.26, p.y + Math.sin(a) * r * 1.26); c.closePath(); c.fill(); } }   // crystalline spikes
+      if (A === "pulsar") { c.strokeStyle = "rgba(255,255,255,0.85)"; c.lineWidth = 1.5; const ns = 10; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU, ext = 1.45 + 0.28 * Math.sin(t * 3 + k); c.beginPath(); c.moveTo(p.x + Math.cos(a) * r * 0.82, p.y + Math.sin(a) * r * 0.82); c.lineTo(p.x + Math.cos(a) * r * ext, p.y + Math.sin(a) * r * ext); c.stroke(); } }   // radiating energy rays
       if (A === "moon") { const ma = st.rot + t * 0.1, mr = r * 0.3, md = r * 2.1, mx = p.x + Math.cos(ma) * md, my = p.y + Math.sin(ma) * md; const mg = c.createRadialGradient(mx + lx * mr * 0.4, my + ly * mr * 0.4, mr * 0.1, mx, my, mr); mg.addColorStop(0, "#e8e8e8"); mg.addColorStop(0.7, "#777"); mg.addColorStop(1, "#1a1a1a"); c.fillStyle = mg; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill(); c.strokeStyle = "rgba(0,0,0,0.5)"; c.lineWidth = 1; c.stroke(); }   // shaded satellite moon (slowly orbiting)
       c.globalAlpha = 1;
     },
