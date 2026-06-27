@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.3";
+  const VERSION = "v4.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 2.18;   // the playfield is this much bigger than the screen (~50% bigger than before; the camera fits the whole world by default, so a bigger world also reads as zoomed-out) — pinch in to close on the action
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1713,10 +1713,13 @@
         const tv = S.travel, a = tv.fromW || this.planetWorld(tv.from), b = tv.toW || this.planetWorld(tv.to), pr = clamp(tv.t / tv.dur, 0, 1);
         const pa = this.proj(a.x, a.y, a.z), pb = this.proj(b.x, b.y, b.z);
         c.save();
-        // destination OUTLINE — a ghost ring of the planet you're flying to, at the frozen target point
+        // STILL DASHED DUPLICATE of the destination planet — frozen at the launch-time target (its real
+        // size + ring), so you always see where you're landing even as the live planet keeps orbiting away
         { const st = this.planetStyle(tv.to), dr = clamp(7 * pb.f * st.sizeMul, 3, 18);
-          c.setLineDash([3, 4]); c.lineWidth = 1.2; c.strokeStyle = "rgba(255,255,255,0.55)";
-          c.beginPath(); c.arc(pb.x, pb.y, dr + 3, 0, TAU); c.stroke(); c.setLineDash([]);
+          c.save(); c.setLineDash([3, 4]); c.lineWidth = 1.3; c.strokeStyle = "rgba(255,255,255,0.62)";
+          c.beginPath(); c.arc(pb.x, pb.y, dr, 0, TAU); c.stroke();                                                  // dashed planet body at its true size
+          if (st.ring) { c.save(); c.translate(pb.x, pb.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.beginPath(); c.arc(0, 0, dr * 1.7, 0, TAU); c.stroke(); c.restore(); }   // dashed ring if it has one
+          c.restore(); c.setLineDash([]);
           c.fillStyle = "rgba(255,255,255,0.85)"; c.font = "9px ui-monospace,monospace"; c.textAlign = "center";
           c.fillText("◎ " + galName(tv.to), pb.x, pb.y - dr - 8); }
         // STATIC dashed trajectory — frozen endpoints, so it never drifts as the planets orbit
