@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.8";
+  const VERSION = "v4.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1603,7 +1603,7 @@
       const cache = this._pst || (this._pst = {});
       if (cache[g]) return cache[g];
       const LOOK = ["crater", "bands", "cresc", "ring", "spot", "speck", "moon", "doublering", "inv", "vstripe", "crack", "icy", "half", "swirl", "eye", "dunes", "facet", "pulsar"];   // 18 UNIQUE looks, no repeats
-      const SZ = [0.82, 1.05, 0.95, 1.22, 1.06, 0.8, 1.0, 1.3, 0.9, 1.1, 1.06, 0.92, 1.12, 1.0, 1.16, 1.04, 0.98, 1.5];
+      const SZ = [0.6, 1.3, 0.85, 1.7, 1.1, 0.55, 1.45, 2.0, 0.75, 1.25, 0.95, 1.6, 0.7, 1.35, 1.05, 0.65, 1.85, 2.2];   // dramatic size spread: tiny moons → huge giants
       const i = Math.min(Math.max(g, 1), 18) - 1;
       const rnd = n => ((Math.imul(((g + 1) * 374761393) ^ ((n + 1) * 668265263), 2654435761) >>> 0) / 4294967296);
       return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv" };
@@ -1739,7 +1739,7 @@
       pts.sort((a, b) => b.p.z - a.p.z);
       for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-        const r = clamp(7 * p.f * this.planetStyle(g).sizeMul, 2.5, 20), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
+        const r = clamp(7 * p.f * this.planetStyle(g).sizeMul, 2, 30), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;   // wider min/max so tiny moons & huge giants both read
         this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 11, 24) });
         this.planet(p, r, bright, current, g === this.sel, g);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
