@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.0";
+  const VERSION = "v5.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1603,55 +1603,68 @@
       const cache = this._pst || (this._pst = {});
       if (cache[g]) return cache[g];
       const LOOK = ["crater", "bands", "cresc", "ring", "spot", "speck", "moon", "doublering", "inv", "vstripe", "crack", "icy", "half", "swirl", "eye", "dunes", "facet", "pulsar"];   // 18 UNIQUE looks, no repeats
-      const SZ = [0.6, 1.3, 0.85, 1.7, 1.1, 0.55, 1.45, 2.0, 0.75, 1.25, 0.95, 1.6, 0.7, 1.35, 1.05, 0.65, 1.85, 2.2];   // dramatic size spread: tiny moons → huge giants
+      const SZ = [0.5, 1.4, 0.78, 1.95, 1.15, 0.45, 1.6, 2.4, 0.68, 1.3, 0.92, 1.8, 0.6, 1.5, 1.08, 0.55, 2.1, 2.7];   // huge size spread: tiny moons (0.45×) → giant worlds (2.7×)
       const i = Math.min(Math.max(g, 1), 18) - 1;
       const rnd = n => ((Math.imul(((g + 1) * 374761393) ^ ((n + 1) * 668265263), 2654435761) >>> 0) / 4294967296);
       return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv",
         halo: rnd(6) < 0.5, haloR: 1.16 + rnd(7) * 0.3, rim2: rnd(8) < 0.4, oblate: 0.82 + rnd(9) * 0.36 };   // seeded extras: atmosphere glow, inner rim line, slight oblateness — multiply the variety
     },
     planet(p, r, bright, current, seld, g) {
-      const c = this.c, st = this.planetStyle(g), A = st.arch, lit = st.inv, cs = st.cs;
-      if (current || seld) { const pulse = 0.5 + 0.5 * Math.sin(this.t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r + 5 + pulse * 3, 0, TAU); c.stroke(); }
+      const c = this.c, st = this.planetStyle(g), A = st.arch, lit = st.inv, cs = st.cs, t = this.t;
+      if (current || seld) { const pulse = 0.5 + 0.5 * Math.sin(t * 4); c.strokeStyle = "rgba(255,255,255," + (0.35 + pulse * 0.5) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, r + 6 + pulse * 3, 0, TAU); c.stroke(); }
       c.globalAlpha = bright;
-      const ink = lit ? "rgba(0,0,0,0.82)" : "#fff", soft = lit ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)";
-      const crescent = off => { c.fillStyle = ink; c.beginPath(); c.arc(p.x - Math.cos(st.phase) * r * off, p.y - Math.sin(st.phase) * r * off, r * (off > 0.45 ? 0.6 : 0.8), 0, TAU); c.fill(); };
-      const bands = (n, vert) => { c.strokeStyle = soft; for (let b = 0; b < n; b++) { c.lineWidth = Math.max(1, r * (0.07 + ((cs * (b + 2)) % 1) * 0.06)); const o = -r * 0.78 + (b + 1) / (n + 1) * r * 1.56; c.beginPath(); if (vert) { c.moveTo(p.x + o, p.y - r); c.lineTo(p.x + o, p.y + r); } else { c.moveTo(p.x - r, p.y + o); c.lineTo(p.x + r, p.y + o); } c.stroke(); } };
-      const craters = n => { c.fillStyle = lit ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.62)"; for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.39996, rr = r * (0.12 + ((cs * (k + 3) * 1.7) % 1) * 0.55); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * (0.1 + ((cs * (k + 1)) % 1) * 0.15), 0, TAU); c.fill(); } };
-      const specks = n => { c.fillStyle = soft; for (let k = 0; k < n; k++) { const a = cs * 99 + k * 1.733, rr = r * (((cs * 13 + k * 7) % 100) / 100) * 0.9; c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * 0.06, 0, TAU); c.fill(); } };
-      const cracks = n => { c.strokeStyle = lit ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.65)"; c.lineWidth = Math.max(1, r * 0.06); for (let k = 0; k < n; k++) { c.beginPath(); c.moveTo(p.x, p.y); let rr = 0, aa = cs * TAU + k / n * TAU; for (let s = 0; s < 3; s++) { rr += r / 3; aa += (((cs * (k + s + 1)) % 1) - 0.5) * 0.7; c.lineTo(p.x + Math.cos(aa) * rr, p.y + Math.sin(aa) * rr); } c.stroke(); } };
-      const spot = big => { c.fillStyle = ink; const a = cs * TAU, rr = r * 0.36; c.save(); c.translate(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr); c.rotate(st.rot); c.beginPath(); c.ellipse(0, 0, r * (big ? 0.44 : 0.3), r * (big ? 0.3 : 0.2), 0, 0, TAU); c.fill(); c.restore(); };
-      const eye = n => { c.strokeStyle = soft; c.lineWidth = Math.max(1, r * 0.07); for (let k = 1; k <= n; k++) { c.beginPath(); c.arc(p.x, p.y, r * k / (n + 0.4), 0, TAU); c.stroke(); } c.fillStyle = ink; c.beginPath(); c.arc(p.x, p.y, r * 0.18, 0, TAU); c.fill(); };
-      const dunes = n => { c.strokeStyle = soft; c.lineWidth = Math.max(1, r * 0.07); for (let b = 0; b < n; b++) { const o = -r * 0.7 + (b + 1) / (n + 1) * r * 1.4; c.beginPath(); for (let s = 0; s <= 10; s++) { const xx = p.x - r + s / 10 * 2 * r, yy = p.y + o + Math.sin(s * 0.9 + cs * 6 + b) * r * 0.12; s ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.stroke(); } };
-      const facets = () => { const sd = 6; c.strokeStyle = soft; c.lineWidth = 1; c.beginPath(); for (let k = 0; k <= sd; k++) { const a = st.rot + k / sd * TAU, x = p.x + Math.cos(a) * r * 0.92, y = p.y + Math.sin(a) * r * 0.92; k ? c.lineTo(x, y) : c.moveTo(x, y); } c.closePath(); c.stroke(); for (let k = 0; k < sd; k++) { const a = st.rot + k / sd * TAU; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(a) * r * 0.92, p.y + Math.sin(a) * r * 0.92); c.stroke(); } };
-      c.fillStyle = lit ? "#fff" : "#000"; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();                 // base disc
-      c.save(); c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.clip();                                            // surface features clipped to the disc
-      if (A === "crater") { crescent(0.5); craters(6); }
-      else if (A === "bands") { bands(4); spot(false); }
-      else if (A === "cresc") crescent(0.34);
-      else if (A === "ring") crescent(0.5);
-      else if (A === "spot") { bands(3); spot(true); }
-      else if (A === "speck") { crescent(0.55); specks(16); }
-      else if (A === "moon") crescent(0.5);
-      else if (A === "doublering") crescent(0.5);
-      else if (A === "inv") { crescent(0.42); craters(3); }
+      const lx = Math.cos(st.phase), ly = Math.sin(st.phase);                                                  // light direction (toward the lit limb)
+      const dark = a => "rgba(0,0,0," + a + ")", lite = a => "rgba(255,255,255," + a + ")";
+      // ── shaded-sphere body: radial gradient offset toward the light → highlight, midtone, terminator, limb-dark ──
+      const gx = p.x + lx * r * 0.42, gy = p.y + ly * r * 0.42;
+      const g0 = c.createRadialGradient(gx, gy, r * 0.04, p.x, p.y, r * 1.16);
+      if (lit) { g0.addColorStop(0, "#ffffff"); g0.addColorStop(0.5, "#dcdcdc"); g0.addColorStop(0.82, "#9c9c9c"); g0.addColorStop(1, "#5c5c5c"); }
+      else { g0.addColorStop(0, "#ededed"); g0.addColorStop(0.36, "#a8a8a8"); g0.addColorStop(0.68, "#454545"); g0.addColorStop(0.9, "#141414"); g0.addColorStop(1, "#040404"); }
+      c.fillStyle = g0; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
+      // ── surface features (clipped to the sphere) ──
+      c.save(); c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.clip();
+      const bands = (n, vert) => { for (let b = 0; b < n; b++) { const o = -r * 0.8 + (b + 1) / (n + 1) * r * 1.6; c.lineWidth = Math.max(1.4, r * (0.05 + ((cs * (b + 3)) % 1) * 0.07)); c.strokeStyle = b % 2 ? lite(0.13) : dark(0.3); c.beginPath(); if (vert) { c.moveTo(p.x + o, p.y - r); c.lineTo(p.x + o, p.y + r); } else { c.moveTo(p.x - r, p.y + o); c.quadraticCurveTo(p.x, p.y + o + r * 0.13, p.x + r, p.y + o); } c.stroke(); } };
+      const crater = (cx, cy, cr) => { c.fillStyle = dark(0.42); c.beginPath(); c.arc(cx, cy, cr, 0, TAU); c.fill(); c.fillStyle = dark(0.3); c.beginPath(); c.arc(cx - lx * cr * 0.28, cy - ly * cr * 0.28, cr * 0.66, 0, TAU); c.fill(); c.strokeStyle = lite(0.45); c.lineWidth = Math.max(0.8, cr * 0.2); c.beginPath(); c.arc(cx, cy, cr * 0.92, st.phase - 1.5, st.phase + 1.5); c.stroke(); };
+      const craters = n => { for (let k = 0; k < n; k++) { const a = cs * TAU + k * 2.39996, rr = r * (0.1 + ((cs * (k + 3) * 1.7) % 1) * 0.62), cr = r * (0.08 + ((cs * (k + 1)) % 1) * 0.17); crater(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, cr); } };
+      const specks = n => { for (let k = 0; k < n; k++) { const a = cs * 99 + k * 1.733, rr = r * (((cs * 13 + k * 7) % 100) / 100) * 0.9; c.fillStyle = (k % 2 ? lite(0.3) : dark(0.4)); c.beginPath(); c.arc(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, r * 0.055, 0, TAU); c.fill(); } };
+      const cracks = n => { c.strokeStyle = lite(0.55); c.lineWidth = Math.max(1, r * 0.05); for (let k = 0; k < n; k++) { c.beginPath(); c.moveTo(p.x, p.y); let rr = 0, aa = cs * TAU + k / n * TAU; for (let s = 0; s < 3; s++) { rr += r / 3; aa += (((cs * (k + s + 1)) % 1) - 0.5) * 0.7; c.lineTo(p.x + Math.cos(aa) * rr, p.y + Math.sin(aa) * rr); } c.stroke(); } };
+      const greatSpot = big => { const a = cs * TAU, sx = p.x + Math.cos(a) * r * 0.32, sy = p.y + Math.sin(a) * r * 0.32, sw = r * (big ? 0.46 : 0.32), sh = r * (big ? 0.3 : 0.2); c.save(); c.translate(sx, sy); c.rotate(st.rot); c.fillStyle = dark(0.34); c.beginPath(); c.ellipse(0, 0, sw, sh, 0, 0, TAU); c.fill(); c.strokeStyle = lite(0.22); c.lineWidth = Math.max(1, r * 0.04); c.beginPath(); c.ellipse(0, 0, sw * 0.68, sh * 0.68, 0, 0, TAU); c.stroke(); c.restore(); };
+      const eye = n => { for (let k = 1; k <= n; k++) { c.strokeStyle = k % 2 ? lite(0.2) : dark(0.38); c.lineWidth = Math.max(1.4, r * 0.09); c.beginPath(); c.arc(p.x, p.y, r * k / (n + 0.4), 0, TAU); c.stroke(); } c.fillStyle = dark(0.45); c.beginPath(); c.arc(p.x, p.y, r * 0.16, 0, TAU); c.fill(); };
+      const dunes = n => { for (let b = 0; b < n; b++) { const o = -r * 0.7 + (b + 1) / (n + 1) * r * 1.4; c.strokeStyle = b % 2 ? lite(0.14) : dark(0.3); c.lineWidth = Math.max(1, r * 0.06); c.beginPath(); for (let s = 0; s <= 12; s++) { const xx = p.x - r + s / 12 * 2 * r, yy = p.y + o + Math.sin(s * 0.85 + cs * 6 + b) * r * 0.13; s ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.stroke(); } };
+      const facets = () => { const sd = 6; for (let k = 0; k < sd; k++) { const a0 = st.rot + k / sd * TAU, a1 = st.rot + (k + 1) / sd * TAU; c.fillStyle = k % 2 ? lite(0.08) : dark(0.16); c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(a0) * r, p.y + Math.sin(a0) * r); c.lineTo(p.x + Math.cos(a1) * r, p.y + Math.sin(a1) * r); c.closePath(); c.fill(); } c.strokeStyle = lite(0.3); c.lineWidth = 1; for (let k = 0; k < sd; k++) { const a = st.rot + k / sd * TAU; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(a) * r * 0.96, p.y + Math.sin(a) * r * 0.96); c.stroke(); } };
+      if (A === "crater") craters(7);
+      else if (A === "bands") { bands(4); greatSpot(false); }
+      else if (A === "cresc") { /* shading IS the crescent */ }
+      else if (A === "ring") bands(2);
+      else if (A === "spot") { bands(3); greatSpot(true); }
+      else if (A === "speck") specks(20);
+      else if (A === "moon") craters(3);
+      else if (A === "doublering") bands(2);
+      else if (A === "inv") craters(4);
       else if (A === "vstripe") bands(5, true);
-      else if (A === "crack") { crescent(0.55); cracks(6); }
+      else if (A === "crack") cracks(6);
       else if (A === "icy") { specks(6); cracks(4); }
-      else if (A === "half") { c.fillStyle = ink; c.save(); c.translate(p.x, p.y); c.rotate(st.phase); c.fillRect(-r, -r, r, 2 * r); c.restore(); }
-      else if (A === "swirl") { c.strokeStyle = ink; c.lineWidth = Math.max(1.4, r * 0.16); c.beginPath(); for (let s = 0; s <= 30; s++) { const t2 = s / 30, aa = st.rot + t2 * 8, rr = r * 0.95 * t2, x = p.x + Math.cos(aa) * rr, y = p.y + Math.sin(aa) * rr; s ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
+      else if (A === "half") { c.fillStyle = dark(0.62); c.save(); c.translate(p.x, p.y); c.rotate(st.phase); c.fillRect(-r, -r, r, 2 * r); c.restore(); }
+      else if (A === "swirl") { c.strokeStyle = lite(0.5); c.lineWidth = Math.max(1.4, r * 0.15); c.beginPath(); for (let s = 0; s <= 34; s++) { const t2 = s / 34, aa = st.rot + t2 * 8 + t * 0.15, rr = r * 0.95 * t2, x = p.x + Math.cos(aa) * rr, y = p.y + Math.sin(aa) * rr; s ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
       else if (A === "eye") eye(3);
       else if (A === "dunes") dunes(5);
       else if (A === "facet") facets();
-      else if (A === "pulsar") { c.fillStyle = "#fff"; c.beginPath(); c.arc(p.x, p.y, r * 0.5, 0, TAU); c.fill(); }
-      else crescent(0.5);
+      else if (A === "pulsar") { const pg = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r); pg.addColorStop(0, "#ffffff"); pg.addColorStop(0.5, "#fafafa"); pg.addColorStop(1, "#9a9a9a"); c.fillStyle = pg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill(); }
+      // soft terminator: deepen the night limb for a rounder sphere
+      if (!lit && A !== "pulsar" && A !== "half") { const tg = c.createRadialGradient(p.x - lx * r * 1.1, p.y - ly * r * 1.1, r * 0.2, p.x - lx * r * 0.3, p.y - ly * r * 0.3, r * 1.7); tg.addColorStop(0, "rgba(0,0,0,0.55)"); tg.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = tg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill(); }
       c.restore();
-      c.strokeStyle = lit ? "rgba(255,255,255,0.6)" : "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();   // rim
-      if (st.rim2) { c.strokeStyle = lit ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)"; c.lineWidth = 1; c.beginPath(); c.arc(p.x, p.y, r * 0.82, 0, TAU); c.stroke(); }   // faint inner rim on some
-      if (st.halo) { c.globalAlpha = bright * 0.3; c.strokeStyle = "#fff"; c.lineWidth = 1; c.beginPath(); c.arc(p.x, p.y, r * st.haloR, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.14; c.beginPath(); c.arc(p.x, p.y, r * (st.haloR + 0.16), 0, TAU); c.stroke(); c.globalAlpha = bright; }   // atmosphere glow on some
-      if (A === "ring" || A === "doublering") { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); c.strokeStyle = "#fff"; c.globalAlpha = bright * 0.85; c.lineWidth = 1.4; c.beginPath(); c.arc(0, 0, r * 1.7, 0, TAU); c.stroke(); if (A === "doublering") { c.globalAlpha = bright * 0.5; c.beginPath(); c.arc(0, 0, r * 2.12, 0, TAU); c.stroke(); c.globalAlpha = bright * 0.72; c.beginPath(); c.arc(0, 0, r * 1.45, 0, TAU); c.stroke(); } c.restore(); c.globalAlpha = bright; }   // tilted ring(s)
-      if (A === "icy") { c.fillStyle = "#fff"; const ns = 14; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.1) * r * 1.02, p.y + Math.sin(a - 0.1) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.3, p.y + Math.sin(a) * r * 1.3); c.closePath(); c.fill(); } }   // crystalline spikes
-      if (A === "pulsar") { c.strokeStyle = "rgba(255,255,255,0.85)"; c.lineWidth = 1.4; const ns = 8; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU, ext = 1.5 + 0.25 * Math.sin(this.t * 3 + k); c.beginPath(); c.moveTo(p.x + Math.cos(a) * r * 0.7, p.y + Math.sin(a) * r * 0.7); c.lineTo(p.x + Math.cos(a) * r * ext, p.y + Math.sin(a) * r * ext); c.stroke(); } c.strokeStyle = "rgba(255,255,255,0.3)"; c.beginPath(); c.arc(p.x, p.y, r * 1.35, 0, TAU); c.stroke(); }   // radiating energy + aura
-      if (A === "moon") { const ma = st.rot, mr = r * 0.32, md = r * 2.0, mx = p.x + Math.cos(ma) * md, my = p.y + Math.sin(ma) * md; c.fillStyle = "#000"; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill(); c.strokeStyle = "#fff"; c.lineWidth = 1.2; c.stroke(); c.fillStyle = "#fff"; c.beginPath(); c.arc(mx - mr * 0.3, my - mr * 0.3, mr * 0.45, 0, TAU); c.fill(); }   // a little satellite moon
+      // specular glint on the lit side
+      if (A !== "pulsar") { c.fillStyle = lite(0.5); c.beginPath(); c.arc(gx + lx * r * 0.12, gy + ly * r * 0.12, r * 0.1, 0, TAU); c.fill(); }
+      // crisp limb + a bright rim-light arc on the lit side
+      c.strokeStyle = "rgba(0,0,0,0.55)"; c.lineWidth = 1.4; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.stroke();
+      c.strokeStyle = lite(0.7); c.lineWidth = Math.max(1, r * 0.05); c.beginPath(); c.arc(p.x, p.y, r * 0.97, st.phase - 1.3, st.phase + 1.3); c.stroke();
+      // atmosphere glow (soft outer halo)
+      if (st.halo || A === "icy" || A === "pulsar") { const ag = c.createRadialGradient(p.x, p.y, r * 0.92, p.x, p.y, r * (st.haloR + 0.22)); ag.addColorStop(0, "rgba(255,255,255," + (bright * 0.32) + ")"); ag.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = ag; c.beginPath(); c.arc(p.x, p.y, r * (st.haloR + 0.22), 0, TAU); c.fill(); }
+      // tilted ring system (drawn over — reads as passing in front)
+      if (A === "ring" || A === "doublering") { c.save(); c.translate(p.x, p.y); c.rotate(st.ringAng); c.scale(1, st.ringTilt); const rg = c.createRadialGradient(0, 0, r * 1.45, 0, 0, r * 2.2); rg.addColorStop(0, "rgba(255,255,255,0)"); rg.addColorStop(0.25, "rgba(255,255,255," + (bright * 0.9) + ")"); rg.addColorStop(0.5, "rgba(255,255,255," + (bright * 0.35) + ")"); rg.addColorStop(0.62, "rgba(255,255,255," + (bright * 0.85) + ")"); rg.addColorStop(1, "rgba(255,255,255,0)"); c.strokeStyle = rg; c.lineWidth = r * 0.8; c.beginPath(); c.arc(0, 0, r * 1.78, 0, TAU); c.stroke(); c.restore(); c.globalAlpha = bright; }
+      if (A === "icy") { c.fillStyle = "#fff"; const ns = 14; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU; c.beginPath(); c.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); c.lineTo(p.x + Math.cos(a - 0.1) * r * 1.02, p.y + Math.sin(a - 0.1) * r * 1.02); c.lineTo(p.x + Math.cos(a) * r * 1.28, p.y + Math.sin(a) * r * 1.28); c.closePath(); c.fill(); } }   // crystalline spikes
+      if (A === "pulsar") { c.strokeStyle = "rgba(255,255,255,0.85)"; c.lineWidth = 1.5; const ns = 10; for (let k = 0; k < ns; k++) { const a = st.rot + k / ns * TAU, ext = 1.45 + 0.28 * Math.sin(t * 3 + k); c.beginPath(); c.moveTo(p.x + Math.cos(a) * r * 0.8, p.y + Math.sin(a) * r * 0.8); c.lineTo(p.x + Math.cos(a) * r * ext, p.y + Math.sin(a) * r * ext); c.stroke(); } }   // radiating energy rays
+      if (A === "moon") { const ma = st.rot + t * 0.1, mr = r * 0.3, md = r * 2.1, mx = p.x + Math.cos(ma) * md, my = p.y + Math.sin(ma) * md; const mg = c.createRadialGradient(mx + lx * mr * 0.4, my + ly * mr * 0.4, mr * 0.1, mx, my, mr); mg.addColorStop(0, "#e8e8e8"); mg.addColorStop(0.7, "#777"); mg.addColorStop(1, "#1a1a1a"); c.fillStyle = mg; c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fill(); c.strokeStyle = "rgba(0,0,0,0.5)"; c.lineWidth = 1; c.stroke(); }   // shaded satellite moon (slowly orbiting)
       c.globalAlpha = 1;
     },
     // the expedition ship — a HYPER-FUTURISTIC interceptor in stark B&W: long angular dart hull, swept
@@ -1742,7 +1755,7 @@
       pts.sort((a, b) => b.p.z - a.p.z);
       for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-        const r = clamp(7 * p.f * this.planetStyle(g).sizeMul, 2, 30), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;   // wider min/max so tiny moons & huge giants both read
+        const r = clamp(7 * p.f * this.planetStyle(g).sizeMul, 2, 38), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;   // wide min/max so tiny moons & giant worlds both read
         this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 11, 24) });
         this.planet(p, r, bright, current, g === this.sel, g);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
