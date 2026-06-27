@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.4";
+  const VERSION = "v2.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1693,27 +1693,34 @@
   }
   const fxWallets = () => { const out = []; for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (v && v.conquered) out.push(g); } return out; };
   let fxPct = {};   // per-wallet convert fraction (0..1) chosen via slider
+  const FX_CHIPS = [["25%", 25], ["50%", 50], ["75%", 75], ["MAX", 100]];
   function openExchange() {
-    const into = curSym(S.galaxy) + " " + curName(S.galaxy);
-    if ($("fx-into")) $("fx-into").textContent = "→ into " + into;
+    const sym = curSym(S.galaxy);
+    if ($("fx-into")) $("fx-into").textContent = "→ " + sym + " " + curName(S.galaxy);
     const wrap = $("fx-list"); if (!wrap) return; wrap.innerHTML = "";
     const wallets = fxWallets();
-    if (!wallets.length) { wrap.innerHTML = "<p class='muted' style='padding:18px;text-align:center'>No conquered planets yet.<br>Conquer this world, travel onward, and each planet's idle currency pools into its own wallet here — ready to bankroll your next fresh start.</p>"; refreshExchange(); return; }
+    if (!wallets.length) { wrap.innerHTML = "<p class='muted' style='padding:24px 18px;text-align:center'>No foreign wallets yet.<br>Conquer this world, travel onward, and each planet's idle currency pools into its own wallet here — ready to bankroll your next fresh start.</p>"; refreshExchange(); return; }
     for (const g of wallets) {
       const bal = Math.floor((S.vault[g].cash) || 0), has = bal > 0;
       if (fxPct[g] == null) fxPct[g] = 1;
       const el = document.createElement("div"); el.className = "fx-row" + (has ? "" : " locked"); el.dataset.fxg = g;
+      const chips = FX_CHIPS.map(([lab, p]) => `<button class="fx-chip" data-g="${g}" data-p="${p}">${lab}</button>`).join("");
       el.innerHTML =
         `<div class="fx-r-top"><span class="fx-sym">${curSym(g)}</span><span class="fx-name">${curName(g)}</span><span class="fx-rate" data-g="${g}"></span></div>` +
-        `<div class="fx-bal"><span class="fx-bal-v">${curSym(g)} ${fmt(bal)}</span></div>` +
+        `<div class="fx-line"><span class="fx-k">Wallet</span><span class="fx-v fx-bal-v">${curSym(g)} ${fmt(bal)}</span></div>` +
         (has
-          ? `<div class="fx-conv"><input type="range" class="fx-slider" min="1" max="100" value="${Math.round(fxPct[g]*100)}" data-g="${g}"><span class="fx-pct" data-g="${g}">${Math.round(fxPct[g]*100)}%</span></div>` +
-            `<div class="fx-payrow"><span class="fx-pay">→ <b class="fx-amt" data-g="${g}"></b></span><button class="fx-go" data-g="${g}">CONVERT</button></div>`
-          : `<div class="fx-locked muted">no holdings · market view only</div>`);
+          ? `<div class="fx-ctrl"><input type="range" class="fx-slider" min="1" max="100" value="${Math.round(fxPct[g]*100)}" data-g="${g}"><span class="fx-pct" data-g="${g}">${Math.round(fxPct[g]*100)}%</span></div>` +
+            `<div class="fx-chips">${chips}</div>` +
+            `<div class="fx-line"><span class="fx-k">Convert</span><span class="fx-v fx-send" data-g="${g}"></span></div>` +
+            `<div class="fx-line fx-rcv"><span class="fx-k">Receive</span><span class="fx-v fx-amt" data-g="${g}"></span></div>` +
+            `<button class="fx-go" data-g="${g}">CONVERT</button>`
+          : `<div class="fx-line"><span class="fx-k fx-dim">—</span><span class="fx-v fx-dim">market view only</span></div>`);
       wrap.appendChild(el);
       if (has) {
         const sl = el.querySelector(".fx-slider"), pct = el.querySelector(".fx-pct");
-        sl.oninput = () => { fxPct[g] = clamp(+sl.value / 100, 0.01, 1); pct.textContent = Math.round(fxPct[g]*100) + "%"; refreshExchange(); };
+        const setPct = p => { fxPct[g] = clamp(p / 100, 0.01, 1); sl.value = Math.round(fxPct[g] * 100); pct.textContent = Math.round(fxPct[g] * 100) + "%"; refreshExchange(); };
+        sl.oninput = () => setPct(+sl.value);
+        el.querySelectorAll(".fx-chip").forEach(c => c.onclick = () => setPct(+c.dataset.p));
         el.querySelector(".fx-go").onclick = () => { doExchange(g, Math.floor(bal * fxPct[g])); openExchange(); };
       }
     }
@@ -1721,20 +1728,28 @@
   }
   function refreshExchange() {   // live floating rates + payouts + budget meter while the FX page is open
     const ex = $("fxpage"); if (!ex || !ex.classList.contains("show")) return;
-    const now = Date.now() / 1000, list = $("fx-list");
+    const now = Date.now() / 1000, list = $("fx-list"), sym = curSym(S.galaxy);
     // import-budget meter
-    const cap = IMPORT_CAP(S.galaxy), used = importUsed(), room = Math.max(0, cap - used);
+    const cap = IMPORT_CAP(S.galaxy), used = importUsed(), room = Math.max(0, cap - used), pctUsed = clamp(used / cap, 0, 1) * 100;
     const meter = $("fx-budget");
-    if (meter) meter.innerHTML = "<div class='fxb-lab'>Foreign-aid budget for " + curName(S.galaxy) + " — rates are BRUTAL (keep ~2%, every spread &lt;1) and this planet can only ever absorb <b>" + curSym(S.galaxy) + " " + fmt(cap) + "</b> total.</div>" +
-      "<div class='fxb-bar'><div class='fxb-fill' style='width:" + (clamp(used / cap, 0, 1) * 100).toFixed(1) + "%'></div></div>" +
-      "<div class='fxb-num'><span>used " + curSym(S.galaxy) + " " + fmt(used) + "</span><span>" + curSym(S.galaxy) + " " + fmt(room) + " left</span></div>";
+    if (meter) meter.innerHTML =
+      "<div class='fxb-top'><span class='fxb-title'>FOREIGN-AID BUDGET</span><span class='fxb-cap'>cap " + sym + " " + fmt(cap) + "</span></div>" +
+      "<div class='fxb-bar'><div class='fxb-fill' style='width:" + pctUsed.toFixed(1) + "%'></div></div>" +
+      "<div class='fxb-num'><span>used " + sym + " " + fmt(used) + "</span><span>" + sym + " " + fmt(room) + " left</span></div>" +
+      "<div class='fxb-note'>Rates are brutal — you keep ~2%, every spread is below 1, and " + curName(S.galaxy) + " can only ever absorb the cap above. Convert on a spike ↗.</div>";
     if (!list) return;
-    list.querySelectorAll(".fx-rate").forEach(sp => { const g = +sp.dataset.g, m = fxMarketAt(g, S.galaxy, now), up = m >= fxMarketAt(g, S.galaxy, now - 1.5); sp.textContent = (up ? "↗ ×" : "↘ ×") + m.toFixed(2); sp.style.color = up ? "#fff" : "var(--dim)"; });
-    list.querySelectorAll("[data-fxg]").forEach(row => { const g = +row.dataset.fxg, v = S.vault[g], bal = Math.floor((v && v.cash) || 0), frac = fxPct[g] == null ? 1 : fxPct[g], conv = exchangeAmt(g, Math.floor(bal * frac)); const amt = row.querySelector(".fx-amt"); if (amt) amt.textContent = curSym(S.galaxy) + " " + fmt(conv); const b = row.querySelector(".fx-go"); if (b) b.disabled = conv <= 0; });
+    list.querySelectorAll(".fx-rate").forEach(sp => { const g = +sp.dataset.g, m = fxMarketAt(g, S.galaxy, now), up = m >= fxMarketAt(g, S.galaxy, now - 1.5); sp.textContent = (up ? "↗ ×" : "↘ ×") + m.toFixed(2); sp.classList.toggle("dn", !up); });
+    list.querySelectorAll("[data-fxg]").forEach(row => {
+      const g = +row.dataset.fxg, v = S.vault[g], bal = Math.floor((v && v.cash) || 0), frac = fxPct[g] == null ? 1 : fxPct[g];
+      const send = Math.floor(bal * frac), conv = exchangeAmt(g, send);
+      const se = row.querySelector(".fx-send"); if (se) se.textContent = curSym(g) + " " + fmt(send);
+      const amt = row.querySelector(".fx-amt"); if (amt) amt.textContent = sym + " " + fmt(conv);
+      const b = row.querySelector(".fx-go"); if (b) { b.disabled = conv <= 0; b.textContent = conv > 0 ? "CONVERT → " + sym + " " + fmt(conv) : (room <= 0 ? "BUDGET FULL" : "CONVERT"); }
+    });
     // mass-convert footer
     let massTotal = 0; for (const g of fxWallets()) { const v = S.vault[g]; if (v && v.cash > 0) massTotal += Math.min(Math.floor(v.cash) * fxRate(g, S.galaxy), room); }   // indicative (shared room means actual may differ slightly)
     const mi = $("fx-massinfo"), mb = $("fx-massconvert");
-    if (mi) mi.textContent = room <= 0 ? "Import budget full — nothing more can be absorbed here." : "Convert ALL wallets → ≈ " + curSym(S.galaxy) + " " + fmt(Math.floor(Math.min(massTotal, room)));
+    if (mi) mi.textContent = room <= 0 ? "Import budget full." : "All wallets ≈ " + sym + " " + fmt(Math.floor(Math.min(massTotal, room)));
     if (mb) mb.disabled = room <= 0 || !fxWallets().some(g => (S.vault[g].cash || 0) > 0);
   }
   // CODES: "test" turns on FREE SANDBOX mode — everything is unlocked & free to
