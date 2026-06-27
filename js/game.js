@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v2.6";
+  const VERSION = "v2.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -248,7 +248,7 @@
   const UPS = [
     { id: "capacity",  tab: "eco", name: "Capacity",   base: 20, mul: 1.55, desc: () => curSym(S.galaxy) + " " + fmt(derived.capacity) },
     { id: "value",     tab: "eco", name: "Value",      base: 30, mul: 1.42, desc: () => "×" + derived.valueMul.toFixed(2) + " /dot" },
-    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => derived.spawnPerSec.toFixed(1) + " /s" + (derived.spawnSurplus > 0.05 ? "  ·  up to +" + Math.round(5 * Math.min(derived.spawnSurplus, 60)) + "% menace when full" : "") },
+    { id: "spawnRate", tab: "eco", name: "Spawn Rate", base: 64, mul: 1.55, desc: () => { const sp = Math.min(derived.spawnSurplus || 0, 80), th = clamp(1 - 0.011 * sp, 0.3, 1), pk = 1 + 0.06 * sp + (1 / th - 1) * 1.5; return derived.spawnPerSec.toFixed(1) + " /s" + (sp > 0.05 ? "  ·  past cap: fewer but up to ×" + pk.toFixed(1) + " tougher" : ""); } },
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
@@ -733,11 +733,18 @@
     if (blackholeT > 0) blackholeT -= dt;
     for (const k in abil) if (abil[k] > 0) abil[k] = Math.max(0, abil[k] - dt);
 
-    const cap = galCap(S.galaxy);
-    // DYNAMIC menace: only when the field is genuinely full (you can't keep up) does surplus Spawn
-    // Rate turn into toughness. Clear the field fast and menace stays ~1 — you just get MORE dots.
-    const sat = clamp((dots.length / cap - 0.7) / 0.3, 0, 1);                 // 0 until ~70% full, ramps to 1 at the cap
-    const targetMenace = 1 + 0.05 * Math.min(derived.spawnSurplus || 0, 60) * sat;   // surplus capped at 60 → menace tops out ~4× so dots stay KILLABLE; runaway menace (25×+) was pinning the field at 400 unkillable tanks and tanking FPS
+    const baseCap = galCap(S.galaxy);
+    const sup = Math.min(derived.spawnSurplus || 0, 80);
+    // LATE-GAME SHIFT — quantity → toughness. Every point of Spawn Rate past the soft cap THINS the
+    // on-screen swarm and reroutes that pressure into per-dot toughness instead. So late game becomes a
+    // handful of beefy multi-second tanks, not a 400-dot blizzard: cleaner to read, kinder to the
+    // framerate, DPS stays focused. And because a saturated field is DPS-limited (income ≈ DPS × menace^0.45,
+    // independent of COUNT) and value scales super-linearly with toughness, thinning the swarm doesn't cost income.
+    const thin = clamp(1 - 0.011 * sup, 0.3, 1);                             // surplus 0 → full cap; surplus ~64 → ~30% of the dots
+    const cap = Math.max(50, Math.round(baseCap * thin));
+    // DYNAMIC menace: still only ramps when the field is genuinely full (clear it fast and it stays ~1).
+    const sat = clamp((dots.length / cap - 0.6) / 0.4, 0, 1);                // 0 until ~60% full, ramps to 1 at the (thinned) cap
+    const targetMenace = 1 + sat * (0.06 * sup + (1 / thin - 1) * 1.5);      // carries the Spawn-Rate spillover AND the thinned-out dots' toughness → fewer, far tankier dots (bounded ~9×)
     derived.spawnMenace += (targetMenace - derived.spawnMenace) * Math.min(1, dt * 2);   // smooth so it doesn't jitter
     spawnAcc += dt * derived.spawnPerSec * galSpawnMul(S.galaxy);
     while (spawnAcc >= 1 && dots.length < cap) { spawnDot(); spawnAcc -= 1; }
