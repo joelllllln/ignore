@@ -296,6 +296,11 @@ tools/       Headless balancing aids (run with Node):
   pacing-sim.js      models the v3 Conquest-multiplier vs hybrid-difficulty
                      curve; reports per-planet pace + the steamroll/wall
                      invariants (within-system pace <1, system-wall pace >1)
+  playthrough-sim.js drives the REAL game in headless Chromium (via window.__SIM)
+                     through all 18 planets — verifies scaling climbs, every
+                     weapon/collector unlock gates correctly, travel stays
+                     affordable, Conquest compounds, and no planet walls
+                     (needs Playwright: npm i -D playwright)
 ```
 
 Everything runs client-side in one `requestAnimationFrame` loop.

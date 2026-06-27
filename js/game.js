@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.5";
+  const VERSION = "v3.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -1922,4 +1922,13 @@
   requestAnimationFrame(loop);
 
   if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate };
+  // read-only scaling hooks for the headless pacing/scaling simulator (tools/playthrough-sim.js) — no game logic, just exposes the real curves so the sim can never diverge from the shipped game
+  if (typeof window !== "undefined") window.__SIM = {
+    TOTAL_PLANETS, CONQ_STEP, SYS_JUMP, WITHIN_STEP, CUR_BASE, TOUGH_POW, BUY_MUL,
+    eco, diff, enemyHpMul, conquerTarget, travelCost, startMul,
+    unitBuyCost: t => unitBuyCost(t), upCost: id => upCost(UP[id]),
+    DEF_TYPES, COL_TYPES, DEF_ORDER, COL_ORDER, UNIT_FACTOR, DEF_SCALE,
+    SYSTEMS, PLANET_LOCAL: () => PLANET_LOCAL, PLANET_SYS: () => PLANET_SYS,
+    valueMul: lv => 1 + 0.08 * lv,
+  };
 })();
