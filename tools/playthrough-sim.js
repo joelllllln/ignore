@@ -81,6 +81,7 @@ const { chromium } = requirePlaywright();
       const spawnPerSec = 0.9 + 2.0 * SPAWN_LV;             // raw spawn rate
       const killsPerSec = Math.min(dps / avgHP, spawnPerSec * 1.2);   // gated by spawn supply
       const incomePerSec = killsPerSec * avgVal + empireRate;
+      S.conquest = conquest;   // the conquer target's 6h-passive floor scales with Conquest — set it before reading
       const tgt = SIM.conquerTarget(g);
       const conquerSec = incomePerSec > 0 ? tgt / incomePerSec : Infinity;
 

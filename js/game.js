@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v3.6";
+  const VERSION = "v3.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -319,7 +319,16 @@
   // worlds progressively longer (planet 18 is a months-long journey). EXCHANGE only adds spending
   // power (S.cash), never conquer progress (curEarned), so the day-per-planet floor can't be bought past.
   const CONQUER_BASE = 6e7, CONQUER_ESCALATE = 1.2;
-  const conquerTarget = g => Math.ceil(eco(g) * CONQUER_BASE * Math.pow(CONQUER_ESCALATE, Math.max(1, g) - 1));
+  // MINIMUM CONQUER TIME FLOOR. Without this the Conquest multiplier eventually makes late planets fall in
+  // minutes (income ×conquest outruns a fixed target). The floor scales the target WITH your Conquest
+  // multiplier, so no planet drops below CONQUER_FLOOR_HOURS of PASSIVE play no matter how strong you get.
+  // Active play (draw-to-kill + abilities, ~40× income) still blows straight through it — the floor is on
+  // IDLE pace, not wall-clock. PASSIVE_RATE_REF anchors the floor to a representative maxed passive build
+  // (kills/sec × value-mult, per tools/pacing & playthrough sims); the early planets are naturally well
+  // above the floor (the natural CONQUER_ESCALATE curve), so the steamroll still shows until it kicks in.
+  const CONQUER_FLOOR_HOURS = 6, PASSIVE_RATE_REF = 34.7 * 2.44;
+  const conquerFloor = g => eco(g) * (S.conquest || 1) * PASSIVE_RATE_REF * CONQUER_FLOOR_HOURS * 3600;
+  const conquerTarget = g => Math.ceil(Math.max(eco(g) * CONQUER_BASE * Math.pow(CONQUER_ESCALATE, Math.max(1, g) - 1), conquerFloor(g)));
   // CONQUEST MULTIPLIER — the core cross-planet progression. Conquering a planet permanently multiplies
   // ALL your income by CONQ_STEP (≈×1.8/planet). It carries forever (your "RPG level"); it is NOT spendable
   // cash, so it can't instant-max a fresh planet — you still land at ~0 and rebuild, just EARN faster. Over
