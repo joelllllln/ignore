@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v4.0";
+  const VERSION = "v4.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen — pinch out to see the wave roll in from the edges
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
@@ -472,7 +472,7 @@
     if (!S.imported) S.imported = {};
     curEarned = (S.vault[S.galaxy] && S.vault[S.galaxy].earned) || 0;
     recompute();
-    if (off) { S.cash = Math.min(derived.capacity, S.cash + off.gain); S._welcome = off; }
+    if (off) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + off.gain)); S._welcome = off; }
   }
 
   /* ----------------------------- entities ------------------------ */
@@ -526,17 +526,33 @@
   const BOSS_INTERVAL = 600;   // seconds of active (boss-free) play between bosses
   const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
   const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
+  // auto-allocate up to n FREE skill-tree nodes, spread across the classes you currently field (boss reward).
+  function grantTreeNodes(n) {
+    const owned = [...new Set([...S.units.map(u => u.type), ...S.collectors.map(c => c.type)])];
+    let granted = 0, guard = 0;
+    while (granted < n && guard++ < 80) {
+      let any = false;
+      for (const t of owned) {
+        if (granted >= n) break;
+        const G = buildTree(t), set = S.classNodes[t] || (S.classNodes[t] = {});
+        const cand = Object.values(G.map).find(node => node.id !== "start" && !set[node.id] && nodeAllocatable(t, node));
+        if (cand) { set[cand.id] = true; granted++; any = true; }
+      }
+      if (!any) break;
+    }
+    return granted;
+  }
   function spawnBoss() {
     const g = S.galaxy, vm = derived.valueMul, base = 18 * Math.pow(vm, 1.3);
     let dps = 0; for (const u of S.units) dps += uDmg(u) * DEF_TYPES[u.type].rate * cls(u.type).rate;   // size HP to your real firepower → a ~minute+ fight, scales with you
     const hp = Math.max(base * 30, dps * 60);
     const r = clamp(40 + Math.log10(hp + 10) * 2.4, 42, 60);
-    const val = Math.max(1, Math.round(eco(g) * vm * derived.incomeMul * 120));   // fat bounty for a hard kill
+    const val = Math.max(1, Math.round(eco(g) * vm * derived.incomeMul * 320));   // PHAT bounty for a hard, timed kill
     // each planet's boss gets its OWN seeded movement personality (not the lazy drift-to-centre)
     const mh = Math.imul((g + 13) * 2654435761, 40503) >>> 0, mr = k => ((mh >>> (k * 4)) & 15) / 15;
     const styles = ["lissajous", "orbit", "charge", "pace", "prowl", "dash"];
     dots.push({ x: W / 2, y: H * 0.3, vx: rnd(-18, 18), vy: rnd(-8, 8), hp, maxHp: hp, value: val, value0: val,
-      r, r0: r, tier: 6, spin: Math.random() * TAU, special: false, armored: true, kind: "boss", boss: true, bg: g,
+      r, r0: r, tier: 6, spin: Math.random() * TAU, special: false, armored: true, kind: "boss", boss: true, bg: g, life: 0, ttl: 60,
       shieldMax: hp * 0.35, shield: hp * 0.35, armorUp: 0, regen: 0.012, add: 0,
       mstyle: styles[Math.floor(mr(0) * styles.length)], mt: 0, mphase: mr(1) * TAU, mfx: 0.5 + mr(2) * 0.9, mfy: 0.45 + mr(3) * 0.9, mdir: mr(4) < 0.5 ? -1 : 1, mrad: 95 + mr(5) * 75, mtimer: 0, mtx: W / 2, mty: H * 0.35, mdash: false,
       weight: 5, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#ffffff" });
@@ -703,11 +719,16 @@
     d.hp -= dmg; d.hit = 0.08;
     if (d.hp <= 0) {
       d.dead = true;
-      if (d.boss) {   // a defeated mini-boss bursts into several fat loot orbs + big payoff fx
-        const np = 5; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
-        burst(d.x, d.y, 44, 210, 3.2); ring(d.x, d.y, d.r, d.r + 130, 0.6); ring(d.x, d.y, d.r, d.r + 70, 0.4); shakeAdd(7); flashAdd(0.35);
+      if (d.boss) {   // a defeated mini-boss → PHAT reward: a big instant cash lump, a fat orb burst, AND a couple of free skill-tree nodes
+        const np = 6; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
+        const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the phat reward even if orbs scatter)
+        S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump;   // PHAT: bypasses the capacity ceiling so the reward always lands in full
+        const granted = grantTreeNodes(3);      // a couple of free auto-allocated tree nodes
+        burst(d.x, d.y, 60, 240, 3.4); ring(d.x, d.y, d.r, d.r + 150, 0.7); ring(d.x, d.y, d.r, d.r + 80, 0.5); shakeAdd(9); flashAdd(0.5);
         floatTxt(d.x, d.y - d.r - 12, "☠ " + bossName(d.bg || S.galaxy) + " DEFEATED");
+        floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + (granted ? "  ·  ✦+" + granted + " FREE NODES" : ""));
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
+        recompute(); syncHUD();
         return;
       }
       // bigger / tougher kills drop heavier loot that takes longer to consume
@@ -735,7 +756,7 @@
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; if ((o.x - x) ** 2 + (o.y - y) ** 2 > (26 + (o.r0 || 4)) ** 2) continue;
       const got = Math.max(1, Math.round(o.value * derived.incomeMul));
-      S.cash = Math.min(derived.capacity, S.cash + got); S.totalRun += got; META.totalEver += got; curEarned += got;
+      S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + got)); S.totalRun += got; META.totalEver += got; curEarned += got;
       fxEarn += got; fxEarnX = o.x; fxEarnY = o.y - 6; burst(o.x, o.y, o.big ? 9 : 5, 80, 2); spark(o.x, o.y);
       orbs.splice(i, 1);
     }
@@ -785,7 +806,10 @@
     for (const d of dots) {
       d.pending = 0; d.aimed = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
-      if (d.boss) { d.add += dt; if (d.add > 6 && dots.length < cap - 2) { d.add = 0;   // boss summons a couple of adds to keep the pressure on
+      if (d.boss) {
+        d.life = (d.life || 0) + dt;
+        if (d.life >= (d.ttl || 60)) { d.dead = true; burst(d.x, d.y, 30, 200, 2.6); ring(d.x, d.y, d.r, d.r + 130, 0.5); floatTxt(d.x, d.y - d.r - 12, "☠ " + bossName(d.bg || S.galaxy) + " ESCAPED"); flashAdd(0.3); shakeAdd(3); continue; }   // 1-MINUTE LIMIT — fails out with no reward if you can't bring it down in time
+        d.add += dt; if (d.add > 6 && dots.length < cap - 2) { d.add = 0;   // boss summons a couple of adds to keep the pressure on
           const mb = 18 * Math.pow(derived.valueMul, 1.3) * rnd(1.5, 3), mr = clamp(8 + Math.log10(mb + 10) * 2, 8, 16), mv = Math.max(1, Math.round((d.value0 || 1) * 0.01));
           for (let i = 0; i < 2; i++) dots.push({ x: d.x + rnd(-24, 24), y: d.y + rnd(-24, 24), vx: rnd(-65, 65), vy: rnd(-50, 50), hp: mb, maxHp: mb, value: mv, value0: mv, r: mr, r0: mr, tier: 1, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" });
           burst(d.x, d.y, 6, 60, 1.4); } }
@@ -860,12 +884,12 @@
       }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
-    if (earned > 0) { S.cash = Math.min(derived.capacity, S.cash + earned); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
+    if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
       const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, cps * BG_EFF); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4);
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours · ⚔ ×" + fmt(S.conquest)); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
-    { let bgSum = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) bgSum += v.bgRate; } if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.min(derived.capacity, S.cash + add); S.totalRun += add; META.totalEver += add; } }
+    { let bgSum = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) bgSum += v.bgRate; } if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; } }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
@@ -894,7 +918,11 @@
     ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(bx - 2, by - 2, bw + 4, 9);
     ctx.fillStyle = "#fff"; ctx.fillRect(bx, by, bw * clamp(d.hp / d.maxHp, 0, 1), 5);
     if (d.shield > 0) { ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.fillRect(bx, by, bw * clamp(d.shield / d.shieldMax, 0, 1), 5); }
-    ctx.fillStyle = "#fff"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("☠ " + bossName(g), d.x, by - 4);
+    // 1-minute COUNTDOWN: a draining bar under the health bar + a ticking number (flashes white when low)
+    const lifeFrac = clamp(1 - (d.life || 0) / (d.ttl || 60), 0, 1), left = Math.max(0, Math.ceil((d.ttl || 60) - (d.life || 0))), low = left <= 10;
+    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(bx - 2, by + 7, bw + 4, 4);
+    ctx.fillStyle = low ? (Math.sin(d.spin * 8) > 0 ? "#fff" : "rgba(255,255,255,0.4)") : "rgba(255,255,255,0.7)"; ctx.fillRect(bx, by + 8, bw * lifeFrac, 2);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("☠ " + bossName(g) + "   ⏱ " + left + "s", d.x, by - 4);
   }
   // Black-iris veil for the zoom-into-base transition. rPct = radius of the clear hole (% of screen):
   // 0 = fully black, ≥135 = fully clear (veil off). Centered, so it closes on / opens from the planet.
@@ -1322,12 +1350,12 @@
       this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
       this.cv.addEventListener("pointermove", e => {
         if (!this.ptrs.has(e.pointerId)) return; const p = this.pt(e); this.ptrs.set(e.pointerId, p);
-        if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.5, 3); this.pinchD = d; this.moved = true; this.clampPan(); this.lx = p.x; this.ly = p.y; return; }
+        if (this.ptrs.size >= 2) { const a = [...this.ptrs.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (this.pinchD) this.zoom = clamp(this.zoom * d / this.pinchD, 0.35, 3); this.pinchD = d; this.moved = true; this.clampPan(); this.lx = p.x; this.ly = p.y; return; }
         const dx = p.x - this.lx, dy = p.y - this.ly; if (Math.hypot(dx, dy) > 5) this.moved = true; this.cx += dx; this.cy += dy; this.clampPan(); this.lx = p.x; this.ly = p.y;
       });
       const up = e => { const had = this.ptrs.size; this.ptrs.delete(e.pointerId); this.pinchD = 0; if (this.ptrs.size === 1) { const r = [...this.ptrs.values()][0]; this.lx = r.x; this.ly = r.y; } if (had === 1 && !this.moved) { const p = this.pt(e); this.tap(p.x, p.y); } };
       this.cv.addEventListener("pointerup", up); this.cv.addEventListener("pointercancel", e => { this.ptrs.delete(e.pointerId); this.pinchD = 0; });
-      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.5, 3); this.clampPan(); }, { passive: false });
+      this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.35, 3); this.clampPan(); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
@@ -1474,9 +1502,9 @@
   }
   // interactive pseudo-3D black & white star map
   const GMap = {
-    open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
+    open: false, yaw: 0.45, pitch: -0.72, zoom: 0.45, t: 0, cv: null, c: null, w: 0, h: 0,
     cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
-    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.7; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
+    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.45; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
     ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, rotMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
@@ -1602,7 +1630,7 @@
       if (this.intro != null) {                              // FULL hyperspace arrival when the map opens
         this.intro += dt; const p = clamp(this.intro / this.introDur, 0, 1), q = (1 - p) * (1 - p);
         this._warp = 1.7 * q;                                 // stars streak fast, then decelerate to points
-        this.zoom = 0.7 + (this.iz0 - 0.7) * q;               // drop out: ease the zoom from close-in out to the resting galaxy view
+        this.zoom = 0.45 + (this.iz0 - 0.45) * q;             // drop out: ease the zoom from close-in out to the resting (wider) galaxy view
         if (p >= 1) { this.intro = null; this._warp = 0; this.zoom = 0.7; }
       }
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
@@ -1653,7 +1681,7 @@
       pts.sort((a, b) => b.p.z - a.p.z);
       for (const it of pts) {
         const g = it.g, p = it.p, current = g === S.galaxy, reached = g < S.galaxy, next = g === S.galaxy + 1;
-        const r = clamp(7 * p.f * this.planetStyle(g).sizeMul, 2.5, 20), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
+        const r = clamp(10.5 * p.f * this.planetStyle(g).sizeMul, 3.5, 30), bright = current ? 1 : reached ? 0.85 : next ? 0.8 : 0.3;
         this.hit.push({ g, x: p.x, y: p.y, r: Math.max(r + 11, 24) });
         this.planet(p, r, bright, current, g === this.sel, g);
         c.globalAlpha = clamp(p.f, 0.4, 1); c.textAlign = "center"; c.fillStyle = (reached || current || next) ? "#fff" : "rgba(255,255,255,0.5)"; c.font = Math.round(10 * clamp(p.f, 0.7, 1.3)) + "px ui-monospace,monospace";
@@ -1960,5 +1988,6 @@
     DEF_TYPES, COL_TYPES, DEF_ORDER, COL_ORDER, UNIT_FACTOR, DEF_SCALE,
     SYSTEMS, PLANET_LOCAL: () => PLANET_LOCAL, PLANET_SYS: () => PLANET_SYS,
     valueMul: lv => 1 + 0.08 * lv,
+    spawnBoss, grantTreeNodes, dots: () => dots,
   };
 })();
