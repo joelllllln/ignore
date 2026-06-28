@@ -257,14 +257,15 @@ multiplier**. Think of it as your RPG level. The loop:
   active grind; lategame the empire can largely **idle you to the next conquest**,
   so you never hand-manage all 18.
 - **⚙ Auto-Buy** turns that idle income into real build progress (otherwise it
-  just caps at your cash ceiling). It spends your cash **top-down by a priority
-  order you set** across all three sinks — **Economy upgrades, Units, and skill-tree
-  nodes** — runs live **and simulates while you're away** (you come back to a
-  built-up planet), and **unlocks at your first conquest**, buying faster the more
-  planets you hold. Open it from the **⚙ AUTO** button in the dock **or the star
-  map**: toggle it on, reorder lanes with ▲▼, tap a lane to enable/disable it.
-  (It keeps running while you're on the map, so you can plan your next jump while
-  it builds.)
+  just caps at your cash ceiling). It's **opt-in and deliberately taxed** so it
+  never out-classes hands-on play: every lane starts **OFF** — you enable **exactly**
+  what you want automated — and each auto-bought upgrade costs **+15% over manual**,
+  so hand-buying is always more efficient. It spends **top-down by a priority order
+  you set** across all three sinks — **Economy, Units, and skill-tree nodes** — runs
+  live **and simulates while you're away** (you come back to a built-up planet), and
+  **unlocks at your first conquest**, buying faster the more planets you hold. Open
+  it from the **⚙ AUTO** button in the dock **or the star map**: toggle it on, reorder
+  lanes with ▲▼, tap a lane to enable/disable it.
 
 The Conquest multiplier boosts **all** your income forever, but it is **not
 spendable cash** — you still land on each new world at ~zero and have to play, so

@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.2";
+  const VERSION = "v6.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1273,37 +1273,40 @@
     { key: "col",      label: "Collectors",     kind: "unit", side: "col" },
   ];
   const AUTO_LANE = {}; AUTO_LANES.forEach(l => AUTO_LANE[l.key] = l);
-  const defaultAuto = () => ({ on: false, order: ["value", "deftree", "spawn", "coltree", "capacity", "def", "col", "luck"], off: {} });
+  const AUTO_TAX = 1.15;   // auto-bought upgrades cost +15% over manual — a convenience tax so hand-buying is always more efficient
+  const allLanesOff = () => { const o = {}; for (const l of AUTO_LANES) o[l.key] = true; return o; };   // every lane disabled — you must opt IN to each
+  const defaultAuto = () => ({ on: false, v: 1, order: ["value", "deftree", "spawn", "coltree", "capacity", "def", "col", "luck"], off: allLanesOff() });
   function ensureAuto() {   // migrate / repair the auto config (old saves, new lanes)
     if (!S.auto || typeof S.auto !== "object") S.auto = defaultAuto();
     if (!Array.isArray(S.auto.order)) S.auto.order = defaultAuto().order;
     for (const l of AUTO_LANES) if (!S.auto.order.includes(l.key)) S.auto.order.push(l.key);   // append any lane missing from an old save
     S.auto.order = S.auto.order.filter(k => AUTO_LANE[k]);                                      // drop unknown keys
     if (!S.auto.off || typeof S.auto.off !== "object") S.auto.off = {};
+    if (S.auto.v !== 1) { S.auto.off = allLanesOff(); S.auto.v = 1; }   // one-time switch to OPT-IN: you must now explicitly enable each lane
   }
   const autoUnlocked = () => S.free || conqueredCount() >= 1;             // earned by your first conquest
   const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());          // purchases/sec — empire snowball makes it faster
   // the next purchase for a lane: { cost, buy() } or null if nothing to buy
   function autoLaneNext(key) {
     const L = AUTO_LANE[key]; if (!L) return null;
-    if (L.kind === "eco") { const u = UP[L.id]; const lv = S.lv[L.id] || 0; if (u.max != null && lv >= u.max) return null; return { cost: upCost(u), buy() { S.lv[L.id] = (S.lv[L.id] || 0) + 1; } }; }
+    const tax = r => r ? { cost: Math.ceil(r.cost * AUTO_TAX), buy: r.buy } : null;   // +15% convenience surcharge on every auto-buy
+    if (L.kind === "eco") { const u = UP[L.id], lv = S.lv[L.id] || 0; if (u.max != null && lv >= u.max) return null; return tax({ cost: upCost(u), buy() { S.lv[L.id] = (S.lv[L.id] || 0) + 1; } }); }
     const order = L.side === "def" ? DEF_ORDER : COL_ORDER;
     if (L.kind === "unit") {
       let best = null;
       for (const t of order) { if (!S.free && S.galaxy < TY(t).gal) continue; if (countType(t) >= TY(t).max) continue; const c = unitBuyCost(t); if (!best || c < best.cost) best = { cost: c, t }; }
       if (!best) return null;
-      return { cost: best.cost, buy() { classList(best.t).push(isCol(best.t) ? { type: best.t } : newUnit(best.t)); if (isCol(best.t)) syncCollectors(); } };
+      return tax({ cost: best.cost, buy() { classList(best.t).push(isCol(best.t) ? { type: best.t } : newUnit(best.t)); if (isCol(best.t)) syncCollectors(); } });
     }
     // tree: cheapest allocatable node across the classes you actually field on this side
     const types = [...new Set((L.side === "def" ? S.units : S.collectors).map(u => u.type))];
     let best = null;
     for (const t of types) {
       const G = buildTree(t), set = S.classNodes[t] || (S.classNodes[t] = {});
-      let minorFound = false;
-      for (const n of G.nodes) { if (n.kind === "start" || set[n.id] || !nodeAllocatable(t, n)) continue; const c = nodeCost(t, n); if (!best || c < best.cost) best = { cost: c, t, id: n.id }; if (n.kind === "minor") { minorFound = true; break; } }   // minor is the cheapest kind — first allocatable minor wins this class
+      for (const n of G.nodes) { if (n.kind === "start" || set[n.id] || !nodeAllocatable(t, n)) continue; const c = nodeCost(t, n); if (!best || c < best.cost) best = { cost: c, t, id: n.id }; if (n.kind === "minor") break; }   // minor is the cheapest kind — first allocatable minor wins this class
     }
     if (!best) return null;
-    return { cost: best.cost, buy() { (S.classNodes[best.t] || (S.classNodes[best.t] = {}))[best.id] = true; } };
+    return tax({ cost: best.cost, buy() { (S.classNodes[best.t] || (S.classNodes[best.t] = {}))[best.id] = true; } });
   }
   // one purchase pass: buy the highest-priority enabled lane whose next item fits the budget
   function autoBuyOnce(b) {
