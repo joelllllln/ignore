@@ -244,11 +244,18 @@ multiplier**. Think of it as your RPG level. The loop:
   you've *unlocked* so far (classes stay unlocked permanently — your knowledge
   carries, your build doesn't).
 - **Earn** by killing the planet's native race until you fill the **conquer**
-  bar — that unlocks **Travel**.
+  bar — that unlocks **Travel**. A planet is a deliberate **hours-long campaign**
+  (paced by `CONQUER_PACE`); active play — drawing to brush dots, abilities, and
+  fat Value/Spawn upgrades — is the fast path.
 - **Conquer → your Conquest multiplier permanently grows (×1.8)** and the planet
   **joins your empire**, feeding idle income straight into your global treasury
   (online **and** offline). **Revisit** any conquered planet anytime to keep
   upgrading it.
+- **Idle empire ramps with conquests.** Each held planet's idle output is a slice
+  of *its own* conquest cost (so it auto-scales with difficulty), and the whole
+  empire grows **+30% per planet conquered** (`EMPIRE_RAMP`). Early worlds are an
+  active grind; lategame the empire can largely **idle you to the next conquest**,
+  so you never hand-manage all 18.
 
 The Conquest multiplier boosts **all** your income forever, but it is **not
 spendable cash** — you still land on each new world at ~zero and have to play, so

@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.9";
+  const VERSION = "v6.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -331,17 +331,37 @@
   // value-mult, per the pacing/playthrough sims). Tunables: FLOOR_HOURS (end speed), DECLINE (per-planet
   // steamroll within a system), SYS_SPIKE (how hard a new solar system throws you back).
   const CONQUER_FLOOR_HOURS = 6, CONQUER_DECLINE = 0.90, CONQUER_SYS_SPIKE = 1.65, PASSIVE_RATE_REF = 34.7 * 2.44;
+  // OVERALL PACE — multiplies every conquer target so a planet is a real, hours-long campaign
+  // instead of a few minutes of frantic brushing. Measured: efficient active play (brush + abilities
+  // + heavy Value/Spawn) earns ~40k/s on P2, conquering in ~8 min at ×1; ×60 puts that around 8h,
+  // and ordinary sustained play lands in the multi-hour range the game is meant to take. Tune this
+  // ONE number up/down to make the whole game slower/faster — it cancels in cost ratios, so the
+  // shape/affordability/curve are all preserved; only wall-clock time scales.
+  const CONQUER_PACE = 60;
   const conquerShape = g => { g = Math.max(1, Math.min(g, TOTAL_PLANETS)); let h = 1; for (let k = 2; k <= g; k++) h *= (PLANET_LOCAL[planetIdx(k)] === 0 ? CONQUER_SYS_SPIKE : CONQUER_DECLINE); return h; };
   let _conqMin = Infinity; for (let _g = 1; _g <= TOTAL_PLANETS; _g++) _conqMin = Math.min(_conqMin, conquerShape(_g));
   const conquerHours = g => CONQUER_FLOOR_HOURS * conquerShape(g) / _conqMin;   // passive hours for planet g (gentle decline + system spikes; min = FLOOR at the last planet)
-  const conquerTarget = g => Math.ceil(eco(g) * (S.conquest || 1) * PASSIVE_RATE_REF * conquerHours(g) * 3600);
+  const conquerTarget = g => Math.ceil(eco(g) * (S.conquest || 1) * PASSIVE_RATE_REF * conquerHours(g) * 3600 * CONQUER_PACE);
   // CONQUEST MULTIPLIER — the core cross-planet progression. Conquering a planet permanently multiplies
   // ALL your income by CONQ_STEP (≈×1.8/planet). It carries forever (your "RPG level"); it is NOT spendable
   // cash, so it can't instant-max a fresh planet — you still land at ~0 and rebuild, just EARN faster. Over
   // 18 planets it compounds to ~×9000, and difficulty (diff above) is tuned to be outpaced within a system
   // and to leap ahead at each new system. This replaces the old per-planet currency exchange entirely.
   const CONQ_STEP = 1.8;
-  const BG_EFF = 0.4;                                                // a conquered planet feeds this fraction of its live rate into your global treasury, idle
+  const BG_EFF = 0.4;                                                // (legacy) live-rate fraction — superseded by the target-based idle below
+  // IDLE EMPIRE — a conquered planet keeps earning for you while you're away on another world. Its
+  // idle rate is a fraction of ITS OWN conquest cost (so it auto-scales with CONQUER_PACE and the
+  // whole difficulty curve), and the entire empire's idle output RAMPS UP the more planets you hold.
+  // So early planets are an active grind, but by lategame your empire can largely IDLE you to the
+  // next conquest — you don't have to hand-manage all 18 worlds.
+  const IDLE_PAYBACK_H = 26;    // left alone, a conquered planet repays its own conquest cost in ~26h of pure idle (before the ramp)
+  const EMPIRE_RAMP = 0.30;     // every planet you hold boosts ALL your planets' idle output by +30% (empire snowball)
+  const conqueredCount = () => { let c = 0; if (S.vault) for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) c++; return c; };
+  const empireIdleRate = () => {   // live total idle income from conquered, NON-active planets, with the empire ramp applied
+    if (!S.vault) return 0; let sum = 0;
+    for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v && v.conquered && v.bgRate > 0) sum += v.bgRate; }
+    return sum * (1 + EMPIRE_RAMP * conqueredCount());
+  };
   // EXCHANGE is BRUTAL — you really start fresh on each world (AdCap "moon" style). You keep only ~2% of
   // value, EVERY pair's market spread is below 1 (so it's always a loss even at peak), far-behind worlds
   // decay hard, and a tiny hard cap applies. The background empire is a faint leg-up, never a buy-past-it.
@@ -470,7 +490,7 @@
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, 12 * 3600);
           if (d.cps > 0 && e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; }
           // background empire kept earning while away — straight into the global treasury (one currency)
-          if (S.vault) { let bg = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) bg += v.bgRate; } if (bg > 0) { S.cash += bg * e; S.totalRun += bg * e; META.totalEver += bg * e; } }
+          if (S.vault) { const bg = empireIdleRate(); if (bg > 0) { S.cash += bg * e; S.totalRun += bg * e; META.totalEver += bg * e; } }
           if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + Math.max(0, (Date.now() - d.ts) / 1000);   // expedition keeps travelling while away (uncapped — long trips must finish)
         }
       }
@@ -913,11 +933,11 @@
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
-      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, cps * BG_EFF); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4);
+      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, conquerTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4);
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours · ⚔ ×" + fmt(S.conquest)); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
-    { let bgSum = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered && v.bgRate > 0) bgSum += v.bgRate; } if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; } }
+    { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; } }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
@@ -1130,7 +1150,7 @@
 
   /* ----------------------------- HUD ----------------------------- */
   function syncHUD() {
-    let bg = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered) bg += v.bgRate || 0; }
+    const bg = empireIdleRate();
     const cq = S.conquest || 1, cqStr = cq < 100 ? cq.toFixed(1) : fmt(cq);   // fmt() floors small numbers (1.8→"1"), so keep a decimal while the multiplier is small
     $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ⚔×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
@@ -1554,7 +1574,7 @@
     const defFleet = DEF_ORDER.filter(t => countType(t) > 0).map(t => `${TY(t).name} ×${countType(t)}`).join(" · ") || "—";
     const colFleet = COL_ORDER.filter(t => countType(t) > 0).map(t => `${TY(t).name} ×${countType(t)}`).join(" · ") || "—";
     let nodes = 0; ALL_TYPES.forEach(t => nodes += allocCount(t));
-    let conquered = 0, empireRate = 0; for (const k in S.vault) { const v = S.vault[k]; if (v && v.conquered) { conquered++; if (+k !== S.galaxy) empireRate += v.bgRate || 0; } }
+    let conquered = 0; for (const k in S.vault) { const v = S.vault[k]; if (v && v.conquered) conquered++; } const empireRate = empireIdleRate();
     $("metrics-body").innerHTML =
       sec("Time &amp; progress", grid(
         row("Played (total)", fmtTime(s.playSec)) + row("This run", fmtTime(S.runSec)) +
