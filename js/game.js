@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.6";
+  const VERSION = "v5.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -860,7 +860,7 @@
         sh.dead = true;
         const aoe = sh.aoe; if (aoe > 0) for (const d of dots) if (!d.dead && (d.x - sh.tx) ** 2 + (d.y - sh.ty) ** 2 <= aoe * aoe) hitDot(d, sh.dmg, sh.type);
         ring(sh.tx, sh.ty, sh.crit ? 6 : 4, Math.max(aoe, 22), 0.24); burst(sh.tx, sh.ty, sh.crit ? 13 : 8, 120, 2.6);
-        shake = Math.max(shake, sh.crit ? 5.5 : 3.2);
+        shake = Math.max(shake, sh.crit ? 1.8 : 1.0);
       }
     }
     shells = shells.filter(s => !s.dead);
