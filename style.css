@@ -272,6 +272,23 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .big.alt{background:transparent;border:1px solid var(--edge);color:var(--text);font-weight:700}
 .big.alt:hover{border-color:#fff}
 .big.alt.danger{color:var(--dim)}
+/* SETTINGS menu */
+.set-list{display:flex;flex-direction:column;gap:4px;margin:4px 0 14px;max-height:62vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,.07)}
+.set-row:last-child{border-bottom:none}
+.set-lbl{display:flex;flex-direction:column;gap:2px;min-width:0}
+.set-lbl b{font-size:14.5px;color:#fff;font-weight:700}
+.set-lbl span{font-size:11px;color:var(--dim)}
+.set-ctrl{display:flex;flex-shrink:0;gap:5px;align-items:center}
+/* segmented control */
+.seg{display:inline-flex;border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+.seg button{background:transparent;border:none;color:var(--dim);font-weight:700;font-size:12.5px;padding:8px 11px;min-width:42px;line-height:1}
+.seg button.on{background:linear-gradient(95deg,#fff,#bbb);color:#000}
+/* toggle switch */
+.sw{position:relative;width:50px;height:28px;border-radius:999px;border:1px solid var(--edge);background:rgba(255,255,255,.06);flex-shrink:0}
+.sw .knob{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#888;transition:left .14s ease,background .14s ease}
+.sw.on{background:linear-gradient(95deg,#fff,#cfcfcf);border-color:#fff}
+.sw.on .knob{left:24px;background:#000}
 .home-codes{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:16px;font-size:12px;color:var(--dim)}
 .home-codes label{letter-spacing:2px}
 .home-codes input{flex:0 1 120px;background:#000;border:1px solid var(--edge);color:#fff;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px}

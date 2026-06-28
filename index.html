@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v7.7</div>
+  <div id="version" class="layer">v7.8</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -58,6 +58,7 @@
       <button class="big" id="home-play">▶ PLAY</button>
       <button class="big alt" id="home-galaxies">🪐 PLANETS &amp; PROGRESS</button>
       <button class="big alt" id="home-how">❔ HOW TO PLAY</button>
+      <button class="big alt" id="home-settings">⚙ SETTINGS</button>
       <button class="big alt danger" id="home-reset">⟲ RESET SAVE</button>
       <div class="home-codes">
         <label>CODES</label>
@@ -125,6 +126,16 @@
     </div>
   </div>
 
+  <!-- SETTINGS -->
+  <div id="settings" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>⚙ Settings</h2><button class="x" id="set-close">✕</button></div>
+      <div id="set-list" class="set-list"></div>
+      <button class="big alt" id="set-how">❔ How to play</button>
+      <button class="big" id="set-back">DONE</button>
+    </div>
+  </div>
+
   <!-- WELCOME BACK -->
   <div id="welcome" class="modal">
     <div class="card">
@@ -161,6 +172,7 @@
       <div class="card-head"><h2>Idle Dot Shooter</h2><button class="x" id="menu-close">✕</button></div>
       <p class="muted">Auto-fire at the dots. Drone collects the cash. Buy upgrades across Defence, Drone &amp; Economy. Travel between planets across three solar systems for tougher dots and bigger payouts.</p>
       <button class="big" id="menu-resume">RESUME</button>
+      <button class="big alt" id="menu-settings">⚙ SETTINGS</button>
       <button class="big alt" id="menu-home">🏠 MAIN MENU</button>
       <button class="big danger" id="menu-reset">RESET SAVE</button>
     </div>

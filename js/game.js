@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v7.7";
+  const VERSION = "v7.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -21,9 +21,9 @@
     ctx: null, nb: null,
     ac() { try { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === "suspended") this.ctx.resume(); } catch (e) { this.ctx = null; } return this.ctx; },
     noise() { const a = this.ctx; if (!a) return null; if (!this.nb) { const n = a.sampleRate * 2, b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.nb = b; } const s = a.createBufferSource(); s.buffer = this.nb; s.loop = true; return s; },
-    swoosh(dur) { const a = this.ac(); if (!a) return; const t0 = a.currentTime, s = this.noise(); if (!s) return; const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.9; bp.frequency.setValueAtTime(2800, t0); bp.frequency.exponentialRampToValueAtTime(180, t0 + dur); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(bp).connect(g).connect(a.destination); s.start(t0); s.stop(t0 + dur + 0.05); },   // descending "drop out of hyperspace" whoosh
+    swoosh(dur) { if (!opt("sound")) return; const a = this.ac(); if (!a) return; const t0 = a.currentTime, s = this.noise(); if (!s) return; const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.9; bp.frequency.setValueAtTime(2800, t0); bp.frequency.exponentialRampToValueAtTime(180, t0 + dur); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(bp).connect(g).connect(a.destination); s.start(t0); s.stop(t0 + dur + 0.05); },   // descending "drop out of hyperspace" whoosh
     warp(dur) {
-      const a = this.ac(); if (!a) return; const t0 = a.currentTime, dest = a.destination;
+      if (!opt("sound")) return; const a = this.ac(); if (!a) return; const t0 = a.currentTime, dest = a.destination;
       const tube = this.noise(); if (tube) { const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.3; bp.frequency.setValueAtTime(180, t0); bp.frequency.exponentialRampToValueAtTime(3200, t0 + dur * 0.82); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.34, t0 + dur * 0.78); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.96); tube.connect(bp).connect(g).connect(dest); tube.start(t0); tube.stop(t0 + dur); }
       const o = a.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(55, t0); o.frequency.exponentialRampToValueAtTime(440, t0 + dur * 0.8); const og = a.createGain(); og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.11, t0 + dur * 0.75); og.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.9); o.connect(og).connect(dest); o.start(t0); o.stop(t0 + dur * 0.95);
       const tb = t0 + dur * 0.8;   // BOOM at the punch
@@ -34,11 +34,20 @@
     }
   };
 
+  const FMT_U = ["", "K", "M", "B", "T", "q", "Q", "s", "S", "O", "N", "D"];
+  const FMT_CAP = Math.pow(1000, FMT_U.length);   // first magnitude past the last suffix (1e36) → switch to scientific
   function fmt(n) {
-    if (n < 1000) return (n | 0).toString();
-    const u = ["", "K", "M", "B", "T", "q", "Q", "s", "S", "O", "N", "D"]; let i = 0;
-    while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
-    return (n < 10 ? n.toFixed(2) : n < 100 ? n.toFixed(1) : Math.floor(n)) + u[i];
+    if (n == null || isNaN(n)) return "0";
+    if (!isFinite(n)) return n < 0 ? "-∞" : "∞";
+    const neg = n < 0; let a = neg ? -n : n;
+    if (a < 1000) return (neg ? "-" : "") + (a | 0).toString();
+    const sci = (META && META.opts && META.opts.notation === "sci");
+    if (sci || a >= FMT_CAP) {   // scientific: forced by the setting, or auto when it gets crazy (beyond the suffix table)
+      const e = Math.floor(Math.log10(a)), m = a / Math.pow(10, e);
+      return (neg ? "-" : "") + m.toFixed(2) + "e" + e;
+    }
+    let i = 0; while (a >= 1000 && i < FMT_U.length - 1) { a /= 1000; i++; }
+    return (neg ? "-" : "") + (a < 10 ? a.toFixed(2) : a < 100 ? a.toFixed(1) : Math.floor(a)) + FMT_U[i];
   }
   function fmtTime(s) { s |= 0; const h = s / 3600 | 0, m = s % 3600 / 60 | 0, x = s % 60; return h ? h + "h " + m + "m" : m ? m + "m " + x + "s" : x + "s"; }
 
@@ -414,7 +423,10 @@
     const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
     return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, lost: 0, lostCash: 0 };
   }
-  function freshMeta() { return { totalEver: 0, stats: freshStats() }; }
+  function freshOpts() { return { sound: true, haptics: true, shake: true, flash: true, fx: "full", notation: "short" }; }   // player settings (persist in META)
+  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts() }; }
+  const opt = k => (META && META.opts ? META.opts[k] : freshOpts()[k]);
+  function vibe(ms) { if (opt("haptics") && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
   const stat = () => META.stats;
 
   let dots = [], orbs = [], beams = [], shells = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
@@ -424,12 +436,12 @@
   const VEIL_FADE = 0.6;   // seconds for the zoom-into-base white-wipe to fade back out after landing
   const LAND_DUR = 0.85;   // camera pull-back "you have arrived" settle after the warp lands
   const MAXP = 440;
-  function burst(x, y, n, spd, sz) { if (parts.length > MAXP) return; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = spd * (0.35 + Math.random() * 0.9);
+  function burst(x, y, n, spd, sz) { const fx = opt("fx"); if (fx === "off") return; if (fx === "low") n = Math.max(1, Math.ceil(n * 0.4)); if (parts.length > MAXP) return; for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = spd * (0.35 + Math.random() * 0.9);
     if (Math.random() < 0.4) parts.push({ t: 4, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.3 + Math.random() * 0.35, max: 0.65, ang: a, len: sz * 2 + Math.random() * sz * 2, spin: (Math.random() - 0.5) * 12 });  // shard
     else parts.push({ t: 0, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.32 + Math.random() * 0.36, max: 0.7, r: sz * (0.5 + Math.random()) }); } }
-  function ring(x, y, r0, r1, life) { if (parts.length > MAXP) return; parts.push({ t: 1, x, y, r: r0, r1, life, max: life }); }
+  function ring(x, y, r0, r1, life) { if (opt("fx") === "off" || parts.length > MAXP) return; parts.push({ t: 1, x, y, r: r0, r1, life, max: life }); }
   function floatTxt(x, y, txt) { if (parts.length > MAXP) return; parts.push({ t: 2, x, y, vy: -40, life: 0.95, max: 0.95, txt }); }
-  function spark(x, y) { if (parts.length > MAXP) return; parts.push({ t: 3, x, y, life: 0.22, max: 0.22 }); }
+  function spark(x, y) { if (opt("fx") === "off" || parts.length > MAXP) return; parts.push({ t: 3, x, y, life: 0.22, max: 0.22 }); }
   function shakeAdd(a) { shake = Math.min(4.5, shake + a); }   // capped low so dense late-game kills can't pin the screen into a constant rattle
   function flashAdd(a) { flash = Math.min(0.9, flash + a); }
   function stepFx(dt) {
@@ -489,7 +501,8 @@
           const st = d.META.stats || {}; META.stats = Object.assign(freshStats(), st);
           META.stats.kills = Object.assign(freshStats().kills, st.kills || {});
           META.stats.collected = Object.assign(freshStats().collected, st.collected || {});
-          META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {}); }
+          META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {});
+          META.opts = Object.assign(freshOpts(), d.META.opts || {}); }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, 12 * 3600);
           // everything you earned while away: your active rate (half-credited) + the idle empire
           const offGain = d.cps > 0 ? Math.floor(d.cps * e * 0.5) : 0;
@@ -859,7 +872,7 @@
 
   function useAbility(k) {
     if (abil[k] > 0 || state !== "play") return;
-    abil[k] = ABIL_CD[k]; META.stats.abilities[k] = (META.stats.abilities[k] || 0) + 1;
+    abil[k] = ABIL_CD[k]; META.stats.abilities[k] = (META.stats.abilities[k] || 0) + 1; vibe(15);
     if (k === "frenzy") { frenzyT = 6; shakeAdd(3.5); flashAdd(0.3); ring(W / 2, H / 2, 30, Math.max(W, H) * 0.55, 0.5); }
     else if (k === "dotrain") { const n = 30 + S.galaxy * 8; for (let i = 0; i < n; i++) spawnDot(Math.random() < 0.3); shakeAdd(4); ring(W / 2, 70, 20, W * 0.55, 0.5); }
     else if (k === "blackhole") { blackholeT = 5; shakeAdd(5); flashAdd(0.25); ring(W / 2, H / 2, Math.max(W, H) * 0.55, 40, 0.6); }
@@ -992,7 +1005,7 @@
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
-      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4);
+      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]);
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours · ⚔ ×" + fmt(S.conquest)); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
@@ -1048,7 +1061,7 @@
     ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH);
     ctx.save();
     ctx.translate(SW / 2, SH / 2);                                  // center-locked world camera
-    if (shake > 0.2) ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
+    if (shake > 0.2 && opt("shake")) ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
     ctx.scale(camZoom, camZoom); ctx.translate(-W / 2, -H / 2);
     if (blackholeT > 0) { ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, TAU); ctx.fill(); }
     for (const b of beams) { const a = clamp(b.life / (b.w > 2 ? 0.13 : 0.08), 0, 1); ctx.strokeStyle = b.color; ctx.globalAlpha = a * 0.25; ctx.lineWidth = (b.w || 2) * 2.4; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.globalAlpha = a; ctx.lineWidth = b.w || 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
@@ -1212,7 +1225,7 @@
     if (trail.length) { ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 16; ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.beginPath(); for (let i = 0; i < trail.length; i++) { const tp = trail[i]; i ? ctx.lineTo(tp.x, tp.y) : ctx.moveTo(tp.x, tp.y); } ctx.stroke(); }
     drawParts();
     ctx.restore();
-    if (flash > 0) { ctx.fillStyle = "rgba(255,255,255," + Math.min(0.55, flash * 0.6) + ")"; ctx.fillRect(0, 0, SW, SH); }
+    if (flash > 0 && opt("flash")) { ctx.fillStyle = "rgba(255,255,255," + Math.min(0.55, flash * 0.6) + ")"; ctx.fillRect(0, 0, SW, SH); }
   }
 
   /* ----------------------------- HUD ----------------------------- */
@@ -2079,7 +2092,7 @@
       }
       this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (this._diveP != null) { const sh = this._diveP * this._diveP * 10; c.translate((Math.random() * 2 - 1) * sh, (Math.random() * 2 - 1) * sh); }   // build-up camera shake during the dive
+      if (this._diveP != null && opt("shake")) { const sh = this._diveP * this._diveP * 10; c.translate((Math.random() * 2 - 1) * sh, (Math.random() * 2 - 1) * sh); }   // build-up camera shake during the dive
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
       const warp = this._warp || 0;
       if (warp > 0.05) {   // hyperspace: stars stretch radially away from centre as you dive in
@@ -2199,7 +2212,7 @@
     if (!S.free) { S.cash -= cost; }
     let fromW = null, toW = null; try { const w = GMap.planetWorld(g), w2 = GMap.planetWorld(g + 1); fromW = { x: w.x, y: w.y, z: w.z }; toW = { x: w2.x, y: w2.y, z: w2.z }; } catch (e) {}   // freeze BOTH endpoints at launch — the trajectory line is fixed in space and never drifts as the planets orbit
     S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g), fromW, toW };
-    META.stats.travels++; flashAdd(0.35); shakeAdd(2); recompute(); syncHUD(); save();
+    META.stats.travels++; flashAdd(0.35); shakeAdd(2); vibe(60); recompute(); syncHUD(); save();
   }
   // jump to ANY reached planet (revisit & upgrade your background empire, or test)
   function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; snapshotActive(); flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); activatePlanet(g); save(); }
@@ -2372,11 +2385,46 @@
   $("auto-close").onclick = $("auto-back").onclick = () => $("auto-modal").classList.remove("show");
   $("auto-toggle").onclick = () => { const cfg = curAuto(); cfg.on = !cfg.on; autoAcc = 0; save(); renderAuto(); };   // (hidden in the all-planets overview; per-planet ⏻ toggles are used)
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
+  // ── SETTINGS menu (data-driven; opts persist in META.opts) ──
+  const OPT_DEFS = [
+    { k: "sound", t: "toggle", lbl: "🔊 Sound effects", sub: "warp & UI audio" },
+    { k: "haptics", t: "toggle", lbl: "📳 Vibration", sub: "haptic feedback (mobile)" },
+    { k: "shake", t: "toggle", lbl: "🫨 Screen shake" },
+    { k: "flash", t: "toggle", lbl: "⚡ Screen flashes", sub: "reduce for photosensitivity" },
+    { k: "fx", t: "seg", lbl: "✨ Particle effects", sub: "lower to boost FPS on older phones", opts: [["full", "Full"], ["low", "Low"], ["off", "Off"]] },
+    { k: "notation", t: "seg", lbl: "🔢 Number format", sub: "how huge numbers are shown", opts: [["short", "1.2M"], ["sci", "1.2e6"]] },
+  ];
+  function refreshNums() { try { syncHUD(); } catch (e) {} try { renderList(); } catch (e) {} }
+  function renderSettings() {
+    const box = $("set-list"); if (!box) return; box.innerHTML = "";
+    OPT_DEFS.forEach(d => {
+      const row = document.createElement("div"); row.className = "set-row";
+      const lab = document.createElement("div"); lab.className = "set-lbl";
+      lab.innerHTML = "<b>" + d.lbl + "</b>" + (d.sub ? "<span>" + d.sub + "</span>" : "");
+      const ctrl = document.createElement("div"); ctrl.className = "set-ctrl";
+      if (d.t === "toggle") {
+        const sw = document.createElement("button"); sw.className = "sw" + (opt(d.k) ? " on" : ""); sw.innerHTML = '<span class="knob"></span>';
+        sw.onclick = () => { META.opts[d.k] = !opt(d.k); save(); renderSettings(); vibe(10); };
+        ctrl.appendChild(sw);
+      } else {
+        const seg = document.createElement("div"); seg.className = "seg";
+        d.opts.forEach(([val, txt]) => { const b = document.createElement("button"); b.textContent = txt; if (opt(d.k) === val) b.className = "on";
+          b.onclick = () => { META.opts[d.k] = val; save(); renderSettings(); refreshNums(); vibe(10); }; seg.appendChild(b); });
+        ctrl.appendChild(seg);
+      }
+      row.appendChild(lab); row.appendChild(ctrl); box.appendChild(row);
+    });
+  }
+  function openSettings() { renderSettings(); $("settings").classList.add("show"); }
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");
   $("menu-resume").onclick = () => $("menu").classList.remove("show");
   $("menu-home").onclick = () => { save(); $("menu").classList.remove("show"); setScreen("home"); };   // back to the home screen (progress saved)
   $("menu-reset").onclick = () => { if (confirm("Erase ALL progress?")) wipeSave(); };
+  $("menu-settings").onclick = () => { $("menu").classList.remove("show"); openSettings(); };
+  $("home-settings").onclick = () => openSettings();
+  $("set-close").onclick = $("set-back").onclick = () => $("settings").classList.remove("show");
+  $("set-how").onclick = () => $("how").classList.add("show");
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
   $("home-play").onclick = () => { renderList(); setScreen("play"); };
   $("home-galaxies").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); };

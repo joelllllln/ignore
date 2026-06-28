@@ -307,6 +307,13 @@ the curve and the two invariants this guarantees.)
   defenders "keep firing" — on return you collect a capped share of your recent
   coins-per-second, shown on a Welcome-back screen.
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
+- **⚙ Settings** (from the home screen or the in-game ☰ menu) is a full mobile
+  options panel: toggle **sound**, **vibration/haptics**, **screen shake**, and
+  **screen flashes** (photosensitivity), pick **particle quality** (Full / Low /
+  Off — drop it to boost FPS on older phones), and choose **number format**
+  (short `1.2M` suffixes or **scientific** `1.2e6`). Numbers automatically switch
+  to scientific notation once they grow past the suffix table, so the HUD never
+  breaks at extreme scale. All settings persist with your save.
 - **Draw across the field** to blast dots yourself — and **tap (or drag over)
   loot** to bank it manually, instantly and at full value, without waiting for a
   collector.
