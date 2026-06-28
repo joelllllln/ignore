@@ -91,7 +91,7 @@ stronger tree** than the last (a gal-7 Railgun tree is ~140 nodes and *far*
 stronger per node than a gal-1 Turret — so mixing classes beats spamming one):
 
 - **Turret** (Helios) — all-rounder backbone, even vs everything · ✦Chain · smallest tree
-- **Mortar** (Helios) — lobs **arcing bombs** that detonate on impact for splash, **×2.2 vs swarms** · ✦Explosive (bombs) · deeper tree
+- **Mortar** (Helios) — **artillery**: lobs one heavy **arcing bomb every ~10s** with a wide, devastating blast · its tree is **bespoke** — no fire-rate wing, instead a **Blast Radius** wing alongside huge shell damage · **×2.2 vs swarms** · ✦Explosive (bombs)
 - **Plasma** (Cygnus) — **×2.4 vs armored/tanky** · ✦Chain · deep tree
 - **Laser** (Cygnus) — rapid, **×2.6 vs fast/weak swarms** · ✦Piercing Laser · deep tree
 - **Railgun** (Erebus) — **×4 vs armored** (weak vs swarms) · ✦Piercing Laser · huge tree

@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.8";
+  const VERSION = "v5.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -47,7 +47,7 @@
   // bonus to weak/small/fast dots. So mixing classes beats stacking one.
   const DEF_TYPES = {
     turret:  { name: "Turret",  base: 60,     gal: 1,  dmg: 5,   rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2,  dmg: 9,   rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, lob: 1, niche: "splash — lobs arcing bombs that detonate on clustered swarms" },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2,  dmg: 64,  rate: 0.1, range: 215, splash: 95, max: 4, vsBig: 1.1, vsSwarm: 2.2, lob: 1, niche: "artillery — one heavy bomb every ~10s, devastating splash over a wide blast" },
     plasma:  { name: "Plasma",  base: 4000,   gal: 5,  dmg: 26,  rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
     laser:   { name: "Laser",   base: 30000,  gal: 8,  dmg: 3,   rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
     railgun: { name: "Railgun", base: 250000, gal: 11, dmg: 90,  rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
@@ -86,6 +86,11 @@
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
   const DEF_PRIM = ["dmg", "rate", "range", "int"], COL_PRIM = ["speed", "suction", "collect", "capacity"];
+  // BESPOKE per-class primaries. Most defenders share dmg/rate/range/Mind, but the Mortar
+  // is a slow artillery piece — fire rate is fixed (a long reload), so its 2nd wing grows
+  // BLAST RADIUS instead. Its tree is therefore built for splash + damage, not rate.
+  const DEF_PRIM_BY = { mortar: ["dmg", "splash", "range", "int"] };
+  const dPrim = type => DEF_PRIM_BY[type] || DEF_PRIM;
   // Tree nodes add a FLAT bonus that STACKS ADDITIVELY — a stat's multiplier is
   // 1 + (sum of its nodes' bonuses). Bonuses do NOT compound off each other, so
   // deep trees scale LINEARLY (no exponential runaway), and because each new node
@@ -95,12 +100,8 @@
   // are flat distances; crit is flat chance.
   // Defender baseline (turret = tier 1). Later classes scale UP via DEF_SCALE, so a
   // gal-7 Railgun tree is FAR stronger per node than a gal-1 Turret — "scaled correctly."
-  const MAG_DEF = { mul: { min: 1.75, maj: 4.9, key: 12.6 }, rate: { min: 1.5, maj: 3.375, key: 8.25 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 } };   // DMG (mul) calmed ×0.7 (250→175% minor), FIRE RATE calmed ×0.75 (200→150% minor) at every tier — same shape, "a bit more than half", so spawn-rate/value aren't out-bottlenecked. range = flat px/node; int = "Mind" smarter targeting (additive toward fully-smart=1)
-  const DEF_SCALE = { turret: 1.0, mortar: 1.35, plasma: 1.8, laser: 2.4, railgun: 3.2, nova: 4.2 };
-  // Per-class FIRE-RATE damper (multiplies rate-node strength only). The Mortar is a slow,
-  // heavy lob weapon — its fire-rate tree should barely move it (so it never machine-guns
-  // bombs), while its damage/splash tree stays full strength. 1 = normal for everything else.
-  const RATE_SCALE = { mortar: 0.18 };
+  const MAG_DEF = { mul: { min: 1.75, maj: 4.9, key: 12.6 }, rate: { min: 1.5, maj: 3.375, key: 8.25 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 }, splash: { min: 0.22, maj: 0.55, key: 1.3 } };   // splash = +% blast RADIUS per node (mortar only), flat (not class-scaled) — area grows with the square so it's potent   // DMG (mul) calmed ×0.7 (250→175% minor), FIRE RATE calmed ×0.75 (200→150% minor) at every tier — same shape, "a bit more than half", so spawn-rate/value aren't out-bottlenecked. range = flat px/node; int = "Mind" smarter targeting (additive toward fully-smart=1)
+  const DEF_SCALE = { turret: 1.0, mortar: 1.6, plasma: 1.8, laser: 2.4, railgun: 3.2, nova: 4.2 };   // mortar bumped — with no fire-rate wing, its damage wing carries DPS, so per-node damage is beefier
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
@@ -118,15 +119,16 @@
     }
     const sc = DEF_SCALE[type] || 1;
     if (s.p === "x") return MAG_DEF.crit[s.mag];                        // crit = flat chance, not tier-scaled
-    const key = DEF_PRIM[s.p - 1];
+    const key = dPrim(type)[s.p - 1];
     if (key === "range") return MAG_DEF.range[s.mag];                   // range = flat distance, not scaled
     if (key === "int") return MAG_DEF.int[s.mag];                       // intelligence = flat smartness, not scaled
-    return (key === "rate" ? MAG_DEF.rate[s.mag] * (RATE_SCALE[type] || 1) : MAG_DEF.mul[s.mag]) * sc;   // dmg/rate bonuses scale by class tier (mortar's rate damped — it's a slow lob)
+    if (key === "splash") return MAG_DEF.splash[s.mag];                 // blast radius = flat % bonus, not class-scaled (mortar)
+    return (key === "rate" ? MAG_DEF.rate[s.mag] : MAG_DEF.mul[s.mag]) * sc;   // dmg/rate bonuses scale by class tier
   }
   function classStats(type) {
-    const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0,
-      n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };   // n = allocated-node count per branch, drives the per-upgrade visual marks
+    const col = isCol(type), prim = col ? COL_PRIM : dPrim(type);
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0,
+      n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };   // n = allocated-node count per branch, drives the per-upgrade visual marks
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
       if (n.kind === "key") { o.multi++; if (n.spec) o[n.spec]++; }   // keystone = +1 multishot AND a ✦ specialization
@@ -136,7 +138,7 @@
     o.multi = Math.min(o.multi, 6);
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0, n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0, n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };
   const uMulti = u => cls(u.type).multi || 0;
   const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
@@ -145,7 +147,7 @@
   const uRange = u => DEF_TYPES[u.type].range + cls(u.type).range;
   const uCrit = u => Math.min(0.85, cls(u.type).crit);
   const uCritMul = u => 2.2;
-  const uSplash = u => DEF_TYPES[u.type].splash ? DEF_TYPES[u.type].splash + cls(u.type).range * 0.4 : 0;
+  const uSplash = u => DEF_TYPES[u.type].splash ? (DEF_TYPES[u.type].splash + cls(u.type).range * 0.4) * (cls(u.type).splash || 1) : 0;   // blast radius grows with the dedicated splash wing (mortar)
   // ✦ keystone SPECIALIZATIONS (BTD-style transformations) — counts of allocated keystones of each kind
   const uExplode = u => cls(u.type).explosive || 0;   // shots detonate (splash) — "bomb tower"
   const uChain   = u => cls(u.type).chain || 0;        // shots arc to nearby dots — "chain lightning"
@@ -172,7 +174,7 @@
   // every node — even the small passives — pulls a distinct name from its pool.
   const SKILLS = {
     turret:  { a: ["Reinforced Rounds", "Tungsten Core", "Armor Piercing", "Hollow Points", "Overcharge", "Heavy Slugs", "Devastator"], b: ["Quick Hands", "Belt Feed", "Rapid Servos", "Hair Trigger", "Double Tap", "Cyclic Bolt", "Gatling Drive"], c: ["Scope", "Range Finder", "Laser Sight", "Tracking AI", "Eagle Eye", "Long Barrel", "Hawkeye"], d: ["Targeting Chip", "Threat Sense", "Kill Tracker", "Fire Discipline", "Combat Logic", "Squad Link", "Tactical Core"], x: ["Critical Core", "Deadeye", "Killshot"] },
-    mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Cluster Munitions", "Carpet Bomb", "Heavy Ordnance", "Doomshell"], b: ["Fast Fuse", "Auto-Loader", "Twin Tubes", "Rapid Mortar", "Barrage", "Quick Crew", "Drumfire"], c: ["Wider Blast", "Shrapnel", "Spotter", "Precision Strike", "Saturation", "Wide Arc", "Bullseye"], d: ["Fire Plan", "Spotter Net", "Impact Sense", "Salvo Logic", "Forward Observer", "Battery Link", "Strike Command"], x: ["Shell Shock", "Pinpoint", "Devastation"] },
+    mortar:  { a: ["Bigger Shells", "Dense Payload", "Thermobaric", "Heavy Ordnance", "Tungsten Casing", "Bunker Buster", "Doomshell"], b: ["Wider Blast", "Shrapnel Load", "Airburst", "Saturation", "Cluster Munitions", "Wide Arc", "Fuel-Air Bomb"], c: ["Spotter", "Long Tube", "Range Tables", "High Angle", "Forward Spotter", "Extended Charge", "Bullseye"], d: ["Fire Plan", "Spotter Net", "Impact Sense", "Salvo Logic", "Forward Observer", "Battery Link", "Strike Command"], x: ["Shell Shock", "Pinpoint", "Devastation"] },
     plasma:  { a: ["Ion Charge", "Superheated", "Fusion Core", "Antimatter", "Singularity Bolt", "Plasma Surge", "Star Core"], b: ["Capacitor", "Coolant Loop", "Overclock", "Rapid Cycle", "Continuous Beam", "Supercooled", "Flux Drive"], c: ["Focusing Lens", "Long Barrel", "Crit Matrix", "Targeting Array", "Lancer", "Beam Optics", "Far Sight"], d: ["Logic Core", "Heuristics", "Threat Model", "Predict Engine", "Sentience", "Neural Mesh", "Mind Lattice"], x: ["Crit Core", "Overcharge Cell", "Meltdown"] },
     laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray", "Hot Lens", "Sunfire"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream", "Fast Cycle", "Lightstorm"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split", "Wide Mirror", "True Aim"], d: ["Tracking AI", "Scan Logic", "Priority Lock", "Predictive Aim", "Swarm Sense", "Hunter Net", "Omniscience"], x: ["Crit Focus", "Focal Point", "Vaporize"] },
     railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator", "Tungsten Rod", "Worldbreaker"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo", "Fast Coil", "Volley"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm", "Extended Rail", "Dead Centre"], d: ["Fire Solution", "Ballistic AI", "Target Lock", "Lead Computer", "Kill Predictor", "War Mind", "Oracle Core"], x: ["Crit Lock", "Penetrator", "One Shot"] },
@@ -1310,17 +1312,17 @@
     _trees[type] = { nodes, edges: eds, map, adj };
     return _trees[type];
   }
-  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", int: "mind", speed: "spd", suction: "pull", collect: "reach", capacity: "capacity", ingest: "process" };
+  const STAT_LBL = { dmg: "dmg", rate: "rate", range: "rng", crit: "crit", int: "mind", splash: "blast", speed: "spd", suction: "pull", collect: "reach", capacity: "capacity", ingest: "process" };
   function slotText(type, s) {
     const col = isCol(type), amt = slotAmt(type, s);
     if (s.p === "x") return "+" + Math.round(amt * 100) + "% " + (col ? "process" : "crit");
-    const key = (col ? COL_PRIM : DEF_PRIM)[s.p - 1];
+    const key = (col ? COL_PRIM : dPrim(type))[s.p - 1];
     return key === "range" || key === "collect" ? "+" + amt + " " + STAT_LBL[key] : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => { let s = (n.slots || []).map(sl => slotText(type, sl)).join(" · "); if (n.spec) s += (s ? " · " : "") + "✦ " + SPEC_NAME[n.spec]; return s; };
   // Plain-language glossary for every stat a tree node can grant — surfaced by an
   // ⓘ button in the node panel so you always know what a boost actually does.
-  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", int: "Mind", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", capacity: "Capacity", ingest: "Process", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
+  const STAT_TITLE = { dmg: "Damage", rate: "Fire Rate", range: "Range", crit: "Crit", int: "Mind", splash: "Blast Radius", multi: "Multishot", speed: "Speed", suction: "Pull", collect: "Reach", capacity: "Capacity", ingest: "Process", explosive: "✦ Explosive Rounds", chain: "✦ Chain Lightning", pierce: "✦ Piercing Laser" };
   const STAT_INFO = {
     explosive: "✦ SPECIALIZATION — every shot DETONATES, dealing its full damage to all dots in a blast radius (turns the unit into a bomb tower). Each Explosive keystone makes the blast bigger.",
     chain: "✦ SPECIALIZATION — every shot ARCS like lightning from the dot it hits to nearby dots, jumping one extra time per keystone (damage fades a little each jump). Shreds clusters.",
@@ -1330,6 +1332,7 @@
     range: "Targeting range (flat bonus). Wider range keeps more dots in reach, so units idle less.",
     crit: "Crit chance. A critical shot deals ~2.2× damage and pops a little extra.",
     int: "Mind — combat intelligence & coordination. A smart unit reads the field: it won't waste a bolt on a dot another shot is already guaranteed to kill (overkill avoidance), it coordinates with the rest of your rack so two units don't both fire on the same doomed dot, and it triages — putting shots on the highest-value targets it can finish. Higher Mind = fewer wasted shots = more effective DPS and income.",
+    splash: "Blast Radius — how wide the Mortar's bomb detonates. Every dot inside the blast takes the FULL shell damage, so a wider blast means one lobbed bomb wipes a whole cluster at once. Area grows with the square of the radius, so each node hits dramatically more dots — the Mortar's core lever alongside raw shell damage (it fires only once every several seconds, so each bomb must count).",
     multi: "Multishot. Each keystone lets EVERY unit of this class fire at one extra dot at the same time.",
     speed: "Movement speed — how fast this collector chases orbs. Capped so it stays agile instead of flying straight past loot.",
     suction: "Pull radius — how far it drags orbs in toward itself. Capped below the field, so it must keep roaming; it never becomes a stationary field-wide magnet.",
@@ -1339,20 +1342,20 @@
   };
   function nodeStats(type, n) {
     const col = isCol(type), keys = [];
-    for (const s of (n.slots || [])) { const k = s.p === "x" ? (col ? "ingest" : "crit") : (col ? COL_PRIM : DEF_PRIM)[s.p - 1]; if (!keys.includes(k)) keys.push(k); }
+    for (const s of (n.slots || [])) { const k = s.p === "x" ? (col ? "ingest" : "crit") : (col ? COL_PRIM : dPrim(type))[s.p - 1]; if (!keys.includes(k)) keys.push(k); }
     if (n.kind === "key" && !col && !keys.includes("multi")) keys.push("multi");
     if (n.spec) keys.push(n.spec);
     return keys;
   }
   // a small glyph showing WHAT a node upgrades (damage / rate / range / crit /
   // speed / suction / yield / ingest), plus class & keystone markers.
-  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", int: "◈", speed: "➤", suction: "◉", yield: "❖", collect: "▣", capacity: "▦", ingest: "⊛" };
+  const STAT_ICON = { dmg: "✸", rate: "»", range: "◎", crit: "✶", int: "◈", splash: "✺", speed: "➤", suction: "◉", yield: "❖", collect: "▣", capacity: "▦", ingest: "⊛" };
   function nodeIcon(type, n) {
     if (n.kind === "start") return "★";
     if (n.kind === "key") return "✦";
     const s = n.slots[0];
     if (s.p === "x") return isCol(type) ? STAT_ICON.ingest : STAT_ICON.crit;
-    return STAT_ICON[(isCol(type) ? COL_PRIM : DEF_PRIM)[s.p - 1]] || "•";
+    return STAT_ICON[(isCol(type) ? COL_PRIM : dPrim(type))[s.p - 1]] || "•";
   }
   function nodeLabel(type, n) {
     if (n.kind === "start") return TY(type).name;
