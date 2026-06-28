@@ -257,17 +257,20 @@ multiplier**. Think of it as your RPG level. The loop:
   active grind; lategame the empire can largely **idle you to the next conquest**,
   so you never hand-manage all 18.
 - **⚙ Auto-Buy** turns idle income into real build progress (otherwise it just caps
-  at your cash ceiling). It's a **sequential build order** you program, steeply taxed
-  so it never out-classes hands-on play. Each **step** is one of: an Economy upgrade
+  at your cash ceiling). It's a **sequential build order** you program **per planet**
+  (each world is a fresh rebuild, so each has its own queue), steeply taxed so it
+  never out-classes hands-on play. **Tap any planet on the star map → ⚙ Auto-Buy** to
+  program it; a planet gets **one slot per its number** (planet 1 → 1 step, planet 2 →
+  2, …). Each **step** is one of: an Economy upgrade
   or Unit bought **N times** (a count), or a **skill tree** step where you **hand-pick
   the exact nodes** you want on one class (open it, **EDIT ⚙**, tap nodes — picking a
   deep node auto-marks its path so it's reachable; the whole selection is **one slot**).
-  The queue runs **strictly in order** — step 1 finishes before step 2 starts.
-  You unlock **one slot per planet you reach** (planet 1 → 1 step, planet 2 → 2 steps,
-  …), so deeper progress lets you program longer build orders. Every auto-buy costs
-  **+50% over manual**. Runs live **and simulates while you're away** (you come back to
-  a built-up planet) and gets faster the more planets you hold. Open it from the
-  **⚙ AUTO** button in the dock **or the star map**.
+  The queue runs **strictly in order** — step 1 finishes before step 2 starts — and
+  deeper planets give more slots, so they support longer build orders. Every auto-buy
+  costs **+50% over manual**. Runs live **and simulates while you're away** (you come
+  back to a built-up planet) and gets faster the more planets you hold. Open the
+  **active** planet's queue from the **⚙ AUTO** button in the dock or star-map bar, or
+  any planet's from its **star-map info → ⚙ Auto-Buy**.
 
 The Conquest multiplier boosts **all** your income forever, but it is **not
 spendable cash** — you still land on each new world at ~zero and have to play, so

@@ -122,6 +122,8 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .auto-add{background:var(--panel);border:1px dashed var(--edge);color:var(--text);border-radius:10px;padding:10px;font-size:13px;font-weight:800}
 .auto-locked{color:var(--dim);font-size:11px;text-align:center;padding:4px}
 .auto-hint{font-size:11px;margin-top:6px;line-height:1.4}
+.auto-planet{font-size:12px;font-weight:700;color:#8cf;letter-spacing:0}
+.gi-auto{background:var(--panel);border:1px solid #8cf;color:#cfe;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800;margin-left:6px}
 #auto-toggle.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
 #st-auto.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
 .st-tip.pick{color:#8cf;font-weight:800}

@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.6";
+  const VERSION = "v6.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -449,6 +449,7 @@
   }
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
   let autoAcc = 0;   // fractional auto-buy budget carried between frames
+  let autoViewG = 0;   // which planet the Auto-Buy panel is currently editing (0 = the active planet)
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", listRows = {}, tabBtns = {};
   const BUY_AMTS = [1, 10, 100, "max"];               // bulk-buy multipliers (test mode) — cycled by the BUY ×N button
@@ -1266,17 +1267,22 @@
   const ECO_KEYS = ["value", "spawnRate", "capacity", "luck"];
   const ECO_LABEL = { value: "Value", spawnRate: "Spawn Rate", capacity: "Capacity", luck: "Luck" };
   const isTreeStep = s => s && typeof s.target === "string" && s.target.slice(0, 5) === "tree:";
-  const defaultAuto = () => ({ on: false, v: 4, queue: [] });   // queue: ordered steps — eco/unit { target, count }, tree { target:"tree:<cls>", nodes:{id:true} }
+  const defaultAuto = () => ({ v: 5, planets: {} });   // PER-PLANET configs: planets[g] = { on, queue:[step] }. Each planet is a fresh build, so it has its own build order.
   function ensureAuto() {
-    if (!S.auto || typeof S.auto !== "object") S.auto = defaultAuto();
-    if (!Array.isArray(S.auto.queue)) S.auto.queue = [];
-    S.auto.queue = S.auto.queue.filter(s => s && s.target).map(s =>          // normalise every step to the current shape
+    if (!S.auto || typeof S.auto !== "object" || S.auto.v !== 5) S.auto = defaultAuto();   // (re)build to the per-planet model
+    if (!S.auto.planets || typeof S.auto.planets !== "object") S.auto.planets = {};
+  }
+  function autoCfg(g) {   // the auto-buy config for a planet (created + normalised on demand)
+    ensureAuto(); const k = g || S.galaxy; const p = S.auto.planets[k] || (S.auto.planets[k] = { on: false, queue: [] });
+    if (!Array.isArray(p.queue)) p.queue = [];
+    p.queue = p.queue.filter(s => s && s.target).map(s =>
       isTreeStep(s) ? { target: s.target, nodes: (s.nodes && typeof s.nodes === "object") ? s.nodes : {} }
                     : { target: s.target, count: Math.max(0, s.count | 0) });
-    S.auto.v = 4;
+    return p;
   }
+  const curAuto = () => autoCfg(S.galaxy);   // the config that actually RUNS (your active planet)
   const autoUnlocked = () => true;                                       // available from planet 1 (with a single slot)
-  const autoSlots = () => Math.max(1, Math.min(S.peakGalaxy || 1, TOTAL_PLANETS));   // one sequential slot per planet reached
+  const autoSlots = g => Math.max(1, Math.min(g || S.galaxy, TOTAL_PLANETS));   // a planet gets one sequential slot per its number (planet 1 → 1, planet 2 → 2, …)
   const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());         // purchases/sec — empire snowball makes it faster
   const autoTax = c => Math.ceil(c * AUTO_TAX);
   const treeNodesPending = s => { if (!isTreeStep(s)) return 0; const t = s.target.slice(5), sel = s.nodes || {}; let n = 0; for (const id in sel) if (sel[id] && !nodeAllocated(t, id)) n++; return n; };
@@ -1298,10 +1304,10 @@
     const nx = autoTargetNext(s.target); if (!nx) return null;
     return { cost: nx.cost, buy() { nx.buy(); s.count = Math.max(0, (s.count || 0) - 1); } };
   }
-  // first runnable step: earlier steps must finish before later ones run
+  // first runnable step of the ACTIVE planet: earlier steps must finish before later ones run
   function autoActive() {
-    const slots = autoSlots();
-    for (let i = 0; i < S.auto.queue.length && i < slots; i++) { const nx = stepNext(S.auto.queue[i]); if (nx) return { step: S.auto.queue[i], next: nx }; }
+    const q = curAuto().queue, slots = autoSlots(S.galaxy);
+    for (let i = 0; i < q.length && i < slots; i++) { const nx = stepNext(q[i]); if (nx) return { step: q[i], next: nx }; }
     return null;
   }
   // one purchase pass: advance the active step (sequential — wait, don't skip, if it's unaffordable)
@@ -1318,7 +1324,7 @@
   }
   // LIVE tick: spend accumulated cash this frame (rate-limited, scaling with conquests)
   function autoBuyTick(dt) {
-    if (!S.auto || !S.auto.on || !autoUnlocked()) return;
+    if (!curAuto().on || !autoUnlocked()) return;
     autoAcc = Math.min(autoAcc + autoRate() * dt, 120);
     if (autoAcc < 1) return;
     const b = { cash: S.free ? Infinity : S.cash }; let tries = Math.floor(autoAcc);
@@ -1328,18 +1334,18 @@
   }
   // OFFLINE: drain a banked budget into purchases (bounded). returns { bought, leftover }
   function autoBuyOffline(pool) {
-    if (!S.auto || !S.auto.on || !autoUnlocked()) return { bought: 0, leftover: pool };
+    if (!curAuto().on || !autoUnlocked()) return { bought: 0, leftover: pool };
     const b = { cash: pool }; let n = 0;
     while (n < 50000 && autoBuyOnce(b)) n++;
     return { bought: n, leftover: b.cash };
   }
-  function syncAutoBtn() { const on = !!(S.auto && S.auto.on && autoUnlocked()); ["btn-auto", "gm-auto"].forEach(id => { const b = $(id); if (b) b.classList.toggle("on", on); }); }
-  // the choices for a queue step's target — every Economy upgrade, every unlocked Unit, every fielded class's tree
-  function autoTargetOptions() {
-    const o = [];
+  function syncAutoBtn() { const on = !!(curAuto().on && autoUnlocked()); ["btn-auto", "gm-auto"].forEach(id => { const b = $(id); if (b) b.classList.toggle("on", on); }); }
+  // the choices for a step's target on planet g — every Economy upgrade, plus every Unit/Tree unlocked by planet g
+  function autoTargetOptions(g) {
+    const gg = g || S.galaxy, o = [];
     for (const id of ECO_KEYS) o.push({ value: id, label: ECO_LABEL[id], group: "Economy" });
-    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || S.galaxy >= TY(t).gal) o.push({ value: t, label: TY(t).name, group: "Units" });
-    for (const t of [...new Set([...S.units, ...S.collectors].map(u => u.type))]) o.push({ value: "tree:" + t, label: TY(t).name + " tree", group: "Trees" });
+    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || gg >= TY(t).gal) o.push({ value: t, label: TY(t).name, group: "Units" });
+    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || gg >= TY(t).gal) o.push({ value: "tree:" + t, label: TY(t).name + " tree", group: "Trees" });
     return o;
   }
   // when the dropdown target changes, switch the step between count-shape and tree-shape
@@ -1348,7 +1354,7 @@
     if (isTreeStep(s)) { delete s.count; if (!s.nodes) s.nodes = {}; }
     else { delete s.nodes; if (s.count == null) s.count = 10; }
   }
-  function autoStepRow(s, i, opts, active) {
+  function autoStepRow(s, i, opts, active, q) {
     const tree = isTreeStep(s);
     let optHtml = "";
     for (const g of ["Economy", "Units", "Trees"]) { const items = opts.filter(o => o.group === g); if (!items.length) continue; optHtml += '<optgroup label="' + g + '">'; for (const o of items) optHtml += '<option value="' + o.value + '"' + (o.value === s.target ? " selected" : "") + '>' + o.label + '</option>'; optHtml += '</optgroup>'; }
@@ -1368,7 +1374,7 @@
       + '<div class="ar-main"><select class="ar-sel">' + optHtml + '</select><div class="ar-next">' + (active ? "▶ " : "") + sub + '</div></div>'
       + ctrl + '<button class="ar-x">✕</button>';
     row.querySelector(".ar-sel").onchange = e => { autoRetarget(s, e.target.value); save(); renderAuto(); };
-    row.querySelector(".ar-x").onclick = () => { S.auto.queue.splice(i, 1); save(); renderAuto(); };
+    row.querySelector(".ar-x").onclick = () => { q.splice(i, 1); save(); renderAuto(); };
     if (tree) { row.querySelector(".as-edit").onclick = () => { $("auto-modal").classList.remove("show"); openSkillTree(s.target.slice(5)); STree.pick = true; STree.pickStep = s; }; }
     else {
       row.querySelector(".as-m").onclick = () => { s.count = Math.max(0, (s.count || 0) - 1); save(); renderAuto(); };
@@ -1378,18 +1384,19 @@
     }
     return row;
   }
+  function openAuto(g) { autoViewG = g || S.galaxy; ensureAuto(); renderAuto(); $("auto-modal").classList.add("show"); }
   function renderAuto() {
     ensureAuto();
     const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"); if (!tog) return;
-    const slots = autoSlots(), q = S.auto.queue;
-    tog.textContent = "AUTO-BUY: " + (S.auto.on ? "ON" : "OFF"); tog.classList.toggle("on", !!S.auto.on); tog.disabled = false;
-    lock.textContent = "Runs each step IN ORDER · " + Math.min(q.length, slots) + "/" + slots + " slots used"
-      + (slots < TOTAL_PLANETS ? " · slot " + (slots + 1) + " unlocks on planet " + (slots + 1) : " · all slots unlocked") + " · +50% tax.";
+    const g = autoViewG || S.galaxy, cfg = autoCfg(g), q = cfg.queue, slots = autoSlots(g), live = g === S.galaxy;
+    const ph = $("auto-planet"); if (ph) ph.textContent = "· Planet " + g + " " + galName(g) + (live ? " (active)" : "");
+    tog.textContent = "AUTO-BUY: " + (cfg.on ? "ON" : "OFF") + (live ? "" : " — Planet " + g); tog.classList.toggle("on", !!cfg.on); tog.disabled = false;
+    lock.textContent = (live ? "" : "Editing this planet (you're on planet " + S.galaxy + "). ") + "Runs each step IN ORDER · "
+      + Math.min(q.length, slots) + "/" + slots + " slot" + (slots > 1 ? "s" : "") + " (one per planet reached) · +50% tax.";
     list.innerHTML = "";
-    const opts = autoTargetOptions(), act = autoActive();
-    q.slice(0, slots).forEach((s, i) => list.appendChild(autoStepRow(s, i, opts, act && act.step === s)));
+    const opts = autoTargetOptions(g), act = live ? autoActive() : null;
+    q.slice(0, slots).forEach((s, i) => list.appendChild(autoStepRow(s, i, opts, act && act.step === s, q)));
     if (q.length < slots) { const add = document.createElement("button"); add.className = "auto-add"; add.textContent = "＋ Add step  (" + (q.length + 1) + "/" + slots + ")"; add.onclick = () => { q.push({ target: opts[0] ? opts[0].value : "value", count: 10 }); save(); renderAuto(); }; list.appendChild(add); }
-    if (slots < TOTAL_PLANETS) { const lk = document.createElement("div"); lk.className = "auto-locked"; lk.textContent = "🔒 Slot " + (slots + 1) + " unlocks on planet " + (slots + 1); list.appendChild(lk); }
     syncAutoBtn();
   }
 
@@ -1696,8 +1703,9 @@
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
       stats +
       "<div class='gi-unlock'>☣ Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
-      (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "</div>";
+      (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "<button id='gi-auto' class='gi-auto'>⚙ Auto-Buy</button></div>";
     $("gm-info").classList.add("show");
+    const ab = $("gi-auto"); if (ab) ab.onclick = () => { $("gm-info").classList.remove("show"); openAuto(g); };   // configure THIS planet's auto-buy build order
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
     const j = $("gi-jump"); if (j) j.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { jumpTo(g); $("galaxy-map").classList.remove("show"); GMap.hide(); }); };
     const vc = $("gi-visit"); if (vc) vc.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { $("galaxy-map").classList.remove("show"); GMap.hide(); }); };   // already here → just dive to the base
@@ -2285,9 +2293,9 @@
   if ($("gm-exchange")) $("gm-exchange").onclick = openFx;
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
-  $("btn-auto").onclick = $("gm-auto").onclick = () => { renderAuto(); $("auto-modal").classList.add("show"); };
+  $("btn-auto").onclick = $("gm-auto").onclick = () => openAuto(S.galaxy);   // dock / map-bar → the planet you're ON
   $("auto-close").onclick = $("auto-back").onclick = () => $("auto-modal").classList.remove("show");
-  $("auto-toggle").onclick = () => { if (!autoUnlocked()) return; ensureAuto(); S.auto.on = !S.auto.on; autoAcc = 0; save(); renderAuto(); };
+  $("auto-toggle").onclick = () => { const cfg = autoCfg(autoViewG || S.galaxy); cfg.on = !cfg.on; autoAcc = 0; save(); renderAuto(); };
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");

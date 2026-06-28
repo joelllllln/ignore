@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v6.6</div>
+  <div id="version" class="layer">v6.7</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -115,8 +115,8 @@
   <!-- AUTO-BUY (idle automation) -->
   <div id="auto-modal" class="modal">
     <div class="card">
-      <div class="card-head"><h2>⚙ Auto-Buy</h2><button class="x" id="auto-close">✕</button></div>
-      <p class="muted" id="auto-sub">A <b>sequential build order</b> — each step buys one thing N times, then the next runs. You unlock <b>one slot per planet</b> you reach. Auto-buys cost <b>+50%</b> over manual.</p>
+      <div class="card-head"><h2>⚙ Auto-Buy <span id="auto-planet" class="auto-planet"></span></h2><button class="x" id="auto-close">✕</button></div>
+      <p class="muted" id="auto-sub"><b>Each planet has its own build order.</b> Each step buys one thing N times, then the next runs — sequential. A planet gets <b>one slot per its number</b> (planet 1 → 1 step, planet 2 → 2…). Pick any planet on the star map to program it. +50% tax.</p>
       <button class="big" id="auto-toggle">AUTO-BUY: OFF</button>
       <div id="auto-lock" class="auto-lock"></div>
       <div id="auto-list" class="auto-list"></div>
