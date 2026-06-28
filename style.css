@@ -117,11 +117,14 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .auto-row .ar-step{display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .auto-row .ar-step button{background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:7px;min-width:28px;height:28px;font-size:14px;font-weight:800;line-height:1;padding:0 5px}
 .auto-row .ar-step .as-q{min-width:22px;text-align:center;font-size:13px;font-family:var(--mono)}
+.auto-row .as-edit{background:var(--panel);border:1px solid #8cf;color:#cfe;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:800;flex:0 0 auto}
 .auto-row .ar-x{background:none;border:none;color:var(--dim);font-size:15px;flex:0 0 auto;padding:0 2px}
 .auto-add{background:var(--panel);border:1px dashed var(--edge);color:var(--text);border-radius:10px;padding:10px;font-size:13px;font-weight:800}
 .auto-locked{color:var(--dim);font-size:11px;text-align:center;padding:4px}
 .auto-hint{font-size:11px;margin-top:6px;line-height:1.4}
 #auto-toggle.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
+#st-auto.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
+.st-tip.pick{color:#8cf;font-weight:800}
 .act.rebirth{background:rgba(255,255,255,.1);animation:pulse 1.6s infinite}
 
 /* ability cooldown seconds */

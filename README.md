@@ -258,9 +258,11 @@ multiplier**. Think of it as your RPG level. The loop:
   so you never hand-manage all 18.
 - **⚙ Auto-Buy** turns idle income into real build progress (otherwise it just caps
   at your cash ceiling). It's a **sequential build order** you program, steeply taxed
-  so it never out-classes hands-on play: each **step** is "buy one thing N times"
-  (an Economy upgrade, a Unit, or a class's skill **tree** — buys N cheapest nodes),
-  and the queue runs **strictly in order** — step 1 finishes before step 2 starts.
+  so it never out-classes hands-on play. Each **step** is one of: an Economy upgrade
+  or Unit bought **N times** (a count), or a **skill tree** step where you **hand-pick
+  the exact nodes** you want on one class (open it, **EDIT ⚙**, tap nodes — picking a
+  deep node auto-marks its path so it's reachable; the whole selection is **one slot**).
+  The queue runs **strictly in order** — step 1 finishes before step 2 starts.
   You unlock **one slot per planet you reach** (planet 1 → 1 step, planet 2 → 2 steps,
   …), so deeper progress lets you program longer build orders. Every auto-buy costs
   **+50% over manual**. Runs live **and simulates while you're away** (you come back to

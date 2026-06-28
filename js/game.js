@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.5";
+  const VERSION = "v6.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1265,37 +1265,56 @@
   const AUTO_TAX = 1.5;     // auto-bought upgrades cost +50% over manual — a steep convenience tax
   const ECO_KEYS = ["value", "spawnRate", "capacity", "luck"];
   const ECO_LABEL = { value: "Value", spawnRate: "Spawn Rate", capacity: "Capacity", luck: "Luck" };
-  const defaultAuto = () => ({ on: false, v: 3, queue: [] });   // queue: ordered [{ target, count }] — run sequentially
+  const isTreeStep = s => s && typeof s.target === "string" && s.target.slice(0, 5) === "tree:";
+  const defaultAuto = () => ({ on: false, v: 4, queue: [] });   // queue: ordered steps — eco/unit { target, count }, tree { target:"tree:<cls>", nodes:{id:true} }
   function ensureAuto() {
-    if (!S.auto || typeof S.auto !== "object" || S.auto.v !== 3) S.auto = { on: !!(S.auto && S.auto.on), v: 3, queue: [] };   // (re)build to the sequential-queue model
+    if (!S.auto || typeof S.auto !== "object") S.auto = defaultAuto();
     if (!Array.isArray(S.auto.queue)) S.auto.queue = [];
+    S.auto.queue = S.auto.queue.filter(s => s && s.target).map(s =>          // normalise every step to the current shape
+      isTreeStep(s) ? { target: s.target, nodes: (s.nodes && typeof s.nodes === "object") ? s.nodes : {} }
+                    : { target: s.target, count: Math.max(0, s.count | 0) });
+    S.auto.v = 4;
   }
   const autoUnlocked = () => true;                                       // available from planet 1 (with a single slot)
   const autoSlots = () => Math.max(1, Math.min(S.peakGalaxy || 1, TOTAL_PLANETS));   // one sequential slot per planet reached
   const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());         // purchases/sec — empire snowball makes it faster
   const autoTax = c => Math.ceil(c * AUTO_TAX);
-  // the next purchase for a queue target ("value"/"spawnRate"/…, a unit type, or "tree:<class>"): { cost (taxed), buy() } or null
+  const treeNodesPending = s => { if (!isTreeStep(s)) return 0; const t = s.target.slice(5), sel = s.nodes || {}; let n = 0; for (const id in sel) if (sel[id] && !nodeAllocated(t, id)) n++; return n; };
+  // next eco/unit purchase: { cost (taxed), buy() } or null
   function autoTargetNext(target) {
-    if (!target) return null;
-    if (target.slice(0, 5) === "tree:") {
-      const t = target.slice(5), G = buildTree(t); let best = null;
-      for (const n of G.nodes) { if (n.kind === "start" || nodeAllocated(t, n.id) || !nodeAllocatable(t, n)) continue; const c = nodeCost(t, n); if (!best || c < best.cost) best = { cost: c, id: n.id }; if (n.kind === "minor") break; }
-      return best ? { cost: autoTax(best.cost), buy() { (S.classNodes[t] || (S.classNodes[t] = {}))[best.id] = true; } } : null;
-    }
     if (ECO_KEYS.includes(target)) { const u = UP[target]; if (u.max != null && (S.lv[target] || 0) >= u.max) return null; return { cost: autoTax(upCost(u)), buy() { S.lv[target] = (S.lv[target] || 0) + 1; } }; }
-    const t = target; if (!TY(t)) return null; if (!S.free && S.galaxy < TY(t).gal) return null; if (countType(t) >= TY(t).max) return null;   // unit
+    const t = target; if (!TY(t)) return null; if (!S.free && S.galaxy < TY(t).gal) return null; if (countType(t) >= TY(t).max) return null;
     return { cost: autoTax(unitBuyCost(t)), buy() { classList(t).push(isCol(t) ? { type: t } : newUnit(t)); if (isCol(t)) syncCollectors(); } };
   }
-  // first runnable step: earlier steps (with buyable targets) must finish before later ones run
+  // a step's next purchase: tree → cheapest still-allocatable PICKED node; eco/unit → next buy while count remains. null = step done/blocked.
+  function stepNext(s) {
+    if (!s || !s.target) return null;
+    if (isTreeStep(s)) {
+      const t = s.target.slice(5), sel = s.nodes || {}, G = buildTree(t); let best = null;
+      for (const id in sel) { if (!sel[id] || nodeAllocated(t, id)) continue; const n = G.map[id]; if (!n || !nodeAllocatable(t, n)) continue; const c = nodeCost(t, n); if (!best || c < best.cost) best = { cost: c, id }; }
+      return best ? { cost: autoTax(best.cost), buy() { (S.classNodes[t] || (S.classNodes[t] = {}))[best.id] = true; } } : null;
+    }
+    if ((s.count || 0) <= 0) return null;
+    const nx = autoTargetNext(s.target); if (!nx) return null;
+    return { cost: nx.cost, buy() { nx.buy(); s.count = Math.max(0, (s.count || 0) - 1); } };
+  }
+  // first runnable step: earlier steps must finish before later ones run
   function autoActive() {
     const slots = autoSlots();
-    for (let i = 0; i < S.auto.queue.length && i < slots; i++) { const s = S.auto.queue[i]; if (!s || !s.target || (s.count || 0) <= 0) continue; const nx = autoTargetNext(s.target); if (!nx) continue; return { step: s, next: nx }; }
+    for (let i = 0; i < S.auto.queue.length && i < slots; i++) { const nx = stepNext(S.auto.queue[i]); if (nx) return { step: S.auto.queue[i], next: nx }; }
     return null;
   }
   // one purchase pass: advance the active step (sequential — wait, don't skip, if it's unaffordable)
   function autoBuyOnce(b) {
     const a = autoActive(); if (!a || a.next.cost > b.cash) return false;
-    a.next.buy(); if (!S.free) b.cash -= a.next.cost; a.step.count = Math.max(0, (a.step.count || 0) - 1); b.n = (b.n || 0) + 1; return true;
+    a.next.buy(); if (!S.free) b.cash -= a.next.cost; b.n = (b.n || 0) + 1; return true;
+  }
+  // shortest node path from the tree's centre to a node (so picking a deep node also marks its prerequisites)
+  function treePath(type, id) {
+    const G = buildTree(type), adj = G.adj, prev = { start: null }, q = ["start"], seen = new Set(["start"]);
+    while (q.length) { const cur = q.shift(); if (cur === id) break; for (const nb of (adj[cur] || [])) { if (seen.has(nb)) continue; seen.add(nb); prev[nb] = cur; q.push(nb); } }
+    if (!(id in prev)) return [id];
+    const path = []; let c = id; while (c && c !== "start") { path.push(c); c = prev[c]; } return path;
   }
   // LIVE tick: spend accumulated cash this frame (rate-limited, scaling with conquests)
   function autoBuyTick(dt) {
@@ -1323,23 +1342,40 @@
     for (const t of [...new Set([...S.units, ...S.collectors].map(u => u.type))]) o.push({ value: "tree:" + t, label: TY(t).name + " tree", group: "Trees" });
     return o;
   }
+  // when the dropdown target changes, switch the step between count-shape and tree-shape
+  function autoRetarget(s, target) {
+    s.target = target;
+    if (isTreeStep(s)) { delete s.count; if (!s.nodes) s.nodes = {}; }
+    else { delete s.nodes; if (s.count == null) s.count = 10; }
+  }
   function autoStepRow(s, i, opts, active) {
-    const nx = autoTargetNext(s.target), c = s.count || 0;
-    const sub = c <= 0 ? "✓ done" : (nx ? (c + "× left · @ " + curSym(S.galaxy) + " " + fmt(nx.cost) + " ea") : (c + "× left · nothing to buy"));
+    const tree = isTreeStep(s);
     let optHtml = "";
     for (const g of ["Economy", "Units", "Trees"]) { const items = opts.filter(o => o.group === g); if (!items.length) continue; optHtml += '<optgroup label="' + g + '">'; for (const o of items) optHtml += '<option value="' + o.value + '"' + (o.value === s.target ? " selected" : "") + '>' + o.label + '</option>'; optHtml += '</optgroup>'; }
+    let sub, ctrl;
+    if (tree) {
+      const pend = treeNodesPending(s), picked = s.nodes ? Object.values(s.nodes).filter(Boolean).length : 0;
+      sub = picked ? (pend + " / " + picked + " nodes left") : "no nodes picked — hit EDIT";
+      ctrl = '<button class="as-edit">EDIT ⚙</button>';
+    } else {
+      const nx = autoTargetNext(s.target), c = s.count || 0;
+      sub = c <= 0 ? "✓ done" : (nx ? (c + "× left · @ " + curSym(S.galaxy) + " " + fmt(nx.cost) + " ea") : (c + "× left · nothing to buy"));
+      ctrl = '<div class="ar-step"><button class="as-m">−</button><b class="as-q">' + c + '</b><button class="as-p">+</button><button class="as-p10">+10</button></div>';
+    }
     const row = document.createElement("div");
-    row.className = "auto-row" + (c > 0 ? "" : " off") + (active ? " active" : "");
+    row.className = "auto-row" + ((tree ? treeNodesPending(s) > 0 : (s.count || 0) > 0) ? "" : " off") + (active ? " active" : "");
     row.innerHTML = '<span class="ar-slot">' + (i + 1) + '</span>'
       + '<div class="ar-main"><select class="ar-sel">' + optHtml + '</select><div class="ar-next">' + (active ? "▶ " : "") + sub + '</div></div>'
-      + '<div class="ar-step"><button class="as-m">−</button><b class="as-q">' + c + '</b><button class="as-p">+</button><button class="as-p10">+10</button></div>'
-      + '<button class="ar-x">✕</button>';
-    row.querySelector(".ar-sel").onchange = e => { s.target = e.target.value; save(); renderAuto(); };
-    row.querySelector(".as-m").onclick = () => { s.count = Math.max(0, (s.count || 0) - 1); save(); renderAuto(); };
-    row.querySelector(".as-p").onclick = () => { s.count = (s.count || 0) + 1; save(); renderAuto(); };
-    row.querySelector(".as-p10").onclick = () => { s.count = (s.count || 0) + 10; save(); renderAuto(); };
-    row.querySelector(".as-q").onclick = () => { s.count = 0; save(); renderAuto(); };
+      + ctrl + '<button class="ar-x">✕</button>';
+    row.querySelector(".ar-sel").onchange = e => { autoRetarget(s, e.target.value); save(); renderAuto(); };
     row.querySelector(".ar-x").onclick = () => { S.auto.queue.splice(i, 1); save(); renderAuto(); };
+    if (tree) { row.querySelector(".as-edit").onclick = () => { $("auto-modal").classList.remove("show"); openSkillTree(s.target.slice(5)); STree.pick = true; STree.pickStep = s; }; }
+    else {
+      row.querySelector(".as-m").onclick = () => { s.count = Math.max(0, (s.count || 0) - 1); save(); renderAuto(); };
+      row.querySelector(".as-p").onclick = () => { s.count = (s.count || 0) + 1; save(); renderAuto(); };
+      row.querySelector(".as-p10").onclick = () => { s.count = (s.count || 0) + 10; save(); renderAuto(); };
+      row.querySelector(".as-q").onclick = () => { s.count = 0; save(); renderAuto(); };
+    }
     return row;
   }
   function renderAuto() {
@@ -1549,7 +1585,7 @@
     panel.classList.add("show");
   }
   const STree = {
-    type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null,
+    type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null, pick: false, pickStep: null,
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
     selNode() { return this.sel ? buildTree(this.type).map[this.sel] : null; },
     init() {
@@ -1565,7 +1601,8 @@
       this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.5, 3); this.clampPan(); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
-    open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
+    open(type) { this.type = type; this.sel = null; this.pick = false; this.pickStep = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
+    pickSet() { return (this.pickStep && isTreeStep(this.pickStep) && this.pickStep.target.slice(5) === this.type) ? (this.pickStep.nodes || (this.pickStep.nodes = {})) : null; },
     reset() { this.cx = 0; this.cy = 0; this.zoom = 1; },
     clampPan() { const u = Math.min(this.w, this.h) * 0.078 * this.zoom, m = 13 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },   // roomier pan so nothing's locked off-screen
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); this.clampPan(); },
@@ -1587,6 +1624,8 @@
       for (const n of G.nodes) {
         const p = this.sc(n.x, n.y), rad = this.nodeRad(n, p.u), has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost;
         this.hit.push({ n, x: p.x, y: p.y, r: rad + 7 });
+        const pset = this.pickSet();
+        if (pset && pset[n.id] && !has) { c.globalAlpha = 1; c.strokeStyle = "#8cf"; c.lineWidth = 3; c.setLineDash([5, 4]); c.beginPath(); c.arc(p.x, p.y, rad + 6, 0, TAU); c.stroke(); c.setLineDash([]); }   // picked for this Auto-Buy step
         if (n.id === this.sel) { c.globalAlpha = 1; c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, rad + 7, 0, TAU); c.stroke(); }
         if (can && afford) { const pl = 0.5 + 0.5 * Math.sin(this.t * 4); c.globalAlpha = 0.35 + pl * 0.5; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 4, 0, TAU); c.stroke(); c.globalAlpha = 1; }
         c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
@@ -1604,9 +1643,18 @@
       $("st-title").textContent = TY(type).name.toUpperCase();
       $("st-owned").textContent = "· " + countType(type) + " deployed · " + allocCount(type) + " nodes · affects ALL";
       $("st-stats").innerHTML = statLine(type);
+      const ab = $("st-auto"); if (ab) { ab.style.display = this.pickStep ? "" : "none"; ab.classList.toggle("on", !!this.pick); }
+      const tip = $("st-pick-tip"); if (tip) tip.style.display = (this.pick && this.pickStep) ? "" : "none";
     },
     tap(x, y) {
       let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } }
+      const pset = this.pick ? this.pickSet() : null;
+      if (pset) {   // PICK MODE — tap marks/unmarks this node for the bound Auto-Buy step (adding also marks its path to the centre so it's reachable)
+        if (!best || best.n.kind === "start" || nodeAllocated(this.type, best.n.id)) return;
+        if (pset[best.n.id]) delete pset[best.n.id];
+        else for (const id of treePath(this.type, best.n.id)) if (!nodeAllocated(this.type, id)) pset[id] = true;
+        save(); return;
+      }
       if (!best) { this.sel = null; $("st-info").classList.remove("show"); return; }
       showNodeInfo(best.n);
     },
@@ -2233,6 +2281,7 @@
   };
   if ($("st-max")) $("st-max").onclick = () => { allocAll(STree.type); showNodeInfo(STree.selNode()); };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
+  $("st-auto").onclick = () => { STree.pick = !STree.pick; };   // toggle node-picking for the bound Auto-Buy step
   if ($("gm-exchange")) $("gm-exchange").onclick = openFx;
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");

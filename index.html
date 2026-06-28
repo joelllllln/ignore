@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v6.5</div>
+  <div id="version" class="layer">v6.6</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -101,7 +101,7 @@
       <div class="si-prev" id="si-prev"></div>
       <button id="st-upgrade" class="si-btn">UPGRADE</button>
     </div>
-    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset">⟲ Recenter</button><button id="st-sell">SELL ONE</button></div>
+    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><span id="st-pick-tip" class="st-tip pick" style="display:none">⚙ PICK — tap nodes to add them to this Auto-Buy step</span><button id="st-auto" style="display:none">⚙ Pick</button><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset">⟲ Recenter</button><button id="st-sell">SELL ONE</button></div>
   </div>
 
   <!-- GALAXY MAP (interactive 3D) -->
@@ -120,7 +120,7 @@
       <button class="big" id="auto-toggle">AUTO-BUY: OFF</button>
       <div id="auto-lock" class="auto-lock"></div>
       <div id="auto-list" class="auto-list"></div>
-      <p class="muted auto-hint">Add steps, pick each one's target &amp; how many times (−/＋, tap the number to clear). The ▶ step runs to completion before the next starts. Runs while you're away, and gets faster the more planets you conquer.</p>
+      <p class="muted auto-hint">Add steps &amp; choose each target. Economy/Units use a count (−/＋); a <b>tree</b> step → <b>EDIT ⚙</b> to hand-pick as many nodes as you want on that class (all one slot). The ▶ step finishes before the next starts. Runs while you're away.</p>
       <button class="big" id="auto-back">DONE</button>
     </div>
   </div>
