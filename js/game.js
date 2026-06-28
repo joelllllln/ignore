@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.7";
+  const VERSION = "v6.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1281,6 +1281,7 @@
     return p;
   }
   const curAuto = () => autoCfg(S.galaxy);   // the config that actually RUNS (your active planet)
+  const autoIsOn = g => !!(S.auto && S.auto.planets && S.auto.planets[g] && S.auto.planets[g].on);   // peek a planet's on-state without creating its config
   const autoUnlocked = () => true;                                       // available from planet 1 (with a single slot)
   const autoSlots = g => Math.max(1, Math.min(g || S.galaxy, TOTAL_PLANETS));   // a planet gets one sequential slot per its number (planet 1 → 1, planet 2 → 2, …)
   const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());         // purchases/sec — empire snowball makes it faster
@@ -1703,8 +1704,11 @@
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
       stats +
       "<div class='gi-unlock'>☣ Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
-      (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action + "<button id='gi-auto' class='gi-auto'>⚙ Auto-Buy</button></div>";
+      (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action
+      + "<button id='gi-autotog' class='gi-auto" + (autoIsOn(g) ? " on" : "") + "'>⚙ Auto " + (autoIsOn(g) ? "ON" : "OFF") + "</button>"
+      + "<button id='gi-auto' class='gi-auto'>Edit ▸</button></div>";
     $("gm-info").classList.add("show");
+    const at = $("gi-autotog"); if (at) at.onclick = () => { const c = autoCfg(g); c.on = !c.on; autoAcc = 0; save(); syncAutoBtn(); showGalaxyInfo(g); };   // toggle THIS planet's auto-buy on/off
     const ab = $("gi-auto"); if (ab) ab.onclick = () => { $("gm-info").classList.remove("show"); openAuto(g); };   // configure THIS planet's auto-buy build order
     const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
     const j = $("gi-jump"); if (j) j.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { jumpTo(g); $("galaxy-map").classList.remove("show"); GMap.hide(); }); };
