@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.8";
+  const VERSION = "v6.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -449,7 +449,7 @@
   }
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
   let autoAcc = 0;   // fractional auto-buy budget carried between frames
-  let autoViewG = 0;   // which planet the Auto-Buy panel is currently editing (0 = the active planet)
+  let autoExpanded = null;   // Set of planet indices currently expanded in the all-planets Auto-Buy overview
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", listRows = {}, tabBtns = {};
   const BUY_AMTS = [1, 10, 100, "max"];               // bulk-buy multipliers (test mode) — cycled by the BUY ×N button
@@ -1385,19 +1385,37 @@
     }
     return row;
   }
-  function openAuto(g) { autoViewG = g || S.galaxy; ensureAuto(); renderAuto(); $("auto-modal").classList.add("show"); }
+  function openAuto(g) { ensureAuto(); if (!autoExpanded) autoExpanded = new Set(); autoExpanded.add(g || S.galaxy); renderAuto(); $("auto-modal").classList.add("show"); }
+  // one collapsible panel for a planet in the all-planets overview
+  function autoPlanetSection(g) {
+    const peek = S.auto.planets[g], on = !!(peek && peek.on), qlen = peek && Array.isArray(peek.queue) ? peek.queue.length : 0;
+    const slots = autoSlots(g), live = g === S.galaxy, exp = autoExpanded.has(g);
+    const wrap = document.createElement("div"); wrap.className = "auto-sec" + (exp ? " exp" : "") + (on ? " on" : "");
+    const head = document.createElement("div"); head.className = "auto-sec-head";
+    head.innerHTML = '<button class="asx-pow' + (on ? " on" : "") + '">⏻</button>'
+      + '<div class="asx-main"><div class="asx-name">' + (exp ? "▾ " : "▸ ") + "Planet " + g + " · " + galName(g) + (live ? ' <span class="asx-here">• here</span>' : '') + '</div>'
+      + '<div class="asx-sub">' + (on ? "ON" : "off") + " · " + Math.min(qlen, slots) + "/" + slots + " step" + (slots > 1 ? "s" : "") + '</div></div>';
+    head.querySelector(".asx-pow").onclick = e => { e.stopPropagation(); const cfg = autoCfg(g); cfg.on = !cfg.on; if (live) autoAcc = 0; save(); syncAutoBtn(); renderAuto(); };
+    head.querySelector(".asx-main").onclick = () => { if (autoExpanded.has(g)) autoExpanded.delete(g); else autoExpanded.add(g); renderAuto(); };
+    wrap.appendChild(head);
+    if (exp) {
+      const body = document.createElement("div"); body.className = "auto-sec-body";
+      const cfg = autoCfg(g), q = cfg.queue, opts = autoTargetOptions(g), act = live ? autoActive() : null;
+      q.slice(0, slots).forEach((s, i) => body.appendChild(autoStepRow(s, i, opts, act && act.step === s, q)));
+      if (q.length < slots) { const add = document.createElement("button"); add.className = "auto-add"; add.textContent = "＋ Add step  (" + (q.length + 1) + "/" + slots + ")"; add.onclick = () => { q.push({ target: opts[0] ? opts[0].value : "value", count: 10 }); save(); renderAuto(); }; body.appendChild(add); }
+      wrap.appendChild(body);
+    }
+    return wrap;
+  }
   function renderAuto() {
     ensureAuto();
-    const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"); if (!tog) return;
-    const g = autoViewG || S.galaxy, cfg = autoCfg(g), q = cfg.queue, slots = autoSlots(g), live = g === S.galaxy;
-    const ph = $("auto-planet"); if (ph) ph.textContent = "· Planet " + g + " " + galName(g) + (live ? " (active)" : "");
-    tog.textContent = "AUTO-BUY: " + (cfg.on ? "ON" : "OFF") + (live ? "" : " — Planet " + g); tog.classList.toggle("on", !!cfg.on); tog.disabled = false;
-    lock.textContent = (live ? "" : "Editing this planet (you're on planet " + S.galaxy + "). ") + "Runs each step IN ORDER · "
-      + Math.min(q.length, slots) + "/" + slots + " slot" + (slots > 1 ? "s" : "") + " (one per planet reached) · +50% tax.";
+    const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"), ph = $("auto-planet"); if (!list) return;
+    if (!autoExpanded) autoExpanded = new Set([S.galaxy]);
+    if (tog) tog.style.display = "none";           // each planet has its own ⏻ toggle in its panel
+    if (ph) ph.textContent = "· all " + TOTAL_PLANETS + " planets";
+    if (lock) lock.textContent = "Tap a planet to expand its build order · ⏻ to arm it · slots = planet number · +50% tax.";
     list.innerHTML = "";
-    const opts = autoTargetOptions(g), act = live ? autoActive() : null;
-    q.slice(0, slots).forEach((s, i) => list.appendChild(autoStepRow(s, i, opts, act && act.step === s, q)));
-    if (q.length < slots) { const add = document.createElement("button"); add.className = "auto-add"; add.textContent = "＋ Add step  (" + (q.length + 1) + "/" + slots + ")"; add.onclick = () => { q.push({ target: opts[0] ? opts[0].value : "value", count: 10 }); save(); renderAuto(); }; list.appendChild(add); }
+    for (let g = 1; g <= TOTAL_PLANETS; g++) list.appendChild(autoPlanetSection(g));
     syncAutoBtn();
   }
 
@@ -2299,7 +2317,7 @@
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
   $("btn-auto").onclick = $("gm-auto").onclick = () => openAuto(S.galaxy);   // dock / map-bar → the planet you're ON
   $("auto-close").onclick = $("auto-back").onclick = () => $("auto-modal").classList.remove("show");
-  $("auto-toggle").onclick = () => { const cfg = autoCfg(autoViewG || S.galaxy); cfg.on = !cfg.on; autoAcc = 0; save(); renderAuto(); };
+  $("auto-toggle").onclick = () => { const cfg = curAuto(); cfg.on = !cfg.on; autoAcc = 0; save(); renderAuto(); };   // (hidden in the all-planets overview; per-planet ⏻ toggles are used)
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");

@@ -106,7 +106,8 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #btn-auto.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
 /* AUTO-BUY modal */
 .auto-lock{color:var(--warn);font-size:12px;margin:8px 0;text-align:center;line-height:1.4}
-.auto-list{display:flex;flex-direction:column;gap:6px;margin:12px 0;max-height:46vh;overflow-y:auto}
+.auto-list{display:flex;flex-direction:column;gap:6px;margin:12px 0;max-height:54vh;overflow-y:auto}
+.auto-list>*{flex:0 0 auto}   /* never shrink rows/sections — let the list scroll instead of squishing 18 planets */
 .auto-row{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:8px 9px}
 .auto-row.off{opacity:.55}
 .auto-row.active{border-color:#8cf;box-shadow:0 0 0 1px #8cf inset}
@@ -120,6 +121,18 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .auto-row .as-edit{background:var(--panel);border:1px solid #8cf;color:#cfe;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:800;flex:0 0 auto}
 .auto-row .ar-x{background:none;border:none;color:var(--dim);font-size:15px;flex:0 0 auto;padding:0 2px}
 .auto-add{background:var(--panel);border:1px dashed var(--edge);color:var(--text);border-radius:10px;padding:10px;font-size:13px;font-weight:800}
+/* all-planets accordion */
+.auto-sec{border:1px solid var(--edge);border-radius:11px;overflow:hidden;background:rgba(255,255,255,.02)}
+.auto-sec.on{border-color:rgba(140,204,255,.55)}
+.auto-sec-head{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer}
+.auto-sec-head .asx-pow{flex:0 0 auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--edge);background:var(--panel);color:var(--dim);font-size:14px;font-weight:800}
+.auto-sec-head .asx-pow.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
+.auto-sec-head .asx-main{flex:1;min-width:0;cursor:pointer}
+.auto-sec-head .asx-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auto-sec-head .asx-here{color:#8cf;font-weight:700;font-size:11px}
+.auto-sec-head .asx-sub{color:var(--dim);font-size:11px;margin-top:1px}
+.auto-sec-body{display:flex;flex-direction:column;gap:6px;padding:0 10px 10px}
+.auto-sec.exp{background:rgba(140,204,255,.05)}
 .auto-locked{color:var(--dim);font-size:11px;text-align:center;padding:4px}
 .auto-hint{font-size:11px;margin-top:6px;line-height:1.4}
 .auto-planet{font-size:12px;font-weight:700;color:#8cf;letter-spacing:0}

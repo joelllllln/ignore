@@ -268,10 +268,10 @@ multiplier**. Think of it as your RPG level. The loop:
   The queue runs **strictly in order** — step 1 finishes before step 2 starts — and
   deeper planets give more slots, so they support longer build orders. Every auto-buy
   costs **+50% over manual**. Runs live **and simulates while you're away** (you come
-  back to a built-up planet) and gets faster the more planets you hold. Open the
-  **active** planet's queue from the **⚙ AUTO** button in the dock or star-map bar. On
-  the star map, each planet's info has a one-tap **⚙ Auto ON/OFF** toggle to arm/disarm
-  that planet and an **Edit ▸** button to program its build order.
+  back to a built-up planet) and gets faster the more planets you hold. The **⚙ AUTO**
+  button (dock or star-map bar) opens an **all-18-planets overview** — every planet is a
+  collapsible panel with its own **⏻ arm toggle**; tap one to expand and edit its full
+  build order inline. (Each planet's star-map info also has its own ⏻ ON/OFF + Edit ▸.)
 
 The Conquest multiplier boosts **all** your income forever, but it is **not
 spendable cash** — you still land on each new world at ~zero and have to play, so
