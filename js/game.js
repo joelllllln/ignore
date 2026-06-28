@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.1";
+  const VERSION = "v6.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1331,7 +1331,7 @@
     while (n < 50000 && autoBuyOnce(b)) n++;
     return { bought: n, leftover: b.cash };
   }
-  function syncAutoBtn() { const b = $("btn-auto"); if (b) b.classList.toggle("on", !!(S.auto && S.auto.on && autoUnlocked())); }
+  function syncAutoBtn() { const on = !!(S.auto && S.auto.on && autoUnlocked()); ["btn-auto", "gm-auto"].forEach(id => { const b = $(id); if (b) b.classList.toggle("on", on); }); }
   function renderAuto() {
     ensureAuto();
     const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"); if (!tog) return;
@@ -2220,7 +2220,7 @@
   if ($("btn-exchange")) $("btn-exchange").onclick = openFx;
   if ($("fx-close")) $("fx-close").onclick = () => $("fxpage").classList.remove("show");
   if ($("fx-massconvert")) $("fx-massconvert").onclick = () => { exchangeAll(); openExchange(); };
-  $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
+  $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); syncAutoBtn(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
   $("st-upgrade").onclick = () => {
     const type = STree.type, node = STree.selNode(); if (!node || !nodeAllocatable(type, node)) return;
@@ -2235,7 +2235,7 @@
   if ($("gm-exchange")) $("gm-exchange").onclick = openFx;
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
-  $("btn-auto").onclick = () => { renderAuto(); $("auto-modal").classList.add("show"); };
+  $("btn-auto").onclick = $("gm-auto").onclick = () => { renderAuto(); $("auto-modal").classList.add("show"); };
   $("auto-close").onclick = $("auto-back").onclick = () => $("auto-modal").classList.remove("show");
   $("auto-toggle").onclick = () => { if (!autoUnlocked()) return; ensureAuto(); S.auto.on = !S.auto.on; autoAcc = 0; save(); renderAuto(); };
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };

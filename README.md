@@ -261,8 +261,10 @@ multiplier**. Think of it as your RPG level. The loop:
   order you set** across all three sinks — **Economy upgrades, Units, and skill-tree
   nodes** — runs live **and simulates while you're away** (you come back to a
   built-up planet), and **unlocks at your first conquest**, buying faster the more
-  planets you hold. Open it from the **⚙ AUTO** button in the dock: toggle it on,
-  reorder lanes with ▲▼, tap a lane to enable/disable it.
+  planets you hold. Open it from the **⚙ AUTO** button in the dock **or the star
+  map**: toggle it on, reorder lanes with ▲▼, tap a lane to enable/disable it.
+  (It keeps running while you're on the map, so you can plan your next jump while
+  it builds.)
 
 The Conquest multiplier boosts **all** your income forever, but it is **not
 spendable cash** — you still land on each new world at ~zero and have to play, so

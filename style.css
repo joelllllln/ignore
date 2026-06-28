@@ -180,6 +180,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .map-title{font-family:var(--mono);letter-spacing:3px;color:#fff;font-size:14px}
 .map-btns{display:flex;align-items:center;gap:8px}
 .mbtn{background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:9px;padding:7px 11px;font-size:12px;font-weight:700}
+.mbtn.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
 .mbtn:hover{border-color:#fff}
 .map-bar .x{font-size:20px}
 .map-hint{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:var(--dim);font-size:12px;z-index:2;pointer-events:none}
