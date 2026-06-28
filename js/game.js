@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.3";
+  const VERSION = "v5.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -95,7 +95,7 @@
   // are flat distances; crit is flat chance.
   // Defender baseline (turret = tier 1). Later classes scale UP via DEF_SCALE, so a
   // gal-7 Railgun tree is FAR stronger per node than a gal-1 Turret — "scaled correctly."
-  const MAG_DEF = { mul: { min: 2.5, maj: 7.0, key: 18 }, rate: { min: 2.0, maj: 4.5, key: 11 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 } };   // range = flat px/node, tuned so a FULL branch ~covers the field (not 2-3x beyond) and every node still grows the circle a visible amount; int = "Mind": smarter targeting (no overkill / coordination), additive toward fully-smart=1
+  const MAG_DEF = { mul: { min: 1.75, maj: 4.9, key: 12.6 }, rate: { min: 1.5, maj: 3.375, key: 8.25 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 } };   // DMG (mul) calmed ×0.7 (250→175% minor), FIRE RATE calmed ×0.75 (200→150% minor) at every tier — same shape, "a bit more than half", so spawn-rate/value aren't out-bottlenecked. range = flat px/node; int = "Mind" smarter targeting (additive toward fully-smart=1)
   const DEF_SCALE = { turret: 1.0, mortar: 1.35, plasma: 1.8, laser: 2.4, railgun: 3.2, nova: 4.2 };
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
