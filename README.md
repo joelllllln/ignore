@@ -53,6 +53,14 @@ Dot difficulty and craziness are driven by how much you invest in **Value**:
   This is where your income comes from: killing **more** dots, and **tougher, more
   rewarding** ones — not a flat cash multiplier. That demand pulls stronger turrets
   (to kill the tanky ones) and stronger drones (to haul the bigger drops).
+- **Every planet's dots wear a distinct signature** — its own silhouette
+  (circle/triangle/diamond/pentagon/hex/octagon…), grayscale shade and centre glyph,
+  so worlds read differently at a glance (no two of the 18 repeat).
+- **Dots keep evolving with Value, forever.** A continuous *menace grade* (driven by
+  Value/Spawn/HP) grows the spike count & length, inner-ring count and an expanding
+  outer halo — there's no plateau, and each planet's **native race decoration scales
+  with it too** (brood cells multiply, shields/armor layer, satellites & swirl-arms
+  add, heal/shock pulses expand, teleport trails lengthen…).
 - High Value unlocks **armored elites** (double-ringed, huge defense, heavy slow
   loot) and each planet's **native enemy race** — every one of the 18 planets has
   its *own* race with a unique ability and look (and they get tougher in tiers).
