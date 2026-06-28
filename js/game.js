@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.0";
+  const VERSION = "v6.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -404,7 +404,7 @@
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
-    return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null, imported: {}, conquest: 1, victory: false };
+    return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null, imported: {}, conquest: 1, victory: false, auto: defaultAuto() };
   }
   // trim a unit/collector list down to each type's max (enforces caps on load)
   function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type, m = TY(t) ? TY(t).max : 99; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }
@@ -448,6 +448,7 @@
     ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
   }
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
+  let autoAcc = 0;   // fractional auto-buy budget carried between frames
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", listRows = {}, tabBtns = {};
   const BUY_AMTS = [1, 10, 100, "max"];               // bulk-buy multipliers (test mode) — cycled by the BUY ×N button
@@ -488,18 +489,29 @@
           META.stats.collected = Object.assign(freshStats().collected, st.collected || {});
           META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {}); }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, 12 * 3600);
-          if (d.cps > 0 && e >= 60) { const g = Math.floor(d.cps * e * 0.5); if (g > 0) off = { gain: g, elapsed: e }; }
-          // background empire kept earning while away — straight into the global treasury (one currency)
-          if (S.vault) { const bg = empireIdleRate(); if (bg > 0) { S.cash += bg * e; S.totalRun += bg * e; META.totalEver += bg * e; } }
+          // everything you earned while away: your active rate (half-credited) + the idle empire
+          const offGain = d.cps > 0 ? Math.floor(d.cps * e * 0.5) : 0;
+          const bg = S.vault ? empireIdleRate() : 0, offIdle = bg > 0 ? bg * e : 0, offTotal = offGain + offIdle;
+          if (offTotal > 0) { S.totalRun += offTotal; META.totalEver += offTotal;
+            if (e >= 60) off = { gain: Math.floor(offTotal), elapsed: e, pool: offTotal };   // hold the pool; auto-buy spends it after recompute (below)
+            else S.cash += offTotal; }
           if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + Math.max(0, (Date.now() - d.ts) / 1000);   // expedition keeps travelling while away (uncapped — long trips must finish)
         }
       }
     } catch (e) {}
     if (!S.vault) S.vault = {};
     if (!S.imported) S.imported = {};
+    ensureAuto();
     curEarned = (S.vault[S.galaxy] && S.vault[S.galaxy].earned) || 0;
     recompute();
-    if (off) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + off.gain)); S._welcome = off; }
+    if (off) {
+      if (off.pool != null) {   // simulate auto-buy spending the banked away-budget, then bank what's left (clamped)
+        const r = autoBuyOffline(off.pool); recompute();
+        off.autoBought = r.bought; off.spent = off.pool - r.leftover;
+        S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + r.leftover)); delete off.pool;
+      } else { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + off.gain)); }
+      S._welcome = off;
+    }
   }
 
   /* ----------------------------- entities ------------------------ */
@@ -819,6 +831,7 @@
     if (frenzyT > 0) frenzyT -= dt;
     if (blackholeT > 0) blackholeT -= dt;
     for (const k in abil) if (abil[k] > 0) abil[k] = Math.max(0, abil[k] - dt);
+    autoBuyTick(dt);   // idle automation: spend cash on upgrades by your priority order
 
     const baseCap = galCap(S.galaxy);
     const sup = Math.min(derived.spawnSurplus || 0, 80);
@@ -1242,6 +1255,110 @@
     Audio_buy(); recompute(); syncHUD(); save();
   }
   function Audio_buy() {}  // (silent build)
+
+  /* ----------------------- AUTO-BUY (idle automation) -----------------------
+     Spends your cash on upgrades automatically, top-down by a priority order you
+     set, so idle income turns into real build progress (otherwise it just caps out
+     at your cash ceiling). Handles all three spend sinks — Economy, Units, Trees —
+     runs live AND simulates while you're away, and UNLOCKS + speeds up the more
+     planets you conquer (so lategame the empire largely builds itself).            */
+  const AUTO_LANES = [
+    { key: "value",    label: "Value",          kind: "eco",  id: "value" },
+    { key: "spawn",    label: "Spawn Rate",     kind: "eco",  id: "spawnRate" },
+    { key: "capacity", label: "Capacity",       kind: "eco",  id: "capacity" },
+    { key: "luck",     label: "Luck",           kind: "eco",  id: "luck" },
+    { key: "deftree",  label: "Defence Trees",  kind: "tree", side: "def" },
+    { key: "coltree",  label: "Collector Trees",kind: "tree", side: "col" },
+    { key: "def",      label: "Defenders",      kind: "unit", side: "def" },
+    { key: "col",      label: "Collectors",     kind: "unit", side: "col" },
+  ];
+  const AUTO_LANE = {}; AUTO_LANES.forEach(l => AUTO_LANE[l.key] = l);
+  const defaultAuto = () => ({ on: false, order: ["value", "deftree", "spawn", "coltree", "capacity", "def", "col", "luck"], off: {} });
+  function ensureAuto() {   // migrate / repair the auto config (old saves, new lanes)
+    if (!S.auto || typeof S.auto !== "object") S.auto = defaultAuto();
+    if (!Array.isArray(S.auto.order)) S.auto.order = defaultAuto().order;
+    for (const l of AUTO_LANES) if (!S.auto.order.includes(l.key)) S.auto.order.push(l.key);   // append any lane missing from an old save
+    S.auto.order = S.auto.order.filter(k => AUTO_LANE[k]);                                      // drop unknown keys
+    if (!S.auto.off || typeof S.auto.off !== "object") S.auto.off = {};
+  }
+  const autoUnlocked = () => S.free || conqueredCount() >= 1;             // earned by your first conquest
+  const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());          // purchases/sec — empire snowball makes it faster
+  // the next purchase for a lane: { cost, buy() } or null if nothing to buy
+  function autoLaneNext(key) {
+    const L = AUTO_LANE[key]; if (!L) return null;
+    if (L.kind === "eco") { const u = UP[L.id]; const lv = S.lv[L.id] || 0; if (u.max != null && lv >= u.max) return null; return { cost: upCost(u), buy() { S.lv[L.id] = (S.lv[L.id] || 0) + 1; } }; }
+    const order = L.side === "def" ? DEF_ORDER : COL_ORDER;
+    if (L.kind === "unit") {
+      let best = null;
+      for (const t of order) { if (!S.free && S.galaxy < TY(t).gal) continue; if (countType(t) >= TY(t).max) continue; const c = unitBuyCost(t); if (!best || c < best.cost) best = { cost: c, t }; }
+      if (!best) return null;
+      return { cost: best.cost, buy() { classList(best.t).push(isCol(best.t) ? { type: best.t } : newUnit(best.t)); if (isCol(best.t)) syncCollectors(); } };
+    }
+    // tree: cheapest allocatable node across the classes you actually field on this side
+    const types = [...new Set((L.side === "def" ? S.units : S.collectors).map(u => u.type))];
+    let best = null;
+    for (const t of types) {
+      const G = buildTree(t), set = S.classNodes[t] || (S.classNodes[t] = {});
+      let minorFound = false;
+      for (const n of G.nodes) { if (n.kind === "start" || set[n.id] || !nodeAllocatable(t, n)) continue; const c = nodeCost(t, n); if (!best || c < best.cost) best = { cost: c, t, id: n.id }; if (n.kind === "minor") { minorFound = true; break; } }   // minor is the cheapest kind — first allocatable minor wins this class
+    }
+    if (!best) return null;
+    return { cost: best.cost, buy() { (S.classNodes[best.t] || (S.classNodes[best.t] = {}))[best.id] = true; } };
+  }
+  // one purchase pass: buy the highest-priority enabled lane whose next item fits the budget
+  function autoBuyOnce(b) {
+    for (const key of S.auto.order) {
+      if (S.auto.off[key]) continue;
+      const nx = autoLaneNext(key); if (!nx || nx.cost > b.cash) continue;
+      nx.buy(); if (!S.free) b.cash -= nx.cost; b.spent = (b.spent || 0) + nx.cost; b.n = (b.n || 0) + 1; return true;
+    }
+    return false;
+  }
+  // LIVE tick: spend accumulated cash this frame (rate-limited, scaling with conquests)
+  function autoBuyTick(dt) {
+    if (!S.auto || !S.auto.on || !autoUnlocked()) return;
+    autoAcc = Math.min(autoAcc + autoRate() * dt, 120);
+    if (autoAcc < 1) return;
+    const b = { cash: S.free ? Infinity : S.cash }; let tries = Math.floor(autoAcc);
+    while (tries-- > 0 && autoBuyOnce(b)) { autoAcc -= 1; }
+    if (autoAcc >= 1) autoAcc = Math.min(autoAcc, 4);   // nothing affordable — don't bank an ever-growing backlog
+    if (b.n) { if (!S.free) S.cash = b.cash; recompute(); if (state === "play") renderList(); if ($("auto-modal") && $("auto-modal").classList.contains("show")) renderAuto(); }
+  }
+  // OFFLINE: drain a banked budget into purchases (bounded). returns { bought, leftover }
+  function autoBuyOffline(pool) {
+    if (!S.auto || !S.auto.on || !autoUnlocked()) return { bought: 0, leftover: pool };
+    const b = { cash: pool }; let n = 0;
+    while (n < 50000 && autoBuyOnce(b)) n++;
+    return { bought: n, leftover: b.cash };
+  }
+  function syncAutoBtn() { const b = $("btn-auto"); if (b) b.classList.toggle("on", !!(S.auto && S.auto.on && autoUnlocked())); }
+  function renderAuto() {
+    ensureAuto();
+    const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"); if (!tog) return;
+    const unlocked = autoUnlocked();
+    tog.textContent = "AUTO-BUY: " + (S.auto.on ? "ON" : "OFF");
+    tog.classList.toggle("on", !!S.auto.on && unlocked); tog.disabled = !unlocked;
+    lock.textContent = unlocked
+      ? "Buying ~" + Math.round(autoRate()) + " upgrades/sec · gets faster the more planets you conquer."
+      : "🔒 Unlocks when you conquer your first planet.";
+    list.innerHTML = "";
+    S.auto.order.forEach((key, i) => {
+      const L = AUTO_LANE[key]; if (!L) return;
+      const off = !!S.auto.off[key], nx = autoLaneNext(key);
+      const nextStr = nx ? ("next: " + curSym(S.galaxy) + " " + fmt(nx.cost)) : "— nothing to buy";
+      const row = document.createElement("div");
+      row.className = "auto-row" + (off ? " off" : "");
+      row.innerHTML = '<span class="ar-rank">' + (i + 1) + '</span><span class="ar-tog"></span>'
+        + '<div class="ar-main"><div class="ar-name">' + L.label + '</div><div class="ar-next">' + nextStr + '</div></div>'
+        + '<div class="ar-mv"><button class="ar-up">▲</button><button class="ar-dn">▼</button></div>';
+      const toggle = () => { S.auto.off[key] = !off; save(); renderAuto(); };
+      row.querySelector(".ar-main").onclick = toggle; row.querySelector(".ar-tog").onclick = toggle;
+      row.querySelector(".ar-up").onclick = e => { e.stopPropagation(); if (i > 0) { const o = S.auto.order;[o[i - 1], o[i]] = [o[i], o[i - 1]]; save(); renderAuto(); } };
+      row.querySelector(".ar-dn").onclick = e => { e.stopPropagation(); const o = S.auto.order; if (i < o.length - 1) {[o[i + 1], o[i]] = [o[i], o[i + 1]]; save(); renderAuto(); } };
+      list.appendChild(row);
+    });
+    syncAutoBtn();
+  }
 
   /* --------------------- class skill TREE (interconnected map) ----- */
   // A real, Path-of-Exile-style skill tree: a START node at the centre with
@@ -2061,6 +2178,7 @@
     $("dock").style.display = (s === "play") ? "block" : "none";
     $("btn-menu").style.display = (s === "play") ? "block" : "none";
     $("btn-metrics").style.display = (s === "play") ? "block" : "none";
+    if (s === "play") syncAutoBtn();
     if (s === "home") { $("home-gal").textContent = S.peakGalaxy; }
   }
 
@@ -2117,6 +2235,9 @@
   if ($("gm-exchange")) $("gm-exchange").onclick = openFx;
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
+  $("btn-auto").onclick = () => { renderAuto(); $("auto-modal").classList.add("show"); };
+  $("auto-close").onclick = $("auto-back").onclick = () => $("auto-modal").classList.remove("show");
+  $("auto-toggle").onclick = () => { if (!autoUnlocked()) return; ensureAuto(); S.auto.on = !S.auto.on; autoAcc = 0; save(); renderAuto(); };
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   $("btn-menu").onclick = () => $("menu").classList.add("show");
   $("menu-close").onclick = () => $("menu").classList.remove("show");
@@ -2160,7 +2281,7 @@
 
   if ($("version")) $("version").textContent = VERSION;
   load(); resize(); syncCollectors(); renderList(); GMap.init(); STree.init(); setScreen("home"); syncBuyMode();
-  if (S._welcome) { $("welcome-text").textContent = "Your defenders kept firing for " + fmtTime(S._welcome.elapsed) + "."; $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(S._welcome.gain); $("welcome").classList.add("show"); S._welcome = null; }
+  if (S._welcome) { const w = S._welcome; $("welcome-text").textContent = "Your empire kept earning for " + fmtTime(w.elapsed) + "." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : ""); $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(w.gain); $("welcome").classList.add("show"); S._welcome = null; }
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 

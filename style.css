@@ -102,6 +102,23 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .act.travel.ready:disabled{opacity:.5}
 .act.enroute{color:var(--text);border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.07)}
 .act.dust,.act.rebirth{color:var(--sd);border-color:rgba(255,255,255,.35);flex:0 0 auto;padding:9px 13px}
+#btn-auto{flex:0 0 auto;padding:9px 12px}
+#btn-auto.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
+/* AUTO-BUY modal */
+.auto-lock{color:var(--warn);font-size:12px;margin:8px 0;text-align:center;line-height:1.4}
+.auto-list{display:flex;flex-direction:column;gap:6px;margin:12px 0;max-height:44vh;overflow-y:auto}
+.auto-row{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:8px 10px}
+.auto-row.off{opacity:.4}
+.auto-row .ar-rank{width:16px;text-align:center;color:var(--dim);font-size:12px;font-weight:800;flex:0 0 auto}
+.auto-row .ar-tog{width:16px;height:16px;border-radius:5px;border:1px solid var(--edge);flex:0 0 auto}
+.auto-row:not(.off) .ar-tog{background:#8cf;border-color:#8cf}
+.auto-row .ar-main{flex:1;min-width:0;cursor:pointer}
+.auto-row .ar-name{font-weight:800;font-size:14px}
+.auto-row .ar-next{color:var(--dim);font-size:11px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auto-row .ar-mv{display:flex;flex-direction:column;gap:3px;flex:0 0 auto}
+.auto-row .ar-mv button{background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:6px;width:26px;height:18px;font-size:10px;line-height:1;padding:0}
+.auto-hint{font-size:11px;margin-top:6px;line-height:1.4}
+#auto-toggle.on{background:linear-gradient(95deg,#dff,#8cf);color:#012;border:none}
 .act.rebirth{background:rgba(255,255,255,.1);animation:pulse 1.6s infinite}
 
 /* ability cooldown seconds */

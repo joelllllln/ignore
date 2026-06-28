@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v6.0</div>
+  <div id="version" class="layer">v6.1</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -45,6 +45,7 @@
     </div>
     <div id="up-list"></div>
     <div id="actions">
+      <button class="act" id="btn-auto">⚙ AUTO</button>
       <button class="act travel" id="btn-travel">TRAVEL ▸</button>
     </div>
   </div>
@@ -109,6 +110,19 @@
     <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-reset">⟲ Recenter</button><button class="x" id="gm-close">✕</button></div></div>
     <div class="map-hint">one finger = move · two fingers: pinch to zoom, drag to rotate · scroll = zoom · tap a ★ sun to centre · tap a planet to visit</div>
     <div id="gm-info" class="gm-info"></div>
+  </div>
+
+  <!-- AUTO-BUY (idle automation) -->
+  <div id="auto-modal" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>⚙ Auto-Buy</h2><button class="x" id="auto-close">✕</button></div>
+      <p class="muted" id="auto-sub">Spends your cash on upgrades automatically, top-down by priority — so idle income becomes real build progress.</p>
+      <button class="big" id="auto-toggle">AUTO-BUY: OFF</button>
+      <div id="auto-lock" class="auto-lock"></div>
+      <div id="auto-list" class="auto-list"></div>
+      <p class="muted auto-hint">Tap a row to enable/disable it · ▲▼ to reorder priority. Higher = bought first. Runs while you're away too, and gets faster the more planets you conquer.</p>
+      <button class="big" id="auto-back">DONE</button>
+    </div>
   </div>
 
   <!-- WELCOME BACK -->
