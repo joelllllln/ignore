@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.7";
+  const VERSION = "v5.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -97,6 +97,10 @@
   // gal-7 Railgun tree is FAR stronger per node than a gal-1 Turret — "scaled correctly."
   const MAG_DEF = { mul: { min: 1.75, maj: 4.9, key: 12.6 }, rate: { min: 1.5, maj: 3.375, key: 8.25 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 } };   // DMG (mul) calmed ×0.7 (250→175% minor), FIRE RATE calmed ×0.75 (200→150% minor) at every tier — same shape, "a bit more than half", so spawn-rate/value aren't out-bottlenecked. range = flat px/node; int = "Mind" smarter targeting (additive toward fully-smart=1)
   const DEF_SCALE = { turret: 1.0, mortar: 1.35, plasma: 1.8, laser: 2.4, railgun: 3.2, nova: 4.2 };
+  // Per-class FIRE-RATE damper (multiplies rate-node strength only). The Mortar is a slow,
+  // heavy lob weapon — its fire-rate tree should barely move it (so it never machine-guns
+  // bombs), while its damage/splash tree stays full strength. 1 = normal for everything else.
+  const RATE_SCALE = { mortar: 0.18 };
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
@@ -117,7 +121,7 @@
     const key = DEF_PRIM[s.p - 1];
     if (key === "range") return MAG_DEF.range[s.mag];                   // range = flat distance, not scaled
     if (key === "int") return MAG_DEF.int[s.mag];                       // intelligence = flat smartness, not scaled
-    return (key === "rate" ? MAG_DEF.rate[s.mag] : MAG_DEF.mul[s.mag]) * sc;   // dmg/rate bonuses scale by class tier
+    return (key === "rate" ? MAG_DEF.rate[s.mag] * (RATE_SCALE[type] || 1) : MAG_DEF.mul[s.mag]) * sc;   // dmg/rate bonuses scale by class tier (mortar's rate damped — it's a slow lob)
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : DEF_PRIM;
