@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.4";
+  const VERSION = "v6.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1257,37 +1257,45 @@
   function Audio_buy() {}  // (silent build)
 
   /* ----------------------- AUTO-BUY (idle automation) -----------------------
-     You specify EXACTLY what to automate — a per-item COUNT for Economy & Unit buys
-     ("buy Value 10 more times"), and HAND-PICKED nodes in each skill tree (mark them
-     with the ⚙ tool inside the tree). Auto-Buy fulfils only that spec, cheapest-first,
-     at a steep +50% convenience tax so hand-buying is always better. Runs live AND
-     while you're away; unlocks + speeds up as you conquer planets.                  */
+     A SEQUENTIAL queue of steps — each step is "buy <thing> N times", and the queue
+     runs strictly in order (step 1 fully, then step 2…). You get ONE slot per planet
+     you've reached (planet 1 → 1 step, planet 2 → 2 steps, …), so deeper progress lets
+     you program longer build orders. <thing> = any Economy upgrade, any Unit, or a
+     class's skill tree (buys N cheapest nodes). +50% tax; runs live and while away.  */
   const AUTO_TAX = 1.5;     // auto-bought upgrades cost +50% over manual — a steep convenience tax
   const ECO_KEYS = ["value", "spawnRate", "capacity", "luck"];
   const ECO_LABEL = { value: "Value", spawnRate: "Spawn Rate", capacity: "Capacity", luck: "Luck" };
-  const defaultAuto = () => ({ on: false, v: 2, q: {}, nodes: {} });   // q: per-item remaining auto-buy count · nodes: hand-picked tree nodes {type:{id:true}}
+  const defaultAuto = () => ({ on: false, v: 3, queue: [] });   // queue: ordered [{ target, count }] — run sequentially
   function ensureAuto() {
-    if (!S.auto || typeof S.auto !== "object" || S.auto.v !== 2) S.auto = { on: !!(S.auto && S.auto.on), v: 2, q: {}, nodes: {} };   // (re)build to the spec model — drops any old lane config
-    if (!S.auto.q || typeof S.auto.q !== "object") S.auto.q = {};
-    if (!S.auto.nodes || typeof S.auto.nodes !== "object") S.auto.nodes = {};
+    if (!S.auto || typeof S.auto !== "object" || S.auto.v !== 3) S.auto = { on: !!(S.auto && S.auto.on), v: 3, queue: [] };   // (re)build to the sequential-queue model
+    if (!Array.isArray(S.auto.queue)) S.auto.queue = [];
   }
-  const autoUnlocked = () => S.free || conqueredCount() >= 1;             // earned by your first conquest
-  const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());          // purchases/sec — empire snowball makes it faster
+  const autoUnlocked = () => true;                                       // available from planet 1 (with a single slot)
+  const autoSlots = () => Math.max(1, Math.min(S.peakGalaxy || 1, TOTAL_PLANETS));   // one sequential slot per planet reached
+  const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());         // purchases/sec — empire snowball makes it faster
   const autoTax = c => Math.ceil(c * AUTO_TAX);
-  const autoNodesPending = type => { const sel = S.auto.nodes[type]; if (!sel) return 0; let n = 0; for (const id in sel) if (sel[id] && !nodeAllocated(type, id)) n++; return n; };
-  // every SPECIFIED purchase currently pending: { cost (taxed), buy() }
-  function autoCandidates() {
-    const out = [];
-    for (const id of ECO_KEYS) { if ((S.auto.q[id] || 0) <= 0) continue; const u = UP[id]; if (u.max != null && (S.lv[id] || 0) >= u.max) continue; out.push({ cost: autoTax(upCost(u)), buy() { S.lv[id] = (S.lv[id] || 0) + 1; S.auto.q[id] = Math.max(0, (S.auto.q[id] || 0) - 1); } }); }
-    for (const t of [...DEF_ORDER, ...COL_ORDER]) { if ((S.auto.q[t] || 0) <= 0) continue; if (!S.free && S.galaxy < TY(t).gal) continue; if (countType(t) >= TY(t).max) continue; out.push({ cost: autoTax(unitBuyCost(t)), buy() { classList(t).push(isCol(t) ? { type: t } : newUnit(t)); if (isCol(t)) syncCollectors(); S.auto.q[t] = Math.max(0, (S.auto.q[t] || 0) - 1); } }); }
-    for (const t in S.auto.nodes) { const sel = S.auto.nodes[t]; if (!sel) continue; const G = buildTree(t); for (const id in sel) { if (!sel[id]) continue; const n = G.map[id]; if (!n || n.kind === "start" || nodeAllocated(t, id) || !nodeAllocatable(t, n)) continue; out.push({ cost: autoTax(nodeCost(t, n)), buy() { (S.classNodes[t] || (S.classNodes[t] = {}))[id] = true; } }); } }
-    return out;
+  // the next purchase for a queue target ("value"/"spawnRate"/…, a unit type, or "tree:<class>"): { cost (taxed), buy() } or null
+  function autoTargetNext(target) {
+    if (!target) return null;
+    if (target.slice(0, 5) === "tree:") {
+      const t = target.slice(5), G = buildTree(t); let best = null;
+      for (const n of G.nodes) { if (n.kind === "start" || nodeAllocated(t, n.id) || !nodeAllocatable(t, n)) continue; const c = nodeCost(t, n); if (!best || c < best.cost) best = { cost: c, id: n.id }; if (n.kind === "minor") break; }
+      return best ? { cost: autoTax(best.cost), buy() { (S.classNodes[t] || (S.classNodes[t] = {}))[best.id] = true; } } : null;
+    }
+    if (ECO_KEYS.includes(target)) { const u = UP[target]; if (u.max != null && (S.lv[target] || 0) >= u.max) return null; return { cost: autoTax(upCost(u)), buy() { S.lv[target] = (S.lv[target] || 0) + 1; } }; }
+    const t = target; if (!TY(t)) return null; if (!S.free && S.galaxy < TY(t).gal) return null; if (countType(t) >= TY(t).max) return null;   // unit
+    return { cost: autoTax(unitBuyCost(t)), buy() { classList(t).push(isCol(t) ? { type: t } : newUnit(t)); if (isCol(t)) syncCollectors(); } };
   }
-  // one purchase pass: buy the CHEAPEST affordable specified item
+  // first runnable step: earlier steps (with buyable targets) must finish before later ones run
+  function autoActive() {
+    const slots = autoSlots();
+    for (let i = 0; i < S.auto.queue.length && i < slots; i++) { const s = S.auto.queue[i]; if (!s || !s.target || (s.count || 0) <= 0) continue; const nx = autoTargetNext(s.target); if (!nx) continue; return { step: s, next: nx }; }
+    return null;
+  }
+  // one purchase pass: advance the active step (sequential — wait, don't skip, if it's unaffordable)
   function autoBuyOnce(b) {
-    let best = null; for (const c of autoCandidates()) { if (c.cost <= b.cash && (!best || c.cost < best.cost)) best = c; }
-    if (!best) return false;
-    best.buy(); if (!S.free) b.cash -= best.cost; b.n = (b.n || 0) + 1; return true;
+    const a = autoActive(); if (!a || a.next.cost > b.cash) return false;
+    a.next.buy(); if (!S.free) b.cash -= a.next.cost; a.step.count = Math.max(0, (a.step.count || 0) - 1); b.n = (b.n || 0) + 1; return true;
   }
   // LIVE tick: spend accumulated cash this frame (rate-limited, scaling with conquests)
   function autoBuyTick(dt) {
@@ -1307,48 +1315,45 @@
     return { bought: n, leftover: b.cash };
   }
   function syncAutoBtn() { const on = !!(S.auto && S.auto.on && autoUnlocked()); ["btn-auto", "gm-auto"].forEach(id => { const b = $(id); if (b) b.classList.toggle("on", on); }); }
-  function autoStep(key, d) { S.auto.q[key] = Math.max(0, (S.auto.q[key] || 0) + d); save(); renderAuto(); }   // bump a count
-  function autoCountRow(label, key, costBase) {
-    const q = S.auto.q[key] || 0;
-    const next = costBase != null ? ("buy @ " + curSym(S.galaxy) + " " + fmt(autoTax(costBase)) + " ea") : "maxed";
+  // the choices for a queue step's target — every Economy upgrade, every unlocked Unit, every fielded class's tree
+  function autoTargetOptions() {
+    const o = [];
+    for (const id of ECO_KEYS) o.push({ value: id, label: ECO_LABEL[id], group: "Economy" });
+    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || S.galaxy >= TY(t).gal) o.push({ value: t, label: TY(t).name, group: "Units" });
+    for (const t of [...new Set([...S.units, ...S.collectors].map(u => u.type))]) o.push({ value: "tree:" + t, label: TY(t).name + " tree", group: "Trees" });
+    return o;
+  }
+  function autoStepRow(s, i, opts, active) {
+    const nx = autoTargetNext(s.target), c = s.count || 0;
+    const sub = c <= 0 ? "✓ done" : (nx ? (c + "× left · @ " + curSym(S.galaxy) + " " + fmt(nx.cost) + " ea") : (c + "× left · nothing to buy"));
+    let optHtml = "";
+    for (const g of ["Economy", "Units", "Trees"]) { const items = opts.filter(o => o.group === g); if (!items.length) continue; optHtml += '<optgroup label="' + g + '">'; for (const o of items) optHtml += '<option value="' + o.value + '"' + (o.value === s.target ? " selected" : "") + '>' + o.label + '</option>'; optHtml += '</optgroup>'; }
     const row = document.createElement("div");
-    row.className = "auto-row" + (q > 0 ? "" : " off");
-    row.innerHTML = '<div class="ar-main"><div class="ar-name">' + label + '</div><div class="ar-next">' + (q > 0 ? (q + " queued · " + next) : "not queued") + '</div></div>'
-      + '<div class="ar-step"><button class="as-m">−</button><b class="as-q">' + q + '</b><button class="as-p">+</button><button class="as-p10">+10</button></div>';
-    row.querySelector(".as-m").onclick = () => autoStep(key, -1);
-    row.querySelector(".as-p").onclick = () => autoStep(key, 1);
-    row.querySelector(".as-p10").onclick = () => autoStep(key, 10);
-    row.querySelector(".as-q").onclick = () => { S.auto.q[key] = 0; save(); renderAuto(); };   // tap the number to clear
+    row.className = "auto-row" + (c > 0 ? "" : " off") + (active ? " active" : "");
+    row.innerHTML = '<span class="ar-slot">' + (i + 1) + '</span>'
+      + '<div class="ar-main"><select class="ar-sel">' + optHtml + '</select><div class="ar-next">' + (active ? "▶ " : "") + sub + '</div></div>'
+      + '<div class="ar-step"><button class="as-m">−</button><b class="as-q">' + c + '</b><button class="as-p">+</button><button class="as-p10">+10</button></div>'
+      + '<button class="ar-x">✕</button>';
+    row.querySelector(".ar-sel").onchange = e => { s.target = e.target.value; save(); renderAuto(); };
+    row.querySelector(".as-m").onclick = () => { s.count = Math.max(0, (s.count || 0) - 1); save(); renderAuto(); };
+    row.querySelector(".as-p").onclick = () => { s.count = (s.count || 0) + 1; save(); renderAuto(); };
+    row.querySelector(".as-p10").onclick = () => { s.count = (s.count || 0) + 10; save(); renderAuto(); };
+    row.querySelector(".as-q").onclick = () => { s.count = 0; save(); renderAuto(); };
+    row.querySelector(".ar-x").onclick = () => { S.auto.queue.splice(i, 1); save(); renderAuto(); };
     return row;
   }
   function renderAuto() {
     ensureAuto();
     const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"); if (!tog) return;
-    const unlocked = autoUnlocked();
-    tog.textContent = "AUTO-BUY: " + (S.auto.on ? "ON" : "OFF");
-    tog.classList.toggle("on", !!S.auto.on && unlocked); tog.disabled = !unlocked;
-    lock.textContent = unlocked
-      ? "Buying ~" + Math.round(autoRate()) + "/sec · +50% tax · faster the more planets you hold."
-      : "🔒 Unlocks when you conquer your first planet.";
+    const slots = autoSlots(), q = S.auto.queue;
+    tog.textContent = "AUTO-BUY: " + (S.auto.on ? "ON" : "OFF"); tog.classList.toggle("on", !!S.auto.on); tog.disabled = false;
+    lock.textContent = "Runs each step IN ORDER · " + Math.min(q.length, slots) + "/" + slots + " slots used"
+      + (slots < TOTAL_PLANETS ? " · slot " + (slots + 1) + " unlocks on planet " + (slots + 1) : " · all slots unlocked") + " · +50% tax.";
     list.innerHTML = "";
-    const head = t => { const h = document.createElement("div"); h.className = "auto-head"; h.textContent = t; list.appendChild(h); };
-    // ECONOMY — per-upgrade count
-    head("ECONOMY  ·  buy how many times");
-    for (const id of ECO_KEYS) { const u = UP[id], maxed = u.max != null && (S.lv[id] || 0) >= u.max; list.appendChild(autoCountRow(ECO_LABEL[id] + "  (lv " + (S.lv[id] || 0) + ")", id, maxed ? null : upCost(u))); }
-    // UNITS — per-type count (only types unlocked here)
-    const unitTypes = [...DEF_ORDER, ...COL_ORDER].filter(t => S.free || S.galaxy >= TY(t).gal);
-    if (unitTypes.length) { head("UNITS  ·  buy how many more"); for (const t of unitTypes) { const full = countType(t) >= TY(t).max; list.appendChild(autoCountRow(TY(t).name + "  (" + countType(t) + "/" + TY(t).max + ")", t, full ? null : unitBuyCost(t))); } }
-    // TREES — hand-picked nodes (chosen inside each skill tree)
-    const treeTypes = [...new Set([...S.units, ...S.collectors].map(u => u.type))];
-    head("SKILL TREES  ·  pick nodes inside the tree (⚙)");
-    for (const t of treeTypes) {
-      const pend = autoNodesPending(t), sel = S.auto.nodes[t] ? Object.values(S.auto.nodes[t]).filter(Boolean).length : 0;
-      const row = document.createElement("div"); row.className = "auto-row" + (pend > 0 ? "" : " off");
-      row.innerHTML = '<div class="ar-main"><div class="ar-name">' + TY(t).name + '</div><div class="ar-next">' + (sel ? (pend + " queued · " + sel + " picked") : "no nodes picked") + '</div></div>'
-        + '<button class="as-open">OPEN ⚙</button>';
-      row.querySelector(".as-open").onclick = () => { $("auto-modal").classList.remove("show"); openSkillTree(t); STree.pick = true; };
-      list.appendChild(row);
-    }
+    const opts = autoTargetOptions(), act = autoActive();
+    q.slice(0, slots).forEach((s, i) => list.appendChild(autoStepRow(s, i, opts, act && act.step === s)));
+    if (q.length < slots) { const add = document.createElement("button"); add.className = "auto-add"; add.textContent = "＋ Add step  (" + (q.length + 1) + "/" + slots + ")"; add.onclick = () => { q.push({ target: opts[0] ? opts[0].value : "value", count: 10 }); save(); renderAuto(); }; list.appendChild(add); }
+    if (slots < TOTAL_PLANETS) { const lk = document.createElement("div"); lk.className = "auto-locked"; lk.textContent = "🔒 Slot " + (slots + 1) + " unlocks on planet " + (slots + 1); list.appendChild(lk); }
     syncAutoBtn();
   }
 
@@ -1544,7 +1549,7 @@
     panel.classList.add("show");
   }
   const STree = {
-    type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null, pick: false,
+    type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null,
     ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
     selNode() { return this.sel ? buildTree(this.type).map[this.sel] : null; },
     init() {
@@ -1560,7 +1565,7 @@
       this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoom = clamp(this.zoom * (1 - e.deltaY * 0.0015), 0.5, 3); this.clampPan(); }, { passive: false });
     },
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
-    open(type) { this.type = type; this.sel = null; this.pick = false; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
+    open(type) { this.type = type; this.sel = null; $("st-info").classList.remove("show"); this.reset(); this.resize(); },
     reset() { this.cx = 0; this.cy = 0; this.zoom = 1; },
     clampPan() { const u = Math.min(this.w, this.h) * 0.078 * this.zoom, m = 13 * u; this.cx = clamp(this.cx, -m, m); this.cy = clamp(this.cy, -m, m); },   // roomier pan so nothing's locked off-screen
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); this.clampPan(); },
@@ -1582,8 +1587,6 @@
       for (const n of G.nodes) {
         const p = this.sc(n.x, n.y), rad = this.nodeRad(n, p.u), has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost;
         this.hit.push({ n, x: p.x, y: p.y, r: rad + 7 });
-        const picked = S.auto && S.auto.nodes && S.auto.nodes[type] && S.auto.nodes[type][n.id];   // hand-marked for Auto-Buy
-        if (picked && !has) { c.globalAlpha = 1; c.strokeStyle = "#8cf"; c.lineWidth = 3; c.setLineDash([5, 4]); c.beginPath(); c.arc(p.x, p.y, rad + 6, 0, TAU); c.stroke(); c.setLineDash([]); }
         if (n.id === this.sel) { c.globalAlpha = 1; c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, rad + 7, 0, TAU); c.stroke(); }
         if (can && afford) { const pl = 0.5 + 0.5 * Math.sin(this.t * 4); c.globalAlpha = 0.35 + pl * 0.5; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 4, 0, TAU); c.stroke(); c.globalAlpha = 1; }
         c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
@@ -1601,16 +1604,9 @@
       $("st-title").textContent = TY(type).name.toUpperCase();
       $("st-owned").textContent = "· " + countType(type) + " deployed · " + allocCount(type) + " nodes · affects ALL";
       $("st-stats").innerHTML = statLine(type);
-      const ab = $("st-auto"); if (ab) ab.classList.toggle("on", !!this.pick);
-      const tip = $("st-pick-tip"); if (tip) tip.style.display = this.pick ? "" : "none";
     },
     tap(x, y) {
       let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } }
-      if (this.pick) {   // AUTO-PICK mode: tapping marks/unmarks a node for Auto-Buy instead of buying it
-        if (!best || best.n.kind === "start" || nodeAllocated(this.type, best.n.id)) return;
-        ensureAuto(); const sel = S.auto.nodes[this.type] || (S.auto.nodes[this.type] = {});
-        if (sel[best.n.id]) delete sel[best.n.id]; else sel[best.n.id] = true; save(); return;
-      }
       if (!best) { this.sel = null; $("st-info").classList.remove("show"); return; }
       showNodeInfo(best.n);
     },
@@ -2237,7 +2233,6 @@
   };
   if ($("st-max")) $("st-max").onclick = () => { allocAll(STree.type); showNodeInfo(STree.selNode()); };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
-  $("st-auto").onclick = () => { STree.pick = !STree.pick; };   // toggle node-marking mode in the tree
   if ($("gm-exchange")) $("gm-exchange").onclick = openFx;
   $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");

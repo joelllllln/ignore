@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v6.4</div>
+  <div id="version" class="layer">v6.5</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -101,7 +101,7 @@
       <div class="si-prev" id="si-prev"></div>
       <button id="st-upgrade" class="si-btn">UPGRADE</button>
     </div>
-    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><span id="st-pick-tip" class="st-tip pick" style="display:none">⚙ PICK MODE — tap nodes to mark them for Auto-Buy</span><button id="st-auto">⚙ Pick</button><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset">⟲ Recenter</button><button id="st-sell">SELL ONE</button></div>
+    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset">⟲ Recenter</button><button id="st-sell">SELL ONE</button></div>
   </div>
 
   <!-- GALAXY MAP (interactive 3D) -->
@@ -116,11 +116,11 @@
   <div id="auto-modal" class="modal">
     <div class="card">
       <div class="card-head"><h2>⚙ Auto-Buy</h2><button class="x" id="auto-close">✕</button></div>
-      <p class="muted" id="auto-sub">Specify <b>exactly</b> what to automate: set a <b>count</b> for each Economy/Unit buy, and <b>hand-pick nodes</b> inside each skill tree (⚙ Pick). Auto-buys cost <b>+50%</b> over manual.</p>
+      <p class="muted" id="auto-sub">A <b>sequential build order</b> — each step buys one thing N times, then the next runs. You unlock <b>one slot per planet</b> you reach. Auto-buys cost <b>+50%</b> over manual.</p>
       <button class="big" id="auto-toggle">AUTO-BUY: OFF</button>
       <div id="auto-lock" class="auto-lock"></div>
       <div id="auto-list" class="auto-list"></div>
-      <p class="muted auto-hint">−/＋ sets how many times to auto-buy each item (tap the number to clear). For trees, hit <b>OPEN ⚙</b> then tap nodes to mark them. It buys cheapest-first, runs while you're away, and gets faster the more planets you conquer.</p>
+      <p class="muted auto-hint">Add steps, pick each one's target &amp; how many times (−/＋, tap the number to clear). The ▶ step runs to completion before the next starts. Runs while you're away, and gets faster the more planets you conquer.</p>
       <button class="big" id="auto-back">DONE</button>
     </div>
   </div>
