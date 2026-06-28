@@ -256,16 +256,15 @@ multiplier**. Think of it as your RPG level. The loop:
   empire grows **+30% per planet conquered** (`EMPIRE_RAMP`). Early worlds are an
   active grind; lategame the empire can largely **idle you to the next conquest**,
   so you never hand-manage all 18.
-- **⚙ Auto-Buy** turns that idle income into real build progress (otherwise it
-  just caps at your cash ceiling). It's **opt-in and deliberately taxed** so it
-  never out-classes hands-on play: every lane starts **OFF** — you enable **exactly**
-  what you want automated — and each auto-bought upgrade costs **+15% over manual**,
-  so hand-buying is always more efficient. It spends **top-down by a priority order
-  you set** across all three sinks — **Economy, Units, and skill-tree nodes** — runs
-  live **and simulates while you're away** (you come back to a built-up planet), and
-  **unlocks at your first conquest**, buying faster the more planets you hold. Open
-  it from the **⚙ AUTO** button in the dock **or the star map**: toggle it on, reorder
-  lanes with ▲▼, tap a lane to enable/disable it.
+- **⚙ Auto-Buy** turns idle income into real build progress (otherwise it just caps
+  at your cash ceiling). It's **fully explicit and steeply taxed** so it never
+  out-classes hands-on play: you specify **exactly** what to automate — a **count**
+  for each Economy/Unit buy ("buy Value 10 more times", which ticks down as it buys)
+  and **hand-picked nodes** inside each skill tree (open the tree, hit **⚙ Pick**, tap
+  the nodes you want — they get a blue marker). It then buys **only that, cheapest-first**,
+  at **+50% over manual**. Runs live **and simulates while you're away** (you come back
+  to a built-up planet), and **unlocks at your first conquest**, buying faster the more
+  planets you hold. Open it from the **⚙ AUTO** button in the dock **or the star map**.
 
 The Conquest multiplier boosts **all** your income forever, but it is **not
 spendable cash** — you still land on each new world at ~zero and have to play, so
