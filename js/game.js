@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.4";
+  const VERSION = "v5.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1061,7 +1061,8 @@
   /* ----------------------------- HUD ----------------------------- */
   function syncHUD() {
     let bg = 0; for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v.conquered) bg += v.bgRate || 0; }
-    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = " " + curName(S.galaxy) + ((S.conquest || 1) > 1.001 ? "  ·  ⚔×" + fmt(S.conquest) + " conquest" : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");
+    const cq = S.conquest || 1, cqStr = cq < 100 ? cq.toFixed(1) : fmt(cq);   // fmt() floors small numbers (1.8→"1"), so keep a decimal while the multiplier is small
+    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ⚔×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
     const tgt = conquerTarget(S.galaxy), conq = planetMeta(S.galaxy).conquered;
@@ -1081,9 +1082,9 @@
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {
-        const d = TY(id), locked = !S.free && S.peakGalaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;
+        const d = TY(id), locked = !S.free && S.galaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;   // gated by the CURRENT planet (era-appropriate), not your furthest — no retro-gearing old worlds
         row.desc.textContent = n + "/" + d.max + (locked ? "" : " · " + d.name);
-        if (locked) { row.buy.textContent = "🔒 G" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
+        if (locked) { row.buy.textContent = "🔒 from P" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
         else if (full) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.add("maxed"); }
         else { row.buy.textContent = S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = !S.free && S.cash < c; row.buy.classList.toggle("afford", S.free || S.cash >= c); row.el.classList.remove("maxed"); }
       } else {
@@ -1095,8 +1096,8 @@
     }
     // tab badges
     const aff = { def: false, drone: false, eco: false };
-    for (const t of DEF_ORDER) if (S.free || (S.peakGalaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.def = true;
-    for (const t of COL_ORDER) if (S.free || (S.peakGalaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.drone = true;
+    for (const t of DEF_ORDER) if (S.free || (S.galaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.def = true;
+    for (const t of COL_ORDER) if (S.free || (S.galaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.drone = true;
     for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
     for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
   }
@@ -1129,7 +1130,7 @@
   }
   function buyUnit(type) {
     const list = classList(type);
-    if (!S.free && S.peakGalaxy < TY(type).gal) return;   // unlocked once you've REACHED its planet (permanent); free mode ignores it
+    if (!S.free && S.galaxy < TY(type).gal) return;   // available only on its planet and ONWARD — never retroactively on earlier worlds (so revisits keep their era kit, no back-gearing chore); free mode ignores it
     let bought = 0;
     for (let i = 0; i < buyN(); i++) {
       if (countType(type) >= TY(type).max) break;
@@ -1489,7 +1490,7 @@
         row("Planet", S.galaxy + " · " + galName(S.galaxy) + " (" + sysName(S.galaxy) + ")") + row("Peak planet", S.peakGalaxy) +
         row("Travels", s.travels))) +
       sec("Empire &amp; conquest", grid(
-        row("⚔ Conquest multiplier", "×" + fmt(S.conquest || 1)) + row("Planets conquered", conquered + " / " + TOTAL_PLANETS) +
+        row("⚔ Conquest multiplier", "×" + ((S.conquest || 1) < 100 ? (S.conquest || 1).toFixed(1) : fmt(S.conquest))) + row("Planets conquered", conquered + " / " + TOTAL_PLANETS) +
         row("Empire idle income", curSym(S.galaxy) + " " + fmt(empireRate) + " /s"))) +
       sec("Economy", grid(
         row("Cash / sec", curSym(S.galaxy) + " " + fmt(cps)) + row("Capacity", curSym(S.galaxy) + " " + fmt(derived.capacity)) +
