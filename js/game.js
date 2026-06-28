@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v7.6";
+  const VERSION = "v7.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -321,27 +321,28 @@
   const curName = g => "Credits";
   const curSym  = g => "✦";
   const curWorth = g => eco(g);
-  // CONQUER-TIME CURVE (designed, expressed in PASSIVE hours): each planet is slightly QUICKER than the
-  // last — a gentle steamroll — EXCEPT a new solar system SPIKES it back up (the wall). The curve is
-  // anchored so the fastest planet (the very last) sits exactly at CONQUER_FLOOR_HOURS of PASSIVE play, so
-  // 6h is the floor reached at the end while every earlier planet is a touch above it. The target scales
-  // with eco(g) AND your Conquest multiplier, so the passive TIME follows this shape no matter how strong
-  // you get; active play (~40× income) blows through proportionally faster (the curve is on idle pace, not
-  // wall-clock). PASSIVE_RATE_REF anchors the hours to a representative maxed passive build (kills/sec ×
-  // value-mult, per the pacing/playthrough sims). Tunables: FLOOR_HOURS (end speed), DECLINE (per-planet
-  // steamroll within a system), SYS_SPIKE (how hard a new solar system throws you back).
-  const CONQUER_FLOOR_HOURS = 6, CONQUER_DECLINE = 0.90, CONQUER_SYS_SPIKE = 1.65, PASSIVE_RATE_REF = 34.7 * 2.44;
-  // OVERALL PACE — multiplies every conquer target so a planet is a real, hours-long campaign
-  // instead of a few minutes of frantic brushing. Measured: efficient active play (brush + abilities
-  // + heavy Value/Spawn) earns ~40k/s on P2, conquering in ~8 min at ×1; ×60 puts that around 8h,
-  // and ordinary sustained play lands in the multi-hour range the game is meant to take. Tune this
-  // ONE number up/down to make the whole game slower/faster — it cancels in cost ratios, so the
-  // shape/affordability/curve are all preserved; only wall-clock time scales.
-  const CONQUER_PACE = 60;
-  const conquerShape = g => { g = Math.max(1, Math.min(g, TOTAL_PLANETS)); let h = 1; for (let k = 2; k <= g; k++) h *= (PLANET_LOCAL[planetIdx(k)] === 0 ? CONQUER_SYS_SPIKE : CONQUER_DECLINE); return h; };
-  let _conqMin = Infinity; for (let _g = 1; _g <= TOTAL_PLANETS; _g++) _conqMin = Math.min(_conqMin, conquerShape(_g));
-  const conquerHours = g => CONQUER_FLOOR_HOURS * conquerShape(g) / _conqMin;   // passive hours for planet g (gentle decline + system spikes; min = FLOOR at the last planet)
-  const conquerTarget = g => Math.ceil(eco(g) * (S.conquest || 1) * PASSIVE_RATE_REF * conquerHours(g) * 3600 * CONQUER_PACE);
+  // CONQUER-TIME CURVE — designed ACTIVE-play hours per planet: a gentle steamroll DOWN within a solar
+  // system, then a JUMP back UP crossing into a new system (the wall), declining again. These are the
+  // wall-clock hours an engaged active player (brushing + abilities + upgrades) should spend per planet.
+  const SYS_ACTIVE_HOURS = [
+    [12, 10, 8, 7],                         // Helios (4 planets)
+    [18, 15, 12, 10, 9, 8],                 // Cygnus (6 planets)
+    [20, 17, 14, 12, 11, 10, 9, 8],         // Erebus (8 planets)
+  ];
+  const DESIRED_HOURS = [0]; SYS_ACTIVE_HOURS.forEach(a => a.forEach(h => DESIRED_HOURS.push(h)));
+  const conquerHours = g => DESIRED_HOURS[Math.max(1, Math.min(g | 0, TOTAL_PLANETS))] || 8;
+  // The target is anchored to your real INCOME so the active TIME actually lands on the curve above. Real
+  // active brushing income does NOT just track eco·Conquest — each planet you also unlock more classes and
+  // afford deeper trees, so measured income compounds an EXTRA ~BUILD× per planet on top. We model that with
+  // a geometric build-power term; without it the target can't keep pace and late planets balloon to days.
+  // A small live-empire term is added so a fat idle empire can't trivialise the conquest. Idle income is a
+  // fraction of active, so idle takes longer; the empire "carries" you toward the next world over time.
+  const ACTIVE_REF = 6000;   // measured active $/s on planet 1 per (eco-unit × Conquest) — anchors the curve level
+  const BUILD = 2.15;        // per-planet compounding of real active income beyond eco·Conquest (class unlocks + deeper trees), measured from full playthrough sims
+  const EMPIRE_W = 0.8;      // how strongly the live idle empire inflates the target (keeps idle from trivialising a conquest)
+  const buildPow = g => Math.pow(BUILD, Math.max(0, (g | 0) - 1));
+  const baseTarget = g => conquerHours(g) * 3600 * ACTIVE_REF * buildPow(g) * eco(g) * (S.conquest || 1);   // income-model part (no empire) — also drives idle bgRate, so the empire never feeds back on itself
+  const conquerTarget = g => Math.ceil(baseTarget(g) + conquerHours(g) * 3600 * EMPIRE_W * empireIdleRate());
   // CONQUEST MULTIPLIER — the core cross-planet progression. Conquering a planet permanently multiplies
   // ALL your income by CONQ_STEP (≈×1.8/planet). It carries forever (your "RPG level"); it is NOT spendable
   // cash, so it can't instant-max a fresh planet — you still land at ~0 and rebuild, just EARN faster. Over
@@ -350,7 +351,7 @@
   const CONQ_STEP = 1.8;
   const BG_EFF = 0.4;                                                // (legacy) live-rate fraction — superseded by the target-based idle below
   // IDLE EMPIRE — a conquered planet keeps earning for you while you're away on another world. Its
-  // idle rate is a fraction of ITS OWN conquest cost (so it auto-scales with CONQUER_PACE and the
+  // idle rate is a fraction of ITS OWN conquest cost (so it auto-scales with the difficulty curve and the
   // whole difficulty curve), and the entire empire's idle output RAMPS UP the more planets you hold.
   // So early planets are an active grind, but by lategame your empire can largely IDLE you to the
   // next conquest — you don't have to hand-manage all 18 worlds.
@@ -991,7 +992,7 @@
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
-      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, conquerTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4);
+      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4);
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours · ⚔ ×" + fmt(S.conquest)); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)

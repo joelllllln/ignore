@@ -252,9 +252,16 @@ multiplier**. Think of it as your RPG level. The loop:
   you've *unlocked* so far (classes stay unlocked permanently — your knowledge
   carries, your build doesn't).
 - **Earn** by killing the planet's native race until you fill the **conquer**
-  bar — that unlocks **Travel**. A planet is a deliberate **hours-long campaign**
-  (paced by `CONQUER_PACE`); active play — drawing to brush dots, abilities, and
-  fat Value/Spawn upgrades — is the fast path.
+  bar — that unlocks **Travel**. A planet is a deliberate **hours-long campaign**;
+  active play — drawing to brush dots, abilities, and fat Value/Spawn upgrades —
+  is the fast path.
+- **Designed conquer-time curve.** Each conquer bar is anchored to your real income
+  so the *active* hours land on an intended curve: you **steamroll faster and faster
+  through a solar system** (Helios ≈ 12→10→8→7h), then crossing into a **new system
+  spikes the wall back up** and you climb again (Cygnus ≈ 18→…→8h, Erebus ≈ 20→…→8h).
+  The target tracks how your income compounds each planet (`BUILD`, from class
+  unlocks + deeper trees) so late worlds stay full campaigns instead of collapsing
+  to minutes.
 - **Conquer → your Conquest multiplier permanently grows (×1.8)** and the planet
   **joins your empire**, feeding idle income straight into your global treasury
   (online **and** offline). **Revisit** any conquered planet anytime to keep
