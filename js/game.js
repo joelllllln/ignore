@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.5";
+  const VERSION = "v5.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -47,7 +47,7 @@
   // bonus to weak/small/fast dots. So mixing classes beats stacking one.
   const DEF_TYPES = {
     turret:  { name: "Turret",  base: 60,     gal: 1,  dmg: 5,   rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2,  dmg: 9,   rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, niche: "splash — shreds clustered swarms" },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2,  dmg: 9,   rate: 0.6, range: 215, splash: 55, max: 4, vsBig: 1.1, vsSwarm: 2.2, lob: 1, niche: "splash — lobs arcing bombs that detonate on clustered swarms" },
     plasma:  { name: "Plasma",  base: 4000,   gal: 5,  dmg: 26,  rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
     laser:   { name: "Laser",   base: 30000,  gal: 8,  dmg: 3,   rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
     railgun: { name: "Railgun", base: 250000, gal: 11, dmg: 90,  rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
@@ -390,7 +390,7 @@
   function freshMeta() { return { totalEver: 0, stats: freshStats() }; }
   const stat = () => META.stats;
 
-  let dots = [], orbs = [], beams = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
+  let dots = [], orbs = [], beams = [], shells = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
   let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0, landT = 0, fxAcc = 0;
@@ -674,6 +674,16 @@
       target.aimed = (target.aimed || 0) + dmg;   // mark for coordination — later units this frame see it's spoken-for
       const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
       if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; recoiled = true; }   // muzzle recoil + aim + brief flash (toward first target)
+      // LOB weapons (mortar) DON'T shoot a straight beam — they fire a high arcing bomb that
+      // sails over the field and detonates on landing, blanketing the impact point in splash.
+      if (DEF_TYPES[u.type].lob) {
+        const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
+        shells.push({ x0: p.x, y0: p.y, tx: target.x, ty: target.y, t: 0,
+          dur: clamp(0.34 + ddl / 820, 0.36, 0.78), arc: 30 + Math.min(ddl * 0.18, 90),
+          dmg, aoe, crit, type: u.type, color: uColor(u),
+          r: 3 + Math.min(Math.log10(uDmg(u) + 1) * 1.1, 5), spin: 0 });
+        continue;
+      }
       beams.push({ x1: p.x, y1: p.y, x2: target.x, y2: target.y, life: crit ? 0.13 : 0.08, color: uColor(u), w: (crit ? 3.5 : 2) + Math.min(Math.log10(uDmg(u) + 1) * 0.5, 3) });   // bolder beams with more damage
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
       const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
@@ -843,6 +853,17 @@
 
     for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
+    // arcing mortar bombs: fly their parabola, then detonate on landing (deferred splash).
+    for (const sh of shells) {
+      sh.t += dt; sh.spin += dt * 13;
+      if (sh.t >= sh.dur) {
+        sh.dead = true;
+        const aoe = sh.aoe; if (aoe > 0) for (const d of dots) if (!d.dead && (d.x - sh.tx) ** 2 + (d.y - sh.ty) ** 2 <= aoe * aoe) hitDot(d, sh.dmg, sh.type);
+        ring(sh.tx, sh.ty, sh.crit ? 6 : 4, Math.max(aoe, 22), 0.24); burst(sh.tx, sh.ty, sh.crit ? 13 : 8, 120, 2.6);
+        shake = Math.max(shake, sh.crit ? 5.5 : 3.2);
+      }
+    }
+    shells = shells.filter(s => !s.dead);
 
     // collectors coordinate: chase-types each claim their nearest orb (so they
     // split up); black-hole types stay put and drag everything in slowly.
@@ -947,6 +968,29 @@
     if (blackholeT > 0) { ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, TAU); ctx.fill(); }
     for (const b of beams) { const a = clamp(b.life / (b.w > 2 ? 0.13 : 0.08), 0, 1); ctx.strokeStyle = b.color; ctx.globalAlpha = a * 0.25; ctx.lineWidth = (b.w || 2) * 2.4; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.globalAlpha = a; ctx.lineWidth = b.w || 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
+    // arcing mortar bombs — parabola over the field, ground shadow + target reticle, smoke trail, fused shell
+    for (const sh of shells) {
+      const k = clamp(sh.t / sh.dur, 0, 1);
+      const gx = sh.x0 + (sh.tx - sh.x0) * k, gy = sh.y0 + (sh.ty - sh.y0) * k;   // ground-track point
+      const y = gy - Math.sin(k * Math.PI) * sh.arc;                              // lobbed height
+      // impact reticle that tightens as the bomb falls
+      ctx.globalAlpha = 0.18 + 0.4 * k; ctx.strokeStyle = sh.color; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(sh.tx, sh.ty, Math.max(sh.aoe, 16) * (1.15 - 0.45 * k), 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(sh.tx, sh.ty, 2.2, 0, TAU); ctx.stroke();
+      // shadow on the ground beneath the shell (shrinks/darkens as it climbs/descends)
+      const climb = Math.sin(k * Math.PI);
+      ctx.globalAlpha = 0.26 * (1 - climb * 0.6); ctx.fillStyle = "#000";
+      ctx.beginPath(); ctx.ellipse(gx, gy, sh.r * (1.3 - climb * 0.5), sh.r * (0.6 - climb * 0.25), 0, 0, TAU); ctx.fill();
+      // smoke trail
+      for (let s = 1; s <= 3; s++) { const kk = clamp(k - s * 0.06, 0, 1); const px = sh.x0 + (sh.tx - sh.x0) * kk, py = sh.y0 + (sh.ty - sh.y0) * kk - Math.sin(kk * Math.PI) * sh.arc; ctx.globalAlpha = 0.13 * (1 - s / 4); ctx.fillStyle = "#9a9a9a"; ctx.beginPath(); ctx.arc(px, py, sh.r * (1 - s * 0.16), 0, TAU); ctx.fill(); }
+      // the bomb: dark casing, class-tinted core, sparking fuse
+      ctx.globalAlpha = 1; ctx.fillStyle = "#161616"; ctx.beginPath(); ctx.arc(gx, y, sh.r + 1.6, 0, TAU); ctx.fill();
+      ctx.fillStyle = sh.color; ctx.beginPath(); ctx.arc(gx, y, sh.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); ctx.arc(gx + sh.r * 0.3, y + sh.r * 0.3, sh.r * 0.5, 0, TAU); ctx.fill();   // shaded underside
+      const fl = 0.5 + 0.5 * Math.sin(sh.spin * 3);
+      ctx.fillStyle = "rgba(255,255,255," + (0.55 + fl * 0.45) + ")"; ctx.beginPath(); ctx.arc(gx, y - sh.r * 0.8, 1.3 + fl * 1.1, 0, TAU); ctx.fill();   // fuse spark
+      ctx.globalAlpha = 1;
+    }
     const lod = dots.length > 150;   // render LOD: when the field is busy, skip per-dot spikes/rings/race decorations (keep core + threat rings + HP bar) so a crowded field stays at 60fps
     for (const d of dots) {
       if (d.boss) { drawBoss(d); continue; }
@@ -1002,14 +1046,34 @@
       const bodyR = (u.type === "turret" ? 11 : 9) + Math.min(Math.log10(c.dmg + 1) * 1.4, 6);
       const aim = u.aim != null ? u.aim : -Math.PI / 2;
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(aim); ctx.lineCap = "round";
-      for (let b = 0; b < barrels; b++) {
-        const off = (b - (barrels - 1) / 2) * (bw + 2.4);
-        ctx.strokeStyle = "#2b2b2b"; ctx.lineWidth = bw + 1.6; ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
-        ctx.strokeStyle = "#e6e6e6"; ctx.lineWidth = Math.max(1, bw * 0.5); ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
-        if (u.flash > 0) { const a = u.flash / 0.08; ctx.fillStyle = "rgba(255,255,255," + a + ")"; ctx.beginPath(); ctx.arc(blen + 1, off, bw * 0.55 + 2 * a, 0, TAU); ctx.fill(); }   // brief white muzzle flash only while firing
+      if (u.type === "mortar") {
+        // MORTAR: not barrels but a single fat, stubby launch tube on a base plate with a bipod —
+        // recoils on its kick, flares at the muzzle, reads instantly as a lob weapon not a gun.
+        const recoil = u.flash > 0 ? (u.flash / 0.08) * 3 : 0;          // tube kicks back when it fires
+        const tubeW = bw + 5.5, tEnd = bodyR + 8 + Math.min(uRange(u) - DEF_TYPES.mortar.range, 150) * 0.02 - recoil, tBeg = -bodyR * 0.55 - recoil;
+        // heavy base plate seated under the tube (perpendicular slab)
+        ctx.fillStyle = "#262626"; ctx.beginPath(); ctx.ellipse(-bodyR * 0.15, 0, bodyR * 0.55, bodyR * 1.05, 0, 0, TAU); ctx.fill();
+        // bipod legs splaying out near the muzzle
+        ctx.strokeStyle = "#383838"; ctx.lineWidth = 2.6; ctx.lineCap = "round";
+        for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.moveTo(tEnd * 0.5, 0); ctx.lineTo(tEnd * 0.42, sgn * (bodyR + 6)); ctx.stroke(); }
+        // the tube — thick dark casing with a bright bore stripe, taper to a reinforced muzzle
+        ctx.strokeStyle = "#1c1c1c"; ctx.lineWidth = tubeW + 2.5; ctx.beginPath(); ctx.moveTo(tBeg, 0); ctx.lineTo(tEnd, 0); ctx.stroke();
+        ctx.strokeStyle = "#454545"; ctx.lineWidth = tubeW; ctx.beginPath(); ctx.moveTo(tBeg, 0); ctx.lineTo(tEnd, 0); ctx.stroke();
+        ctx.strokeStyle = "#cfcfcf"; ctx.lineWidth = Math.max(1.2, tubeW * 0.34); ctx.beginPath(); ctx.moveTo(tBeg + 1, 0); ctx.lineTo(tEnd - tubeW * 0.4, 0); ctx.stroke();
+        // muzzle collar + dark bore mouth
+        ctx.fillStyle = "#e8e8e8"; ctx.beginPath(); ctx.arc(tEnd, 0, tubeW * 0.7, 0, TAU); ctx.fill();
+        ctx.fillStyle = "#0a0a0a"; ctx.beginPath(); ctx.arc(tEnd, 0, tubeW * 0.42, 0, TAU); ctx.fill();
+        if (u.flash > 0) { const a = u.flash / 0.08; ctx.fillStyle = "rgba(255,255,255," + a + ")"; ctx.beginPath(); ctx.arc(tEnd + 3, 0, tubeW * 0.7 + 5 * a, 0, TAU); ctx.fill(); }   // muzzle blast on launch
+      } else {
+        for (let b = 0; b < barrels; b++) {
+          const off = (b - (barrels - 1) / 2) * (bw + 2.4);
+          ctx.strokeStyle = "#2b2b2b"; ctx.lineWidth = bw + 1.6; ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
+          ctx.strokeStyle = "#e6e6e6"; ctx.lineWidth = Math.max(1, bw * 0.5); ctx.beginPath(); ctx.moveTo(bodyR * 0.3, off); ctx.lineTo(blen, off); ctx.stroke();
+          if (u.flash > 0) { const a = u.flash / 0.08; ctx.fillStyle = "rgba(255,255,255," + a + ")"; ctx.beginPath(); ctx.arc(blen + 1, off, bw * 0.55 + 2 * a, 0, TAU); ctx.fill(); }   // brief white muzzle flash only while firing
+        }
+        // RANGE branch (Scope · Range Finder · Laser Sight · Long Barrel): a faint sight line creeps past the muzzle, one notch longer per range node
+        if (c.n.range > 0) { const sl = Math.min(5 + c.n.range * 3.5, 40); ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(blen + 2, 0); ctx.lineTo(blen + 2 + sl, 0); ctx.stroke(); }
       }
-      // RANGE branch (Scope · Range Finder · Laser Sight · Long Barrel): a faint sight line creeps past the muzzle, one notch longer per range node
-      if (c.n.range > 0) { const sl = Math.min(5 + c.n.range * 3.5, 40); ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(blen + 2, 0); ctx.lineTo(blen + 2 + sl, 0); ctx.stroke(); }
       ctx.restore();
       // --- body (size = damage) · distinct per-class silhouette: turret circle · mortar hex · plasma diamond · laser triangle · railgun square ---
       const shp = { mortar: [6, 0], plasma: [4, Math.PI / 4], laser: [3, -Math.PI / 2], railgun: [4, 0], nova: [8, Math.PI / 8] }[u.type];   // nova = octagon "void burst"
@@ -1837,7 +1901,7 @@
     S.collectors = (b.collectors && b.collectors.length) ? b.collectors : [{ type: "drone" }];
     S.lv = b.lv || freshPlanetBuild().lv; S.classNodes = b.classNodes || freshPlanetBuild().classNodes;
     S.galaxy = g; if (g > S.peakGalaxy) S.peakGalaxy = g; curEarned = v.earned || 0;
-    dots = []; orbs = []; beams = []; parts = []; selUnit = -1;
+    dots = []; orbs = []; beams = []; shells = []; parts = []; selUnit = -1;
     syncCollectors(); recompute(); renderList(); syncHUD(); GMap.reset && 0;
   }
   // journey time is RELATIVE TO THE REAL MAP DISTANCE between the two planets (the line the ship
