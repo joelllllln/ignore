@@ -329,7 +329,9 @@ the curve and the two invariants this guarantees.)
 ```
 index.html   HUD (cash/planet), dock (abilities, tabs, upgrade list),
              modals (skill tree, star map, Welcome-back, info, metrics, menu)
-style.css    Minimalist B&W theme, reactive button feel, modal & map styles
+style.css    Minimalist B&W theme, reactive button feel, modal & map styles,
+             bespoke chrome (mono display type, chamfered buttons, custom
+             thin-line SVG icon set — no emoji anywhere in the UI)
 js/game.js   The whole game: dots & dot kinds, defender classes & formation,
              per-class skill trees, collectors, economy, abilities, planets
              & solar systems, juice (particles/shake/flash), offline,

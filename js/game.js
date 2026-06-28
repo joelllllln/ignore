@@ -9,10 +9,46 @@
   const canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
   const $ = id => document.getElementById(id);
   const TAU = Math.PI * 2;
+  // ── bespoke icon set — hand-drawn thin-line glyphs (one source of truth; no emoji, no libraries) ──
+  // monochrome, inherit currentColor; used in DOM via iconMarkup() or <i data-ico="name"> + hydrateIcons().
+  const ICONS = {
+    play: '<path d="M8 5.5l11 6.5-11 6.5z"/>',
+    planet: '<circle cx="11" cy="11" r="5.4"/><ellipse cx="12" cy="12" rx="11" ry="3.6" transform="rotate(-24 12 12)"/>',
+    help: '<path d="M12 3l8 4.6v8.8L12 21l-8-4.6V7.6z"/><path d="M9.8 9.4a2.3 2.3 0 1 1 3 2.2c-.8.4-1.2.9-1.2 1.8"/><circle cx="11.6" cy="16.4" r=".6" fill="currentColor" stroke="none"/>',
+    gear: '<circle cx="12" cy="12" r="3.1"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/>',
+    reset: '<path d="M19.5 12a7.5 7.5 0 1 1-2.4-5.5"/><path d="M18 3.5v4h-4"/>',
+    home: '<path d="M3.5 11.2L12 4l8.5 7.2"/><path d="M5.6 9.6V20h12.8V9.6"/><path d="M10 20v-5h4v5"/>',
+    turret: '<circle cx="7" cy="16" r="3"/><path d="M7 13V9h5l8-2v3l-8 2H9"/><path d="M4.2 18.8L2.5 21"/>',
+    shield: '<path d="M12 3l7 2.4v5.1c0 4.9-3.2 8-7 10.2-3.8-2.2-7-5.3-7-10.2V5.4z"/><path d="M9 11.5l2 2 4-4"/>',
+    alien: '<path d="M12 3.4l6 4.3v8.6L12 20.6 6 16.3V7.7z"/><circle cx="9.6" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.4" cy="11" r="1.1" fill="currentColor" stroke="none"/><path d="M9.5 15h5"/>',
+    gem: '<path d="M6 4.5h12l3 4.6-9 10.4L3 9.1z"/><path d="M3 9.1h18M9 4.5L6 9.1l6 10.4 6-10.4-3-4.6"/>',
+    tree: '<circle cx="12" cy="5" r="2.1"/><circle cx="6" cy="16" r="2.1"/><circle cx="18" cy="16" r="2.1"/><path d="M12 7.1v3.4M11 12l-4 2.3M13 12l4 2.3"/>',
+    collector: '<rect x="9.2" y="9.2" width="5.6" height="5.6" rx="1.2"/><circle cx="5.4" cy="5.4" r="2.1"/><circle cx="18.6" cy="5.4" r="2.1"/><circle cx="5.4" cy="18.6" r="2.1"/><circle cx="18.6" cy="18.6" r="2.1"/><path d="M9.2 9.2L6.9 6.9M14.8 9.2l2.3-2.3M9.2 14.8l-2.3 2.3M14.8 14.8l2.3 2.3"/>',
+    swords: '<path d="M4 4l11 11M9.5 15.5l-5 5M20 4L9 15"/><path d="M3.5 18l2.5 2.5M18.5 18L16 20.5"/>',
+    castle: '<path d="M4 21V10h2V7.5h2V10h2V8h4v2h2V7.5h2V10h2v11z"/><path d="M10 21v-4h4v4"/>',
+    coin: '<circle cx="12" cy="12" r="8"/><path d="M12 7.4v9.2M9.6 9.4c0-1 1-1.7 2.4-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.5-2.5.5-2.5 1.6 1.1 1.7 2.5 1.7 2.4-.7 2.4-1.6"/>',
+    brush: '<path d="M4 20.5c2.2 0 3.4-1.2 3.4-3.2"/><path d="M7 16.6l8.4-8.4 2.8 2.8-8.4 8.4z"/><path d="M15.4 8.2l2-2 .9-.9 1.9 1.9-.9.9-2 2"/>',
+    bolt: '<path d="M13 2.5L5.5 13H11l-1 8.5L18.5 10H12.5z"/>',
+    power: '<path d="M12 3.5v8"/><path d="M7.6 6.4a7 7 0 1 0 8.8 0"/>',
+    lock: '<rect x="5" y="10.6" width="14" height="9.4" rx="1.6"/><path d="M8 10.6V8a4 4 0 0 1 8 0v2.6"/>',
+    sound: '<path d="M4 9.2v5.6h3.4L13 19V5L7.4 9.2z"/><path d="M16 9.4a3.6 3.6 0 0 1 0 5.2M18.4 7a7 7 0 0 1 0 10"/>',
+    vibe: '<rect x="8.2" y="4" width="7.6" height="16" rx="1.6"/><path d="M4.5 9v6M19.5 9v6M10.8 17.4h2.4"/>',
+    shake: '<rect x="7" y="7" width="10" height="10" rx="1.3"/><path d="M2.5 9.5v5M21.5 9.5v5M9.5 2.5h5M9.5 21.5h5"/>',
+    spark: '<path d="M12 3v4.5M12 16.5V21M3 12h4.5M16.5 12H21M5.6 5.6l2.6 2.6M15.8 15.8l2.6 2.6M18.4 5.6l-2.6 2.6M8.2 15.8l-2.6 2.6"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
+    hash: '<path d="M8.5 4L6.5 20M17.5 4l-2 16M4 9h16M3.2 15H19"/>',
+    rocket: '<path d="M20 4c-4 .2-7 1.8-9.2 4.8L8 12l4 4 3.2-2.8C18.2 11 19.8 8 20 4z"/><path d="M8 12l-3.5 1 2 2M12 16l1 3.5 2-2M6.5 17.5L4 20"/>',
+    rain: '<path d="M5 11a3.6 3.6 0 0 1 3.4-3.6 4.6 4.6 0 0 1 8.6-1 3.3 3.3 0 0 1 .5 6.4"/><path d="M8 16v3M12 17v3M16 16v3"/>',
+    blackhole: '<ellipse cx="12" cy="12" rx="10" ry="3.6" transform="rotate(-18 12 12)"/><circle cx="12" cy="12" r="3.3" fill="currentColor" stroke="none"/>',
+    chart: '<path d="M4 20V4M4 20h16M8 20v-5M12 20v-9M16 20v-6"/>',
+    star4: '<path d="M12 2.2l2.3 7.5 7.5 2.3-7.5 2.3-2.3 7.5-2.3-7.5L2.2 12l7.5-2.3z" fill="currentColor" stroke="none"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  };
+  function iconMarkup(name, extra) { const p = ICONS[name]; if (!p) return ""; return '<svg class="ico' + (extra ? " " + extra : "") + '" viewBox="0 0 24 24" aria-hidden="true">' + p + "</svg>"; }
+  function hydrateIcons(root) { (root || document).querySelectorAll("i[data-ico]").forEach(e => { const m = iconMarkup(e.getAttribute("data-ico"), e.getAttribute("data-cls") || ""); if (m) e.outerHTML = m; }); }
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v7.8";
+  const VERSION = "v7.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -654,7 +690,7 @@
       shieldMax: hp * 0.35, shield: hp * 0.35, armorUp: 0, regen: 0.012, add: 0,
       mstyle: styles[Math.floor(mr(0) * styles.length)], mt: 0, mphase: mr(1) * TAU, mfx: 0.5 + mr(2) * 0.9, mfy: 0.45 + mr(3) * 0.9, mdir: mr(4) < 0.5 ? -1 : 1, mrad: 95 + mr(5) * 75, mtimer: 0, mtx: W / 2, mty: H * 0.35, mdash: false,
       weight: 5, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#ffffff" });
-    floatTxt(W / 2, H / 2 - 70, "⚠ " + bossName(g) + " ⚠"); flashAdd(0.55); shakeAdd(9);
+    floatTxt(W / 2, H / 2 - 70, "▲ " + bossName(g) + " ▲"); flashAdd(0.55); shakeAdd(9);
   }
   // boss movement with personality — each style roams the upper field very differently
   function bossMove(d, dt) {
@@ -833,7 +869,7 @@
         S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump;   // PHAT: bypasses the capacity ceiling so the reward always lands in full
         const granted = grantTreeNodes(3);      // a couple of free auto-allocated tree nodes
         burst(d.x, d.y, 60, 240, 3.4); ring(d.x, d.y, d.r, d.r + 150, 0.7); ring(d.x, d.y, d.r, d.r + 80, 0.5); shakeAdd(9); flashAdd(0.5);
-        floatTxt(d.x, d.y - d.r - 12, "☠ " + bossName(d.bg || S.galaxy) + " DEFEATED");
+        floatTxt(d.x, d.y - d.r - 12, "✦ " + bossName(d.bg || S.galaxy) + " DEFEATED");
         floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + (granted ? "  ·  ✦+" + granted + " FREE NODES" : ""));
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
         recompute(); syncHUD();
@@ -917,7 +953,7 @@
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
       if (d.boss) {
         d.life = (d.life || 0) + dt;
-        if (d.life >= (d.ttl || 60)) { d.dead = true; burst(d.x, d.y, 30, 200, 2.6); ring(d.x, d.y, d.r, d.r + 130, 0.5); floatTxt(d.x, d.y - d.r - 12, "☠ " + bossName(d.bg || S.galaxy) + " ESCAPED"); flashAdd(0.3); shakeAdd(3); continue; }   // 1-MINUTE LIMIT — fails out with no reward if you can't bring it down in time
+        if (d.life >= (d.ttl || 60)) { d.dead = true; burst(d.x, d.y, 30, 200, 2.6); ring(d.x, d.y, d.r, d.r + 130, 0.5); floatTxt(d.x, d.y - d.r - 12, "✕ " + bossName(d.bg || S.galaxy) + " ESCAPED"); flashAdd(0.3); shakeAdd(3); continue; }   // 1-MINUTE LIMIT — fails out with no reward if you can't bring it down in time
         d.add += dt; if (d.add > 6 && dots.length < cap - 2) { d.add = 0;   // boss summons a couple of adds to keep the pressure on
           const mb = 18 * Math.pow(derived.valueMul, 1.3) * rnd(1.5, 3), mr = clamp(8 + Math.log10(mb + 10) * 2, 8, 16), mv = Math.max(1, Math.round((d.value0 || 1) * 0.01));
           for (let i = 0; i < 2; i++) dots.push({ x: d.x + rnd(-24, 24), y: d.y + rnd(-24, 24), vx: rnd(-65, 65), vy: rnd(-50, 50), hp: mb, maxHp: mb, value: mv, value0: mv, r: mr, r0: mr, tier: 1, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" });
@@ -1007,7 +1043,7 @@
     if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
       const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]);
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
-        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours · ⚔ ×" + fmt(S.conquest)); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
+        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours · ✦ ×" + fmt(S.conquest)); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
     { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; } }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
@@ -1042,7 +1078,7 @@
     const lifeFrac = clamp(1 - (d.life || 0) / (d.ttl || 60), 0, 1), left = Math.max(0, Math.ceil((d.ttl || 60) - (d.life || 0))), low = left <= 10;
     ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(bx - 2, by + 7, bw + 4, 4);
     ctx.fillStyle = low ? (Math.sin(d.spin * 8) > 0 ? "#fff" : "rgba(255,255,255,0.4)") : "rgba(255,255,255,0.7)"; ctx.fillRect(bx, by + 8, bw * lifeFrac, 2);
-    ctx.fillStyle = "#fff"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("☠ " + bossName(g) + "   ⏱ " + left + "s", d.x, by - 4);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText(bossName(g) + "  ·  " + left + "s", d.x, by - 4);
   }
   // Black-iris veil for the zoom-into-base transition. rPct = radius of the clear hole (% of screen):
   // 0 = fully black, ≥135 = fully clear (veil off). Centered, so it closes on / opens from the planet.
@@ -1232,7 +1268,7 @@
   function syncHUD() {
     const bg = empireIdleRate();
     const cq = S.conquest || 1, cqStr = cq < 100 ? cq.toFixed(1) : fmt(cq);   // fmt() floors small numbers (1.8→"1"), so keep a decimal while the multiplier is small
-    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ⚔×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
+    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
     const tgt = conquerTarget(S.galaxy), conq = planetMeta(S.galaxy).conquered;
@@ -1254,7 +1290,7 @@
       if (row.kind === "unit") {
         const d = TY(id), locked = !S.free && S.galaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;   // gated by the CURRENT planet (era-appropriate), not your furthest — no retro-gearing old worlds
         row.desc.textContent = n + "/" + d.max + (locked ? "" : " · " + d.name);
-        if (locked) { row.buy.textContent = "🔒 from P" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
+        if (locked) { row.buy.innerHTML = iconMarkup("lock") + "from P" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
         else if (full) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.add("maxed"); }
         else { row.buy.textContent = S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = !S.free && S.cash < c; row.buy.classList.toggle("afford", S.free || S.cash >= c); row.el.classList.remove("maxed"); }
       } else {
@@ -1429,7 +1465,7 @@
     if (tree) {
       const pend = treeNodesPending(s), picked = s.nodes ? Object.values(s.nodes).filter(Boolean).length : 0;
       sub = picked ? (pend + " / " + picked + " nodes left") : "no nodes picked — hit EDIT";
-      ctrl = '<button class="as-edit">EDIT ⚙</button>';
+      ctrl = '<button class="as-edit">' + iconMarkup("gear") + 'EDIT</button>';
     } else {
       const nx = autoTargetNext(s.target), c = s.count || 0;
       sub = c <= 0 ? "✓ done" : (nx ? (c + "× left · @ " + curSym(S.galaxy) + " " + fmt(nx.cost) + " ea") : (c + "× left · nothing to buy"));
@@ -1458,7 +1494,7 @@
     const slots = autoSlots(g), live = g === S.galaxy, exp = autoExpanded.has(g);
     const wrap = document.createElement("div"); wrap.className = "auto-sec" + (exp ? " exp" : "") + (on ? " on" : "");
     const head = document.createElement("div"); head.className = "auto-sec-head";
-    head.innerHTML = '<button class="asx-pow' + (on ? " on" : "") + '">⏻</button>'
+    head.innerHTML = '<button class="asx-pow' + (on ? " on" : "") + '">' + iconMarkup("power") + '</button>'
       + '<div class="asx-main"><div class="asx-name">' + (exp ? "▾ " : "▸ ") + "Planet " + g + " · " + galName(g) + (live ? ' <span class="asx-here">• here</span>' : '') + '</div>'
       + '<div class="asx-sub">' + (on ? "ON" : "off") + " · " + Math.min(qlen, slots) + "/" + slots + " step" + (slots > 1 ? "s" : "") + '</div></div>';
     head.querySelector(".asx-pow").onclick = e => { e.stopPropagation(); const cfg = autoCfg(g); cfg.on = !cfg.on; if (live) autoAcc = 0; save(); syncAutoBtn(); renderAuto(); };
@@ -1477,9 +1513,9 @@
     ensureAuto();
     const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"), ph = $("auto-planet"); if (!list) return;
     if (!autoExpanded) autoExpanded = new Set([S.galaxy]);
-    if (tog) tog.style.display = "none";           // each planet has its own ⏻ toggle in its panel
+    if (tog) tog.style.display = "none";           // each planet has its own power toggle in its panel
     if (ph) ph.textContent = "· all " + TOTAL_PLANETS + " planets";
-    if (lock) lock.textContent = "Tap a planet to expand its build order · ⏻ to arm it · slots = planet number · +50% tax.";
+    if (lock) lock.textContent = "Tap a planet to expand its build order · arm it with its power toggle · slots = planet number · +50% tax.";
     list.innerHTML = "";
     for (let g = 1; g <= TOTAL_PLANETS; g++) list.appendChild(autoPlanetSection(g));
     syncAutoBtn();
@@ -1673,7 +1709,7 @@
     const btn = $("st-upgrade");
     if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
     else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = S.free ? "ALLOCATE · FREE" : "ALLOCATE · " + curSym(S.galaxy) + " " + fmt(cost); btn.disabled = !afford; }
-    else { $("si-prev").innerHTML = "🔒 Locked — first allocate a node connected to this one."; btn.textContent = "LOCKED"; btn.disabled = true; }
+    else { $("si-prev").innerHTML = iconMarkup("lock") + "Locked — first allocate a node connected to this one."; btn.textContent = "LOCKED"; btn.disabled = true; }
     panel.classList.add("show");
   }
   const STree = {
@@ -1767,29 +1803,29 @@
     const enroute = !!S.travel;
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span> <button id='gi-visit'>⊙ Zoom to base ▸</button>"
-      : (enroute && g === S.travel.to) ? "<span class='gi-tag'>✈ En route — arriving in " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + "</span>"   // already flying here: no fresh-start button until you land
-      : enroute ? "<span class='gi-tag'>✈ In transit…</span>"                                                                                            // can't travel/visit elsewhere mid-flight
+      : (enroute && g === S.travel.to) ? "<span class='gi-tag'>" + iconMarkup("rocket") + "En route — arriving in " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + "</span>"   // already flying here: no fresh-start button until you land
+      : enroute ? "<span class='gi-tag'>" + iconMarkup("rocket") + "In transit…</span>"                                                                                            // can't travel/visit elsewhere mid-flight
       : reached ? "<button id='gi-jump'>⊙ Visit ▸</button>"   // dive into & play your save on this visited world
-      : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>🔒 Conquer " + galName(S.galaxy) + " first</span>")
-      : "<span class='gi-tag'>🔒 Locked</span>";
+      : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>" + iconMarkup("lock") + "Conquer " + galName(S.galaxy) + " first</span>")
+      : "<span class='gi-tag'>" + iconMarkup("lock") + "Locked</span>";
     const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g), pv = S.vault[g];
     // per-planet progression: currency bank, idle rate, build, conquer status
     const bank = current ? S.cash : (pv ? pv.cash || 0 : 0);
     const nDef = current ? S.units.length : (pv && pv.units ? pv.units.length : 0);
     const nCol = current ? S.collectors.length : (pv && pv.collectors ? pv.collectors.length : 0);
     const nNodes = (() => { const cn = current ? S.classNodes : (pv ? pv.classNodes : null); let n = 0; if (cn) for (const k in cn) n += Object.keys(cn[k] || {}).length; return n; })();
-    const prog = current ? (planetMeta(g).conquered ? "✓ conquered  ·  ⚔ ×" + CONQ_STEP.toFixed(1) + " banked" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer  ·  ⚔ +×" + CONQ_STEP.toFixed(1) + " income on conquer")
+    const prog = current ? (planetMeta(g).conquered ? "✓ conquered  ·  ✦ ×" + CONQ_STEP.toFixed(1) + " banked" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer  ·  ✦ +×" + CONQ_STEP.toFixed(1) + " income on conquer")
       : (pv && pv.conquered ? "✓ conquered" : (reached ? "visited — not conquered" : "unexplored"));
     const stats = "<div class='gi-unlock'>" + curSym(g) + " <b>" + curName(g) + "</b> · bank " + fmt(bank) +
       (pv && pv.conquered ? " · <b>+" + fmt(pv.bgRate || 0) + "/s</b> idle" : "") +
-      (nDef + nCol > 0 ? " · build " + nDef + "⚔ " + nCol + "✦ " + nNodes + "◆" : "") +
+      (nDef + nCol > 0 ? " · build " + nDef + " def · " + nCol + " col · " + nNodes + " nodes" : "") +
       "<br>" + prog + "</div>";
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
       stats +
-      "<div class='gi-unlock'>☣ Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
+      "<div class='gi-unlock'>" + iconMarkup("alien") + "Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action
-      + "<button id='gi-autotog' class='gi-auto" + (autoIsOn(g) ? " on" : "") + "'>⚙ Auto " + (autoIsOn(g) ? "ON" : "OFF") + "</button>"
+      + "<button id='gi-autotog' class='gi-auto" + (autoIsOn(g) ? " on" : "") + "'>" + iconMarkup("gear") + "Auto " + (autoIsOn(g) ? "ON" : "OFF") + "</button>"
       + "<button id='gi-auto' class='gi-auto'>Edit ▸</button></div>";
     $("gm-info").classList.add("show");
     const at = $("gi-autotog"); if (at) at.onclick = () => { const c = autoCfg(g); c.on = !c.on; autoAcc = 0; save(); syncAutoBtn(); showGalaxyInfo(g); };   // toggle THIS planet's auto-buy on/off
@@ -1843,7 +1879,7 @@
         row("Planet", S.galaxy + " · " + galName(S.galaxy) + " (" + sysName(S.galaxy) + ")") + row("Peak planet", S.peakGalaxy) +
         row("Travels", s.travels))) +
       sec("Empire &amp; conquest", grid(
-        row("⚔ Conquest multiplier", "×" + ((S.conquest || 1) < 100 ? (S.conquest || 1).toFixed(1) : fmt(S.conquest))) + row("Planets conquered", conquered + " / " + TOTAL_PLANETS) +
+        row(iconMarkup("star4") + "Conquest multiplier", "×" + ((S.conquest || 1) < 100 ? (S.conquest || 1).toFixed(1) : fmt(S.conquest))) + row("Planets conquered", conquered + " / " + TOTAL_PLANETS) +
         row("Empire idle income", curSym(S.galaxy) + " " + fmt(empireRate) + " /s"))) +
       sec("Economy", grid(
         row("Cash / sec", curSym(S.galaxy) + " " + fmt(cps)) + row("Capacity", curSym(S.galaxy) + " " + fmt(derived.capacity)) +
@@ -1855,7 +1891,7 @@
         row("On screen now", dots.length) + row("Avg pops / min", s.playSec > 1 ? fmt(Math.round(s.dotsPopped / s.playSec * 60)) : "0"))) +
       sec("Destroyed by", ke.length ? ke.map(e => bar(e.label, fmt(e.n) + " · " + Math.round(e.n / tk * 100) + "%", e.n / tk * 100)).join("") : empty("No kills yet")) +
       sec("Cash collected by", ce.length ? ce.map(e => bar(e.label, curSym(S.galaxy) + " " + fmt(e.v) + " · " + Math.round(e.v / tc * 100) + "%", e.v / tc * 100)).join("") : empty("Nothing collected yet")) +
-      sec("Abilities used", grid(row("⚡ Frenzy", s.abilities.frenzy) + row("▽ Dot Rain", s.abilities.dotrain) + row("◉ Black Hole", s.abilities.blackhole))) +
+      sec("Abilities used", grid(row(iconMarkup("bolt") + "Frenzy", s.abilities.frenzy) + row(iconMarkup("rain") + "Dot Rain", s.abilities.dotrain) + row(iconMarkup("blackhole") + "Black Hole", s.abilities.blackhole))) +
       sec("Fleet", empty("<b style='color:#fff'>Defenders:</b> " + defFleet) + empty("<b style='color:#fff'>Collectors:</b> " + colFleet));
   }
   // interactive pseudo-3D black & white star map
@@ -2078,14 +2114,14 @@
         const tv = $("transition");
         if (tv) {
           if (p < 0.72) { const r = 135 * (1 - clamp((p - 0.34) / 0.38, 0, 1)); tv.style.background = "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) " + r.toFixed(1) + "%, #000 " + (r + 8).toFixed(1) + "%)"; tv.style.opacity = r >= 134 ? "0" : "1"; }   // black iris closes on the planet
-          else if (p < 0.88) { tv.style.background = "radial-gradient(circle at 50% 50%, #fff 0%, #fff 32%, rgba(255,255,255,.85) 62%, rgba(255,255,255,.4) 100%)"; tv.style.opacity = "1"; }   // ⚡ blooming hyperspace WHITE PUNCH
+          else if (p < 0.88) { tv.style.background = "radial-gradient(circle at 50% 50%, #fff 0%, #fff 32%, rgba(255,255,255,.85) 62%, rgba(255,255,255,.4) 100%)"; tv.style.opacity = "1"; }   // blooming hyperspace WHITE PUNCH
           else { tv.style.background = "#000"; tv.style.opacity = "1"; }                  // settle to black for the cut
         }
         if (p >= 1 && !fl.done) { fl.done = true; const cb = fl.onArrive, gg = fl.g; this.flight = null; this._warp = 1; this._diveP = null; if (tv) { tv.style.background = "#000"; tv.style.opacity = "1"; } if (cb) cb();
           veilT = VEIL_FADE; landT = LAND_DUR; camZoom = camFit * 2.3;                    // arrive zoomed on the base, then pull back
           shakeAdd(9); flashAdd(0.4); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);   // landing impact
           const lt = $("land-title"); if (lt) { const wall = PLANET_LOCAL[planetIdx(gg)] === 0 && gg > 1;   // first world of a NEW solar system = the difficulty wall
-            lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg) + (wall ? "<span class='lt-sub'>⚠ NEW FRONTIER — the dots here are far tougher. Rebuild and earn your footing.</span>" : "");
+            lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg) + (wall ? "<span class='lt-sub'>▲ NEW FRONTIER — the dots here are far tougher. Rebuild and earn your footing.</span>" : "");
             if (wall) { shakeAdd(6); flashAdd(0.25); }
             lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
         }
@@ -2383,16 +2419,16 @@
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
   $("btn-auto").onclick = $("gm-auto").onclick = () => openAuto(S.galaxy);   // dock / map-bar → the planet you're ON
   $("auto-close").onclick = $("auto-back").onclick = () => $("auto-modal").classList.remove("show");
-  $("auto-toggle").onclick = () => { const cfg = curAuto(); cfg.on = !cfg.on; autoAcc = 0; save(); renderAuto(); };   // (hidden in the all-planets overview; per-planet ⏻ toggles are used)
+  $("auto-toggle").onclick = () => { const cfg = curAuto(); cfg.on = !cfg.on; autoAcc = 0; save(); renderAuto(); };   // (hidden in the all-planets overview; per-planet power toggles are used)
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   // ── SETTINGS menu (data-driven; opts persist in META.opts) ──
   const OPT_DEFS = [
-    { k: "sound", t: "toggle", lbl: "🔊 Sound effects", sub: "warp & UI audio" },
-    { k: "haptics", t: "toggle", lbl: "📳 Vibration", sub: "haptic feedback (mobile)" },
-    { k: "shake", t: "toggle", lbl: "🫨 Screen shake" },
-    { k: "flash", t: "toggle", lbl: "⚡ Screen flashes", sub: "reduce for photosensitivity" },
-    { k: "fx", t: "seg", lbl: "✨ Particle effects", sub: "lower to boost FPS on older phones", opts: [["full", "Full"], ["low", "Low"], ["off", "Off"]] },
-    { k: "notation", t: "seg", lbl: "🔢 Number format", sub: "how huge numbers are shown", opts: [["short", "1.2M"], ["sci", "1.2e6"]] },
+    { k: "sound", t: "toggle", lbl: iconMarkup("sound") + "Sound effects", sub: "warp & UI audio" },
+    { k: "haptics", t: "toggle", lbl: iconMarkup("vibe") + "Vibration", sub: "haptic feedback (mobile)" },
+    { k: "shake", t: "toggle", lbl: iconMarkup("shake") + "Screen shake" },
+    { k: "flash", t: "toggle", lbl: iconMarkup("bolt") + "Screen flashes", sub: "reduce for photosensitivity" },
+    { k: "fx", t: "seg", lbl: iconMarkup("spark") + "Particle effects", sub: "lower to boost FPS on older phones", opts: [["full", "Full"], ["low", "Low"], ["off", "Off"]] },
+    { k: "notation", t: "seg", lbl: iconMarkup("hash") + "Number format", sub: "how huge numbers are shown", opts: [["short", "1.2M"], ["sci", "1.2e6"]] },
   ];
   function refreshNums() { try { syncHUD(); } catch (e) {} try { renderList(); } catch (e) {} }
   function renderSettings() {
@@ -2461,6 +2497,7 @@
     saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
 
   if ($("version")) $("version").textContent = VERSION;
+  hydrateIcons(document);   // swap all static <i data-ico> placeholders for the bespoke SVG glyphs
   load(); resize(); syncCollectors(); renderList(); GMap.init(); STree.init(); setScreen("home"); syncBuyMode();
   if (S._welcome) { const w = S._welcome; $("welcome-text").textContent = "Your empire kept earning for " + fmtTime(w.elapsed) + "." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : ""); $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(w.gain); $("welcome").classList.add("show"); S._welcome = null; }
   window.addEventListener("beforeunload", save);

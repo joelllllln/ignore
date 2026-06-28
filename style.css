@@ -181,16 +181,25 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .modal{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:16px;
   background:rgba(4,7,13,.72);backdrop-filter:blur(3px)}
 .modal.show{display:flex}
-.card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:18px;max-width:460px;width:100%;
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:18px;max-width:460px;width:100%;
   max-height:88%;overflow-y:auto;box-shadow:0 18px 60px rgba(0,0,0,.6)}
 .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.card-head h2{font-size:18px;color:#fff}
+.card-head h2{display:flex;align-items:center;font-family:var(--mono);font-weight:700;letter-spacing:.04em;font-size:16px;color:#fff}
 .x{background:transparent;border:none;color:var(--dim);font-size:18px}
 .muted{color:var(--dim);font-size:13px;line-height:1.5;margin-bottom:12px}
 .rb-gain{font-family:var(--mono);font-size:24px;color:var(--sd);text-align:center;margin:8px 0 14px}
-.big{display:block;width:100%;margin:6px 0;background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;
-  font-weight:800;font-size:16px;padding:13px;border-radius:11px}
-.big.danger{background:none;border:1px solid var(--warn);color:var(--warn)}
+.big{display:flex;align-items:center;justify-content:center;gap:.05em;width:100%;margin:6px 0;background:#f1f1f1;border:none;color:#000;
+  font-family:var(--mono);font-weight:700;letter-spacing:.04em;font-size:15px;padding:13px;border-radius:2px;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))}
+.big.danger{background:none;border:1px solid var(--warn);color:var(--warn);clip-path:none;border-radius:2px}
+/* ── bespoke thin-line icon glyphs (replace all emoji; inherit currentColor) ── */
+svg.ico{width:1.05em;height:1.05em;vertical-align:-.16em;flex:0 0 auto;stroke:currentColor;fill:none;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map-title svg.ico{margin-right:.5em}
+.ab .ab-n svg.ico{margin-right:.35em}
+.set-lbl b svg.ico{margin-right:.45em;vertical-align:-.18em}
+.how-list svg.ico{width:1.2em;height:1.2em;vertical-align:-.22em;margin-right:.15em;stroke-width:1.6}
+.gi-tag svg.ico,.gi-unlock svg.ico{margin-right:.35em;vertical-align:-.15em}
 #sd-list{display:flex;flex-direction:column;gap:8px}
 
 /* 3D star map */

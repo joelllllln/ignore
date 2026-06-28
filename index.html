@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v7.8</div>
+  <div id="version" class="layer">v7.9</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -33,9 +33,9 @@
   <div id="dock" class="layer">
     <div id="dock-toggle">▾ Minimise</div>
     <div id="abilities">
-      <button class="ab" id="ab-frenzy"><i class="ab-i" data-info="frenzy">i</i><span class="ab-n">⚡ Frenzy</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
-      <button class="ab" id="ab-dotrain"><i class="ab-i" data-info="dotrain">i</i><span class="ab-n">▽ Dot Rain</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
-      <button class="ab" id="ab-blackhole"><i class="ab-i" data-info="blackhole">i</i><span class="ab-n">◉ Black Hole</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
+      <button class="ab" id="ab-frenzy"><i class="ab-i" data-info="frenzy">i</i><span class="ab-n"><i data-ico="bolt"></i>Frenzy</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
+      <button class="ab" id="ab-dotrain"><i class="ab-i" data-info="dotrain">i</i><span class="ab-n"><i data-ico="rain"></i>Dot Rain</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
+      <button class="ab" id="ab-blackhole"><i class="ab-i" data-info="blackhole">i</i><span class="ab-n"><i data-ico="blackhole"></i>Black Hole</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
     </div>
     <div id="tabs">
       <button class="tab sel" data-tab="def">DEFENCE</button>
@@ -45,7 +45,7 @@
     </div>
     <div id="up-list"></div>
     <div id="actions">
-      <button class="act" id="btn-auto">⚙ AUTO</button>
+      <button class="act" id="btn-auto"><i data-ico="gear"></i>AUTO</button>
       <button class="act travel" id="btn-travel">TRAVEL ▸</button>
     </div>
   </div>
@@ -55,11 +55,11 @@
     <div class="card home-card">
       <h1 class="home-title">IDLE&nbsp;DOT<span>SHOOTER</span></h1>
       <div class="home-stats"><span>Planet <b id="home-gal">1</b></span></div>
-      <button class="big" id="home-play">▶ PLAY</button>
-      <button class="big alt" id="home-galaxies">🪐 PLANETS &amp; PROGRESS</button>
-      <button class="big alt" id="home-how">❔ HOW TO PLAY</button>
-      <button class="big alt" id="home-settings">⚙ SETTINGS</button>
-      <button class="big alt danger" id="home-reset">⟲ RESET SAVE</button>
+      <button class="big" id="home-play"><i data-ico="play"></i>PLAY</button>
+      <button class="big alt" id="home-galaxies"><i data-ico="planet"></i>PLANETS &amp; PROGRESS</button>
+      <button class="big alt" id="home-how"><i data-ico="help"></i>HOW TO PLAY</button>
+      <button class="big alt" id="home-settings"><i data-ico="gear"></i>SETTINGS</button>
+      <button class="big alt danger" id="home-reset"><i data-ico="reset"></i>RESET SAVE</button>
       <div class="home-codes">
         <label>CODES</label>
         <input id="code-input" type="text" placeholder="enter code…" autocomplete="off" autocapitalize="none" spellcheck="false" />
@@ -74,17 +74,17 @@
     <div class="card">
       <div class="card-head"><h2>How to play</h2><button class="x" id="how-close">✕</button></div>
       <ul class="how-list">
-        <li>🔫 <b>Defenders</b> auto-fire at dots. Dots are TANKY — more damage = faster kills = more income, so your defenders &amp; their skill trees ARE your economy.</li>
-        <li>🛡️ <b>Armored dots</b> (double-ringed) have huge defense and move slowly — they need real firepower but drop a big bounty, and their cash orbs are heavy &amp; slow, so you'll want stronger collectors.</li>
-        <li>👾 Every <b>planet has its own native enemy race</b> with a unique ability &amp; look — splitters that split again and again, shielded bastions, cloakers, teleporting wraiths, loot-eating devourers, minion-spawning broods and more. The tougher a dot, the more spikes &amp; rings it grows. Tap a planet on the map to see its native race.</li>
-        <li>💎 Big kills drop <b>heavy loot</b> that a collector must sit and <b>consume</b> (watch the ring fill) — small dots are instant, fat ones tie a collector up.</li>
-        <li>🌳 <b>Tap any defender</b> (or hit ⬆ Tree) to open its <b>skill tree</b> — an interconnected node map. Allocate outward from the centre; each node needs a <b>connected</b> node first. Nodes <b>stack additively</b> (each adds a flat bonus that sums — linear, no runaway; early nodes feel strong, later ones taper), and ✦ <b>keystones</b> add multishot AND a crazy <b>weapon specialization</b> — ✦Explosive Rounds (bombs), ✦Chain Lightning, or ✦Piercing Laser. A whole <b>◈ Mind</b> branch upgrades the unit's <b>intelligence &amp; coordination</b> — smart units avoid overkill, don't both shoot the same doomed dot, and triage the most valuable targets, so no shot is wasted. Costs climb steeply, so plan your route. Every unit of that class shares the tree.</li>
-        <li>🛰️ <b>Collectors</b> gather the cash dots drop. Buy more in the <b>COLLECTORS</b> tab and unlock new classes across all three systems: <b>Drone</b> → <b>Drone Swarm</b> → <b>Heavy Collector</b> → <b>Magnet</b> → <b>Tractor</b> → <b>Black Hole</b> → <b>Wormhole</b> (the last two slowly drag everything in). Each has its own skill web.</li>
-        <li>⚔ <b>Conquer planets</b> to permanently grow your <b>Conquest multiplier</b> (×1.8 income each, forever). It carries to every world — but it's not spendable cash, so you still rebuild from scratch on each planet, just earn faster. You <b>steamroll</b> within a solar system, then a <b>new system</b> spikes the difficulty and you climb again. A planet is a real <b>hours-long campaign</b> — active play (drawing, abilities, fat upgrades) is the fast path.</li>
-      <li>🏰 Every <b>conquered planet keeps earning for you while you're away</b>, and your whole <b>idle empire grows stronger the more worlds you hold</b> — early planets are an active grind, but lategame your empire can largely <b>idle you to the next conquest</b>, so you never have to hand-manage all 18.</li>
-        <li>💰 <b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck.</li>
-        <li>🪐 Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for tougher dots, more of them, and bigger payouts.</li>
-        <li>✍️ <b>Draw across the field</b> to blast dots yourself.</li>
+        <li><i data-ico="turret"></i><b>Defenders</b> auto-fire at dots. Dots are TANKY — more damage = faster kills = more income, so your defenders &amp; their skill trees ARE your economy.</li>
+        <li><i data-ico="shield"></i><b>Armored dots</b> (double-ringed) have huge defense and move slowly — they need real firepower but drop a big bounty, and their cash orbs are heavy &amp; slow, so you'll want stronger collectors.</li>
+        <li><i data-ico="alien"></i>Every <b>planet has its own native enemy race</b> with a unique ability &amp; look — splitters that split again and again, shielded bastions, cloakers, teleporting wraiths, loot-eating devourers, minion-spawning broods and more. The tougher a dot, the more spikes &amp; rings it grows. Tap a planet on the map to see its native race.</li>
+        <li><i data-ico="gem"></i>Big kills drop <b>heavy loot</b> that a collector must sit and <b>consume</b> (watch the ring fill) — small dots are instant, fat ones tie a collector up.</li>
+        <li><i data-ico="tree"></i><b>Tap any defender</b> (or hit ⬆ Tree) to open its <b>skill tree</b> — an interconnected node map. Allocate outward from the centre; each node needs a <b>connected</b> node first. Nodes <b>stack additively</b> (each adds a flat bonus that sums — linear, no runaway; early nodes feel strong, later ones taper), and ✦ <b>keystones</b> add multishot AND a crazy <b>weapon specialization</b> — ✦Explosive Rounds (bombs), ✦Chain Lightning, or ✦Piercing Laser. A whole <b>◈ Mind</b> branch upgrades the unit's <b>intelligence &amp; coordination</b> — smart units avoid overkill, don't both shoot the same doomed dot, and triage the most valuable targets, so no shot is wasted. Costs climb steeply, so plan your route. Every unit of that class shares the tree.</li>
+        <li><i data-ico="collector"></i><b>Collectors</b> gather the cash dots drop. Buy more in the <b>COLLECTORS</b> tab and unlock new classes across all three systems: <b>Drone</b> → <b>Drone Swarm</b> → <b>Heavy Collector</b> → <b>Magnet</b> → <b>Tractor</b> → <b>Black Hole</b> → <b>Wormhole</b> (the last two slowly drag everything in). Each has its own skill web.</li>
+        <li><i data-ico="star4"></i><b>Conquer planets</b> to permanently grow your <b>Conquest multiplier</b> (×1.8 income each, forever). It carries to every world — but it's not spendable cash, so you still rebuild from scratch on each planet, just earn faster. You <b>steamroll</b> within a solar system, then a <b>new system</b> spikes the difficulty and you climb again. A planet is a real <b>hours-long campaign</b> — active play (drawing, abilities, fat upgrades) is the fast path.</li>
+      <li><i data-ico="castle"></i>Every <b>conquered planet keeps earning for you while you're away</b>, and your whole <b>idle empire grows stronger the more worlds you hold</b> — early planets are an active grind, but lategame your empire can largely <b>idle you to the next conquest</b>, so you never have to hand-manage all 18.</li>
+        <li><i data-ico="coin"></i><b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck.</li>
+        <li><i data-ico="planet"></i>Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for tougher dots, more of them, and bigger payouts.</li>
+        <li><i data-ico="brush"></i><b>Draw across the field</b> to blast dots yourself.</li>
       </ul>
       <button class="big" id="how-back">BACK</button>
     </div>
@@ -102,13 +102,13 @@
       <div class="si-prev" id="si-prev"></div>
       <button id="st-upgrade" class="si-btn">UPGRADE</button>
     </div>
-    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><span id="st-pick-tip" class="st-tip pick" style="display:none">⚙ PICK — tap nodes to add them to this Auto-Buy step</span><button id="st-auto" style="display:none">⚙ Pick</button><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset">⟲ Recenter</button><button id="st-sell">SELL ONE</button></div>
+    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><span id="st-pick-tip" class="st-tip pick" style="display:none"><i data-ico="gear"></i>PICK — tap nodes to add them to this Auto-Buy step</span><button id="st-auto" style="display:none"><i data-ico="gear"></i>Pick</button><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset"><i data-ico="reset"></i>Recenter</button><button id="st-sell">SELL ONE</button></div>
   </div>
 
   <!-- GALAXY MAP (interactive 3D) -->
   <div id="galaxy-map" class="modal mapmodal">
     <canvas id="gmap"></canvas>
-    <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-auto">⚙ AUTO</button><button class="mbtn" id="gm-reset">⟲ Recenter</button><button class="x" id="gm-close">✕</button></div></div>
+    <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-auto"><i data-ico="gear"></i>AUTO</button><button class="mbtn" id="gm-reset"><i data-ico="reset"></i>Recenter</button><button class="x" id="gm-close">✕</button></div></div>
     <div class="map-hint">one finger = move · two fingers: pinch to zoom, drag to rotate · scroll = zoom · tap a ★ sun to centre · tap a planet to visit</div>
     <div id="gm-info" class="gm-info"></div>
   </div>
@@ -116,12 +116,12 @@
   <!-- AUTO-BUY (idle automation) -->
   <div id="auto-modal" class="modal">
     <div class="card">
-      <div class="card-head"><h2>⚙ Auto-Buy <span id="auto-planet" class="auto-planet"></span></h2><button class="x" id="auto-close">✕</button></div>
-      <p class="muted" id="auto-sub"><b>Every planet, in one place.</b> Each has its own build order — tap a planet to expand it, <b>⏻</b> to arm it. Steps run sequentially; a planet gets <b>one slot per its number</b>. +50% tax.</p>
+      <div class="card-head"><h2><i data-ico="gear"></i>Auto-Buy <span id="auto-planet" class="auto-planet"></span></h2><button class="x" id="auto-close">✕</button></div>
+      <p class="muted" id="auto-sub"><b>Every planet, in one place.</b> Each has its own build order — tap a planet to expand it, <b>arm it with its power toggle</b>. Steps run sequentially; a planet gets <b>one slot per its number</b>. +50% tax.</p>
       <button class="big" id="auto-toggle">AUTO-BUY: OFF</button>
       <div id="auto-lock" class="auto-lock"></div>
       <div id="auto-list" class="auto-list"></div>
-      <p class="muted auto-hint">Add steps &amp; choose each target. Economy/Units use a count (−/＋); a <b>tree</b> step → <b>EDIT ⚙</b> to hand-pick as many nodes as you want on that class (all one slot). The ▶ step finishes before the next starts. Runs while you're away.</p>
+      <p class="muted auto-hint">Add steps &amp; choose each target. Economy/Units use a count (−/＋); a <b>tree</b> step → <b>EDIT</b> to hand-pick as many nodes as you want on that class (all one slot). The ▶ step finishes before the next starts. Runs while you're away.</p>
       <button class="big" id="auto-back">DONE</button>
     </div>
   </div>
@@ -129,9 +129,9 @@
   <!-- SETTINGS -->
   <div id="settings" class="modal">
     <div class="card">
-      <div class="card-head"><h2>⚙ Settings</h2><button class="x" id="set-close">✕</button></div>
+      <div class="card-head"><h2><i data-ico="gear"></i>Settings</h2><button class="x" id="set-close">✕</button></div>
       <div id="set-list" class="set-list"></div>
-      <button class="big alt" id="set-how">❔ How to play</button>
+      <button class="big alt" id="set-how"><i data-ico="help"></i>How to play</button>
       <button class="big" id="set-back">DONE</button>
     </div>
   </div>
@@ -166,14 +166,14 @@
   </div>
 
   <!-- MENU -->
-  <button id="btn-menu" class="layer">☰</button>
+  <button id="btn-menu" class="layer"><i data-ico="menu"></i></button>
   <div id="menu" class="modal">
     <div class="card">
       <div class="card-head"><h2>Idle Dot Shooter</h2><button class="x" id="menu-close">✕</button></div>
       <p class="muted">Auto-fire at the dots. Drone collects the cash. Buy upgrades across Defence, Drone &amp; Economy. Travel between planets across three solar systems for tougher dots and bigger payouts.</p>
       <button class="big" id="menu-resume">RESUME</button>
-      <button class="big alt" id="menu-settings">⚙ SETTINGS</button>
-      <button class="big alt" id="menu-home">🏠 MAIN MENU</button>
+      <button class="big alt" id="menu-settings"><i data-ico="gear"></i>SETTINGS</button>
+      <button class="big alt" id="menu-home"><i data-ico="home"></i>MAIN MENU</button>
       <button class="big danger" id="menu-reset">RESET SAVE</button>
     </div>
   </div>
