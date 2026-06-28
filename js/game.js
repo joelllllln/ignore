@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v6.9";
+  const VERSION = "v7.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -551,6 +551,50 @@
     { p: 18, key: "spawner",   name: "Null Spawn",       hp: 2.0,  val: 2.2, weight: 0.6, spawner: 1 },                    // endlessly births minion dots
   ];
   const raceAt = g => RACES[Math.min(Math.max(g, 1), RACES.length - 1)];
+  // PER-PLANET DOT SIGNATURE — every world's dots get a distinct silhouette (polygon sides),
+  // grayscale shade and centre glyph, so they read differently planet-to-planet (no 6-planet
+  // repeat). sides 0 = circle. glyph: 0 none·1 ring·2 dot·3 cross·4 bars·5 bar·6 tri·7 square·8 X·9 diamond.
+  const DOT_LOOK = [null,
+    { s: 0, sh: 60, g: 0, r: 0 },                 // 1  Vesta — plain mote
+    { s: 3, sh: 73, g: 2, r: -Math.PI / 2 },      // 2  Ember — up-triangle, cored
+    { s: 4, sh: 50, g: 1, r: Math.PI / 4 },       // 3  Cinder — diamond, ringed
+    { s: 6, sh: 82, g: 4, r: 0 },                 // 4  Hearth — bright hex, barred
+    { s: 5, sh: 46, g: 3, r: -Math.PI / 2 },      // 5  Azure — pentagon, crossed
+    { s: 0, sh: 88, g: 5, r: 0 },                 // 6  Verdant — bright circle, slit
+    { s: 8, sh: 56, g: 1, r: 0 },                 // 7  Cobalt — octagon, ringed
+    { s: 3, sh: 77, g: 6, r: Math.PI / 2 },       // 8  Mistral — down-triangle
+    { s: 6, sh: 42, g: 2, r: Math.PI / 6 },       // 9  Halcyon — dim hex, cored
+    { s: 4, sh: 84, g: 7, r: 0 },                 // 10 Tempest — square, boxed
+    { s: 5, sh: 39, g: 3, r: Math.PI / 5 },       // 11 Umbra — dark pentagon
+    { s: 6, sh: 68, g: 8, r: 0 },                 // 12 Frost — hex, X
+    { s: 8, sh: 35, g: 4, r: Math.PI / 8 },       // 13 Onyx — dark octagon, barred
+    { s: 3, sh: 75, g: 9, r: -Math.PI / 2 },      // 14 Wraith — triangle, diamond core
+    { s: 7, sh: 52, g: 2, r: 0 },                 // 15 Pyre — heptagon
+    { s: 4, sh: 33, g: 8, r: Math.PI / 4 },       // 16 Abyss — dark diamond, X
+    { s: 9, sh: 63, g: 1, r: 0 },                 // 17 Maw — nonagon, ringed
+    { s: 5, sh: 31, g: 9, r: Math.PI / 10 },      // 18 Oblivion — darkest pentagon
+  ];
+  const dotLook = g => DOT_LOOK[Math.min(Math.max(g | 0, 1), DOT_LOOK.length - 1)] || DOT_LOOK[1];
+  // trace a regular-polygon (or circle) body path of radius r
+  function dotBodyPath(c, x, y, r, sides, rot) {
+    c.beginPath();
+    if (sides < 3) { c.arc(x, y, r, 0, TAU); return; }
+    for (let k = 0; k < sides; k++) { const a = rot + k / sides * TAU, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; k ? c.lineTo(px, py) : c.moveTo(px, py); }
+    c.closePath();
+  }
+  // draw the per-planet centre glyph (cut into the body in black so it reads on any shade)
+  function dotGlyph(c, x, y, r, gly) {
+    if (!gly || r < 4) return; const u = r * 0.42; c.strokeStyle = "#000"; c.fillStyle = "#000"; c.lineWidth = Math.max(1, r * 0.13);
+    if (gly === 1) { c.beginPath(); c.arc(x, y, u, 0, TAU); c.stroke(); }
+    else if (gly === 2) { c.beginPath(); c.arc(x, y, u * 0.7, 0, TAU); c.fill(); }
+    else if (gly === 3) { c.beginPath(); c.moveTo(x - u, y); c.lineTo(x + u, y); c.moveTo(x, y - u); c.lineTo(x, y + u); c.stroke(); }
+    else if (gly === 4) { c.beginPath(); c.moveTo(x - u, y - u * 0.45); c.lineTo(x + u, y - u * 0.45); c.moveTo(x - u, y + u * 0.45); c.lineTo(x + u, y + u * 0.45); c.stroke(); }
+    else if (gly === 5) { c.beginPath(); c.moveTo(x, y - u); c.lineTo(x, y + u); c.stroke(); }
+    else if (gly === 6) { c.beginPath(); for (let k = 0; k < 3; k++) { const a = -Math.PI / 2 + k / 3 * TAU; k ? c.lineTo(x + Math.cos(a) * u, y + Math.sin(a) * u) : c.moveTo(x + Math.cos(a) * u, y + Math.sin(a) * u); } c.closePath(); c.fill(); }
+    else if (gly === 7) { c.fillRect(x - u * 0.75, y - u * 0.75, u * 1.5, u * 1.5); }
+    else if (gly === 8) { c.beginPath(); c.moveTo(x - u, y - u); c.lineTo(x + u, y + u); c.moveTo(x + u, y - u); c.lineTo(x - u, y + u); c.stroke(); }
+    else if (gly === 9) { c.beginPath(); for (let k = 0; k < 4; k++) { const a = k / 4 * TAU, px = x + Math.cos(a) * u, py = y + Math.sin(a) * u; k ? c.lineTo(px, py) : c.moveTo(px, py); } c.closePath(); c.fill(); }
+  }
   const RACE_FX = {
     swift: "fast & fragile, pays extra", zigzag: "jukes around erratically", splitter: "splits again and again",
     grower: "swells bigger & richer the longer it lives", shield: "front shield soaks & reflects shots",
@@ -654,8 +698,8 @@
     else { ex = W - 34 - j(); ey = rnd(64, H - 150); }                    // right
     const ia = Math.atan2(H / 2 - ey, W / 2 - ex) + rnd(-0.55, 0.55), isp = mv * rnd(0.55, 1.0);
     const d = { x: ex, y: ey, vx: Math.cos(ia) * isp, vy: Math.sin(ia) * isp, spd: mv,
-      hp, maxHp: hp, value: val, value0: val, r, r0: r, tier, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
-      color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${44 + ((g - 1) % 6) * 8}%)` };
+      hp, maxHp: hp, value: val, value0: val, r, r0: r, tier, pg: g, menace: roll, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
+      color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${dotLook(g).sh}%)` };   // per-planet shade (no 6-planet repeat)
     if (cfg) {
       if (cfg.shield) { d.shieldMax = hp * cfg.shield; d.shield = d.shieldMax; d.reflect = cfg.reflect; }
       if (cfg.regen) d.regen = cfg.regen;
@@ -1037,13 +1081,20 @@
       const pulse = d.pulse !== undefined ? 1 + 0.12 * Math.sin(d.born * 0.1 + d.pulse * 4) : 1;
       const dr2 = d.r * (d.born < 0.2 ? clamp(d.born / 0.18, 0.2, 1) : 1) * (d.hit > 0 ? 1 + d.hit / 0.08 * 0.28 : 1) * pulse;
       const ga = d.phased ? 0.4 : d.cloaked ? 0.12 : 1;
+      // L = this planet's dot signature · gc = a CONTINUOUS menace grade (grows with Value/HP, never plateaus like the old tier cap)
+      const L = dotLook(d.pg || S.galaxy), gc = d.menace ? Math.min(13, Math.log2(1 + d.menace) * 1.85) : (d.tier || 0);
       if (d.kind === "swift" || d.kind === "zigzag") { ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.vx * 0.12, d.y - d.vy * 0.12); ctx.stroke(); }  // motion streak
       if (d.blink !== undefined && d.bx !== undefined) { ctx.globalAlpha = clamp(0.35 - d.blink * 0.22, 0, 0.35); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.bx, d.by, dr2 * 0.8, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }  // Wraith after-image
-      // HP-tier spikes: tougher dots grow rotating spikes around the core
-      if (!lod && d.tier >= 1) { ctx.globalAlpha = ga; ctx.strokeStyle = d.color; ctx.lineWidth = 1.5 + d.tier * 0.3; const ns = 3 + d.tier * 2; for (let k = 0; k < ns; k++) { const a = d.spin + k / ns * TAU, i0 = dr2 * 0.9, o0 = dr2 + 3 + d.tier * 1.6; ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * i0, d.y + Math.sin(a) * i0); ctx.lineTo(d.x + Math.cos(a) * o0, d.y + Math.sin(a) * o0); ctx.stroke(); } ctx.globalAlpha = 1; }
-      ctx.globalAlpha = ga; ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; ctx.beginPath(); ctx.arc(d.x, d.y, dr2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
-      // tier rings inside (segmented core)
-      if (!lod && d.tier >= 2) { ctx.globalAlpha = ga * 0.8; ctx.strokeStyle = "#000"; ctx.lineWidth = 1; for (let k = 1; k < d.tier; k++) { ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * (k / d.tier), 0, TAU); ctx.stroke(); } ctx.globalAlpha = 1; }
+      // HP/Value spikes: more & longer the higher the menace grade — keeps growing past the old tier-6 cap
+      if (!lod && d.tier >= 1) { ctx.globalAlpha = ga; ctx.strokeStyle = d.color; ctx.lineWidth = 1.4 + Math.min(gc * 0.26, 4); const ns = clamp(3 + Math.floor(gc) * 2, 3, 30); for (let k = 0; k < ns; k++) { const a = d.spin + k / ns * TAU, i0 = dr2 * 0.9, o0 = dr2 + 3 + gc * 1.5; ctx.beginPath(); ctx.moveTo(d.x + Math.cos(a) * i0, d.y + Math.sin(a) * i0); ctx.lineTo(d.x + Math.cos(a) * o0, d.y + Math.sin(a) * o0); ctx.stroke(); } ctx.globalAlpha = 1; }
+      // menace AURA — high-grade dots gain a faint outer halo that keeps expanding with Value
+      if (!lod && gc > 6) { ctx.globalAlpha = ga * Math.min((gc - 6) * 0.05, 0.3); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 7 + (gc - 6) * 2, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
+      // BODY — per-planet silhouette (polygon/circle) + shade, with the planet's centre glyph
+      ctx.globalAlpha = ga; ctx.fillStyle = d.hit > 0 ? "#fff" : d.color; dotBodyPath(ctx, d.x, d.y, dr2, L.s, L.r); ctx.fill();
+      if (!lod && d.hit <= 0 && d.kind === "normal" && !d.armored) dotGlyph(ctx, d.x, d.y, dr2, L.g);   // common dots wear the planet glyph (race/elite dots keep their own look)
+      ctx.globalAlpha = 1;
+      // inner rings (segmented core) — count climbs with the menace grade, not the capped tier
+      if (!lod && d.tier >= 2) { ctx.globalAlpha = ga * 0.8; ctx.strokeStyle = "#000"; ctx.lineWidth = 1; const nr = clamp(Math.floor(gc) - 1, 1, 9); for (let k = 1; k <= nr; k++) { ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * (k / (nr + 1)), 0, TAU); ctx.stroke(); } ctx.globalAlpha = 1; }
       if (d.special) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 3, 0, TAU); ctx.stroke(); }
       if (d.armored) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 - 2, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 3, 0, TAU); ctx.stroke(); }
       if (lod) { if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); } continue; }
