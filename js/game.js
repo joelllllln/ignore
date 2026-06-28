@@ -12,7 +12,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v5.2";
+  const VERSION = "v5.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1604,10 +1604,12 @@
       if (cache[g]) return cache[g];
       const LOOK = ["crater", "bands", "cresc", "ring", "spot", "speck", "moon", "doublering", "inv", "vstripe", "crack", "icy", "half", "swirl", "eye", "dunes", "facet", "pulsar"];   // 18 UNIQUE looks, no repeats
       const SZ = [0.5, 1.4, 0.78, 1.95, 1.15, 0.45, 1.6, 2.4, 0.68, 1.3, 0.92, 1.8, 0.6, 1.5, 1.08, 0.55, 2.1, 2.7];   // huge size spread: tiny moons (0.45×) → giant worlds (2.7×)
+      const ALB = [0.3, 0.58, 0.42, 0.72, 0.5, 0.22, 0.85, 0.52, 0.88, 0.38, 0.66, 0.9, 0.18, 0.55, 0.78, 0.28, 0.62, 0.7];   // per-world BASE BRIGHTNESS — coal-dark worlds → chalk/ice-bright worlds (the big distinguisher)
       const i = Math.min(Math.max(g, 1), 18) - 1;
       const rnd = n => ((Math.imul(((g + 1) * 374761393) ^ ((n + 1) * 668265263), 2654435761) >>> 0) / 4294967296);
       return cache[g] = { arch: LOOK[i], sizeMul: SZ[i], rot: rnd(1) * TAU, phase: rnd(2) * TAU, ringAng: (rnd(3) - 0.5) * 1.4, ringTilt: 0.2 + rnd(4) * 0.28, cs: rnd(5), inv: LOOK[i] === "inv",
-        halo: rnd(6) < 0.5, haloR: 1.16 + rnd(7) * 0.3, rim2: rnd(8) < 0.4, oblate: 0.82 + rnd(9) * 0.36 };   // seeded extras: atmosphere glow, inner rim line, slight oblateness — multiply the variety
+        halo: rnd(6) < 0.5, haloR: 1.16 + rnd(7) * 0.3, rim2: rnd(8) < 0.4, oblate: 0.82 + rnd(9) * 0.36,
+        albedo: ALB[i], rough: 0.45 + rnd(10) * 1.15, con: 0.75 + rnd(11) * 0.8, hard: rnd(12) < 0.5 };   // base brightness + surface roughness + feature contrast + hard/soft terminator → far more variety
     },
     // bake a per-planet procedural ALBEDO texture (grayscale surface, unlit) into an offscreen canvas, once.
     // The lit sphere is composited from this in planet(): texture × shading. Gives every world real detail.
@@ -1618,9 +1620,9 @@
       const oc = (typeof document !== "undefined") ? document.createElement("canvas") : null;
       if (!oc) return null; oc.width = oc.height = TS; const o = oc.getContext("2d");
       let s = (Math.imul((g + 5) * 2654435761, 40503) >>> 0) || 1; const rnd = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
-      const dk = a => "rgba(0,0,0," + a + ")", lt = a => "rgba(255,255,255," + a + ")";
-      o.fillStyle = lit ? "#dadada" : "#727272"; o.fillRect(0, 0, TS, TS);                                   // base albedo
-      for (let layer = 0; layer < 4; layer++) { const n = 18 * (layer + 1), rad = TS * (0.2 / (layer * 0.7 + 1)); for (let i = 0; i < n; i++) { o.globalAlpha = 0.04 + 0.06 * rnd(); o.fillStyle = rnd() < 0.5 ? "#000" : "#fff"; o.beginPath(); o.arc(rnd() * TS, rnd() * TS, rad * (0.5 + rnd()), 0, TAU); o.fill(); } }   // fractal mottling
+      const con = st.con, dk = a => "rgba(0,0,0," + Math.min(0.92, a * con) + ")", lt = a => "rgba(255,255,255," + Math.min(0.95, a * con) + ")";
+      const bv = Math.round(st.albedo * 255); o.fillStyle = "rgb(" + bv + "," + bv + "," + bv + ")"; o.fillRect(0, 0, TS, TS);   // per-world base brightness
+      for (let layer = 0; layer < 4; layer++) { const n = Math.round(18 * (layer + 1) * st.rough), rad = TS * (0.2 / (layer * 0.7 + 1)); for (let i = 0; i < n; i++) { o.globalAlpha = (0.04 + 0.07 * rnd()) * st.rough; o.fillStyle = rnd() < 0.5 ? "#000" : "#fff"; o.beginPath(); o.arc(rnd() * TS, rnd() * TS, rad * (0.5 + rnd()), 0, TAU); o.fill(); } }   // fractal mottling, intensity per-world
       o.globalAlpha = 1;
       const bandsT = (n, vert) => { for (let b = 0; b < n; b++) { const u = TS * (b + 1) / (n + 1); o.strokeStyle = b % 2 ? lt(0.16) : dk(0.28); o.lineWidth = TS * (0.04 + rnd() * 0.05); o.beginPath(); if (vert) { o.moveTo(u, 0); o.lineTo(u, TS); } else { o.moveTo(0, u); o.bezierCurveTo(TS * 0.33, u + TS * 0.03 * (rnd() - 0.5), TS * 0.66, u - TS * 0.03 * (rnd() - 0.5), TS, u); } o.stroke(); } };
       const cratersT = n => { for (let k = 0; k < n; k++) { const x = rnd() * TS, y = rnd() * TS, cr = TS * (0.04 + rnd() * 0.09); o.fillStyle = dk(0.42); o.beginPath(); o.arc(x, y, cr, 0, TAU); o.fill(); o.fillStyle = dk(0.3); o.beginPath(); o.arc(x - Math.cos(st.phase) * cr * 0.3, y - Math.sin(st.phase) * cr * 0.3, cr * 0.62, 0, TAU); o.fill(); o.strokeStyle = lt(0.5); o.lineWidth = cr * 0.28; o.beginPath(); o.arc(x, y, cr * 0.85, st.phase - 1.4, st.phase + 1.4); o.stroke(); } };
@@ -1656,7 +1658,8 @@
       c.globalCompositeOperation = "multiply";                                                                // shade the albedo: highlight → terminator → limb-dark
       const sg = c.createRadialGradient(gx, gy, r * 0.05, p.x, p.y, r * 1.14);
       if (lit) { sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.55, "#e0e0e0"); sg.addColorStop(0.85, "#9c9c9c"); sg.addColorStop(1, "#6a6a6a"); }
-      else { sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.4, "#c2c2c2"); sg.addColorStop(0.7, "#4e4e4e"); sg.addColorStop(0.92, "#161616"); sg.addColorStop(1, "#050505"); }
+      else if (st.hard) { sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.48, "#cccccc"); sg.addColorStop(0.6, "#3a3a3a"); sg.addColorStop(0.86, "#0c0c0c"); sg.addColorStop(1, "#030303"); }   // airless: crisp terminator
+      else { sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.42, "#cacaca"); sg.addColorStop(0.76, "#585858"); sg.addColorStop(0.95, "#1a1a1a"); sg.addColorStop(1, "#080808"); }   // atmospheric: soft terminator
       c.fillStyle = sg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
       c.globalCompositeOperation = "lighter";                                                                 // specular/illumination bloom on the lit cap
       const hg = c.createRadialGradient(gx, gy, 0, gx, gy, r * 0.62); hg.addColorStop(0, lite(lit ? 0.5 : 0.4)); hg.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = hg; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
