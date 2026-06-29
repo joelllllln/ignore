@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.5";
+  const VERSION = "v8.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -450,7 +450,7 @@
   // kill them and stronger drones to haul the bigger loot).
   const DROP_BASE = CUR_BASE;   // a plain dot drops one eco-unit of the planet's currency (must match eco's base)
   const TOUGH_POW = 1.45;
-  const ORB_LIFE = 9;                                   // orbs vanish fast — collectors must keep up or loot is LOST
+  const ORB_LIFE = 12;                                  // orbs vanish if collectors can't keep up (some loss is intended tension; raised 9→12 so it's not chronic)
   // Loot freshness: an orb pays full value when grabbed instantly and decays to
   // FRESH_MIN of its value by the time it expires. So faster/more collectors bank
   // more cash — collector Speed/Reach/Ingest/count are a real income lever again.
@@ -556,6 +556,10 @@
           const offGain = d.cps > 0 ? Math.floor(d.cps * e * 0.5) : 0;
           const bg = S.vault ? empireIdleRate() : 0, offIdle = bg > 0 ? bg * e : 0, offTotal = offGain + offIdle;
           if (offTotal > 0) { S.totalRun += offTotal; META.totalEver += offTotal;
+            // offline ALSO advances the active planet's conquer bar (mirrors the live loop), capped at the
+            // target — so progress doesn't stall just because the tab was closed. Picked up by curEarned below.
+            const pmv = S.vault && (S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }));
+            if (pmv && !pmv.conquered) pmv.earned = Math.min(conquerTarget(S.galaxy), (pmv.earned || 0) + offTotal);
             if (e >= 60) off = { gain: Math.floor(offTotal), elapsed: e, pool: offTotal };   // hold the pool; auto-buy spends it after recompute (below)
             else S.cash += offTotal; }
           if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + Math.max(0, (Date.now() - d.ts) / 1000);   // expedition keeps travelling while away (uncapped — long trips must finish)
@@ -930,7 +934,7 @@
     if (abil[k] > 0 || state !== "play") return;
     abil[k] = ABIL_CD[k]; META.stats.abilities[k] = (META.stats.abilities[k] || 0) + 1; vibe(15);
     if (k === "frenzy") { frenzyT = 6; shakeAdd(3.5); flashAdd(0.3); ring(W / 2, H / 2, 30, Math.max(W, H) * 0.55, 0.5); }
-    else if (k === "dotrain") { const n = 30 + S.galaxy * 8; for (let i = 0; i < n; i++) spawnDot(Math.random() < 0.3); shakeAdd(4); ring(W / 2, 70, 20, W * 0.55, 0.5); }
+    else if (k === "dotrain") { const n = 30 + S.galaxy * 8, cap = galCap(S.galaxy); for (let i = 0; i < n && dots.length < cap; i++) spawnDot(Math.random() < 0.3); shakeAdd(4); ring(W / 2, 70, 20, W * 0.55, 0.5); }   // respect the field cap so the flood doesn't overwhelm collectors into net loss
     else if (k === "blackhole") { blackholeT = 5; shakeAdd(5); flashAdd(0.25); ring(W / 2, H / 2, Math.max(W, H) * 0.55, 40, 0.6); }
   }
 
@@ -968,6 +972,9 @@
     // mini-boss: one at a time; timer only counts while no boss is on the field
     if (!dots.some(d => d.boss)) { bossAcc += dt; if (bossAcc >= BOSS_INTERVAL) { bossAcc = 0; spawnBoss(); } }
 
+    // Black Hole crush scales with your fleet (over its 5s it deals ~0.6s of total fleet DPS to every
+    // dragged dot) — a real crush that grows with investment but never trivially one-shots tanky lategame dots.
+    const bhDmg = blackholeT > 0 ? S.units.reduce((s, u) => s + uDmg(u) * uRate(u), 0) * 0.12 : 0;
     for (const d of dots) {
       d.pending = 0; d.aimed = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
@@ -991,7 +998,7 @@
       if (d.gravity) for (const o of orbs) { const dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 19600) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 55 * dt; o.y += dy / dl * 55 * dt; } }   // Abyss drags loot away from collectors
       if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 12100) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 95 * dt; o.y += dy / dl * 95 * dt; if (q < (d.r + 8) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.04); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals — softened (smaller/slower pull, less heal) so loot is contestable
       if (d.spawner !== undefined) { d.spawner += dt; if (d.spawner > 3.8 && dots.length < cap) { d.spawner = 0; const hp = d.maxHp * 0.18, mr = Math.max(5, d.r0 * 0.5); dots.push({ x: d.x + rnd(-14, 14), y: d.y + rnd(-14, 14), vx: rnd(-55, 55), vy: rnd(-55, 55), hp, maxHp: hp, value: Math.max(1, Math.round((d.value0 || d.value) * 0.18)), value0: 1, r: mr, r0: mr, tier: 0, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" }); burst(d.x, d.y, 4, 40, 1.2); } }   // Null Spawn births minions
-      if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
+      if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, bhDmg * dt, "blackhole"); }
       else if (d.boss) { bossMove(d, dt); }   // bosses roam with their own personality, not the slow drift-to-centre
       else {   // wave drift: gentle pull toward the centre + a little wander, capped to a slow creep
         const cxp = W / 2 - d.x, cyp = H / 2 - d.y, cdp = Math.hypot(cxp, cyp) || 1;
@@ -1024,9 +1031,10 @@
     if (drones.length === 0) syncCollectors();
     for (const dr of drones) { dr.cand = null; dr.cbd = Infinity; }
     for (const o of orbs) { let nd = null, bd = Infinity; for (const dr of drones) { if (COL_TYPES[dr.type].mode === "hole") continue; const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2; if (q < bd) { bd = q; nd = dr; } } if (nd && bd < nd.cbd) { nd.cbd = bd; nd.cand = o; } }
+    const HOLE_SPOTS = [[0.5, 0.40], [0.30, 0.50], [0.70, 0.52], [0.50, 0.62]]; let holeN = 0;
     for (const dr of drones) {
       const hole = COL_TYPES[dr.type].mode === "hole", tgt = dr.cand;
-      if (hole) { const dx = W / 2 - dr.x, dy = H * 0.42 - dr.y; dr.vx += (dx * 0.6 - dr.vx) * 0.04; dr.vy += (dy * 0.6 - dr.vy) * 0.04; }   // hovers near centre
+      if (hole) { const hs = HOLE_SPOTS[holeN++ % HOLE_SPOTS.length], hx = W * hs[0], hy = H * hs[1]; dr.vx += ((hx - dr.x) * 0.6 - dr.vx) * 0.04; dr.vy += ((hy - dr.y) * 0.6 - dr.vy) * 0.04; }   // each hole hovers a DISTINCT zone (so a 2nd hole isn't redundant)
       else if (dr.parking) { dr.vx *= 0.55; dr.vy *= 0.55; }                                  // parked, consuming big loot
       else if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1, sp = cSpeed(dr.type); dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; }
       else { dr.vx *= 0.9; dr.vy *= 0.9; }
@@ -1043,13 +1051,17 @@
     let earned = 0;
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; o.t += dt;
-      let nd = null, bd = Infinity; for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q < bd && q < rng) { bd = q; nd = dr; } }
+      // route to the nearest in-range collector that still has a FREE maw bay; only fall back to a
+      // full one if none is free (stops loot queueing at a jammed collector while another sits idle).
+      let nd = null, bd = Infinity, ndF = null, bdF = Infinity;
+      for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q >= rng) continue; if (q < bd) { bd = q; nd = dr; } if (dr.proc < cCapacity(dr.type) && q < bdF) { bdF = q; ndF = dr; } }
+      if (ndF) { nd = ndF; bd = bdF; }
       if (nd) {
-        const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 150 : 240) / (o.weight || 1);
+        const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 420 / Math.sqrt(o.weight || 1) : 240 / (o.weight || 1);   // holes pull HARD (sqrt-damped) so heavy high-value orbs reach the maw before expiry
         if (dl < cCollect(nd.type) + 6) {                         // in reach — but it needs a free maw bay to actually process it
           if (nd.proc < cCapacity(nd.type)) {                     // a bay is open → process this orb (Speed/Reach get it here, Process/Capacity chew through it)
             nd.proc++;
-            o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.2) nd.parking = true;
+            o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.8) nd.parking = true;   // only park for genuinely heavy loot (armored/boss), not tier-1 orbs
             if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
             if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) { burst(o.x, o.y, 8, 70, 2); nd.pop = 0.25; } orbs.splice(i, 1); }
           } else {                                                 // all bays busy — orb queues at the maw; with too little Capacity a dense pile backs up and can expire
@@ -1060,12 +1072,14 @@
       }
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
-    if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
-      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]);
+    if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned; }
+    // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL
+    // treasury AND (on an unconquered planet) the conquer bar — so the empire can idle you to the next world.
+    { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; if (!planetMeta(S.galaxy).conquered) curEarned += add; } }
+    // conquest check — UNCONDITIONAL so ANY income source (active orbs OR idle empire) can complete it
+    { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]);
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours"); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
-    // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
-    { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; if (!planetMeta(S.galaxy).conquered) curEarned += add; } }   // the idle empire also advances THIS planet's conquer bar (conquerTarget already inflates by EMPIRE_W·empireIdle, so idle-only conquer ≈0.8× the active target — viable but never instant)
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
