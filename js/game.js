@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.2";
+  const VERSION = "v8.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -212,7 +212,7 @@
   const cCollect = type => Math.min(140, COL_TYPES[type].collect + cls(type).collect);   // capped so collectors must keep chasing (not a field-wide magnet); Reach still matters for grabbing fresh loot fast
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
   const cCapacity = type => Math.max(1, Math.round(COL_TYPES[type].cap * cls(type).capacity));   // how many orbs it processes in parallel (bays); multiplies the base bay count, floored to a whole number
-  const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * derived.incomeMul;
+  const cYield   = type => COL_TYPES[type].yield   * cls(type).yield;   // pure gather efficiency — NO income multiplier (Conquest is already baked into each orb's value at spawn; applying it here too would scale income by Conquest², see line ~749)
   const AGILITY = 0.12;
 
   // flavour names: one pool per stat branch (a/b/c) plus the extra 'x' branch.
@@ -283,7 +283,7 @@
   // as you buy more — like beer-pong cups: a lone unit sits centre, a handful
   // form a neat ring, more fill concentric rings (the last ring always spread
   // evenly), so 5 and 50 read as different but equally organised shapes.
-  let _form = { sig: " ", pts: [] };
+  let _form = { sig: null, pts: [] };
   // Defenders arrange by COMPOSITION: each type forms its own centred, evenly-spaced row, and the rows
   // stack symmetrically around the field centre. So 4 turrets + 2 mortars reads as a row of 4 over a row
   // of 2 (each centred → left/right symmetric), distinct from any other mix — tidy, balanced, legible.
@@ -439,7 +439,7 @@
   const importUsed = () => (S.imported && S.imported[S.galaxy]) || 0;
   const importRoom = () => Math.max(0, IMPORT_CAP(S.galaxy) - importUsed());
   const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; return Math.floor(Math.min(cash * fxRate(fromG, S.galaxy), importRoom())); };   // what `cash` of fromG converts to NOW, clamped to remaining import room
-  // per-class buy-cost factors (× eco(active) × 1.9^count) — keeps class differentiation but planet-local
+  // per-class buy-cost factors (× eco(active) × 1.5^count) — keeps class differentiation but planet-local
   const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, nova: 820, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650, wormhole: 1150 };
   // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
   // not a collector yield multiplier. DROP_BASE is the cash a plain dot drops;
@@ -892,7 +892,7 @@
       const nb = Math.min(28, 6 + (d.tier || 0) * 4 + (d.armored ? 8 : 0));
       burst(d.x, d.y, nb, 90 + (d.tier || 0) * 24 + (d.armored ? 60 : 0), 2 + (d.tier || 0) * 0.3);
       ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored) shakeAdd(0.5);   // only armored elites nudge the screen — tier-4+ became common late game and pinned the shake
-      if (d.splits && (d.gen || 0) < (d.maxGen || 1)) for (let i = 0; i < d.splits; i++) {
+      if (d.splits && (d.gen || 0) < (d.maxGen || 1) && dots.length < galCap(S.galaxy) + 40) for (let i = 0; i < d.splits; i++) {   // field-cap guard (with headroom) — consistent with other spawn sites; prevents a big splitter wave overshooting the cap
         const hp = d.maxHp * 0.42, cv = Math.max(1, Math.round(d.value * 0.4)), cr = Math.max(6, d.r * 0.66);
         dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-50, 50), vy: rnd(-50, 50), hp, maxHp: hp,
           value: cv, value0: cv, r: cr, r0: cr, tier: 0, spin: 0, special: false, armored: false,
@@ -909,7 +909,7 @@
   function collectAt(x, y) {
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; if ((o.x - x) ** 2 + (o.y - y) ** 2 > (26 + (o.r0 || 4)) ** 2) continue;
-      const got = Math.max(1, Math.round(o.value * derived.incomeMul));
+      const got = Math.max(1, Math.round(o.value));   // orb value already includes the Conquest multiplier (set at spawn) — do NOT multiply by incomeMul again (would be Conquest²)
       S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + got)); S.totalRun += got; META.totalEver += got; curEarned += got;
       fxEarn += got; fxEarnX = o.x; fxEarnY = o.y - 6; burst(o.x, o.y, o.big ? 9 : 5, 80, 2); spark(o.x, o.y);
       orbs.splice(i, 1);
@@ -1160,7 +1160,7 @@
       if (lod) { if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); } continue; }
       if (d.kind === "splitter") { const cells = clamp(2 + Math.floor(gc * 0.4), 2, 5); for (let k = 0; k < cells; k++) { const a = k / cells * TAU + d.spin * 0.5, rr = dr2 * 0.34, cx = d.x + Math.cos(a) * rr, cy = d.y + Math.sin(a) * rr, cr = dr2 * (cells > 3 ? 0.2 : 0.27); ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(cx, cy, cr, 0, TAU); ctx.fill(); ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.beginPath(); ctx.arc(cx, cy, cr * 0.32, 0, TAU); ctx.fill(); } }   // Cinder brood — dividing cells multiply with Value
       if (d.kind === "zigzag") { const fl = 0.5 + 0.5 * Math.sin(d.spin * 9); ctx.fillStyle = "rgba(255,255,255," + (0.55 + fl * 0.45) + ")"; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * (0.26 + 0.16 * fl), 0, TAU); ctx.fill(); const sparks = clamp(2 + Math.floor(gc * 0.7), 2, 8); ctx.fillStyle = "rgba(255,255,255," + (0.28 + 0.4 * fl) + ")"; for (let k = 0; k < sparks; k++) { const a = d.spin * 2.4 + k / sparks * TAU, rr = dr2 + 2.5 + (k % 3) * 3 + fl * 4; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, 1 + fl, 0, TAU); ctx.fill(); } }   // Ember: flickering hot core sheds sparks — fiercer with Value
-      if (d.kind === "regen") { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x - dr2 * 0.45, d.y); ctx.lineTo(d.x + dr2 * 0.45, d.y); ctx.moveTo(d.x, d.y - dr2 * 0.45); ctx.lineTo(d.x, d.y + dr2 * 0.45); ctx.stroke(); }  // + cross
+      if (d.kind === "healer") { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x - dr2 * 0.45, d.y); ctx.lineTo(d.x + dr2 * 0.45, d.y); ctx.moveTo(d.x, d.y - dr2 * 0.45); ctx.lineTo(d.x, d.y + dr2 * 0.45); ctx.stroke(); }  // Verdant Mender — + cross (race key is "healer", not "regen")
       if (d.kind === "orbiter") { const sc = clamp((d.sat || 3) + Math.floor(gc * 0.4), 3, 8); ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 9, 0, TAU); ctx.stroke(); ctx.fillStyle = "#fff"; for (let k = 0; k < sc; k++) { const a = d.spin * 2 + k / sc * TAU, rr = d.r + 9; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, 2.2 + Math.min(gc * 0.1, 1.4), 0, TAU); ctx.fill(); } }   // Cobalt — orbiting guard satellites grow in number with Value
       if (d.kind === "pulsar") { const rings = clamp(1 + Math.floor(gc * 0.4), 1, 4); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; for (let q = 0; q < rings; q++) { const ph = (d.spin * 0.8 + q * 0.55) % 1; ctx.globalAlpha = (1 - ph) * 0.7; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 4 + ph * (14 + gc * 2), 0, TAU); ctx.stroke(); } ctx.globalAlpha = 1; }   // Tempest — expanding shock rings, more & wider with Value
       if (d.phase !== undefined) { const rings = clamp(1 + Math.floor(gc * 0.3), 1, 3); ctx.strokeStyle = "rgba(255,255,255,0.78)"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); for (let q = 0; q < rings; q++) { ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5 + q * 4, d.spin + q, d.spin + q + TAU); ctx.stroke(); } ctx.setLineDash([]); if (gc > 4) { ctx.globalAlpha = 0.22; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.x + Math.cos(d.spin * 2) * 6, d.y + Math.sin(d.spin * 2) * 6, dr2 * 0.6, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; } }   // Umbra — phasing dashed rings + a ghost double at high Value
@@ -1853,12 +1853,14 @@
     plasma: "ANTI-TANK — heavy bolts, ×2.4 vs armored/tanky dots. Signature: ✦ Chain Lightning. Deep, strong tree.",
     laser: "SWARM-SHREDDER — rapid beam, ×2.6 vs fast/weak swarms (weak vs armor). Signature: ✦ Piercing Laser. Deep tree, scales hard with crit.",
     railgun: "ARMOR SNIPER — devastating ×4 damage to armored/tanky dots (weak vs swarms). Signature: ✦ Piercing Laser. Huge, top-tier tree.",
+    nova: "VOID BOMBARDMENT — endgame artillery with massive splash that devastates everything on screen. Signature: ✦ Explosive Rounds. The deepest, strongest tree in the game.",
     drone: "Fast, agile collector — chases the nearest cash orb. Its tree is about Speed & Ingest (how quickly it swallows loot), not a big magnet pull. Field up to 4.",
     swarm: "Faster with a wider net — covers more of the field than a lone drone.",
     collector: "Heavy hauler: big pull radius & grab size, higher yield per orb.",
     magnet: "Strong long-range magnetic pull and high yield.",
     tractor: "Very wide tractor beam that sweeps huge areas of orbs.",
     singularity: "Black hole — hovers centre-field and slowly drags EVERY orb (and nearby dots) inward. Huge reach & yield.",
+    wormhole: "Wormhole — the ultimate singularity: hovers and slowly drags EVERY orb (and nearby dots) across the whole field inward. The largest reach & yield of any collector.",
     capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
     value: "A FLAT +8% cash per dot per level (additive — it doesn't compound, so no runaway). Also ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
     spawnRate: "More dots per second — and if you're clearing them fast, you just get MORE to kill. Only when the field actually fills up (you can't keep up) does extra Spawn Rate convert into 'menace' instead: every dot spawns tougher and worth far more. So fast killing is rewarded with sheer volume, and the upgrade still pays off as toughness when the screen is packed.",
