@@ -221,7 +221,7 @@ The **ECONOMY** tab multiplies the other pillars:
   primary income lever (more targets → more kills → more cash), up to the
   on-screen cap — lean on it and your collectors to keep up.
 - **Capacity** — your cash ceiling (raise it before big purchases).
-- **Luck** — a slow **+0.1% per level** chance of rare high-value **special** dots (~9× cash).
+- **Luck** — a **+0.3% per level** chance of rare high-value **special** dots (~9× cash).
 
 ## Big-Moment abilities
 
@@ -340,9 +340,6 @@ icon.svg     App icon
 tools/       Headless balancing aids (run with Node):
   balance-check.js   audits economy upgrade cost-vs-effect ratios for
                      infinite-money exploits
-  pacing-sim.js      legacy standalone pacing model (the steamroll/wall shape is
-                     now driven by the conquer-time curve in SYS_ACTIVE_HOURS, not
-                     a conquest multiplier); see active-sim.js for the real curve
   playthrough-sim.js drives the REAL game in headless Chromium (via window.__SIM)
                      through all 18 planets — verifies scaling climbs, every
                      weapon/collector unlock gates correctly, travel stays
@@ -357,7 +354,7 @@ Everything runs client-side in one `requestAnimationFrame` loop.
 ## Dev tools
 
 ```bash
-node --check js/game.js     # syntax check
-node tools/balance-check.js # economy exploit audit (should PASS)
-node tools/pacing-sim.js    # days-to-galaxy pacing report
+node --check js/game.js      # syntax check
+node tools/balance-check.js  # economy exploit audit (should PASS)
+node tools/active-sim.js     # per-planet conquer times at 4 engagement levels (needs Playwright)
 ```

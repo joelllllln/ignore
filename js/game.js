@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.4";
+  const VERSION = "v8.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -96,7 +96,7 @@
     plasma:  { name: "Plasma",  base: 4000,   gal: 5,  dmg: 26,  rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
     laser:   { name: "Laser",   base: 30000,  gal: 8,  dmg: 3,   rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
     railgun: { name: "Railgun", base: 250000, gal: 11, dmg: 90,  rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
-    nova:    { name: "Nova",    base: 4.0e6,  gal: 14, dmg: 340, rate: 0.5, range: 380, splash: 72, max: 4, vsBig: 3.2, vsSwarm: 2.6, niche: "void bombardment — Erebus-forged, splash that devastates everything" },
+    nova:    { name: "Nova",    base: 4.0e6,  gal: 14, dmg: 340, rate: 0.5, range: 380, splash: 72, max: 4, vsBig: 3.2, vsSwarm: 1.0, niche: "void bombardment — Erebus-forged, splash that clears whole clusters (its power is the blast, not a per-dot swarm bonus)" },
   };
   const DEF_ORDER = ["turret", "mortar", "plasma", "laser", "railgun", "nova"];
   /* ----------------------- collector types ----------------------- */
@@ -176,7 +176,7 @@
       n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };   // n = allocated-node count per branch, drives the per-upgrade visual marks
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
-      if (n.kind === "key") { o.multi++; if (n.spec) o[n.spec]++; }   // keystone = +1 multishot AND a ✦ specialization
+      if (n.kind === "key") { if (col) { o.capacity += 0.6; o.suction += 0.4; } else { o.multi++; if (n.spec) o[n.spec]++; } }   // defender keystone = +1 multishot + ✦ spec; collector keystone = ✦ +60% parallel bays & +40% pull (its transformative payoff)
       // Every bonus ADDS (sums linearly) — nothing compounds, so no runaway.
       for (const s of n.slots) { const amt = slotAmt(type, s), key = s.p === "x" ? (col ? "ingest" : "crit") : prim[s.p - 1];
         o[key] += amt; if (o.n[key] != null) o.n[key]++; } }
@@ -530,7 +530,7 @@
     derived.spawnPerSec = rawSpawn;                                           // FULL benefit — the field cap limits count, so if you kill fast you just get flooded with more dots
     derived.spawnSurplus = Math.max(0, rawSpawn - 12);                        // rate beyond the field's comfortable throughput — becomes MENACE, but only while the field is actually saturated
     if (derived.spawnMenace == null) derived.spawnMenace = 1;                 // live value, updated each frame from real field fullness in the spawn loop
-    derived.luck = Math.min(0.5, 0.001 * L.luck);    // +0.1% chance of a rare 9× SPECIAL dot per Luck level
+    derived.luck = Math.min(0.6, 0.003 * L.luck);    // +0.3% chance of a rare 9× SPECIAL dot per Luck level (buffed from 0.1% — was a trap stat vs Value)
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
   }
 
@@ -669,7 +669,7 @@
   };
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
-  const BOSS_INTERVAL = 600;   // seconds of active (boss-free) play between bosses
+  const BOSS_INTERVAL = 240;   // seconds of active (boss-free) play between bosses (was 600 — too rare to register in a 12–24h campaign)
   const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
   const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
   // auto-allocate up to n FREE skill-tree nodes, spread across the classes you currently field (boss reward).
@@ -833,7 +833,7 @@
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
       const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
       if (aoe > 0) {
-        for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type);
+        for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) { d.pending = (d.pending || 0) + dmg; hitDot(d, dmg, u.type); }   // mark pending so overkill-avoidance (Mind) sees splash kills
         if (explode) { ring(target.x, target.y, 4, aoe, 0.2); burst(target.x, target.y, 7, 90, 2); }
       } else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
       // ✦ Chain Lightning — arc from the hit dot to nearby dots, fading per jump
@@ -845,7 +845,7 @@
           for (const d of dots) { if (d.dead || seen.has(d)) continue; const q = (d.x - src.x) ** 2 + (d.y - src.y) ** 2; if (q < bd) { bd = q; best = d; } }
           if (!best) break;
           beams.push({ x1: src.x, y1: src.y, x2: best.x, y2: best.y, life: 0.1, color: "#fff", w: 2 });
-          seen.add(best); hitDot(best, cdmg, u.type); src = best; cdmg *= 0.85;
+          seen.add(best); best.pending = (best.pending || 0) + cdmg; hitDot(best, cdmg, u.type); src = best; cdmg *= 0.85;   // mark pending so Mind sees chain kills
         }
       }
       // ✦ Piercing Laser — punch a beam through every dot along the line of fire
@@ -854,15 +854,23 @@
         const nx = ddx / ddl, ny = ddy / ddl, width = 14 + pierce * 8, rngU = uRange(u);
         for (const d of dots) { if (d.dead || d === target) continue;
           const rx = d.x - p.x, ry = d.y - p.y, t = rx * nx + ry * ny; if (t < 0 || t > rngU) continue;
-          if (Math.abs(rx * -ny + ry * nx) <= width + d.r) hitDot(d, dmg * 0.85, u.type); }
+          if (Math.abs(rx * -ny + ry * nx) <= width + d.r) { d.pending = (d.pending || 0) + dmg * 0.85; hitDot(d, dmg * 0.85, u.type); } }   // mark pending so Mind sees pierce kills
         beams.push({ x1: p.x, y1: p.y, x2: p.x + nx * rngU, y2: p.y + ny * rngU, life: 0.09, color: "#fff", w: 2.5 });
       }
     }
   }
+  // NICHE classification by RACE (so each planet's signature race actually rewards a specific class —
+  // "mixing beats spamming"), with the toughness tier as a fallback for plain/elite dots.
+  const SWARM_KINDS = { swift: 1, zigzag: 1, flock: 1 };                       // fast/fragile = "swarm"
+  const ARMOR_KINDS = { shield: 1, orbiter: 1, juggernaut: 1, reflector: 1 }; // defensive/tanky = "armored/big"
   function hitDot(d, dmg, src) {
     if (d.dead) return;
     const ty = DEF_TYPES[src];                                  // class NICHE: anti-armor vs anti-swarm
-    if (ty) { if (d.armored || (d.tier || 0) >= 3) dmg *= ty.vsBig; else if (!d.armored && (d.tier || 0) <= 1) dmg *= ty.vsSwarm; }
+    if (ty) {
+      const big = d.armored || ARMOR_KINDS[d.kind] || (d.tier || 0) >= 3;
+      const swarm = !d.armored && (SWARM_KINDS[d.kind] || (d.tier || 0) <= 1);
+      if (big) dmg *= ty.vsBig; else if (swarm) dmg *= ty.vsSwarm;
+    }
     if (d.phased) dmg *= 0.45;                                   // phantom shrugs off most damage while phased
     if (d.deflect && Math.random() < d.deflect) { d.refl = 0.14; return; }   // Onyx mirror facets deflect a share of every shot
     if (d.sat > 0 && d.satGuard) { d.satAcc += dmg; const per = d.maxHp * 0.14; while (d.satAcc >= per && d.sat > 0) { d.satAcc -= per; d.sat--; burst(d.x, d.y, 4, 60, 1.4); } dmg *= 0.4; }   // Cobalt satellites shield the core until stripped
@@ -977,11 +985,11 @@
       if (d.grow !== undefined) { d.grow += dt; const f = 1 + Math.min(d.grow * 0.05, 1.4); d.r = d.r0 * f; d.value = Math.round(d.value0 * f * f); }                                                       // Hearth swells bigger & richer
       if (d.healAura !== undefined) { d.healAura += dt; if (d.healAura > 1.2) { d.healAura = 0; for (const o of dots) { if (o === d || o.dead) continue; if ((o.x - d.x) ** 2 + (o.y - d.y) ** 2 < 4900 && o.hp < o.maxHp) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.02); } } }   // Verdant mends nearby dots
       if (d.armorUp !== undefined) { d.armorUp += dt; if (d.hit <= 0) d.shield = Math.min(d.shieldMax, d.shield + d.shieldMax * 0.2 * dt); }                                                              // Frost regrows armor
-      if (d.cloak !== undefined) { d.cloak += dt; d.cloaked = (d.cloak % 3.0) < 1.4; }                                                                                                                    // Halcyon cloaks invisible
+      if (d.cloak !== undefined) { d.cloak += dt; d.cloaked = (d.cloak % 3.0) < 1.0; }                                                                                                                    // Halcyon cloaks invisible ~33% of the time (was 47% — less frustrating to target)
       if (d.blink !== undefined) { d.blink += dt; if (d.blink > 1.6) { d.blink = 0; burst(d.x, d.y, 5, 50, 1.5); d.bx = d.x; d.by = d.y; d.x = clamp(d.x + rnd(-95, 95), 30, W - 30); d.y = clamp(d.y + rnd(-95, 95), 50, H - 130); } }   // Wraith teleports
       if (d.flock) { let ax = 0, ay = 0, cx = 0, cy = 0, n = 0; for (const o of dots) { if (o === d || !o.flock) continue; const dx = o.x - d.x, dy = o.y - d.y, q = dx * dx + dy * dy; if (q < 8100) { ax += o.vx; ay += o.vy; cx += o.x; cy += o.y; n++; if (q < 676) { d.vx -= dx * 0.05; d.vy -= dy * 0.05; } } } if (n) { d.vx += (ax / n - d.vx) * 0.02 + (cx / n - d.x) * 0.004; d.vy += (ay / n - d.vy) * 0.02 + (cy / n - d.y) * 0.004; } }   // Mistral flocks (boids)
       if (d.gravity) for (const o of orbs) { const dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 19600) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 55 * dt; o.y += dy / dl * 55 * dt; } }   // Abyss drags loot away from collectors
-      if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 22500) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 135 * dt; o.y += dy / dl * 135 * dt; if (q < (d.r + 9) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.06); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals
+      if (d.leech) for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = d.x - o.x, dy = d.y - o.y, q = dx * dx + dy * dy; if (q < 12100) { const dl = Math.sqrt(q) || 1; o.x += dx / dl * 95 * dt; o.y += dy / dl * 95 * dt; if (q < (d.r + 8) ** 2) { d.hp = Math.min(d.maxHp, d.hp + d.maxHp * 0.04); ring(d.x, d.y, d.r, d.r + 10, 0.3); META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(oi, 1); } } }   // Devourer eats orbs & heals — softened (smaller/slower pull, less heal) so loot is contestable
       if (d.spawner !== undefined) { d.spawner += dt; if (d.spawner > 3.8 && dots.length < cap) { d.spawner = 0; const hp = d.maxHp * 0.18, mr = Math.max(5, d.r0 * 0.5); dots.push({ x: d.x + rnd(-14, 14), y: d.y + rnd(-14, 14), vx: rnd(-55, 55), vy: rnd(-55, 55), hp, maxHp: hp, value: Math.max(1, Math.round((d.value0 || d.value) * 0.18)), value0: 1, r: mr, r0: mr, tier: 0, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" }); burst(d.x, d.y, 4, 40, 1.2); } }   // Null Spawn births minions
       if (blackholeT > 0) { const dx = W / 2 - d.x, dy = H / 2 - d.y, dl = Math.hypot(dx, dy) || 1; d.x += dx / dl * 220 * dt; d.y += dy / dl * 220 * dt; hitDot(d, brushDmg() * 0.6 * dt, "blackhole"); }
       else if (d.boss) { bossMove(d, dt); }   // bosses roam with their own personality, not the slow drift-to-centre
@@ -1057,7 +1065,7 @@
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours"); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
-    { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; } }
+    { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; if (!planetMeta(S.galaxy).conquered) curEarned += add; } }   // the idle empire also advances THIS planet's conquer bar (conquerTarget already inflates by EMPIRE_W·empireIdle, so idle-only conquer ≈0.8× the active target — viable but never instant)
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
@@ -1655,7 +1663,7 @@
   function nodeStats(type, n) {
     const col = isCol(type), keys = [];
     for (const s of (n.slots || [])) { const k = s.p === "x" ? (col ? "ingest" : "crit") : (col ? COL_PRIM : dPrim(type))[s.p - 1]; if (!keys.includes(k)) keys.push(k); }
-    if (n.kind === "key" && !col && !keys.includes("multi")) keys.push("multi");
+    if (n.kind === "key") { if (!col) { if (!keys.includes("multi")) keys.push("multi"); } else { if (!keys.includes("capacity")) keys.push("capacity"); if (!keys.includes("suction")) keys.push("suction"); } }
     if (n.spec) keys.push(n.spec);
     return keys;
   }
@@ -1830,7 +1838,7 @@
     const nNodes = (() => { const cn = current ? S.classNodes : (pv ? pv.classNodes : null); let n = 0; if (cn) for (const k in cn) n += Object.keys(cn[k] || {}).length; return n; })();
     const prog = current ? (planetMeta(g).conquered ? "✓ conquered  ·  earning idle" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer  ·  unlocks Travel + idle income")
       : (pv && pv.conquered ? "✓ conquered" : (reached ? "visited — not conquered" : "unexplored"));
-    const stats = "<div class='gi-unlock'>" + curSym(g) + " <b>" + curName(g) + "</b> · bank " + fmt(bank) +
+    const stats = "<div class='gi-unlock'>" + curSym(g) + " <b>" + curName(g) + "</b>" +
       (pv && pv.conquered ? " · <b>+" + fmt(pv.bgRate || 0) + "/s</b> idle" : "") +
       (nDef + nCol > 0 ? " · build " + nDef + " def · " + nCol + " col · " + nNodes + " nodes" : "") +
       "<br>" + prog + "</div>";
@@ -1866,7 +1874,7 @@
     capacity: "Your cash ceiling — how much money you can hold at once. Raise it to afford big buys and travel; it also caps offline earnings.",
     value: "A FLAT +8% cash per dot per level (additive — it doesn't compound, so no runaway). Also ramps dot 'menace' — tougher dots, armored elites and exotic kinds appear (and pay more) as you invest.",
     spawnRate: "More dots per second — and if you're clearing them fast, you just get MORE to kill. Only when the field actually fills up (you can't keep up) does extra Spawn Rate convert into 'menace' instead: every dot spawns tougher and worth far more. So fast killing is rewarded with sheer volume, and the upgrade still pays off as toughness when the screen is packed.",
-    luck: "Chance for rare SPECIAL dots worth about 9× normal cash. A slow +0.1% per level.",
+    luck: "Chance for rare SPECIAL dots worth about 9× normal cash. +0.3% per level.",
     frenzy: "All defenders fire ~5× faster for 6 seconds. Cooldown 45s — save it for dense screens.",
     dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
     blackhole: "Drags every dot to the centre and crushes them over 5s. Cooldown 60s.",
