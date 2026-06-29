@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.0";
+  const VERSION = "v8.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -386,7 +386,7 @@
   // a geometric build-power term; without it the target can't keep pace and late planets balloon to days.
   // A small live-empire term is added so a fat idle empire can't trivialise the conquest. Idle income is a
   // fraction of active, so idle takes longer; the empire "carries" you toward the next world over time.
-  const ACTIVE_REF = 3380;   // measured active $/s on planet 1 per (eco-unit × Conquest) — anchors the curve level so a fully-active player lands on SYS_ACTIVE_HOURS
+  const ACTIVE_REF = 727;    // measured active $/s on planet 1 per (eco-unit × Conquest) — anchors the curve level so a fully-active player lands on SYS_ACTIVE_HOURS (calibrated to the ~8.6× active-vs-idle gap, see sims)
   // BUILD = 1.0: real measured income (full playthrough/active sims) is gated by the on-screen SPAWN CAP, so
   // extra DPS from class unlocks + deeper trees does NOT compound income across planets — income tracks
   // eco·Conquest, which already rides eco(g)·conquest in the target and cancels. A BUILD>1 here inflated the

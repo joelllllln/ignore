@@ -1,16 +1,16 @@
 // ACTIVE-PLAY sims: the full 18-planet timeline at 4 engagement levels (0% / 10% / 35% / 100%
 // active), driven by the REAL game scaling via window.__SIM. "X% active" = playing actively that
-// share of the time; skilled active play banks ~40x passive (draw-to-kill + abilities), so the
-// income multiplier = 1 + frac*(40-1). Prints a per-planet conquer/cumulative timeline per level.
+// share of the time; skilled active play banks ~8.6x passive (draw-to-kill + abilities), so the
+// income multiplier = 1 + frac*(ACTIVE_MAX-1). Prints a per-planet conquer/cumulative timeline per level.
 //
 //   npm i -D playwright   (or have it globally)   then:   node tools/active-sim.js
 //
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright: npm i -D playwright'); process.exit(1);} } }
 // 4 playthrough sims at different active-play levels, real game scaling/DPS via __SIM.
-// "X% active" = actively playing X% of the time; active play banks ~40x passive (per README),
+// "X% active" = actively playing X% of the time; active play banks ~8.6x passive (per README),
 // so income multiplier = 1 + frac*(40-1).
 const { chromium } = requirePlaywright();
-const ACTIVE_MAX = 40;
+const ACTIVE_MAX = 8.6;
 const LEVELS = [
   { label: 'PASSIVE (0% active)',  frac: 0.0 },
   { label: '10% active play',      frac: 0.10 },

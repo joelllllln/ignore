@@ -120,7 +120,7 @@ const { chromium } = requirePlaywright();
     // designed in ACTIVE hours (see SYS_ACTIVE_HOURS), and skilled active play banks ~ACTIVE_MAX× passive,
     // so the player-facing conquer time is conquerSec / ACTIVE_MAX. A "wall" = a planet that balloons far
     // past the intended band; the ceiling below has wide headroom over the 12–24h design (catches runaway).
-    const ACTIVE_MAX = 40;
+    const ACTIVE_MAX = 8.6;
     const conquerTimes = out.rows.map(r => r.conquerSec / ACTIVE_MAX);   // active-equivalent seconds
     const noWall = conquerTimes.every(s => s < 2 * 86400);   // no planet should exceed ~2 days of ACTIVE play
     const finalConquest = Math.pow(SIM.CONQ_STEP, SIM.TOTAL_PLANETS - 1);

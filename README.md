@@ -262,7 +262,9 @@ multiplier**. Think of it as your RPG level. The loop:
   (Cygnus ≈ 24→12h, Erebus ≈ 24→12h). The target is anchored to your real
   active income (which is gated by the on-screen spawn cap, so it tracks
   eco·Conquest) — late worlds stay full campaigns instead of collapsing to minutes
-  or ballooning to years.
+  or ballooning to years. Skilled active play banks **~8.6× idle**, so the whole
+  18-planet run is **≈12 days fully active, ≈60 days at ~10% active (mostly idle),
+  ≈106 days pure idle** — engagement is rewarded, but idle is a viable path.
 - **Conquer → your Conquest multiplier permanently grows (×1.8)** and the planet
   **joins your empire**, feeding idle income straight into your global treasury
   (online **and** offline). **Revisit** any conquered planet anytime to keep
