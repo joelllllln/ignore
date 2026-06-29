@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v7.9";
+  const VERSION = "v8.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -369,10 +369,14 @@
   // CONQUER-TIME CURVE — designed ACTIVE-play hours per planet: a gentle steamroll DOWN within a solar
   // system, then a JUMP back UP crossing into a new system (the wall), declining again. These are the
   // wall-clock hours an engaged active player (brushing + abilities + upgrades) should spend per planet.
+  // DESIGN: every planet sits in the 12–24h active band. Crossing into a NEW solar system SPIKES its
+  // first planet back up to the hard end (~24h — "goes hard again"); within a system each successive
+  // planet is easier, easing down toward ~12h (the steamroll). Helios opens gentler (the tutorial system,
+  // no wall to cross into it) and still eases to 12h.
   const SYS_ACTIVE_HOURS = [
-    [12, 10, 8, 7],                         // Helios (4 planets)
-    [18, 15, 12, 10, 9, 8],                 // Cygnus (6 planets)
-    [20, 17, 14, 12, 11, 10, 9, 8],         // Erebus (8 planets)
+    [16, 14, 13, 12],                       // Helios (4) — gentle intro, eases to 12h
+    [24, 20, 17, 15, 13, 12],               // Cygnus (6) — WALL: spikes to 24h, eases to 12h
+    [24, 22, 20, 18, 16, 14, 13, 12],       // Erebus (8) — WALL: spikes to 24h, eases to 12h
   ];
   const DESIRED_HOURS = [0]; SYS_ACTIVE_HOURS.forEach(a => a.forEach(h => DESIRED_HOURS.push(h)));
   const conquerHours = g => DESIRED_HOURS[Math.max(1, Math.min(g | 0, TOTAL_PLANETS))] || 8;
@@ -382,8 +386,12 @@
   // a geometric build-power term; without it the target can't keep pace and late planets balloon to days.
   // A small live-empire term is added so a fat idle empire can't trivialise the conquest. Idle income is a
   // fraction of active, so idle takes longer; the empire "carries" you toward the next world over time.
-  const ACTIVE_REF = 6000;   // measured active $/s on planet 1 per (eco-unit × Conquest) — anchors the curve level
-  const BUILD = 2.15;        // per-planet compounding of real active income beyond eco·Conquest (class unlocks + deeper trees), measured from full playthrough sims
+  const ACTIVE_REF = 3380;   // measured active $/s on planet 1 per (eco-unit × Conquest) — anchors the curve level so a fully-active player lands on SYS_ACTIVE_HOURS
+  // BUILD = 1.0: real measured income (full playthrough/active sims) is gated by the on-screen SPAWN CAP, so
+  // extra DPS from class unlocks + deeper trees does NOT compound income across planets — income tracks
+  // eco·Conquest, which already rides eco(g)·conquest in the target and cancels. A BUILD>1 here inflated the
+  // target ~×2.15/planet with no matching income, which is what made late conquer-times balloon to years.
+  const BUILD = 1.0;         // per-planet income compounding beyond eco·Conquest — measured ≈1 (spawn-capped), so no extra inflation
   const EMPIRE_W = 0.8;      // how strongly the live idle empire inflates the target (keeps idle from trivialising a conquest)
   const buildPow = g => Math.pow(BUILD, Math.max(0, (g | 0) - 1));
   const baseTarget = g => conquerHours(g) * 3600 * ACTIVE_REF * buildPow(g) * eco(g) * (S.conquest || 1);   // income-model part (no empire) — also drives idle bgRate, so the empire never feeds back on itself

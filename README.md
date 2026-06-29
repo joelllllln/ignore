@@ -256,12 +256,13 @@ multiplier**. Think of it as your RPG level. The loop:
   active play — drawing to brush dots, abilities, and fat Value/Spawn upgrades —
   is the fast path.
 - **Designed conquer-time curve.** Each conquer bar is anchored to your real income
-  so the *active* hours land on an intended curve: you **steamroll faster and faster
-  through a solar system** (Helios ≈ 12→10→8→7h), then crossing into a **new system
-  spikes the wall back up** and you climb again (Cygnus ≈ 18→…→8h, Erebus ≈ 20→…→8h).
-  The target tracks how your income compounds each planet (`BUILD`, from class
-  unlocks + deeper trees) so late worlds stay full campaigns instead of collapsing
-  to minutes.
+  so the *active* hours land on an intended curve in the **12–24h band**: you
+  **steamroll through a solar system** (Helios ≈ 16→12h), then crossing into a
+  **new system spikes the wall back up to ~24h** and you climb again
+  (Cygnus ≈ 24→12h, Erebus ≈ 24→12h). The target is anchored to your real
+  active income (which is gated by the on-screen spawn cap, so it tracks
+  eco·Conquest) — late worlds stay full campaigns instead of collapsing to minutes
+  or ballooning to years.
 - **Conquer → your Conquest multiplier permanently grows (×1.8)** and the planet
   **joins your empire**, feeding idle income straight into your global treasury
   (online **and** offline). **Revisit** any conquered planet anytime to keep

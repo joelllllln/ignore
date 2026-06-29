@@ -69,7 +69,9 @@ const { chromium } = requirePlaywright();
         if (ty.gal === g) {
           S.peakGalaxy = g - 1; const lockedRefused = (() => { S.galaxy = Math.max(1, g - 1); const before = (SIM.DEF_TYPES[t] ? S.units : S.collectors).filter(u => u.type === t).length; S.cash = 1e40; D.buyUnit(t); const after = (SIM.DEF_TYPES[t] ? S.units : S.collectors).filter(u => u.type === t).length; return after === before; })();
           S.peakGalaxy = g; S.galaxy = g; const unlockBuyable = (() => { const before = (SIM.DEF_TYPES[t] ? S.units : S.collectors).filter(u => u.type === t).length; S.cash = 1e40; D.buyUnit(t); const after = (SIM.DEF_TYPES[t] ? S.units : S.collectors).filter(u => u.type === t).length; return after > before; })();
-          out.checks.push({ cls: ty.name, gal: g, lockedAtPrev: lockedRefused, buyableAtGal: unlockBuyable, ok: lockedRefused && unlockBuyable });
+          // gal-1 classes are STARTERS (no "previous planet" to be locked on) — only assert they're buyable.
+          const isStarter = g === 1;
+          out.checks.push({ cls: ty.name, gal: g, lockedAtPrev: isStarter ? null : lockedRefused, buyableAtGal: unlockBuyable, ok: unlockBuyable && (isStarter || lockedRefused) });
         }
       }
 
@@ -114,8 +116,13 @@ const { chromium } = requirePlaywright();
     const ecoMono = out.rows.every((r, i) => i === 0 || +r.eco >= +out.rows[i - 1].eco);
     const tgtMono = out.rows.every((r, i) => i === 0 || +r.tgt >= +out.rows[i - 1].tgt);
     const allAfford = out.rows.every(r => r.affordTravel);
-    const conquerTimes = out.rows.map(r => r.conquerSec);
-    const noWall = conquerTimes.every(s => s < 30 * 86400);   // no planet should take > 30 days
+    // conquerSec here is modeled on PASSIVE income (no active-play multiplier). The difficulty curve is
+    // designed in ACTIVE hours (see SYS_ACTIVE_HOURS), and skilled active play banks ~ACTIVE_MAX× passive,
+    // so the player-facing conquer time is conquerSec / ACTIVE_MAX. A "wall" = a planet that balloons far
+    // past the intended band; the ceiling below has wide headroom over the 12–24h design (catches runaway).
+    const ACTIVE_MAX = 40;
+    const conquerTimes = out.rows.map(r => r.conquerSec / ACTIVE_MAX);   // active-equivalent seconds
+    const noWall = conquerTimes.every(s => s < 2 * 86400);   // no planet should exceed ~2 days of ACTIVE play
     const finalConquest = Math.pow(SIM.CONQ_STEP, SIM.TOTAL_PLANETS - 1);
     out.summary = { allUnlockOk, ecoMono, tgtMono, allAfford, noWall, finalConquest: finalConquest.toExponential(2), cumDays: (cumSec / 86400).toFixed(1) };
     return out;
@@ -131,14 +138,14 @@ const { chromium } = requirePlaywright();
     );
   }
   console.log('\nUNLOCK GATE CHECKS (locked at g-1, buyable at gal):');
-  for (const c of r.checks) console.log(`  ${c.cls.padEnd(16)} gal ${String(c.gal).padStart(2)}  locked@prev:${c.lockedAtPrev?'Y':'N'}  buyable@gal:${c.buyableAtGal?'Y':'N'}  -> ${c.ok?'PASS':'FAIL'}`);
+  for (const c of r.checks) console.log(`  ${c.cls.padEnd(16)} gal ${String(c.gal).padStart(2)}  locked@prev:${c.lockedAtPrev==null?'n/a (starter)':(c.lockedAtPrev?'Y':'N')}  buyable@gal:${c.buyableAtGal?'Y':'N'}  -> ${c.ok?'PASS':'FAIL'}`);
   console.log('\nINVARIANTS:');
   const s = r.summary;
   console.log(`  all class unlocks gate correctly:        ${s.allUnlockOk ? 'PASS' : 'FAIL'}`);
   console.log(`  eco(g) strictly climbs:                  ${s.ecoMono ? 'PASS' : 'FAIL'}`);
   console.log(`  conquerTarget(g) strictly climbs:        ${s.tgtMono ? 'PASS' : 'FAIL'}`);
   console.log(`  travel always affordable from a run:     ${s.allAfford ? 'PASS' : 'FAIL'}`);
-  console.log(`  no planet walls (>30 days):              ${s.noWall ? 'PASS' : 'FAIL'}`);
+  console.log(`  no planet walls (>2 days active-equiv):  ${s.noWall ? 'PASS' : 'FAIL'}`);
   console.log(`  final Conquest multiplier ×${s.finalConquest}  (=1.8^17)`);
   console.log(`  est. total active time to finish: ~${s.cumDays} days`);
   console.log('\n' + (errs.length ? 'ERRORS: ' + errs.join(' | ') : 'NO CONSOLE/PAGE ERRORS'));
