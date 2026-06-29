@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.3";
+  const VERSION = "v8.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -316,15 +316,17 @@
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
   // days each by the late planets.
-  // Launching an expedition costs a FIXED, huge sum scaling with the planet's economy (NOT your
-  // bank ceiling — so you can't dodge it by keeping capacity low). On planet 1 it's ~25T; you'll
-  // need to invest in Capacity just to hold that much cash, then bank it. Escalates ×1.2 per planet.
+  // Launching an expedition costs a sum scaling with the planet's economy (NOT your bank ceiling — so you
+  // can't dodge it by keeping capacity low). It rides eco(g) exactly like your income does, so it stays a
+  // ~constant ~8–15% slice of a planet's earnings on every world. (The old ×1.2^g escalator was balanced
+  // against the now-removed Conquest multiplier's ×1.8^g income growth; with Conquest gone it would make
+  // late-planet travel unaffordable, so it's dropped.)
   const TRAVEL_COST_K = 5e6;
-  const travelCost = g => { g = g || S.galaxy; return Math.round(eco(g) * TRAVEL_COST_K * Math.pow(1.2, g - 1)); };
+  const travelCost = g => { g = g || S.galaxy; return Math.round(eco(g) * TRAVEL_COST_K); };
   // HYBRID DIFFICULTY (see diff/eco below): each planet's NUMBER-MAGNITUDE rides eco(g) — income AND
   // costs both ride it, so it cancels and the per-planet loop has the same shape everywhere. What does
   // NOT cancel is enemyHpMul: dots get genuinely tankier per planet (and ~double at each new solar
-  // system), the COMBAT wall a fresh fleet feels on landing. Your Conquest multiplier is what outpaces it.
+  // system), the COMBAT wall a fresh fleet feels on landing — you out-grow it with more units & deeper trees.
   const enemyHpMul = g => Math.pow(diff(g), 0.4);       // dampened difficulty → dots tankier per planet (in-planet Value ramps them further)
   const galSpawnMul = g => 1;                           // flat base spawn (you raise it in-planet with Spawn Rate)
   const galCap = g => 400;                              // flat field cap
@@ -357,12 +359,12 @@
   // the steps cancel in time-to-conquer — pacing is provably unchanged.
   // HYBRID DIFFICULTY: ONE global currency, but each planet's NUMBER-MAGNITUDE scales by difficulty.
   // Inside a solar system difficulty creeps up gently (WITHIN_STEP); crossing into a NEW system it
-  // JUMPS (SYS_JUMP). Your Conquest multiplier (CONQ_STEP, below) grows per planet conquered, so
-  // WITHIN a system you outpace the creep and steamroll, but a fresh system jump outruns you and you
-  // feel small again — three power-fantasy arcs, one per solar system. (See research: "Travel = Prestige".)
+  // JUMPS (SYS_JUMP) and dots get genuinely tankier. The steamroll/wall FEEL now comes from the
+  // designed conquer-time curve (SYS_ACTIVE_HOURS: each system eases ~24h→12h, then the next system's
+  // first planet spikes back to ~24h) — three power-fantasy arcs, one per solar system.
   const SYS_JUMP = 6.0, WITHIN_STEP = 1.5;
   const diff = g => { g = Math.max(1, Math.min(g, TOTAL_PLANETS)); let v = 1; for (let k = 2; k <= g; k++) v *= (PLANET_LOCAL[planetIdx(k)] === 0 ? SYS_JUMP : WITHIN_STEP); return v; };
-  const eco = g => CUR_BASE * diff(g);   // planet number-magnitude (single global currency; costs & drops BOTH ride this so it cancels — real progression is the Conquest multiplier)
+  const eco = g => CUR_BASE * diff(g);   // planet number-magnitude (single global currency; costs & drops BOTH ride this so it cancels — progression now is class unlocks, deeper trees & the idle empire)
   const startMul = g => 40;              // flat fresh-landing starter purse (× eco(g)) — you rebuild from scratch on every planet
   // ONE global currency now — no per-planet money, no exchange. (kept as helpers so existing call-sites resolve.)
   const curName = g => "Credits";
@@ -398,12 +400,12 @@
   const buildPow = g => Math.pow(BUILD, Math.max(0, (g | 0) - 1));
   const baseTarget = g => conquerHours(g) * 3600 * ACTIVE_REF * buildPow(g) * eco(g) * (S.conquest || 1);   // income-model part (no empire) — also drives idle bgRate, so the empire never feeds back on itself
   const conquerTarget = g => Math.ceil(baseTarget(g) + conquerHours(g) * 3600 * EMPIRE_W * empireIdleRate());
-  // CONQUEST MULTIPLIER — the core cross-planet progression. Conquering a planet permanently multiplies
-  // ALL your income by CONQ_STEP (≈×1.8/planet). It carries forever (your "RPG level"); it is NOT spendable
-  // cash, so it can't instant-max a fresh planet — you still land at ~0 and rebuild, just EARN faster. Over
-  // 18 planets it compounds to ~×9000, and difficulty (diff above) is tuned to be outpaced within a system
-  // and to leap ahead at each new system. This replaces the old per-planet currency exchange entirely.
-  const CONQ_STEP = 1.8;
+  // CONQUEST MULTIPLIER — REMOVED. CONQ_STEP = 1.0 means conquering a planet no longer grants a permanent
+  // income multiplier (S.conquest stays 1 forever, so derived.incomeMul / capacity / conquerTarget are all
+  // unaffected by it). Conquering still UNLOCKS travel and grows the idle empire (EMPIRE_RAMP) — that's the
+  // progression now. Pacing is unchanged because the old multiplier rode BOTH income and the conquer target,
+  // so it cancelled out of conquer-time anyway. (Set back to 1.8 to restore the multiplier.)
+  const CONQ_STEP = 1.0;
   const BG_EFF = 0.4;                                                // (legacy) live-rate fraction — superseded by the target-based idle below
   // IDLE EMPIRE — a conquered planet keeps earning for you while you're away on another world. Its
   // idle rate is a fraction of ITS OWN conquest cost (so it auto-scales with the difficulty curve and the
@@ -517,7 +519,7 @@
 
   function recompute() {
     const L = S.lv, m = META;
-    derived.incomeMul = S.conquest || 1;               // permanent cross-planet Conquest multiplier — every income source rides this (this IS your progression)
+    derived.incomeMul = S.conquest || 1;               // Conquest multiplier — REMOVED (CONQ_STEP=1 keeps S.conquest=1), so this is always 1 / inert. Plumbing kept so it's reversible.
     derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity) * (S.conquest || 1);   // cash ceiling scales with difficulty AND conquest so it never lags your income
     derived.valueMul = 1 + 0.08 * L.value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace"
     // Spawn Rate: each level wants +2 dots/sec. But the field caps at galCap (400) dots, so past a
@@ -1051,9 +1053,9 @@
       else if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
     }
     if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned;
-      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  ×" + CONQ_STEP.toFixed(1) + " CONQUEST"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]);
+      const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]);
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
-        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours · ✦ ×" + fmt(S.conquest)); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
+        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours"); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL treasury (one currency now — no wallets, no exchange)
     { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; } }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
@@ -1420,7 +1422,7 @@
   // first runnable step of the ACTIVE planet: earlier steps must finish before later ones run
   function autoActive() {
     const q = curAuto().queue, slots = autoSlots(S.galaxy);
-    for (let i = 0; i < q.length && i < slots; i++) { const nx = stepNext(q[i]); if (nx) return { step: q[i], next: nx }; }
+    for (let i = 0; i < q.length && i < slots; i++) { const nx = stepNext(q[i]); if (nx) return { step: q[i], next: nx, idx: i }; }
     return null;
   }
   // one purchase pass: advance the active step (sequential — wait, don't skip, if it's unaffordable)
@@ -1513,7 +1515,7 @@
     if (exp) {
       const body = document.createElement("div"); body.className = "auto-sec-body";
       const cfg = autoCfg(g), q = cfg.queue, opts = autoTargetOptions(g), act = live ? autoActive() : null;
-      q.slice(0, slots).forEach((s, i) => body.appendChild(autoStepRow(s, i, opts, act && act.step === s, q)));
+      q.slice(0, slots).forEach((s, i) => body.appendChild(autoStepRow(s, i, opts, !!act && act.idx === i, q)));
       if (q.length < slots) { const add = document.createElement("button"); add.className = "auto-add"; add.textContent = "＋ Add step  (" + (q.length + 1) + "/" + slots + ")"; add.onclick = () => { q.push({ target: opts[0] ? opts[0].value : "value", count: 10 }); save(); renderAuto(); }; body.appendChild(add); }
       wrap.appendChild(body);
     }
@@ -1826,7 +1828,7 @@
     const nDef = current ? S.units.length : (pv && pv.units ? pv.units.length : 0);
     const nCol = current ? S.collectors.length : (pv && pv.collectors ? pv.collectors.length : 0);
     const nNodes = (() => { const cn = current ? S.classNodes : (pv ? pv.classNodes : null); let n = 0; if (cn) for (const k in cn) n += Object.keys(cn[k] || {}).length; return n; })();
-    const prog = current ? (planetMeta(g).conquered ? "✓ conquered  ·  ✦ ×" + CONQ_STEP.toFixed(1) + " banked" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer  ·  ✦ +×" + CONQ_STEP.toFixed(1) + " income on conquer")
+    const prog = current ? (planetMeta(g).conquered ? "✓ conquered  ·  earning idle" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer  ·  unlocks Travel + idle income")
       : (pv && pv.conquered ? "✓ conquered" : (reached ? "visited — not conquered" : "unexplored"));
     const stats = "<div class='gi-unlock'>" + curSym(g) + " <b>" + curName(g) + "</b> · bank " + fmt(bank) +
       (pv && pv.conquered ? " · <b>+" + fmt(pv.bgRate || 0) + "/s</b> idle" : "") +
@@ -1892,8 +1894,8 @@
         row("Played (total)", fmtTime(s.playSec)) + row("This run", fmtTime(S.runSec)) +
         row("Planet", S.galaxy + " · " + galName(S.galaxy) + " (" + sysName(S.galaxy) + ")") + row("Peak planet", S.peakGalaxy) +
         row("Travels", s.travels))) +
-      sec("Empire &amp; conquest", grid(
-        row(iconMarkup("star4") + "Conquest multiplier", "×" + ((S.conquest || 1) < 100 ? (S.conquest || 1).toFixed(1) : fmt(S.conquest))) + row("Planets conquered", conquered + " / " + TOTAL_PLANETS) +
+      sec("Empire", grid(
+        row(iconMarkup("star4") + "Planets conquered", conquered + " / " + TOTAL_PLANETS) +
         row("Empire idle income", curSym(S.galaxy) + " " + fmt(empireRate) + " /s"))) +
       sec("Economy", grid(
         row("Cash / sec", curSym(S.galaxy) + " " + fmt(cps)) + row("Capacity", curSym(S.galaxy) + " " + fmt(derived.capacity)) +

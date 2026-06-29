@@ -170,10 +170,8 @@ Extra defenders/collectors are priced **geometrically** in the count
 (`base × 1.5^owned`), so the 2nd of a class is cheap and the 4th is a real
 investment — you build your rack up *over* a planet rather than buying it all at
 landing. Because costs ride the planet's difficulty scale (`eco(g)`) just like
-income does, the *shape* is identical on every world; what changes run-to-run is
-your **Conquest multiplier**, which lets you climb that same geometric curve
-faster the more planets you've conquered. Skill-tree nodes scale the same way
-(`base × 1.33^allocated`) — cheap early, steep late — so a full tree is a
+income does, the *shape* is identical on every world. Skill-tree nodes scale the
+same way (`base × 1.33^allocated`) — cheap early, steep late — so a full tree is a
 long-game goal, not a quick buy.
 
 ## Collectors
@@ -242,38 +240,38 @@ Each runs on a cooldown — save them for dense or high-value screens.
   pinch to zoom, tap a planet to inspect or travel. New weapon/collector classes
   unlock across **all three systems**, so each system opens with a fresh toy.
 
-### Planet Layers — Travel = Prestige, and the Conquest multiplier
+### Planet Layers — Travel = Progress
 
-There is **one global currency** (no per-planet money, no exchange). The thing
-that carries across planets is **not** your wealth — it's a permanent **Conquest
-multiplier**. Think of it as your RPG level. The loop:
+There is **one global currency** (no per-planet money, no exchange). What carries
+across planets is **not** your wealth and **not** a permanent multiplier — it's
+your **unlocked arsenal** (classes stay unlocked forever — your knowledge carries,
+your build doesn't) and your growing **idle empire** (every planet you hold keeps
+earning for you). The loop:
 
 - **Land & build from scratch** with a little starter cash, using everything
-  you've *unlocked* so far (classes stay unlocked permanently — your knowledge
-  carries, your build doesn't).
+  you've *unlocked* so far.
 - **Earn** by killing the planet's native race until you fill the **conquer**
   bar — that unlocks **Travel**. A planet is a deliberate **hours-long campaign**;
   active play — drawing to brush dots, abilities, and fat Value/Spawn upgrades —
   is the fast path.
-- **Designed conquer-time curve.** Each conquer bar is anchored to your real income
-  so the *active* hours land on an intended curve in the **12–24h band**: you
-  **steamroll through a solar system** (Helios ≈ 16→12h), then crossing into a
-  **new system spikes the wall back up to ~24h** and you climb again
-  (Cygnus ≈ 24→12h, Erebus ≈ 24→12h). The target is anchored to your real
-  active income (which is gated by the on-screen spawn cap, so it tracks
-  eco·Conquest) — late worlds stay full campaigns instead of collapsing to minutes
-  or ballooning to years. Skilled active play banks **~8.6× idle**, so the whole
-  18-planet run is **≈12 days fully active, ≈60 days at ~10% active (mostly idle),
-  ≈106 days pure idle** — engagement is rewarded, but idle is a viable path.
-- **Conquer → your Conquest multiplier permanently grows (×1.8)** and the planet
-  **joins your empire**, feeding idle income straight into your global treasury
-  (online **and** offline). **Revisit** any conquered planet anytime to keep
-  upgrading it.
+- **Designed conquer-time curve.** Each conquer bar is sized so the *active* hours
+  land on an intended curve in the **12–24h band**: you **steamroll through a solar
+  system** (Helios ≈ 16→12h), then crossing into a **new system spikes the wall
+  back up to ~24h** and you climb again (Cygnus ≈ 24→12h, Erebus ≈ 24→12h). The
+  target tracks the planet's economy `eco(g)` (which your income rides too), so
+  late worlds stay full campaigns instead of collapsing to minutes. Skilled active
+  play banks **~8.6× idle**, so the whole 18-planet run is **≈12 days fully active,
+  ≈60 days at ~10% active (mostly idle), ≈106 days pure idle** — engagement is
+  rewarded, but idle is a viable path.
+- **Conquer → the planet joins your empire** and **Travel unlocks.** A held planet
+  feeds idle income straight into your global treasury (online **and** offline).
+  **Revisit** any conquered planet anytime to keep upgrading it.
 - **Idle empire ramps with conquests.** Each held planet's idle output is a slice
-  of *its own* conquest cost (so it auto-scales with difficulty), and the whole
+  of *its own* conquer cost (so it auto-scales with difficulty), and the whole
   empire grows **+30% per planet conquered** (`EMPIRE_RAMP`). Early worlds are an
   active grind; lategame the empire can largely **idle you to the next conquest**,
-  so you never hand-manage all 18.
+  so you never hand-manage all 18. **This idle empire is your cross-planet
+  progression** — the more worlds you hold, the faster every world goes.
 - **⚙ Auto-Buy** turns idle income into real build progress (otherwise it just caps
   at your cash ceiling). It's a **sequential build order** you program **per planet**
   (each world is a fresh rebuild, so each has its own queue), steeply taxed so it
@@ -291,18 +289,17 @@ multiplier**. Think of it as your RPG level. The loop:
   collapsible panel with its own **⏻ arm toggle**; tap one to expand and edit its full
   build order inline. (Each planet's star-map info also has its own ⏻ ON/OFF + Edit ▸.)
 
-The Conquest multiplier boosts **all** your income forever, but it is **not
-spendable cash** — you still land on each new world at ~zero and have to play, so
-it can never *instant-max* a fresh planet. It just lets you earn (and rebuild)
-faster, and it lets you flatten every world you've already beaten.
+Your idle empire is **not spendable cash** — you still land on each new world at
+~zero and have to play, so it can never *instant-max* a fresh planet. It just
+earns alongside you (and while you're away), and it lets you flatten every world
+you've already beaten.
 
-**Difficulty is hybrid.** Inside a solar system, your Conquest multiplier
-out-grows the gentle difficulty creep, so each planet is quicker than the last —
-you **steamroll** and feel like a god. Crossing into a **new** system, dot
-toughness **doubles** in a jump that outruns your multiplier — you **feel small
-again** and have to climb back. Three power-fantasy arcs (Helios → Cygnus →
-Erebus), each with a wall at its mouth. (Run `node tools/pacing-sim.js` to see
-the curve and the two invariants this guarantees.)
+**Difficulty is shaped by the conquer-time curve.** Within a solar system each
+successive planet's conquer bar eases down (≈24h→12h), so you **steamroll** and
+feel like a god. Crossing into a **new** system, dot toughness **doubles** *and*
+the conquer bar spikes back up to ~24h — you **feel small again** and have to
+climb back. Three power-fantasy arcs (Helios → Cygnus → Erebus), each with a wall
+at its mouth.
 
 ## Idle, offline & saving
 
@@ -343,13 +340,13 @@ icon.svg     App icon
 tools/       Headless balancing aids (run with Node):
   balance-check.js   audits economy upgrade cost-vs-effect ratios for
                      infinite-money exploits
-  pacing-sim.js      models the v3 Conquest-multiplier vs hybrid-difficulty
-                     curve; reports per-planet pace + the steamroll/wall
-                     invariants (within-system pace <1, system-wall pace >1)
+  pacing-sim.js      legacy standalone pacing model (the steamroll/wall shape is
+                     now driven by the conquer-time curve in SYS_ACTIVE_HOURS, not
+                     a conquest multiplier); see active-sim.js for the real curve
   playthrough-sim.js drives the REAL game in headless Chromium (via window.__SIM)
                      through all 18 planets — verifies scaling climbs, every
                      weapon/collector unlock gates correctly, travel stays
-                     affordable, Conquest compounds, and no planet walls
+                     affordable, and no planet walls
                      (needs Playwright: npm i -D playwright)
   active-sim.js      same real-game drive at 4 engagement levels (0/10/35/100%
                      active) — per-planet conquer/cumulative timeline each
