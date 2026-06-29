@@ -1,0 +1,12 @@
+# Transient dev/test artifacts — the game itself is dependency-free (no build step).
+# Playwright is installed ad-hoc only to run the headless sims in tools/.
+node_modules/
+package.json
+package-lock.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
