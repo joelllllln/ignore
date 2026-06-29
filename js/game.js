@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.1";
+  const VERSION = "v8.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -223,6 +223,7 @@
     plasma:  { a: ["Ion Charge", "Superheated", "Fusion Core", "Antimatter", "Singularity Bolt", "Plasma Surge", "Star Core"], b: ["Capacitor", "Coolant Loop", "Overclock", "Rapid Cycle", "Continuous Beam", "Supercooled", "Flux Drive"], c: ["Focusing Lens", "Long Barrel", "Crit Matrix", "Targeting Array", "Lancer", "Beam Optics", "Far Sight"], d: ["Logic Core", "Heuristics", "Threat Model", "Predict Engine", "Sentience", "Neural Mesh", "Mind Lattice"], x: ["Crit Core", "Overcharge Cell", "Meltdown"] },
     laser:   { a: ["Amplifier", "Focused Beam", "Burning Ray", "Photon Surge", "Death Ray", "Hot Lens", "Sunfire"], b: ["Pulse Rate", "Rapid Emitter", "Resonance", "Overdrive", "Constant Stream", "Fast Cycle", "Lightstorm"], c: ["Mirror Array", "Extended Optics", "Heat Seeker", "Crit Lens", "Prism Split", "Wide Mirror", "True Aim"], d: ["Tracking AI", "Scan Logic", "Priority Lock", "Predictive Aim", "Swarm Sense", "Hunter Net", "Omniscience"], x: ["Crit Focus", "Focal Point", "Vaporize"] },
     railgun: { a: ["Mag Core", "Hypervelocity", "Depleted Slug", "Mass Driver", "Annihilator", "Tungsten Rod", "Worldbreaker"], b: ["Quick Charge", "Capacitor Bank", "Auto-Rack", "Rapid Rail", "Salvo", "Fast Coil", "Volley"], c: ["Long Rail", "Calibration", "Piercing Round", "Crit Targeting", "Railstorm", "Extended Rail", "Dead Centre"], d: ["Fire Solution", "Ballistic AI", "Target Lock", "Lead Computer", "Kill Predictor", "War Mind", "Oracle Core"], x: ["Crit Lock", "Penetrator", "One Shot"] },
+    nova:    { a: ["Void Charge", "Dark Matter", "Collapsed Core", "Singularity Shell", "Entropy Warhead", "Null Lance", "Annihilation"], b: ["Rift Cycle", "Warp Loader", "Phase Battery", "Rapid Rift", "Continuous Void", "Fast Collapse", "Eventstorm"], c: ["Deep Sight", "Void Optics", "Far Rift", "Gravity Lens", "Horizon Scope", "Long Reach", "Omni-Sight"], d: ["Void Logic", "Star Sense", "Threat Horizon", "Cosmic Predict", "Astral Mind", "Nebula Net", "Cosmic Oracle"], x: ["Critical Void", "Dead Star", "Supernova"] },
   };
   // collector skill webs: a=Speed, b=Suction, c=Reach (grab distance), d=Capacity (parallel
   // maw bays — how many orbs at once), x=Ingest (loot-swallow speed)
@@ -233,6 +234,7 @@
     magnet:      { a: ["Spin Up", "Coil Tune", "Rail Drive", "Mag-Lev", "Flux Dash", "Quick Coil", "Overspin"], b: ["Dipole", "Quad Coil", "Field Bloom", "Deep Pull", "Magnetar", "Strong Dipole", "Pole Reversal"], c: ["Grab Coil", "Wide Pole", "Long Coil", "Grip Field", "Vast Reach", "Strong Latch", "Pole Spread"], d: ["Twin Pole", "Extra Coil Bay", "Triple Intake", "Parallel Coils", "Multi-Pole", "Coil Bank", "Pole Array"], x: ["Wide Coil", "Storage Coil", "Flux Mill", "Eddy Press", "Induction Forge", "Quick Smelt", "Bullion"] },
     tractor:     { a: ["Emitter Tune", "Beam Drive", "Phase Step", "Warp Coil", "Lightspeed", "Quick Beam", "Hyperdrive"], b: ["Cone Cast", "Wide Beam", "Tow Field", "Deep Tow", "Star Reach", "Broad Beam", "Long Reach"], c: ["Hopper Arm", "Wide Grip", "Long Tow", "Cone Latch", "Far Reach", "Broad Grip", "Tow Spread"], d: ["Twin Beam", "Extra Tractor", "Triple Tow", "Parallel Beams", "Multi-Lock", "Beam Bank", "Beam Array"], x: ["Wide Cone", "Hold Beam", "Beam Mill", "Phase Press", "Plasma Forge", "Quick Render", "Reserve"] },
     singularity: { a: ["Drift Control", "Orbit Tune", "Wander", "Roam Field", "Phase Drift", "Slow Roll", "Free Orbit"], b: ["Deeper Well", "Wider Horizon", "Tidal Force", "Crushing Pull", "Infinite Reach", "Gravity Sink", "Abyssal Pull"], c: ["Event Reach", "Wide Maw", "Long Horizon", "Deep Grip", "Vast Reach", "Abyss Latch", "Maw Spread"], d: ["Twin Horizon", "Extra Well", "Triple Maw", "Parallel Wells", "Multi-Crush", "Event Bank", "Devour Array"], x: ["Event Maw", "Mass Vault", "Spaghetti Mill", "Tidal Crush", "Hawking Forge", "Quick Collapse", "Singularity Core"] },
+    wormhole:    { a: ["Throat Tune", "Rift Drive", "Phase Jump", "Warp Frame", "Lightfold", "Quick Fold", "Hyperfold"], b: ["Deep Throat", "Wide Maw", "Spacetime Pull", "Crushing Well", "Infinite Draw", "Gravity Sink", "Cosmic Pull"], c: ["Event Reach", "Wide Horizon", "Long Throat", "Deep Grip", "Vast Reach", "Rift Latch", "Maw Spread"], d: ["Twin Throat", "Extra Well", "Triple Maw", "Parallel Rifts", "Multi-Fold", "Rift Bank", "Devour Array"], x: ["Rift Maw", "Void Vault", "Spacetime Mill", "Tidal Render", "Hawking Forge", "Fast Render", "Wormhole Core"] },
   };
   const skillNames = type => isCol(type) ? COL_SKILLS[type] : SKILLS[type];
   // --- progression MAP: three SOLAR SYSTEMS, each with 4–8 PLANETS. The linear
@@ -1549,6 +1551,8 @@
     magnet:      { keys: ["Magnetar Core", "Coil Reach", "Flux Drive"] },
     tractor:     { keys: ["Singularity Beam", "Tow Reach", "Beam Lock"] },
     singularity: { keys: ["Big Crunch", "Event Maw", "Tidal Lock"] },
+    nova:        { keys: ["Singularity Core", "Void Caller", "Supernova"] },
+    wormhole:    { keys: ["Event Horizon", "Spaghettify", "Cosmic Maw"] },
   };
   // Each class gets its OWN tree, generated deterministically from its name:
   // a START hub with a random number of wings (3-5), each wing a chain or a
