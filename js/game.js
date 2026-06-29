@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.6";
+  const VERSION = "v8.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -465,7 +465,7 @@
     return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null, imported: {}, conquest: 1, victory: false, auto: defaultAuto() };
   }
   // trim a unit/collector list down to each type's max (enforces caps on load)
-  function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type, m = TY(t) ? TY(t).max : 99; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }
+  function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type; if (!TY(t)) continue; const m = TY(t).max; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }   // DROP unknown types (a renamed/removed class in an old save would otherwise crash on the first tick via DEF_TYPES[t].x)
   function freshStats() {
     const kills = {}; DEF_ORDER.forEach(t => kills[t] = 0); kills.draw = 0; kills.blackhole = 0;
     const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
@@ -1184,11 +1184,11 @@
       if (lod) { if (d.hp < d.maxHp) { const f = clamp(d.hp / d.maxHp, 0, 1); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2, 3); ctx.fillStyle = "#fff"; ctx.fillRect(d.x - d.r, d.y - d.r - 7, d.r * 2 * f, 3); } continue; }
       if (d.kind === "splitter") { const cells = clamp(2 + Math.floor(gc * 0.4), 2, 5); for (let k = 0; k < cells; k++) { const a = k / cells * TAU + d.spin * 0.5, rr = dr2 * 0.34, cx = d.x + Math.cos(a) * rr, cy = d.y + Math.sin(a) * rr, cr = dr2 * (cells > 3 ? 0.2 : 0.27); ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(cx, cy, cr, 0, TAU); ctx.fill(); ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.beginPath(); ctx.arc(cx, cy, cr * 0.32, 0, TAU); ctx.fill(); } }   // Cinder brood — dividing cells multiply with Value
       if (d.kind === "zigzag") { const fl = 0.5 + 0.5 * Math.sin(d.spin * 9); ctx.fillStyle = "rgba(255,255,255," + (0.55 + fl * 0.45) + ")"; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * (0.26 + 0.16 * fl), 0, TAU); ctx.fill(); const sparks = clamp(2 + Math.floor(gc * 0.7), 2, 8); ctx.fillStyle = "rgba(255,255,255," + (0.28 + 0.4 * fl) + ")"; for (let k = 0; k < sparks; k++) { const a = d.spin * 2.4 + k / sparks * TAU, rr = dr2 + 2.5 + (k % 3) * 3 + fl * 4; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, 1 + fl, 0, TAU); ctx.fill(); } }   // Ember: flickering hot core sheds sparks — fiercer with Value
-      if (d.kind === "healer") { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x - dr2 * 0.45, d.y); ctx.lineTo(d.x + dr2 * 0.45, d.y); ctx.moveTo(d.x, d.y - dr2 * 0.45); ctx.lineTo(d.x, d.y + dr2 * 0.45); ctx.stroke(); }  // Verdant Mender — + cross (race key is "healer", not "regen")
-      if (d.kind === "orbiter") { const sc = clamp((d.sat || 3) + Math.floor(gc * 0.4), 3, 8); ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 9, 0, TAU); ctx.stroke(); ctx.fillStyle = "#fff"; for (let k = 0; k < sc; k++) { const a = d.spin * 2 + k / sc * TAU, rr = d.r + 9; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, 2.2 + Math.min(gc * 0.1, 1.4), 0, TAU); ctx.fill(); } }   // Cobalt — orbiting guard satellites grow in number with Value
+      // (Verdant Mender's "+" cross is drawn by the d.healAura branch below — no separate branch needed.)
+      if (d.kind === "orbiter") { const sc = clamp(d.sat || 0, 0, 8); if (sc > 0) { ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 9, 0, TAU); ctx.stroke(); ctx.fillStyle = "#fff"; for (let k = 0; k < sc; k++) { const a = d.spin * 2 + k / sc * TAU, rr = d.r + 9; ctx.beginPath(); ctx.arc(d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr, 2.2 + Math.min(gc * 0.1, 1.4), 0, TAU); ctx.fill(); } } }   // Cobalt — satellites track the ACTUAL guard count (vanish as stripped), not a fixed 3
       if (d.kind === "pulsar") { const rings = clamp(1 + Math.floor(gc * 0.4), 1, 4); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; for (let q = 0; q < rings; q++) { const ph = (d.spin * 0.8 + q * 0.55) % 1; ctx.globalAlpha = (1 - ph) * 0.7; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 4 + ph * (14 + gc * 2), 0, TAU); ctx.stroke(); } ctx.globalAlpha = 1; }   // Tempest — expanding shock rings, more & wider with Value
       if (d.phase !== undefined) { const rings = clamp(1 + Math.floor(gc * 0.3), 1, 3); ctx.strokeStyle = "rgba(255,255,255,0.78)"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); for (let q = 0; q < rings; q++) { ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5 + q * 4, d.spin + q, d.spin + q + TAU); ctx.stroke(); } ctx.setLineDash([]); if (gc > 4) { ctx.globalAlpha = 0.22; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.x + Math.cos(d.spin * 2) * 6, d.y + Math.sin(d.spin * 2) * 6, dr2 * 0.6, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; } }   // Umbra — phasing dashed rings + a ghost double at high Value
-      if (d.shield > 0) { ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.globalAlpha = clamp(d.shield / d.shieldMax, 0.25, 1); const plates = clamp(1 + Math.floor(gc * 0.3), 1, 4); for (let q = 0; q < plates; q++) { ctx.lineWidth = 2.5 - q * 0.4; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5 + q * 3, -0.9 - q * 0.08, 0.9 + q * 0.08); ctx.stroke(); } ctx.globalAlpha = 1; }   // Azure bastion — layered front shield plates, more with Value
+      if (d.shield > 0 && d.armorUp === undefined) { ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.globalAlpha = clamp(d.shield / d.shieldMax, 0.25, 1); const plates = clamp(1 + Math.floor(gc * 0.3), 1, 4); for (let q = 0; q < plates; q++) { ctx.lineWidth = 2.5 - q * 0.4; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 5 + q * 3, -0.9 - q * 0.08, 0.9 + q * 0.08); ctx.stroke(); } ctx.globalAlpha = 1; }   // Azure bastion — front shield plates (NOT for Frost/juggernaut, which uses d.shield for its own hex armor drawn below)
       if (d.refl > 0) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 8, 0, TAU); ctx.stroke(); }  // reflect flash
       // --- planet-native race visuals ---
       if (d.grow !== undefined) { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y, dr2 * 0.55, 0, TAU); ctx.stroke(); const rings = clamp(1 + Math.floor(gc * 0.4), 1, 4); ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1; for (let q = 0; q < rings; q++) { ctx.beginPath(); ctx.arc(d.x, d.y, dr2 + 3 + q * 4 + Math.sin(d.grow * 2 - q) * 2, 0, TAU); ctx.stroke(); } }   // Hearth bloat — swelling membranes multiply with Value
@@ -1722,9 +1722,8 @@
   function nodePreview(type, n) {
     const before = statLine(type), set = S.classNodes[type] || (S.classNodes[type] = {}), had = set[n.id];
     set[n.id] = true; derived.cls[type] = classStats(type);
-    const after = statLine(type);
-    if (!had) delete set[n.id]; derived.cls[type] = classStats(type);
-    return { before, after };
+    try { const after = statLine(type); return { before, after }; }
+    finally { if (!had) delete set[n.id]; derived.cls[type] = classStats(type); }   // ALWAYS revert the temp allocation, even if statLine throws (else the node would be silently allocated for free)
   }
   function showNodeInfo(n) {
     const panel = $("st-info"), type = STree.type;
@@ -1977,7 +1976,7 @@
     pt(e) { const r = this.cv.getBoundingClientRect(), s = e.touches ? e.touches[0] : e; return { x: s.clientX - r.left, y: s.clientY - r.top }; },
     show() { this.open = true; this.flight = null; this.resize(); if (!this.stars.length) for (let i = 0; i < 160; i++) this.stars.push({ x: Math.random(), y: Math.random(), r: rnd(0.4, 1.6) }); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); $("gm-info").classList.remove("show");
       this.intro = 0; this.introDur = 1.25; this.iz0 = 3.2; this.zoom = 3.2; this._warp = 1.7; Sfx.swoosh(1.05); },   // full hyperspace ARRIVAL on opening the map
-    hide() { this.open = false; },
+    hide() { this.open = false; if (this.flight) { this.flight = null; this._warp = 1; this._diveP = null; const tv = $("transition"); if (tv) { tv.style.opacity = "0"; tv.style.background = ""; } const root = $("root"); if (root) root.classList.remove("cinematic"); } },   // closing mid-dive ABORTS the cinematic cleanly (was: left the letterbox + black veil stuck forever — a soft-lock)
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
     focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } this.clampFocus(); },
     // keep the camera focus inside the galaxy so it can NEVER fly off to infinity
@@ -1992,7 +1991,7 @@
     },
     zoomBy(factor) { this.zoom = clamp(this.zoom * factor, 0.4, 4.5); },                       // zoom toward centre — predictable, no drift
     rotate(dx, dy) { this.yaw += dx * 0.009; this.pitch = clamp(this.pitch - dy * 0.009, -1.5, 1.5); },   // full tilt: from straight-down, through edge-on, all the way under to view from below
-    proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / (360 + z2 + 360) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },
+    proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / Math.max(120, 720 + z2) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },   // near-clip (max 120) stops f going zero/negative when far planets cross behind the camera on a wide pan — was flipping/NaN-ing the projection
     // THREE widely-spaced solar systems (a big triangle). Each planet rides its OWN
     // orbit: a distinct ellipse, inclination (tilt) and orientation, seeded by planet.
     SYS_POS: [{ x: -680, z: -150 }, { x: 0, z: 300 }, { x: 680, z: -150 }],
