@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.0";
+  const VERSION = "v10.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -402,7 +402,7 @@
     [24, 22, 20, 18, 16, 14, 13, 12],       // Erebus (8) — WALL: spikes to 24h, eases to 12h
   ];
   const DESIRED_HOURS = [0]; SYS_ACTIVE_HOURS.forEach(a => a.forEach(h => DESIRED_HOURS.push(h)));
-  const conquerHours = g => DESIRED_HOURS[Math.max(1, Math.min(g | 0, TOTAL_PLANETS))] || 8;
+  const conquerHours = g => { const h = DESIRED_HOURS[Math.max(1, Math.min(g | 0, TOTAL_PLANETS))] || 8; return (g | 0) === 1 ? h / 3 : h; };   // planet 1 is made 3× easier — a gentler first conquer (target scales linearly with this, so /3 = 1/3 the work)
   // The target is anchored to your real INCOME so the active TIME actually lands on the curve above. Real
   // active brushing income does NOT just track eco·Conquest — each planet you also unlock more classes and
   // afford deeper trees, so measured income compounds an EXTRA ~BUILD× per planet on top. We model that with
