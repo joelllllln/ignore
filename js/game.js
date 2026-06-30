@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.9";
+  const VERSION = "v10.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1841,7 +1841,8 @@
     $("si-fx").innerHTML = "Grants: " + fx + (keyDef ? " · +1 simultaneous target" : "") +
       " <button class='u-info si-info' id='si-info-btn' title='What does this boost?'>i</button>";
     $("si-info-btn").onclick = () => showInfoText("What this node boosts",
-      sk.map(k => "<b>" + STAT_TITLE[k] + "</b> — " + STAT_INFO[k]).join("<br><br>"));
+      sk.map(k => "<b>" + STAT_TITLE[k] + "</b> — " + STAT_INFO[k]).join("<br><br>"),
+      sk.map(k => STAT_GIF[k]).find(Boolean));   // show the clip for this node's primary stat
     const btn = $("st-upgrade");
     if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
     else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = S.free ? "ALLOCATE · FREE" : "ALLOCATE · " + curSym(S.galaxy) + " " + fmt(cost); btn.disabled = !afford; }
@@ -1993,8 +1994,16 @@
     dotrain: "Instantly floods the field with extra dots to pop. Cooldown 40s.",
     blackhole: "Drags every dot to the centre and crushes them over 5s. Cooldown 60s.",
   };
-  function showInfo(title, id) { $("info-title").textContent = title; $("info-text").textContent = INFO[id] || ""; $("info-modal").classList.add("show"); }
-  function showInfoText(title, html) { $("info-title").textContent = title; $("info-text").innerHTML = html; $("info-modal").classList.add("show"); }
+  // Each upgrade/tree-stat has a short side-by-side BEFORE/AFTER clip in assets/stat-gifs (gameplay
+  // for the visible stats, hand-drawn schematics for the invisible ones like Mind/Luck/Capacity).
+  const GIF_DIR = "assets/stat-gifs/";
+  const STAT_GIF = { dmg: "damage", rate: "fire-rate", range: "range", crit: "crit", int: "mind", multi: "multishot", splash: "splash",
+    speed: "collector-speed", suction: "collector-pull", collect: "reach", capacity: "capacity-col", ingest: "process",
+    explosive: "multishot", chain: "multishot", pierce: "multishot" };   // ✦ specials live on keystones → show the keystone clip
+  const INFO_GIF = { value: "value", spawnRate: "spawn-rate", luck: "luck", capacity: "eco-capacity" };   // economy-tab upgrades (note: 'capacity' here = cash ceiling, a different clip than the collector Capacity stat)
+  function setInfoGif(name) { const im = $("info-gif"); if (!im) return; if (name) { im.src = GIF_DIR + name + ".gif"; im.style.display = "block"; } else { im.removeAttribute("src"); im.style.display = "none"; } }
+  function showInfo(title, id) { $("info-title").textContent = title; $("info-text").textContent = INFO[id] || ""; setInfoGif(INFO_GIF[id]); $("info-modal").classList.add("show"); }
+  function showInfoText(title, html, gifId) { $("info-title").textContent = title; $("info-text").innerHTML = html; setInfoGif(gifId); $("info-modal").classList.add("show"); }
   // ---- ASCENSION perk tree (permanent, gem-bought) ----
   function buyPerk(id) {
     const p = PERK_BY[id]; if (!p || perkOwned(id) || !tierOpen(p.tier) || (META.gems || 0) < p.cost) return;
