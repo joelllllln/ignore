@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.2";
+  const VERSION = "v10.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -337,7 +337,8 @@
     { id: "luck",      tab: "eco", name: "Luck",       base: 70, mul: 1.28, desc: () => (derived.luck * 100).toFixed(1) + "% special" },
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
-  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost);   // planet-local: ~5× slower than before, grows by mul; × Ascension cost-reduction perk
+  const UP_DISC = { value: 0.9, spawnRate: 0.9 };   // Value & Spawn Rate are a permanent 10% cheaper than the rest
+  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost * (UP_DISC[u.id] || 1));   // planet-local: ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
 
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
@@ -409,7 +410,8 @@
     [24, 22, 20, 18, 16, 14, 13, 12],       // Erebus (8) — WALL: spikes to 24h, eases to 12h
   ];
   const DESIRED_HOURS = [0]; SYS_ACTIVE_HOURS.forEach(a => a.forEach(h => DESIRED_HOURS.push(h)));
-  const conquerHours = g => { const h = DESIRED_HOURS[Math.max(1, Math.min(g | 0, TOTAL_PLANETS))] || 8; return (g | 0) === 1 ? h / 3 : h; };   // planet 1 is made 3× easier — a gentler first conquer (target scales linearly with this, so /3 = 1/3 the work)
+  const PACE = 1 / 3;   // GLOBAL pacing speed-up: every planet's conquer target is 3× quicker than the base curve below (the target scales linearly with conquerHours)
+  const conquerHours = g => (DESIRED_HOURS[Math.max(1, Math.min(g | 0, TOTAL_PLANETS))] || 8) * PACE;
   // The target is anchored to your real INCOME so the active TIME actually lands on the curve above. Real
   // active brushing income does NOT just track eco·Conquest — each planet you also unlock more classes and
   // afford deeper trees, so measured income compounds an EXTRA ~BUILD× per planet on top. We model that with
@@ -1136,6 +1138,10 @@
     // them as the fight drifts), instead of idling on a fixed dot while loot expires elsewhere.
     let oCx = 0, oCy = 0, oN = 0; for (const o of orbs) { oCx += o.x; oCy += o.y; oN++; }
     const lootX = oN ? oCx / oN : W * 0.5, lootY = oN ? oCy / oN : H * 0.5;
+    // ACTION HUB: where collectors should gravitate when they have nothing claimed — the loot centroid if
+    // any orbs exist, else where the DOTS are (the fight). Stops collectors idling far out on big maps.
+    let dCx = 0, dCy = 0, dN = 0; for (const d of dots) { dCx += d.x; dCy += d.y; dN++; }
+    const hubX = oN ? lootX : (dN ? dCx / dN : W * 0.5), hubY = oN ? lootY : (dN ? dCy / dN : H * 0.5);
     for (const dr of drones) {
       const hole = COL_TYPES[dr.type].mode === "hole", tgt = dr.cand;
       if (hole) { const hs = HOLE_SPOTS[holeN++ % HOLE_SPOTS.length];
@@ -1143,7 +1149,8 @@
         dr.vx += ((hx - dr.x) * 0.6 - dr.vx) * 0.04; dr.vy += ((hy - dr.y) * 0.6 - dr.vy) * 0.04; }
       else if (dr.parking) { dr.vx *= 0.55; dr.vy *= 0.55; }                                  // parked, consuming big loot
       else if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1, sp = cSpeed(dr.type); dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; }
-      else { dr.vx *= 0.9; dr.vy *= 0.9; }
+      else { const dx = hubX - dr.x, dy = hubY - dr.y, dl = Math.hypot(dx, dy) || 1;   // no orb claimed → don't idle; drift toward the action hub so far-out collectors rejoin the fight
+        if (dl > 50) { const sp = cSpeed(dr.type) * 0.7; dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; } else { dr.vx *= 0.9; dr.vy *= 0.9; } }
       // separation: chase collectors push apart so they SPREAD and cover more of the
       // field — so fielding more (and faster) collectors collects meaningfully more.
       if (!hole) for (const o2 of drones) { if (o2 === dr || COL_TYPES[o2.type].mode === "hole") continue; const dx = dr.x - o2.x, dy = dr.y - o2.y, d2 = dx * dx + dy * dy; if (d2 > 1 && d2 < 200 * 200) { const inv = 1 / Math.sqrt(d2), f = (200 - Math.sqrt(d2)) * cSpeed(dr.type) * 0.012; dr.vx += dx * inv * f * dt; dr.vy += dy * inv * f * dt; } }
@@ -2708,7 +2715,7 @@
   }
   window.addEventListener("resize", resize);
   let last = 0, saveAcc = 0;
-  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) STree.render(dt);
+  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) { STree.render(dt); const wt = $("sw-tot"), wr = $("sw-rate"); if (wt) wt.textContent = fmt(S.cash); if (wr) wr.textContent = "+" + fmt(Math.max(0, cps)) + "/s"; }   // live wallet in the tree: total climbs, plus $/s
     if (veilT > 0) { veilT = Math.max(0, veilT - dt); setVeil(135 * (1 - veilT / VEIL_FADE)); }   // iris the black veil open over the base after landing
     if (landT > 0) { landT = Math.max(0, landT - dt); camZoom += (camFit - camZoom) * Math.min(1, dt * 3.5); if (landT === 0) { camZoom = camFit; const root = $("root"); if (root) root.classList.remove("cinematic"); } }   // camera pulls back to the base, then letterbox retracts
     fxAcc += dt; if (fxAcc > 0.2) { fxAcc = 0; refreshExchange(); }   // tick the live FX rates while the exchange is open

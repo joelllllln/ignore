@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v10.2</div>
+  <div id="version" class="layer">v10.3</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -94,6 +94,10 @@
   <div id="skilltree" class="modal stmodal">
     <div class="st-head"><div><b id="st-title">Turret</b> <span id="st-owned" class="muted"></span></div><button class="x" id="st-close">✕</button></div>
     <div id="st-stats" class="st-stats"></div>
+    <div id="st-wallet" class="st-wallet">
+      <div class="sw-col"><span class="sw-lbl">TOTAL</span><b id="sw-tot">0</b></div>
+      <div class="sw-col"><span class="sw-lbl">PER SEC</span><b id="sw-rate">+0/s</b></div>
+    </div>
     <canvas id="sttree"></canvas>
     <div id="st-info" class="st-info">
       <div class="si-head"><span class="si-name" id="si-name"></span><span class="si-tag" id="si-tag"></span></div>
