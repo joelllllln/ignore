@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.9";
+  const VERSION = "v9.0";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1715,7 +1715,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 0.7 * BUY_MUL * Math.pow(1.33, allocCount(type)) * k * (DEF_SCALE[type] || 1)); }   // base lowered 1.5→0.7 so EARLY nodes are affordable; ×DEF_SCALE so stronger-per-node classes cost proportionally (keeps the 1.33 growth shape)
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * Math.pow(1.28, allocCount(type)) * k * (DEF_SCALE[type] || 1)); }   // base 6.0 → the FIRST node is a real save-up investment (~4× the old cost, ~40% of a 2nd unit), not pocket change; growth eased 1.33→1.28 so the pricier early cost doesn't balloon the late curve (the back half stays about as reachable as before); ×DEF_SCALE keeps stronger-per-node classes proportionally costed
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (!S.free && S.cash < c) return;
     if (!S.free) S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
