@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.5";
+  const VERSION = "v10.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1527,9 +1527,15 @@
   function autoCfg(g) {   // the auto-buy config for a planet (created + normalised on demand)
     ensureAuto(); const k = g || S.galaxy; const p = S.auto.planets[k] || (S.auto.planets[k] = { on: false, queue: [] });
     if (!Array.isArray(p.queue)) p.queue = [];
-    p.queue = p.queue.filter(s => s && s.target).map(s =>
-      isTreeStep(s) ? { target: s.target, nodes: (s.nodes && typeof s.nodes === "object") ? s.nodes : {} }
-                    : { target: s.target, count: Math.max(0, s.count | 0) });
+    // normalise IN PLACE — the live planet's cfg is re-fetched every frame by the auto-buy tick, so we must
+    // NOT swap p.queue for a new array (that would orphan the reference captured by the Add-step / ± / ✕ UI
+    // handlers, silently dropping their edits). Mutate the existing array instead.
+    for (let i = p.queue.length - 1; i >= 0; i--) {
+      const s = p.queue[i];
+      if (!s || !s.target) { p.queue.splice(i, 1); continue; }
+      if (isTreeStep(s)) { if (!s.nodes || typeof s.nodes !== "object") s.nodes = {}; delete s.count; }
+      else { s.count = Math.max(0, s.count | 0); delete s.nodes; }
+    }
     return p;
   }
   const curAuto = () => autoCfg(S.galaxy);   // the config that actually RUNS (your active planet)
