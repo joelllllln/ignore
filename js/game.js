@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.7";
+  const VERSION = "v8.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -255,11 +255,11 @@
     "A quiet inner world. Sparse, fragile dots — find your rhythm.",
     "Drifting embers. Swarms move faster; keep collectors close.",
     "Scorched cinder fields. Hotter, tougher dots — Mortars forge here.",
-    "The hearth-world. Dense clouds and richer payouts — Plasma ignites.",
-    "Azure tides. Reinforced dots demand real damage.",
-    "Verdant sprawl. Relentless waves — Lasers cut through.",
+    "The hearth-world. Dense clouds and richer payouts — feed your Mortars.",
+    "Azure tides. Reinforced dots demand real damage — Plasma ignites.",
+    "Verdant sprawl. Relentless waves — Plasma cuts through.",
     "Cobalt deep. High-value specials surface far more often.",
-    "Stormwinds. Chaotic, dense spawns — Railguns punch through.",
+    "Stormwinds. Chaotic, dense spawns — Lasers shred them.",
     "A deceptive calm before the outer dark.",
     "Tempest belt. Massive, high-HP dots roll through.",
     "The outer dark begins. Brutal density — your whole arsenal earns its keep.",
@@ -540,7 +540,7 @@
   function save() { if (wiping) return; try { if (S && S.vault) { const v = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }); v.earned = curEarned; } localStorage.setItem(KEY, JSON.stringify({ S, META, ts: Date.now(), cps })); } catch (e) {} }
   function wipeSave() { wiping = true; try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
   function load() {
-    S = fresh(); META = freshMeta(); let off = null;
+    S = fresh(); META = freshMeta(); let off = null, offSmall = 0;
     try {
       const d = JSON.parse(localStorage.getItem(KEY));
       if (d) {
@@ -561,7 +561,7 @@
             const pmv = S.vault && (S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }));
             if (pmv && !pmv.conquered) pmv.earned = Math.min(conquerTarget(S.galaxy), (pmv.earned || 0) + offTotal);
             if (e >= 60) off = { gain: Math.floor(offTotal), elapsed: e, pool: offTotal };   // hold the pool; auto-buy spends it after recompute (below)
-            else S.cash += offTotal; }
+            else offSmall = offTotal; }   // <60s: defer to the capacity-clamped add after recompute (was S.cash += offTotal, which bypassed the cap → reload-grind exploit)
           if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + Math.max(0, (Date.now() - d.ts) / 1000);   // expedition keeps travelling while away (uncapped — long trips must finish)
         }
       }
@@ -571,6 +571,7 @@
     ensureAuto();
     curEarned = (S.vault[S.galaxy] && S.vault[S.galaxy].earned) || 0;
     recompute();
+    if (offSmall > 0) S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + offSmall));   // short-session offline gain, now capacity-clamped
     if (off) {
       if (off.pool != null) {   // simulate auto-buy spending the banked away-budget, then bank what's left (clamped)
         const r = autoBuyOffline(off.pool); recompute();
@@ -1012,7 +1013,7 @@
     }
     dots = dots.filter(d => !d.dead);
 
-    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; let shots = 0; const period = 1 / uRate(u); while (u.cd <= 0 && shots < 8) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } }   // machine-gun: many shots/frame at high fire rate
+    for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; const period = 1 / uRate(u); const maxShots = Math.min(64, Math.max(1, Math.ceil(uRate(u) * dt) + 1)); let shots = 0; while (u.cd <= 0 && shots < maxShots) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } if (u.cd < -period) u.cd = -period; }   // machine-gun: per-frame allowance scales with rate×dt so high fire rates (Laser, Frenzy) fully realize and stay FRAME-RATE-INDEPENDENT; debt floored so it can't spiral
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
     // arcing mortar bombs: fly their parabola, then detonate on landing (deferred splash).
     for (const sh of shells) {
