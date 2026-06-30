@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.6";
+  const VERSION = "v9.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -109,8 +109,8 @@
     collector:   { name: "Heavy Collector",base: 120000,     gal: 6,  speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 3,  mode: "chase", sides: 6, max: 2 },
     magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 9,  speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 4,  mode: "chase", sides: 5, max: 2 },
     tractor:     { name: "Tractor Array",  base: 26000000,   gal: 11, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 4,  mode: "chase", sides: 8, max: 2 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 13, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 6,  mode: "hole",  sides: 0, max: 2 },
-    wormhole:    { name: "Wormhole",       base: 5.0e9,      gal: 16, speed: 64,  suction: 330, collect: 64, yield: 3.4, cap: 8,  mode: "hole",  sides: 0, max: 2 },   // base bays cut (m2): Capacity now STARTS as a real throttle you must upgrade, not an over-generous freebie (holes vacuum the whole field, so they feel it most)
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 13, speed: 48,  suction: 450, collect: 46, yield: 2.8, cap: 6,  mode: "hole",  sides: 0, max: 2 },
+    wormhole:    { name: "Wormhole",       base: 5.0e9,      gal: 16, speed: 64,  suction: 650, collect: 64, yield: 3.4, cap: 8,  mode: "hole",  sides: 0, max: 2 },   // base bays cut (m2): Capacity now STARTS as a real throttle you must upgrade. Base suction raised (m4) so a fresh hole already covers a real chunk of the field instead of a tiny circle.
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity", "wormhole"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -1114,9 +1114,17 @@
     for (const dr of drones) { dr.cand = null; dr.cbd = Infinity; }
     for (const o of orbs) { let nd = null, bd = Infinity; for (const dr of drones) { if (COL_TYPES[dr.type].mode === "hole") continue; const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2; if (q < bd) { bd = q; nd = dr; } } if (nd && bd < nd.cbd) { nd.cbd = bd; nd.cand = o; } }
     const HOLE_SPOTS = [[0.5, 0.40], [0.30, 0.50], [0.70, 0.52], [0.50, 0.62]]; let holeN = 0;
+    // m4: each hole OWNS the orbs nearest it and drifts to that cluster's centroid — so several holes
+    // split the field (no clumping) and a hole always sits where its share of the loot is, instead of
+    // idling on a fixed dot while orbs expire elsewhere.
+    const holes = drones.filter(d => COL_TYPES[d.type].mode === "hole");
+    if (holes.length) { for (const h of holes) { h.ocx = 0; h.ocy = 0; h.on = 0; }
+      for (const o of orbs) { let nh = null, bd = Infinity; for (const h of holes) { const q = (h.x - o.x) ** 2 + (h.y - o.y) ** 2; if (q < bd) { bd = q; nh = h; } } if (nh) { nh.ocx += o.x; nh.ocy += o.y; nh.on++; } } }
     for (const dr of drones) {
       const hole = COL_TYPES[dr.type].mode === "hole", tgt = dr.cand;
-      if (hole) { const hs = HOLE_SPOTS[holeN++ % HOLE_SPOTS.length], hx = W * hs[0], hy = H * hs[1]; dr.vx += ((hx - dr.x) * 0.6 - dr.vx) * 0.04; dr.vy += ((hy - dr.y) * 0.6 - dr.vy) * 0.04; }   // each hole hovers a DISTINCT zone (so a 2nd hole isn't redundant)
+      if (hole) { const hs = HOLE_SPOTS[holeN++ % HOLE_SPOTS.length];
+        const hx = dr.on ? dr.ocx / dr.on : W * hs[0], hy = dr.on ? dr.ocy / dr.on : H * hs[1];   // toward my own loot cluster, else my distinct home zone
+        dr.vx += ((hx - dr.x) * 0.6 - dr.vx) * 0.04; dr.vy += ((hy - dr.y) * 0.6 - dr.vy) * 0.04; }
       else if (dr.parking) { dr.vx *= 0.55; dr.vy *= 0.55; }                                  // parked, consuming big loot
       else if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1, sp = cSpeed(dr.type); dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; }
       else { dr.vx *= 0.9; dr.vy *= 0.9; }
