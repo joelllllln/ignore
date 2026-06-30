@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v8.8";
+  const VERSION = "v8.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -92,7 +92,7 @@
   // bonus to weak/small/fast dots. So mixing classes beats stacking one.
   const DEF_TYPES = {
     turret:  { name: "Turret",  base: 60,     gal: 1,  dmg: 5,   rate: 1.4, range: 240, splash: 0,  max: 4, vsBig: 1.0, vsSwarm: 1.0, niche: "all-rounder — steady single-target backbone" },
-    mortar:  { name: "Mortar",  base: 500,    gal: 2,  dmg: 64,  rate: 0.1, range: 215, splash: 95, max: 4, vsBig: 1.1, vsSwarm: 2.2, lob: 1, niche: "artillery — one heavy bomb every ~10s, devastating splash over a wide blast" },
+    mortar:  { name: "Mortar",  base: 500,    gal: 2,  dmg: 64,  rate: 0.3, range: 215, splash: 95, max: 4, vsBig: 1.1, vsSwarm: 2.2, lob: 1, niche: "artillery — heavy arcing bombs (up to 2/s with its tree), devastating splash over a wide blast" },
     plasma:  { name: "Plasma",  base: 4000,   gal: 5,  dmg: 26,  rate: 0.5, range: 320, splash: 0,  max: 4, vsBig: 2.4, vsSwarm: 0.8, niche: "heavy bolts — melts tanky dots" },
     laser:   { name: "Laser",   base: 30000,  gal: 8,  dmg: 3,   rate: 4.2, range: 230, splash: 0,  max: 4, vsBig: 0.7, vsSwarm: 2.6, niche: "rapid beam — vaporizes fast/weak swarms" },
     railgun: { name: "Railgun", base: 250000, gal: 11, dmg: 90,  rate: 0.3, range: 430, splash: 0,  max: 4, vsBig: 4.0, vsSwarm: 0.6, niche: "huge slugs — anti-armor sniper" },
@@ -131,10 +131,11 @@
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
   const DEF_PRIM = ["dmg", "rate", "range", "int"], COL_PRIM = ["speed", "suction", "collect", "capacity"];
-  // BESPOKE per-class primaries. Most defenders share dmg/rate/range/Mind, but the Mortar
-  // is a slow artillery piece — fire rate is fixed (a long reload), so its 2nd wing grows
-  // BLAST RADIUS instead. Its tree is therefore built for splash + damage, not rate.
-  const DEF_PRIM_BY = { mortar: ["dmg", "splash", "range", "int"] };
+  // BESPOKE per-class primaries — a hook for giving a class a different wing layout.
+  // The Mortar starts as a slow artillery piece (one heavy bomb every few seconds) but
+  // its fire-rate wing lets it climb to a 2/s cap (uRate) — a hard-hitting 0.5s splasher,
+  // never a machine gun. Its blast radius still scales via the range wing + its big base.
+  const DEF_PRIM_BY = { mortar: ["dmg", "rate", "range", "int"] };   // mortar shares the standard dmg/rate/range/Mind wings; the 2/s cap in uRate keeps it artillery, not a turret
   const dPrim = type => DEF_PRIM_BY[type] || DEF_PRIM;
   // Tree nodes add a FLAT bonus that STACKS ADDITIVELY — a stat's multiplier is
   // 1 + (sum of its nodes' bonuses). Bonuses do NOT compound off each other, so
@@ -145,8 +146,8 @@
   // are flat distances; crit is flat chance.
   // Defender baseline (turret = tier 1). Later classes scale UP via DEF_SCALE, so a
   // gal-7 Railgun tree is FAR stronger per node than a gal-1 Turret — "scaled correctly."
-  const MAG_DEF = { mul: { min: 1.75, maj: 4.9, key: 12.6 }, rate: { min: 1.5, maj: 3.375, key: 8.25 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.10, maj: 0.25, key: 0.50 }, int: { min: 0.14, maj: 0.34, key: 0.7 }, splash: { min: 0.22, maj: 0.55, key: 1.3 } };   // splash = +% blast RADIUS per node (mortar only), flat (not class-scaled) — area grows with the square so it's potent   // DMG (mul) calmed ×0.7 (250→175% minor), FIRE RATE calmed ×0.75 (200→150% minor) at every tier — same shape, "a bit more than half", so spawn-rate/value aren't out-bottlenecked. range = flat px/node; int = "Mind" smarter targeting (additive toward fully-smart=1)
-  const DEF_SCALE = { turret: 1.0, mortar: 1.6, plasma: 1.8, laser: 2.4, railgun: 3.2, nova: 4.2 };   // mortar bumped — with no fire-rate wing, its damage wing carries DPS, so per-node damage is beefier
+  const MAG_DEF = { mul: { min: 1.75, maj: 4.9, key: 12.6 }, rate: { min: 1.5, maj: 3.375, key: 8.25 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.05, maj: 0.12, key: 0.25 }, int: { min: 0.03, maj: 0.07, key: 0.14 }, splash: { min: 0.22, maj: 0.55, key: 1.3 } };   // crit/int magnitudes retuned DOWN so a full wing lands near its cap (0.85 / 1.0) instead of 3-7× over — every node counts; crit excess past 85% becomes bonus crit DAMAGE (see uCritMul)   // splash = +% blast RADIUS per node (mortar only), flat (not class-scaled) — area grows with the square so it's potent   // DMG (mul) calmed ×0.7 (250→175% minor), FIRE RATE calmed ×0.75 (200→150% minor) at every tier — same shape, "a bit more than half", so spawn-rate/value aren't out-bottlenecked. range = flat px/node; int = "Mind" smarter targeting (additive toward fully-smart=1)
+  const DEF_SCALE = { turret: 1.0, mortar: 1.4, plasma: 1.5, laser: 1.6, railgun: 1.7, nova: 1.8 };   // COMPRESSED (was up to 4.2) so later classes aren't strictly dominant; nodeCost now also rides DEF_SCALE so stronger nodes cost proportionally — classes are sidegrades, not strict upgrades
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
   // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
@@ -155,7 +156,7 @@
   // PROCESSES at once (parallel maw bays): a multiplier on the base bay count with BIG
   // upgrades (+30% / +70% / +150% per node), floored to whole bays in cCapacity. Base
   // bays are generous so Capacity is never a harsh throttle. Speed / suction / reach as-is.
-  const MAG_COL = { speed: { min: 2.0, maj: 4.5, key: 9 }, suction: { min: 0.6, maj: 1.2, key: 2.2 }, collect: { min: 10, maj: 26, key: 60 }, capacity: { min: 0.30, maj: 0.70, key: 1.5 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };
+  const MAG_COL = { speed: { min: 0.5, maj: 1.1, key: 2.2 }, suction: { min: 0.2, maj: 0.4, key: 0.8 }, collect: { min: 3, maj: 8, key: 18 }, capacity: { min: 0.30, maj: 0.70, key: 1.5 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };   // speed/suction/reach magnitudes calmed ~3-4× so a wing is a gradual CLIMB to its cap, not a 1-2-node instant-cap; whatever a maxed wing pushes PAST the hard cap converts to collection yield (see cYield) so no logistics node is ever wasted — robust to the 3× base-speed variance across collectors
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -180,7 +181,8 @@
       // Every bonus ADDS (sums linearly) — nothing compounds, so no runaway.
       for (const s of n.slots) { const amt = slotAmt(type, s), key = s.p === "x" ? (col ? "ingest" : "crit") : prim[s.p - 1];
         o[key] += amt; if (o.n[key] != null) o.n[key]++; } }
-    o.multi = Math.min(o.multi, 6);
+    o.multi = Math.min(o.multi, 9);   // raised 6→9 so railgun(8)/nova(9) keystones all contribute (no wasted "+1 multishot")
+    if (!col && o.int > 1) { o.crit += (o.int - 1) * 0.3; o.int = 1; }   // Mind (int) is clamped at 1.0 in targeting, so a wing past full would waste nodes — instead the overflow cascades into crit (which itself overflows into crit damage), so no Mind node is ever dead
     return o;
   }
   const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0, n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };
@@ -188,10 +190,10 @@
   const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
   const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg;
-  const uRate = u => DEF_TYPES[u.type].rate * cls(u.type).rate * (frenzyT > 0 ? 5 : 1);   // Frenzy ability = 5× fire rate
+  const uRate = u => { const r = DEF_TYPES[u.type].rate * cls(u.type).rate * (frenzyT > 0 ? 5 : 1); return u.type === "mortar" ? Math.min(2, r) : r; };   // Frenzy = 5× fire rate; mortar HARD-CAPPED at 2/s (every 0.5s) — heavy arcing bombs, never a machine gun
   const uRange = u => DEF_TYPES[u.type].range + cls(u.type).range;
   const uCrit = u => Math.min(0.85, cls(u.type).crit);
-  const uCritMul = u => 2.2;
+  const uCritMul = u => 2.2 + Math.max(0, cls(u.type).crit - 0.85) * 0.8;   // crit chance hard-caps at 0.85, but a deeper crit wing isn't wasted: every point of crit past the cap converts to bonus crit DAMAGE — heavy-crit specialists hit harder instead of overflowing into nothing
   const uSplash = u => DEF_TYPES[u.type].splash ? (DEF_TYPES[u.type].splash + cls(u.type).range * 0.4) * (cls(u.type).splash || 1) : 0;   // blast radius grows with the dedicated splash wing (mortar)
   // ✦ keystone SPECIALIZATIONS (BTD-style transformations) — counts of allocated keystones of each kind
   const uExplode = u => cls(u.type).explosive || 0;   // shots detonate (splash) — "bomb tower"
@@ -212,7 +214,13 @@
   const cCollect = type => Math.min(140, COL_TYPES[type].collect + cls(type).collect);   // capped so collectors must keep chasing (not a field-wide magnet); Reach still matters for grabbing fresh loot fast
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
   const cCapacity = type => Math.max(1, Math.round(COL_TYPES[type].cap * cls(type).capacity));   // how many orbs it processes in parallel (bays); multiplies the base bay count, floored to a whole number
-  const cYield   = type => COL_TYPES[type].yield   * cls(type).yield;   // pure gather efficiency — NO income multiplier (Conquest is already baked into each orb's value at spawn; applying it here too would scale income by Conquest², see line ~749)
+  const colOverYield = type => {   // logistics points pushed PAST a hard cap (speed/pull/reach) convert to collection yield, so no logistics node is ever wasted even with the 3× base-speed variance across collectors; under-cap stats simply benefit from raw value
+    const c = cls(type), B = COL_TYPES[type], sucCap = B.mode === "hole" ? 900 : 240;
+    const over = (val, cap) => Math.max(0, val / cap - 1);
+    const r = over(B.speed * c.speed, 900) + over(B.suction * c.suction, sucCap) + over(B.collect + c.collect, 140);
+    return 1 + Math.min(0.4, r * 0.06);   // BOUNDED: a fully-maxed logistics build adds at most +40% yield, and only by heavily over-investing past the caps
+  };
+  const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * colOverYield(type);   // gather efficiency × overcap-yield. (Conquest multiplier was removed; orb value no longer carries it, so income is applied cleanly once here.)
   const AGILITY = 0.12;
 
   // flavour names: one pool per stat branch (a/b/c) plus the extra 'x' branch.
@@ -1707,7 +1715,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 1.5 * BUY_MUL * Math.pow(1.33, allocCount(type)) * k); }   // planet-local: ~5× slower; cheap early, STEEP growth (the in-planet grind)
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 0.7 * BUY_MUL * Math.pow(1.33, allocCount(type)) * k * (DEF_SCALE[type] || 1)); }   // base lowered 1.5→0.7 so EARLY nodes are affordable; ×DEF_SCALE so stronger-per-node classes cost proportionally (keeps the 1.33 growth shape)
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (!S.free && S.cash < c) return;
     if (!S.free) S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
