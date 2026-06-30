@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.8";
+  const VERSION = "v10.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -631,9 +631,8 @@
           META.opts = Object.assign(freshOpts(), d.META.opts || {});
           META.gems = +d.META.gems || 0; META.gemsEarned = +d.META.gemsEarned || 0; META.perks = (d.META.perks && typeof d.META.perks === "object") ? d.META.perks : {}; }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, 12 * 3600);
-          // everything you earned while away: your active rate (half-credited) + the idle empire
-          const offGain = d.cps > 0 ? Math.floor(d.cps * e * 0.5) : 0;
-          const bg = S.vault ? empireIdleRate() : 0, offIdle = bg > 0 ? bg * e : 0, offTotal = offGain + offIdle;
+          // away earnings = your idle income per second × seconds away (the "+/s idle" empire rate)
+          const bg = S.vault ? empireIdleRate() : 0, offTotal = bg > 0 ? Math.floor(bg * e) : 0;
           if (offTotal > 0) { S.totalRun += offTotal; META.totalEver += offTotal;
             // offline ALSO advances the active planet's conquer bar (mirrors the live loop), capped at the
             // target — so progress doesn't stall just because the tab was closed. Picked up by curEarned below.
@@ -673,8 +672,7 @@
   function applyAway(e) {
     e = clamp(e, 0, 12 * 3600); if (e < 1 || !S) return;
     if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;                 // expeditions keep travelling while away
-    const offGain = cps > 0 ? Math.floor(cps * e * 0.5) : 0;
-    const bg = S.vault ? empireIdleRate() : 0, offIdle = bg > 0 ? bg * e : 0, offTotal = offGain + offIdle;
+    const rate = S.vault ? empireIdleRate() : 0, offTotal = rate > 0 ? Math.floor(rate * e) : 0;   // away earnings = idle income/s × seconds away
     if (offTotal > 0) {
       S.totalRun += offTotal; META.totalEver += offTotal;
       const pmv = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 });
