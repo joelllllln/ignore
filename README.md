@@ -99,7 +99,7 @@ stronger tree** than the last (a gal-7 Railgun tree is ~140 nodes and *far*
 stronger per node than a gal-1 Turret — so mixing classes beats spamming one):
 
 - **Turret** (Helios) — all-rounder backbone, even vs everything · ✦Chain · smallest tree
-- **Mortar** (Helios) — **artillery**: lobs one heavy **arcing bomb every ~10s** with a wide, devastating blast · its tree is **bespoke** — no fire-rate wing, instead a **Blast Radius** wing alongside huge shell damage · **×2.2 vs swarms** · ✦Explosive (bombs)
+- **Mortar** (Helios) — **artillery**: heavy **arcing bombs** with a wide, devastating blast · slow base rate, but a **fire-rate wing** can push it up to a hard cap of **2/s (every 0.5s)** — a hard-hitting splasher, never a machine gun · **×2.2 vs swarms** · ✦Explosive (bombs)
 - **Plasma** (Cygnus) — **×2.4 vs armored/tanky** · ✦Chain · deep tree
 - **Laser** (Cygnus) — rapid, **×2.6 vs fast/weak swarms** · ✦Piercing Laser · deep tree
 - **Railgun** (Erebus) — **×4 vs armored** (weak vs swarms) · ✦Piercing Laser · huge tree
@@ -158,11 +158,15 @@ interconnected node map per class:
   - **✦ Piercing Laser** — every shot becomes a beam that punches through a whole line of dots.
 - Costs climb steeply along a tree (keystones cost far more than passives), so
   plan your route. Every unit of a class shares its tree.
-- The trees are **big** (50–60+ nodes each) and the bonuses are **large** — a full
-  **Turret** tree lands around a **×4,000 DPS** multiplier — but because every bonus
-  is additive (summed, not compounded), that huge number is a hard ceiling you reach
-  by fully investing, never an exponential runaway. Early/cheap nodes give fast power;
-  the deep tree is a long-game goal (filling the turret tree costs ~$1.2B).
+- The trees are **big** (80–170+ nodes each) and the bonuses are **large**. Damage,
+  fire-rate, crit, and multishot are **separate axes** — additive *within* each wing
+  but **multiplicative across** them at fire time. So the wings stack up fast: a fully
+  maxed **Turret** reaches roughly **×5,000 raw damage-per-second** (damage × fire-rate
+  wings), and once crit and multishot are factored in its **effective output is on the
+  order of ×50,000+** vs an untreed turret. Because each axis is additive internally,
+  that ceiling is a hard cap you fill toward — never an exponential runaway. Early/cheap
+  nodes give fast power; the deep tree (and its keystones) is a long-game goal you chip
+  at across many planets.
 
 ### Buying more units
 

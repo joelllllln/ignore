@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.4";
+  const VERSION = "v9.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -104,13 +104,13 @@
   // classes you buy more of, each with its OWN skill tree. "hole" mode = a
   // black-hole vacuum that slowly drags every orb (and nearby dots) inward.
   const COL_TYPES = {
-    drone:       { name: "Drone",          base: 60,         gal: 1,  speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 5,  mode: "chase", sides: 4, max: 4 },
-    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 3,  speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 7,  mode: "swarm", sides: 3, max: 2 },
-    collector:   { name: "Heavy Collector",base: 120000,     gal: 6,  speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 7,  mode: "chase", sides: 6, max: 2 },
-    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 9,  speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 8,  mode: "chase", sides: 5, max: 2 },
-    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 11, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 9,  mode: "chase", sides: 8, max: 2 },
-    singularity: { name: "Black Hole",     base: 350000000,  gal: 13, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 14, mode: "hole",  sides: 0, max: 2 },
-    wormhole:    { name: "Wormhole",       base: 5.0e9,      gal: 16, speed: 64,  suction: 330, collect: 64, yield: 3.4, cap: 20, mode: "hole",  sides: 0, max: 2 },
+    drone:       { name: "Drone",          base: 60,         gal: 1,  speed: 88,  suction: 38,  collect: 9,  yield: 1.0, cap: 2,  mode: "chase", sides: 4, max: 4 },
+    swarm:       { name: "Drone Swarm",    base: 9000,       gal: 3,  speed: 150, suction: 60,  collect: 13, yield: 1.2, cap: 3,  mode: "swarm", sides: 3, max: 2 },
+    collector:   { name: "Heavy Collector",base: 120000,     gal: 6,  speed: 110, suction: 86,  collect: 20, yield: 1.5, cap: 3,  mode: "chase", sides: 6, max: 2 },
+    magnet:      { name: "Magnet Rig",     base: 1800000,    gal: 9,  speed: 140, suction: 120, collect: 26, yield: 1.9, cap: 4,  mode: "chase", sides: 5, max: 2 },
+    tractor:     { name: "Tractor Array",  base: 26000000,   gal: 11, speed: 130, suction: 170, collect: 34, yield: 2.3, cap: 4,  mode: "chase", sides: 8, max: 2 },
+    singularity: { name: "Black Hole",     base: 350000000,  gal: 13, speed: 48,  suction: 250, collect: 46, yield: 2.8, cap: 6,  mode: "hole",  sides: 0, max: 2 },
+    wormhole:    { name: "Wormhole",       base: 5.0e9,      gal: 16, speed: 64,  suction: 330, collect: 64, yield: 3.4, cap: 8,  mode: "hole",  sides: 0, max: 2 },   // base bays cut (m2): Capacity now STARTS as a real throttle you must upgrade, not an over-generous freebie (holes vacuum the whole field, so they feel it most)
   };
   const COL_ORDER = ["drone", "swarm", "collector", "magnet", "tractor", "singularity", "wormhole"];
   const ALL_TYPES = [...DEF_ORDER, ...COL_ORDER];
@@ -153,10 +153,11 @@
   // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
   // Process (ingest) is a STRONG per-node lever — +100% / +200% / +400% — so a full
   // Process wing makes even heavy loot vanish. capacity = how many loot orbs a collector
-  // PROCESSES at once (parallel maw bays): a multiplier on the base bay count with BIG
-  // upgrades (+30% / +70% / +150% per node), floored to whole bays in cCapacity. Base
-  // bays are generous so Capacity is never a harsh throttle. Speed / suction / reach as-is.
-  const MAG_COL = { speed: { min: 0.5, maj: 1.1, key: 2.2 }, suction: { min: 0.2, maj: 0.4, key: 0.8 }, collect: { min: 3, maj: 8, key: 18 }, capacity: { min: 0.30, maj: 0.70, key: 1.5 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };   // speed/suction/reach magnitudes calmed ~3-4× so a wing is a gradual CLIMB to its cap, not a 1-2-node instant-cap; whatever a maxed wing pushes PAST the hard cap converts to collection yield (see cYield) so no logistics node is ever wasted — robust to the 3× base-speed variance across collectors
+  // PROCESSES at once (parallel maw bays): a multiplier on the (now low) base bay count.
+  // m2 fix: base bays cut + Capacity magnitudes slashed (+12% / +28% / +60% per node) so
+  // Capacity is a SLOW, meaningful upgrade you genuinely need — start throttled, climb to a
+  // sensible max (~tens of bays maxed, not hundreds), instead of an instant over-provision.
+  const MAG_COL = { speed: { min: 0.5, maj: 1.1, key: 2.2 }, suction: { min: 0.2, maj: 0.4, key: 0.8 }, collect: { min: 3, maj: 8, key: 18 }, capacity: { min: 0.12, maj: 0.28, key: 0.6 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };   // speed/suction/reach magnitudes calmed ~3-4× so a wing is a gradual CLIMB to its cap, not a 1-2-node instant-cap; whatever a maxed wing pushes PAST the hard cap converts to collection yield (see cYield) so no logistics node is ever wasted — robust to the 3× base-speed variance across collectors
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   function slotAmt(type, s) {
     if (isCol(type)) {
@@ -213,7 +214,7 @@
   const cSuction = type => Math.min(COL_TYPES[type].mode === "hole" ? 900 : 240, COL_TYPES[type].suction * cls(type).suction);
   const cCollect = type => Math.min(140, COL_TYPES[type].collect + cls(type).collect);   // capped so collectors must keep chasing (not a field-wide magnet); Reach still matters for grabbing fresh loot fast
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
-  const cCapacity = type => Math.max(1, Math.round(COL_TYPES[type].cap * cls(type).capacity));   // how many orbs it processes in parallel (bays); multiplies the base bay count, floored to a whole number
+  const cCapacity = type => Math.max(1, Math.round(COL_TYPES[type].cap * cls(type).capacity));   // how many orbs it processes in parallel (bays); low base × the slow Capacity wing — a real throttle you upgrade (m2)
   const colOverYield = type => {   // logistics points pushed PAST a hard cap (speed/pull/reach) convert to collection yield, so no logistics node is ever wasted even with the 3× base-speed variance across collectors; under-cap stats simply benefit from raw value
     const c = cls(type), B = COL_TYPES[type], sucCap = B.mode === "hole" ? 900 : 240;
     const over = (val, cap) => Math.max(0, val / cap - 1);
