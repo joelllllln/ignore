@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.1";
+  const VERSION = "v9.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -407,7 +407,7 @@
   const EMPIRE_W = 0.8;      // how strongly the live idle empire inflates the target (keeps idle from trivialising a conquest)
   const buildPow = g => Math.pow(BUILD, Math.max(0, (g | 0) - 1));
   const baseTarget = g => conquerHours(g) * 3600 * ACTIVE_REF * buildPow(g) * eco(g) * (S.conquest || 1);   // income-model part (no empire) — also drives idle bgRate, so the empire never feeds back on itself
-  const conquerTarget = g => Math.ceil(baseTarget(g) + conquerHours(g) * 3600 * EMPIRE_W * empireIdleRate());
+  const conquerTarget = g => Math.ceil(baseTarget(g));   // P4: the target is now the pure income-model only. The idle empire no longer INFLATES the target; instead its bar-fill is CAPPED at IDLE_FRAC of active (see the empire feed in the loop), which stops idle trivialising a conquest without the old feedback term. (EMPIRE_W retained for reference / easy revert.)
   // CONQUEST MULTIPLIER — REMOVED. CONQ_STEP = 1.0 means conquering a planet no longer grants a permanent
   // income multiplier (S.conquest stays 1 forever, so derived.incomeMul / capacity / conquerTarget are all
   // unaffected by it). Conquering still UNLOCKS travel and grows the idle empire (EMPIRE_RAMP) — that's the
@@ -422,6 +422,12 @@
   // next conquest — you don't have to hand-manage all 18 worlds.
   const IDLE_PAYBACK_H = 26;    // left alone, a conquered planet repays its own conquest cost in ~26h of pure idle (before the ramp)
   const EMPIRE_RAMP = 0.30;     // every planet you hold boosts ALL your planets' idle output by +30% (empire snowball)
+  // P4 fix — how fast the idle empire can fill the CONQUER BAR of the planet you're on, as a fraction of the
+  // designed ACTIVE income rate. Capping it here is what stops idle from out-pacing active play late game: the
+  // empire still fully funds your TREASURY (your cash), but it can only push the conquer bar at ≤ IDLE_FRAC of
+  // active speed — so pure-idle conquest takes ~1/IDLE_FRAC × the designed active hours (a real help, never a
+  // replacement for playing). Active play stacks ON TOP, so playing is always clearly faster.
+  const IDLE_FRAC = 0.12;       // pure-idle empire carries an AFK player to victory in ~7-8 weeks; active play (~12 days at 100%) stays clearly the faster, intended path
   const conqueredCount = () => { let c = 0; if (S.vault) for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) c++; return c; };
   const empireIdleRate = () => {   // live total idle income from conquered, NON-active planets, with the empire ramp applied
     if (!S.vault) return 0; let sum = 0;
@@ -728,6 +734,8 @@
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
   const BOSS_INTERVAL = 240;   // seconds of active (boss-free) play between bosses (was 600 — too rare to register in a 12–24h campaign)
+  const BOSS_GEM_CHANCE = 0.05;   // a defeated mini-boss has a rare 5% chance to drop a Gem…
+  const BOSS_NODE_CHANCE = 0.15;  // …and a 15% chance to grant ONE free skill node. Otherwise it's just the cash bounty (the common case). No more "3 free nodes every boss".
   const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
   const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
   // auto-allocate up to n FREE skill-tree nodes, spread across the classes you currently field (boss reward).
@@ -941,14 +949,17 @@
     d.hp -= dmg; d.hit = 0.08;
     if (d.hp <= 0) {
       d.dead = true;
-      if (d.boss) {   // a defeated mini-boss → PHAT reward: a big instant cash lump, a fat orb burst, AND a couple of free skill-tree nodes
+      if (d.boss) {   // a defeated mini-boss → a big cash bounty (the common drop) + a fat orb burst; RARELY a Gem (5%) or one free skill node (15%)
         const np = 6; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
-        const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the phat reward even if orbs scatter)
-        S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump;   // PHAT: bypasses the capacity ceiling so the reward always lands in full
-        const granted = grantTreeNodes(3);      // a couple of free auto-allocated tree nodes
+        const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the bounty even if orbs scatter)
+        S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump;   // bounty bypasses the capacity ceiling so the reward always lands in full
+        let bonus = "";                          // rare bonus on top of the cash bounty
+        const roll = Math.random();
+        if (roll < BOSS_GEM_CHANCE) { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; bonus = "  ·  ◈ +1 GEM!"; floatTxt(W / 2, H / 2 - 30, "◈ A GEM DROPPED — spend it in Ascension"); flashAdd(0.4); }
+        else if (roll < BOSS_GEM_CHANCE + BOSS_NODE_CHANCE) { if (grantTreeNodes(1)) bonus = "  ·  ✦ +1 FREE NODE"; }
         burst(d.x, d.y, 60, 240, 3.4); ring(d.x, d.y, d.r, d.r + 150, 0.7); ring(d.x, d.y, d.r, d.r + 80, 0.5); shakeAdd(9); flashAdd(0.5);
         floatTxt(d.x, d.y - d.r - 12, "✦ " + bossName(d.bg || S.galaxy) + " DEFEATED");
-        floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + (granted ? "  ·  ✦+" + granted + " FREE NODES" : ""));
+        floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + bonus);
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
         recompute(); syncHUD();
         return;
@@ -1129,7 +1140,8 @@
     if (earned > 0) { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + earned)); S.totalRun += earned; META.totalEver += earned; earnAcc += earned; curEarned += earned; }
     // background empire: every conquered, non-active planet feeds its idle rate straight into your GLOBAL
     // treasury AND (on an unconquered planet) the conquer bar — so the empire can idle you to the next world.
-    { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add; if (!planetMeta(S.galaxy).conquered) curEarned += add; } }
+    { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add;
+        if (!planetMeta(S.galaxy).conquered) { const barCap = IDLE_FRAC * ACTIVE_REF * eco(S.galaxy) * (S.conquest || 1); curEarned += Math.min(bgSum, barCap) * dt; } } }   // treasury gets the FULL empire rate; the conquer BAR gets at most IDLE_FRAC of active income (P4 — idle never out-paces playing)
     // conquest check — UNCONDITIONAL so ANY income source (active orbs OR idle empire) can complete it
     { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; const gg = gemReward(S.galaxy); META.gems += gg; META.gemsEarned += gg; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + gg + " ◈ GEMS — spend in Ascension"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); syncHUD();
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
@@ -2336,7 +2348,7 @@
   function snapshotActive() {   // write the live build back into the vault, lock in the best idle rate
     const v = planetMeta(S.galaxy);
     v.cash = S.cash; v.units = S.units; v.collectors = S.collectors; v.lv = S.lv; v.classNodes = S.classNodes;
-    v.earned = curEarned; v.bgRate = Math.max(v.bgRate || 0, cps * BG_EFF);
+    v.earned = curEarned; v.bgRate = Math.max(v.bgRate || 0, Math.min(cps * BG_EFF, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)));   // m7 fix: the live-cps idle estimate is CLAMPED to the designed conquer-set rate, so an over-built planet can't permanently inflate its empire idle above the curve
   }
   function activatePlanet(g) {   // make planet g the live playfield (restore its build, or fresh-start it)
     const v = planetMeta(g), fresh = !(v && v.units), b = fresh ? freshPlanetBuild() : v;
@@ -2636,5 +2648,6 @@
     valueMul: lv => 1 + 0.08 * lv,
     spawnBoss, grantTreeNodes, dots: () => dots,
     PERKS, gemReward, perkAgg,
+    baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP, BOSS_GEM_CHANCE, BOSS_NODE_CHANCE,
   };
 })();
