@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.4";
+  const VERSION = "v10.5";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -988,7 +988,7 @@
       if (d.boss) {   // a defeated mini-boss → a big cash bounty (the common drop) + a fat orb burst; RARELY a Gem (5%) or one free skill node (15%)
         const np = 6; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
         const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the bounty even if orbs scatter)
-        S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump;   // bounty bypasses the capacity ceiling so the reward always lands in full
+        S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump; earnAcc += lump;   // bounty bypasses the capacity ceiling so the reward always lands in full (also feeds the live $/s)
         let bonus = "";                          // rare bonus on top of the cash bounty
         const roll = Math.random();
         if (roll < BOSS_GEM_CHANCE) { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; bonus = "  ·  ◈ +1 GEM!"; floatTxt(W / 2, H / 2 - 30, "◈ A GEM DROPPED — spend it in Ascension"); flashAdd(0.4); }
@@ -1025,7 +1025,7 @@
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i]; if ((o.x - x) ** 2 + (o.y - y) ** 2 > (26 + (o.r0 || 4)) ** 2) continue;
       const got = Math.max(1, Math.round(o.value));   // orb value already includes the Conquest multiplier (set at spawn) — do NOT multiply by incomeMul again (would be Conquest²)
-      S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + got)); S.totalRun += got; META.totalEver += got; curEarned += got;
+      S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + got)); S.totalRun += got; META.totalEver += got; curEarned += got; earnAcc += got;
       fxEarn += got; fxEarnX = o.x; fxEarnY = o.y - 6; burst(o.x, o.y, o.big ? 9 : 5, 80, 2); spark(o.x, o.y);
       orbs.splice(i, 1);
     }
@@ -1416,7 +1416,8 @@
   function syncHUD() {
     const bg = empireIdleRate();
     const cq = S.conquest || 1, cqStr = cq < 100 ? cq.toFixed(1) : fmt(cq);   // fmt() floors small numbers (1.8→"1"), so keep a decimal while the multiplier is small
-    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
+    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
+    { const cpsEl = $("ui-cps"); if (cpsEl) cpsEl.textContent = "+" + curSym(S.galaxy) + fmt(Math.max(0, cps)) + "/s"; }   // live ACTIVE income rate beside the total, always visible while playing
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
     { const g = (META && META.gems) || 0, ab = $("ascend-n"); if (ab) ab.textContent = g; const abtn = $("btn-ascend"); if (abtn) abtn.classList.toggle("has", g > 0 && PERKS.some(p => !perkOwned(p.id) && tierOpen(p.tier) && p.cost <= g)); }   // glow the Ascension button only when you can actually afford+unlock something
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
