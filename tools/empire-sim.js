@@ -92,7 +92,7 @@ const fmtT = s => { if (!isFinite(s)) return '—'; const d = s/86400; if (d>=1)
   }
   console.log('\n══ IDLE_FRAC SWEEP — total days to finish (per active level) ══');
   console.log('  IDLE_FRAC   0% idle    10% act    35% act    100% act');
-  for (const IF of [0.06, 0.10, 0.15, 0.20, 0.30, 0.40]) {
+  for (const IF of [0.00, 0.01, 0.02, 0.03, 0.05, 0.08, 0.12, 0.20, 0.40]) {
     console.log('   ' + IF.toFixed(2).padEnd(10) + LEVELS.map(l => fmtT(simIF(l.frac, IF)).padStart(8)).join('   '));
   }
   console.log('  (higher IDLE_FRAC = idle carries you faster, but also speeds active play; lower = active stays near the 12d design, idle is slow)');

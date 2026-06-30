@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.2";
+  const VERSION = "v9.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -427,7 +427,7 @@
   // empire still fully funds your TREASURY (your cash), but it can only push the conquer bar at ≤ IDLE_FRAC of
   // active speed — so pure-idle conquest takes ~1/IDLE_FRAC × the designed active hours (a real help, never a
   // replacement for playing). Active play stacks ON TOP, so playing is always clearly faster.
-  const IDLE_FRAC = 0.12;       // pure-idle empire carries an AFK player to victory in ~7-8 weeks; active play (~12 days at 100%) stays clearly the faster, intended path
+  const IDLE_FRAC = 0.00;       // empire funds your TREASURY (cash) at full rate but does NOT auto-fill the conquer bar — so the 10%-active playthrough lands on its ~60-day design target and idle can never out-pace playing. Raise this (e.g. 0.05–0.12) to let a fully-AFK empire also chip the conquer bar (idle finishes faster, 10%-active drops below 60d).
   const conqueredCount = () => { let c = 0; if (S.vault) for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) c++; return c; };
   const empireIdleRate = () => {   // live total idle income from conquered, NON-active planets, with the empire ramp applied
     if (!S.vault) return 0; let sum = 0;
