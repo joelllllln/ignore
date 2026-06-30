@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.1";
+  const VERSION = "v10.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -149,15 +149,16 @@
   const MAG_DEF = { mul: { min: 1.75, maj: 4.9, key: 12.6 }, rate: { min: 1.5, maj: 3.375, key: 8.25 }, range: { min: 16, maj: 42, key: 95 }, crit: { min: 0.05, maj: 0.12, key: 0.25 }, int: { min: 0.03, maj: 0.07, key: 0.14 }, splash: { min: 0.22, maj: 0.55, key: 1.3 } };   // crit/int magnitudes retuned DOWN so a full wing lands near its cap (0.85 / 1.0) instead of 3-7× over — every node counts; crit excess past 85% becomes bonus crit DAMAGE (see uCritMul)   // splash = +% blast RADIUS per node (mortar only), flat (not class-scaled) — area grows with the square so it's potent   // DMG (mul) calmed ×0.7 (250→175% minor), FIRE RATE calmed ×0.75 (200→150% minor) at every tier — same shape, "a bit more than half", so spawn-rate/value aren't out-bottlenecked. range = flat px/node; int = "Mind" smarter targeting (additive toward fully-smart=1)
   const DEF_SCALE = { turret: 1.0, mortar: 1.4, plasma: 1.5, laser: 1.6, railgun: 1.7, nova: 1.8 };   // COMPRESSED (was up to 4.2) so later classes aren't strictly dominant; nodeCost now also rides DEF_SCALE so stronger nodes cost proportionally — classes are sidegrades, not strict upgrades
   // Collectors are pure LOGISTICS (no income multiplier — yield lives in Economy):
-  // Speed strong, Suction gentle (radius-capped in cSuction), Reach (collect) = how
-  // close it must get to grab loot (flat), Ingest = how fast it swallows what it grabs.
+  // Speed = chase movement, Reach (collect) = gather RADIUS / engagement gate (cReach),
+  // Pull (suction) = reel STRENGTH that hauls engaged orbs to the mouth (cPull),
+  // Ingest = how fast it swallows what reaches the mouth, Capacity = parallel maw bays.
   // Process (ingest) is a STRONG per-node lever — +100% / +200% / +400% — so a full
   // Process wing makes even heavy loot vanish. capacity = how many loot orbs a collector
   // PROCESSES at once (parallel maw bays): a multiplier on the (now low) base bay count.
   // m2 fix: base bays cut + Capacity magnitudes slashed (+12% / +28% / +60% per node) so
   // Capacity is a SLOW, meaningful upgrade you genuinely need — start throttled, climb to a
   // sensible max (~tens of bays maxed, not hundreds), instead of an instant over-provision.
-  const MAG_COL = { speed: { min: 0.5, maj: 1.1, key: 2.2 }, suction: { min: 0.2, maj: 0.4, key: 0.8 }, collect: { min: 3, maj: 8, key: 18 }, capacity: { min: 0.12, maj: 0.28, key: 0.6 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };   // speed/suction/reach magnitudes calmed ~3-4× so a wing is a gradual CLIMB to its cap, not a 1-2-node instant-cap; whatever a maxed wing pushes PAST the hard cap converts to collection yield (see cYield) so no logistics node is ever wasted — robust to the 3× base-speed variance across collectors
+  const MAG_COL = { speed: { min: 0.5, maj: 1.1, key: 2.2 }, suction: { min: 0.2, maj: 0.4, key: 0.8 }, collect: { min: 0.2, maj: 0.45, key: 1.0 }, capacity: { min: 0.12, maj: 0.28, key: 0.6 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };   // suction (Pull) = reel-STRENGTH multiplier; collect (Reach) = gather-RADIUS multiplier (both now %-style); past their caps → yield (cYield) so no node is wasted   // speed/suction/reach magnitudes calmed ~3-4× so a wing is a gradual CLIMB to its cap, not a 1-2-node instant-cap; whatever a maxed wing pushes PAST the hard cap converts to collection yield (see cYield) so no logistics node is ever wasted — robust to the 3× base-speed variance across collectors
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
   // Mind (int) normalizer: a FULL Mind wing should add up to exactly 1.0 (100%) and never over,
   // regardless of how many int nodes a given class's tree happens to have. We scale every int node
@@ -184,7 +185,7 @@
   }
   function classStats(type) {
     const col = isCol(type), prim = col ? COL_PRIM : dPrim(type);
-    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0,
+    const o = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 1, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0,
       n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };   // n = allocated-node count per branch, drives the per-upgrade visual marks
     const A = S.classNodes[type], G = buildTree(type);
     if (A) for (const id in A) { if (!A[id]) continue; const n = G.map[id]; if (!n || !n.slots) continue;
@@ -196,7 +197,7 @@
     if (!col) o.int = Math.min(1, o.int);   // Mind hard-caps at 100% — a full wing lands exactly there (see intScale); no overflow, no crit cascade
     return o;
   }
-  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0, n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };
+  const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 1, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0, n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };
   const uMulti = u => cls(u.type).multi || 0;
   const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
@@ -221,14 +222,20 @@
   // roaming to cover it — they never become stationary field-wide magnets. The
   // black hole keeps its huge reach.
   const cSpeed   = type => Math.min(900, COL_TYPES[type].speed * cls(type).speed);
-  const cSuction = type => Math.min(COL_TYPES[type].mode === "hole" ? 900 : 240, COL_TYPES[type].suction * cls(type).suction);
-  const cCollect = type => Math.min(140, COL_TYPES[type].collect + cls(type).collect);   // capped so collectors must keep chasing (not a field-wide magnet); Reach still matters for grabbing fresh loot fast
+  // REACH = gather RADIUS (the engagement gate): base radius (the well-tuned old pull base) × the Reach wing.
+  // Any orb inside cReach is locked on and reeled toward the collector. Capped so a collector still roams.
+  const REACH_CAP = type => COL_TYPES[type].mode === "hole" ? 900 : 240;
+  const cReach   = type => Math.min(REACH_CAP(type), COL_TYPES[type].suction * cls(type).collect);
+  // PULL = drag STRENGTH (×1 at base): how fast an engaged orb is reeled to the mouth. Applied to the reel
+  // force at the orb site; heavy/armored loot drags slowly, so Pull matters most for fat orbs & big Reach.
+  const cPull    = type => cls(type).suction;
+  const MOUTH    = 16;   // fixed grab distance: once an orb is reeled within MOUTH it starts being consumed (Process/Capacity take over)
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
   const cCapacity = type => Math.max(1, Math.round(COL_TYPES[type].cap * cls(type).capacity));   // how many orbs it processes in parallel (bays); low base × the slow Capacity wing — a real throttle you upgrade (m2)
   const colOverYield = type => {   // logistics points pushed PAST a hard cap (speed/pull/reach) convert to collection yield, so no logistics node is ever wasted even with the 3× base-speed variance across collectors; under-cap stats simply benefit from raw value
     const c = cls(type), B = COL_TYPES[type], sucCap = B.mode === "hole" ? 900 : 240;
     const over = (val, cap) => Math.max(0, val / cap - 1);
-    const r = over(B.speed * c.speed, 900) + over(B.suction * c.suction, sucCap) + over(B.collect + c.collect, 140);
+    const r = over(B.speed * c.speed, 900) + over(B.suction * c.collect, sucCap);   // Speed & Reach-radius past their caps convert to yield; Pull is an uncapped reel force, so it's never wasted
     return 1 + Math.min(0.4, r * 0.06);   // BOUNDED: a fully-maxed logistics build adds at most +40% yield, and only by heavily over-investing past the caps
   };
   const cYield   = type => COL_TYPES[type].yield   * cls(type).yield * colOverYield(type) * pk().yield;   // gather efficiency × overcap-yield × permanent Ascension yield perk. (Conquest multiplier was removed; orb value no longer carries it, so income is applied cleanly once here.)
@@ -1145,7 +1152,7 @@
       dr.parking = false;
     }
     // black holes also drag nearby dots gently toward them (the "suck in" feel)
-    for (const dr of drones) { if (COL_TYPES[dr.type].mode !== "hole") continue; const R = cSuction(dr.type) * 1.5; for (const d of dots) { const dx = dr.x - d.x, dy = dr.y - d.y, dl = Math.hypot(dx, dy) || 1; if (dl < R) { d.x += dx / dl * 60 * dt; d.y += dy / dl * 60 * dt; } } }
+    for (const dr of drones) { if (COL_TYPES[dr.type].mode !== "hole") continue; const R = cReach(dr.type) * 1.5, ps = 60 * cPull(dr.type); for (const d of dots) { const dx = dr.x - d.x, dy = dr.y - d.y, dl = Math.hypot(dx, dy) || 1; if (dl < R) { d.x += dx / dl * ps * dt; d.y += dy / dl * ps * dt; } } }   // hole drags dots within its Reach toward it, at its Pull strength
     for (const dr of drones) dr.proc = 0;   // free maw bays this frame; Capacity = how many orbs a collector processes in parallel
     let earned = 0;
     for (let i = orbs.length - 1; i >= 0; i--) {
@@ -1153,11 +1160,11 @@
       // route to the nearest in-range collector that still has a FREE maw bay; only fall back to a
       // full one if none is free (stops loot queueing at a jammed collector while another sits idle).
       let nd = null, bd = Infinity, ndF = null, bdF = Infinity;
-      for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cSuction(dr.type) ** 2; if (q >= rng) continue; if (q < bd) { bd = q; nd = dr; } if (dr.proc < cCapacity(dr.type) && q < bdF) { bdF = q; ndF = dr; } }
+      for (const dr of drones) { const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2, rng = cReach(dr.type) ** 2; if (q >= rng) continue; if (q < bd) { bd = q; nd = dr; } if (dr.proc < cCapacity(dr.type) && q < bdF) { bdF = q; ndF = dr; } }
       if (ndF) { nd = ndF; bd = bdF; }
       if (nd) {
-        const dl = Math.sqrt(bd) || 1, pull = COL_TYPES[nd.type].mode === "hole" ? 420 / Math.sqrt(o.weight || 1) : 240 / (o.weight || 1);   // holes pull HARD (sqrt-damped) so heavy high-value orbs reach the maw before expiry
-        if (dl < cCollect(nd.type) + 6) {                         // in reach — but it needs a free maw bay to actually process it
+        const dl = Math.sqrt(bd) || 1, pull = (COL_TYPES[nd.type].mode === "hole" ? 420 / Math.sqrt(o.weight || 1) : 240 / (o.weight || 1)) * cPull(nd.type);   // reel force × Pull strength; holes pull HARD (sqrt-damped) so heavy high-value orbs reach the maw before expiry
+        if (dl < MOUTH) {                                          // reeled to the mouth — but it needs a free maw bay to actually process it
           if (nd.proc < cCapacity(nd.type)) {                     // a bay is open → process this orb (Speed/Reach get it here, Process/Capacity chew through it)
             nd.proc++;
             o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.8) nd.parking = true;   // only park for genuinely heavy loot (armored/boss), not tier-1 orbs
@@ -1369,11 +1376,11 @@
     }
     ctx.textBaseline = "alphabetic";
     for (const dr of drones) {
-      const mode = COL_TYPES[dr.type].mode, sr = cSuction(dr.type);
-      // collectors reflect their build too (all monochrome): outer ring = pull radius (Suction),
-      // inner ring = grab zone (Reach), maw size = Process/Ingest, trail length = Speed.
-      ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, sr, 0, TAU); ctx.stroke();
-      if (mode !== "hole") { const reach = cCollect(dr.type); ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, reach, 0, TAU); ctx.stroke(); }   // grab-distance ring (Reach)
+      const mode = COL_TYPES[dr.type].mode, sr = cReach(dr.type);
+      // collectors reflect their build too (all monochrome): outer ring = gather RADIUS (Reach),
+      // inner dot = the mouth (grab point), maw size = Process/Ingest, trail length = Speed.
+      ctx.strokeStyle = "rgba(255,255,255,0.13)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, sr, 0, TAU); ctx.stroke();   // Reach (engagement radius)
+      if (mode !== "hole") { ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(dr.x, dr.y, MOUTH, 0, TAU); ctx.stroke(); }   // mouth (fixed grab distance)
       const sp = Math.hypot(dr.vx || 0, dr.vy || 0);
       if (mode !== "hole" && sp > 25) { const tl = Math.min(sp * 0.06, 22), ux2 = (dr.vx || 0) / (sp || 1), uy2 = (dr.vy || 0) / (sp || 1); ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(dr.x - ux2 * tl, dr.y - uy2 * tl); ctx.lineTo(dr.x, dr.y); ctx.stroke(); }   // speed trail — length scales with Speed
       const cs = (1 + Math.min(Math.log10(cIngest(dr.type)) * 0.5, 1.4)) * (1 + Math.max(0, dr.pop || 0) * 1.6);   // Process -> bigger maw; chomp-pop when banking big loot
@@ -1752,7 +1759,7 @@
     const col = isCol(type), amt = slotAmt(type, s);
     if (s.p === "x") return "+" + Math.round(amt * 100) + "% " + (col ? "process" : "crit");
     const key = (col ? COL_PRIM : dPrim(type))[s.p - 1];
-    return key === "range" || key === "collect" ? "+" + amt + " " + STAT_LBL[key] : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
+    return key === "range" ? "+" + amt + " " + STAT_LBL[key] : "+" + Math.round(amt * 100) + "% " + STAT_LBL[key];
   }
   const nodeFx = (type, n) => { let s = (n.slots || []).map(sl => slotText(type, sl)).join(" · "); if (n.spec) s += (s ? " · " : "") + "✦ " + SPEC_NAME[n.spec]; return s; };
   // Plain-language glossary for every stat a tree node can grant — surfaced by an
@@ -1770,8 +1777,8 @@
     splash: "Blast Radius — how wide the Mortar's bomb detonates. Every dot inside the blast takes the FULL shell damage, so a wider blast means one lobbed bomb wipes a whole cluster at once. Area grows with the square of the radius, so each node hits dramatically more dots — the Mortar's core lever alongside raw shell damage (it fires only once every several seconds, so each bomb must count).",
     multi: "Multishot. Each keystone lets EVERY unit of this class fire at one extra dot at the same time.",
     speed: "Movement speed — how fast this collector chases orbs. Capped so it stays agile instead of flying straight past loot.",
-    suction: "Pull radius — how far it drags orbs in toward itself. Capped below the field, so it must keep roaming; it never becomes a stationary field-wide magnet.",
-    collect: "Reach — how close a collector must get to an orb before it grabs and starts consuming it. More reach = it snags loot from a little further out, so less precise chasing. Collectors carry NO cash multiplier — income lives in the Economy tab.",
+    suction: "Pull — reel STRENGTH. Once an orb is inside your Reach it gets dragged toward the collector; Pull is how FAST. Heavy loot (armored & boss orbs) drags slowly and can expire mid-haul, so Pull matters most for fat orbs and for big-Reach builds where the trip in is long. (Pull is a force, not a radius — Reach decides how far you engage.)",
+    collect: "Reach — gather RADIUS, the collector's engagement zone. Any orb inside this radius is locked on and reeled in; orbs outside it are ignored and expire. Bigger Reach works a much larger slice of the field at once (capped, so it still roams and you still want more collectors). Pull then governs how fast the engaged orbs actually arrive. Collectors carry NO cash multiplier — income lives in the Economy tab.",
     capacity: "Capacity — how many loot orbs this collector can PROCESS at the same time (its parallel maw bays). With low capacity a collector consumes orbs one or two at a time and a dense pile backs up (and orbs can expire before it gets to them); high capacity lets it chew through a whole cluster at once. Matters most after big multi-kills, Dot Rain, and Black Hole pulls — exactly when loot piles up faster than a single bay can clear it. (Separate from the Economy tab's Capacity, which is your cash ceiling.)",
     ingest: "Process speed — how quickly a collector consumes the loot a dot drops once it reaches it. Big/heavy loot takes longer to process, so this matters most for fat dots and armored elites — a key drone lever.",
   };
@@ -1801,7 +1808,7 @@
   function statLine(tp) {
     const s = { type: tp };
     return isCol(tp)
-      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cSuction(tp)) + "</b> pull · <b>" + Math.round(cCollect(tp)) + "</b> reach · <b>" + cCapacity(tp) + "</b> bays · <b>×" + cIngest(tp).toFixed(2) + "</b> process"
+      ? "<b>" + Math.round(cSpeed(tp)) + "</b> spd · <b>" + Math.round(cReach(tp)) + "</b> reach · <b>×" + cPull(tp).toFixed(2) + "</b> pull · <b>" + cCapacity(tp) + "</b> bays · <b>×" + cIngest(tp).toFixed(2) + "</b> process"
       : "<b>" + fmt(uDmg(s)) + "</b> dmg · <b>" + uRate(s).toFixed(1) + "</b>/s · <b>" + Math.round(uRange(s)) + "</b> rng" + (uSplash(s) ? " · splash" : "") + (uCrit(s) ? " · " + Math.round(uCrit(s) * 100) + "% crit" : "") + (uMulti(s) ? " · <b>×" + (1 + uMulti(s)) + "</b> targets" : "") + (uInt(s) ? " · <b>" + Math.round(Math.min(1, uInt(s)) * 100) + "%</b> mind" : "") + (uExplode(s) ? " · <b>✦bombs</b>" : "") + (uChain(s) ? " · <b>✦chain</b>" : "") + (uPierce(s) ? " · <b>✦laser</b>" : "");
   }
   // allocation: a node is allocatable if a connected node is already allocated.
@@ -2714,7 +2721,7 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cSuction, cCollect, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyPerk, openAscend, PERKS };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyPerk, openAscend, PERKS };
   // read-only scaling hooks for the headless pacing/scaling simulator (tools/playthrough-sim.js) — no game logic, just exposes the real curves so the sim can never diverge from the shipped game
   if (typeof window !== "undefined") window.__SIM = {
     TOTAL_PLANETS, CONQ_STEP, SYS_JUMP, WITHIN_STEP, CUR_BASE, TOUGH_POW, BUY_MUL,
