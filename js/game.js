@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.5";
+  const VERSION = "v9.6";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -746,7 +746,7 @@
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
   const BOSS_INTERVAL = 240;   // seconds of active (boss-free) play between bosses (was 600 — too rare to register in a 12–24h campaign)
-  const BOSS_GEM_CHANCE = 0.05;   // a defeated mini-boss has a rare 5% chance to drop a Gem…
+  const BOSS_GEM_CHANCE = 0.01;   // a defeated mini-boss has a 1% chance to drop a Gem — kept LOW because a full active run kills thousands of bosses, so 5% flooded the Ascension economy (tree maxed with a huge wasted surplus); 1% keeps gems meaningful
   const BOSS_NODE_CHANCE = 0.15;  // …and a 15% chance to grant ONE free skill node. Otherwise it's just the cash bounty (the common case). No more "3 free nodes every boss".
   const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
   const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
