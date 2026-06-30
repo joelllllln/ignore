@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.6";
+  const VERSION = "v10.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -505,7 +505,7 @@
     const collected = {}; COL_ORDER.forEach(t => collected[t] = 0);
     return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, lost: 0, lostCash: 0 };
   }
-  function freshOpts() { return { sound: true, haptics: true, shake: true, flash: true, fx: "full", notation: "short" }; }   // player settings (persist in META)
+  function freshOpts() { return { sound: true, haptics: true, shake: true, flash: true, fx: "full", notation: "short", perf: false }; }   // player settings (persist in META). perf = optional FPS-saver (simplifies dots on busy fields)
   function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), gems: 0, gemsEarned: 0, perks: {}, tutorialDone: false }; }   // gems + Ascension perks persist across planets for the whole run
   const opt = k => (META && META.opts ? META.opts[k] : freshOpts()[k]);
   function vibe(ms) { if (opt("haptics") && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
@@ -1273,7 +1273,7 @@
       ctx.fillStyle = "rgba(255,255,255," + (0.55 + fl * 0.45) + ")"; ctx.beginPath(); ctx.arc(gx, y - sh.r * 0.8, 1.3 + fl * 1.1, 0, TAU); ctx.fill();   // fuse spark
       ctx.globalAlpha = 1;
     }
-    const lod = dots.length > 150;   // render LOD: when the field is busy, skip per-dot spikes/rings/race decorations (keep core + threat rings + HP bar) so a crowded field stays at 60fps
+    const lod = opt("perf") && dots.length > 80;   // render LOD is OFF by default (dots keep their full flare); only the optional Performance-mode setting simplifies per-dot spikes/rings/glyphs on a busy field to save FPS
     for (const d of dots) {
       if (d.boss) { drawBoss(d); continue; }
       const pulse = d.pulse !== undefined ? 1 + 0.12 * Math.sin(d.born * 0.1 + d.pulse * 4) : 1;
@@ -2626,6 +2626,7 @@
     { k: "shake", t: "toggle", lbl: iconMarkup("shake") + "Screen shake" },
     { k: "flash", t: "toggle", lbl: iconMarkup("bolt") + "Screen flashes", sub: "reduce for photosensitivity" },
     { k: "fx", t: "seg", lbl: iconMarkup("spark") + "Particle effects", sub: "lower to boost FPS on older phones", opts: [["full", "Full"], ["low", "Low"], ["off", "Off"]] },
+    { k: "perf", t: "toggle", lbl: iconMarkup("gear") + "Performance mode", sub: "simplify dots on a busy field to save FPS (off = full detail)" },
     { k: "notation", t: "seg", lbl: iconMarkup("hash") + "Number format", sub: "how huge numbers are shown", opts: [["short", "1.2M"], ["sci", "1.2e6"]] },
   ];
   function refreshNums() { try { syncHUD(); } catch (e) {} try { renderList(); } catch (e) {} }
