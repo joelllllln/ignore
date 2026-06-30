@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v9.0</div>
+  <div id="version" class="layer">v9.1</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -162,6 +162,18 @@
       <div class="card-head"><h2>Metrics</h2><button class="x" id="metrics-close">✕</button></div>
       <div id="metrics-body"></div>
       <button class="big" id="metrics-back">BACK</button>
+    </div>
+  </div>
+
+  <!-- ASCENSION (permanent cross-planet gem perk tree) -->
+  <button id="btn-ascend" class="layer" title="Ascension"><i data-ico="gem"></i><b id="ascend-n">0</b></button>
+  <div id="ascend" class="modal">
+    <div class="card">
+      <div class="card-head"><h2><i data-ico="gem"></i>Ascension</h2><button class="x" id="ascend-close">✕</button></div>
+      <p class="muted">Permanent perks that carry from planet to planet (your skill trees reset — these don't). Earn <b>Gems</b> by conquering planets and spend them here. Tier I costs 1 gem, II costs 2, III costs 3; a tier unlocks once you own 4 perks from the tier before it.</p>
+      <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> gems</div>
+      <div id="ascend-body" class="ascend-body"></div>
+      <button class="big" id="ascend-back">DONE</button>
     </div>
   </div>
 
