@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.7";
+  const VERSION = "v10.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -660,6 +660,35 @@
       S._welcome = off;
     }
   }
+
+  // ---- BACKGROUND / MOBILE CATCH-UP ----------------------------------------
+  // Phones (and tabs) SUSPEND all JS when the screen locks or you switch apps — the live loop simply
+  // stops, so nothing can "run" in the background. Instead we stamp the time on hide and, the moment we
+  // come back, credit the elapsed wall-clock time exactly like a reload would (idle empire + half your
+  // active rate, capped at 12h, auto-buy spends it). So progress genuinely continues while you're away.
+  function showWelcome(w) {
+    $("welcome-text").textContent = "Your empire kept earning for " + fmtTime(w.elapsed) + "." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : "");
+    $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(w.gain); $("welcome").classList.add("show");
+  }
+  function applyAway(e) {
+    e = clamp(e, 0, 12 * 3600); if (e < 1 || !S) return;
+    if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;                 // expeditions keep travelling while away
+    const offGain = cps > 0 ? Math.floor(cps * e * 0.5) : 0;
+    const bg = S.vault ? empireIdleRate() : 0, offIdle = bg > 0 ? bg * e : 0, offTotal = offGain + offIdle;
+    if (offTotal > 0) {
+      S.totalRun += offTotal; META.totalEver += offTotal;
+      const pmv = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 });
+      if (!pmv.conquered) { pmv.earned = Math.min(conquerTarget(S.galaxy), (pmv.earned || 0) + offTotal); curEarned = pmv.earned; }   // advance the conquer bar; live loop will detect a finished conquest
+      if (e >= 60) { const r = autoBuyOffline(offTotal); recompute(); S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + r.leftover)); showWelcome({ gain: Math.floor(offTotal), elapsed: e, autoBought: r.bought }); }
+      else S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + offTotal));   // short blips: bank silently (capacity-clamped)
+    }
+    save(); recompute(); syncHUD();
+  }
+  let bgHideTs = 0;
+  function onHidden() { if (!S || bgHideTs) return; bgHideTs = Date.now(); save(); }     // stamp + persist so a hard kill still credits via load()
+  function onVisible() { if (!bgHideTs) return; const e = (Date.now() - bgHideTs) / 1000; bgHideTs = 0; last = 0; applyAway(e); }   // last=0 → the first resumed frame's dt is clamped, not a giant jump
+  document.addEventListener("visibilitychange", () => { if (document.hidden) onHidden(); else onVisible(); });   // mobile: fires on screen-lock & app-switch
+  window.addEventListener("pagehide", onHidden); window.addEventListener("pageshow", onVisible);                 // iOS Safari bfcache / tab suspension
 
   /* ----------------------------- entities ------------------------ */
   function syncCollectors() {
@@ -2732,7 +2761,7 @@
   if ($("version")) $("version").textContent = VERSION;
   hydrateIcons(document);   // swap all static <i data-ico> placeholders for the bespoke SVG glyphs
   load(); resize(); syncCollectors(); renderList(); GMap.init(); STree.init(); setScreen("home"); syncBuyMode();
-  if (S._welcome) { const w = S._welcome; $("welcome-text").textContent = "Your empire kept earning for " + fmtTime(w.elapsed) + "." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : ""); $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(w.gain); $("welcome").classList.add("show"); S._welcome = null; }
+  if (S._welcome) { showWelcome(S._welcome); S._welcome = null; }
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
