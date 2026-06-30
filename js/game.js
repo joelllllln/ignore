@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.8";
+  const VERSION = "v9.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -2632,9 +2632,9 @@
   // ---- FIRST-RUN COACH MARKS: a guided walkthrough of the whole loop, shown once on a fresh save ----
   const TUT_STEPS = [
     { t: "Welcome, commander", x: "Your goal: conquer all <b>18 worlds</b> of the cluster. Your defenders auto-fire at the dots, and <b>killing dots is your entire economy</b> — let's run through how it all works." },
-    { sel: "#game", t: "Blast the field", x: "<b>Drag across the field</b> to fire a sweep yourself — active play is the fast path. Dots are tanky; the more you kill, the more cash they drop." },
+    { sel: "#game", t: "Blast the field", x: "<b>Drag across the field</b> to fire a sweep yourself — go on, try it now, then tap Next. Active play is the fast path; dots are tanky, and the more you kill the more cash they drop." },
     { sel: '#tabs [data-tab="def"]', t: "Defenders", x: "Defenders auto-fire on their own. Buy more and switch classes in the <b>DEFENCE</b> tab — each class has a niche: <b>anti-swarm</b> (Mortar, Laser) vs <b>anti-armor</b> (Plasma, Railgun, Nova)." },
-    { sel: "#up-list", t: "Skill trees", x: "Tap a defender (or its <b>⬆ Tree</b>) to open its skill web: <b>Damage, Fire Rate, Range</b>, and <b>Mind</b> (smart targeting — no wasted shots). ✦ <b>Keystones</b> add multishot plus a weapon special." },
+    { sel: "#up-list", t: "Skill trees", x: "Tap a defender's <b>⬆ Tree</b> to open its skill web — try it now: <b>Damage, Fire Rate, Range</b>, and <b>Mind</b> (smart targeting, no wasted shots). ✦ <b>Keystones</b> add multishot plus a weapon special. Close it and tap Next when ready." },
     { sel: '#tabs [data-tab="drone"]', t: "Collectors", x: "Killed dots drop <b>cash orbs</b> — collectors gather them. Buy & upgrade them in the <b>COLLECTORS</b> tab, or your loot expires uncollected." },
     { sel: '#tabs [data-tab="eco"]', t: "Economy", x: "The <b>ECONOMY</b> tab boosts cash value, spawn rate, your cash ceiling, and luck — the backbone of your income." },
     { sel: "#abilities", t: "Abilities", x: "Tap an ability for a burst: <b>Frenzy</b> (fire rate), <b>Dot Rain</b> (flood the field), or <b>Black Hole</b> (vacuum). They run on cooldowns." },

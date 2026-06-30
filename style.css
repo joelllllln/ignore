@@ -384,12 +384,12 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .gi-unlock{font-size:11px;color:#fff;margin-top:6px}
 .gi-counter{color:#cfe4ff;font-weight:700;letter-spacing:.02em}
 /* first-run coach-mark tutorial */
-#tutorial{position:fixed;inset:0;z-index:60;display:none}
+#tutorial{position:fixed;inset:0;z-index:60;display:none;pointer-events:none}   /* non-blocking: clicks pass through so you can DO the thing each step asks */
 #tutorial.show{display:block}
 #tutorial.nospot{background:rgba(0,0,0,.74)}
 #tut-spot{position:absolute;border:2px solid #cfe4ff;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.74),0 0 18px rgba(127,176,230,.6);transition:left .25s ease,top .25s ease,width .25s ease,height .25s ease;pointer-events:none}
 #tutorial.nospot #tut-spot{display:none}
-#tut-card{position:absolute;left:50%;transform:translateX(-50%);width:min(360px,88vw);background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#tut-card{position:absolute;left:50%;transform:translateX(-50%);width:min(360px,88vw);background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.6);pointer-events:auto}   /* only the card itself captures taps */
 #tutorial.nospot #tut-card{top:50%!important;bottom:auto!important;transform:translate(-50%,-50%)}
 #tut-card h3{font:700 16px var(--mono);color:#fff;margin:3px 0 8px;display:flex;align-items:center}
 #tut-card p{font-size:13px;line-height:1.55;color:var(--text);margin:0 0 14px}
