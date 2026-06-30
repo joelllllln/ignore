@@ -12,7 +12,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v9.7</div>
+  <div id="version" class="layer">v9.8</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -132,6 +132,7 @@
       <div class="card-head"><h2><i data-ico="gear"></i>Settings</h2><button class="x" id="set-close">✕</button></div>
       <div id="set-list" class="set-list"></div>
       <button class="big alt" id="set-how"><i data-ico="help"></i>How to play</button>
+      <button class="big alt" id="set-tutorial"><i data-ico="help"></i>Replay tutorial</button>
       <button class="big" id="set-back">DONE</button>
     </div>
   </div>
@@ -174,6 +175,17 @@
       <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> gems</div>
       <div id="ascend-body" class="ascend-body"></div>
       <button class="big" id="ascend-back">DONE</button>
+    </div>
+  </div>
+
+  <!-- FIRST-RUN COACH MARKS -->
+  <div id="tutorial">
+    <div id="tut-spot"></div>
+    <div id="tut-card">
+      <div id="tut-step" class="tut-step"></div>
+      <h3 id="tut-title"></h3>
+      <p id="tut-text"></p>
+      <div class="tut-btns"><button id="tut-skip">Skip</button><button id="tut-next" class="big">Next ▸</button></div>
     </div>
   </div>
 

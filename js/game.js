@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.7";
+  const VERSION = "v9.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -159,6 +159,16 @@
   // sensible max (~tens of bays maxed, not hundreds), instead of an instant over-provision.
   const MAG_COL = { speed: { min: 0.5, maj: 1.1, key: 2.2 }, suction: { min: 0.2, maj: 0.4, key: 0.8 }, collect: { min: 3, maj: 8, key: 18 }, capacity: { min: 0.12, maj: 0.28, key: 0.6 }, ingest: { min: 1.0, maj: 2.0, key: 4.0 } };   // speed/suction/reach magnitudes calmed ~3-4× so a wing is a gradual CLIMB to its cap, not a 1-2-node instant-cap; whatever a maxed wing pushes PAST the hard cap converts to collection yield (see cYield) so no logistics node is ever wasted — robust to the 3× base-speed variance across collectors
   const allocCount = type => { const m = S.classNodes[type]; let n = 0; if (m) for (const k in m) if (m[k]) n++; return n; };
+  // Mind (int) normalizer: a FULL Mind wing should add up to exactly 1.0 (100%) and never over,
+  // regardless of how many int nodes a given class's tree happens to have. We scale every int node
+  // by 1 / (raw int total of the whole tree), so 100% int = fully-allocated Mind, no waste, no overflow.
+  const _intScale = {};
+  function intScale(type) {
+    if (_intScale[type] != null) return _intScale[type];
+    const G = buildTree(type), prim = dPrim(type); let sum = 0;
+    for (const id in G.map) { const n = G.map[id]; if (!n.slots) continue; for (const s of n.slots) if (s.p !== "x" && prim[s.p - 1] === "int") sum += MAG_DEF.int[s.mag]; }
+    return _intScale[type] = sum > 0 ? 1 / sum : 1;
+  }
   function slotAmt(type, s) {
     if (isCol(type)) {
       if (s.p === "x") return MAG_COL.ingest[s.mag];                 // x branch = ingestion speed
@@ -168,7 +178,7 @@
     if (s.p === "x") return MAG_DEF.crit[s.mag];                        // crit = flat chance, not tier-scaled
     const key = dPrim(type)[s.p - 1];
     if (key === "range") return MAG_DEF.range[s.mag];                   // range = flat distance, not scaled
-    if (key === "int") return MAG_DEF.int[s.mag];                       // intelligence = flat smartness, not scaled
+    if (key === "int") return MAG_DEF.int[s.mag] * intScale(type);      // intelligence — normalized so a FULL Mind wing = exactly 100% (never over)
     if (key === "splash") return MAG_DEF.splash[s.mag];                 // blast radius = flat % bonus, not class-scaled (mortar)
     return (key === "rate" ? MAG_DEF.rate[s.mag] : MAG_DEF.mul[s.mag]) * sc;   // dmg/rate bonuses scale by class tier
   }
@@ -183,7 +193,7 @@
       for (const s of n.slots) { const amt = slotAmt(type, s), key = s.p === "x" ? (col ? "ingest" : "crit") : prim[s.p - 1];
         o[key] += amt; if (o.n[key] != null) o.n[key]++; } }
     o.multi = Math.min(o.multi, 9);   // raised 6→9 so railgun(8)/nova(9) keystones all contribute (no wasted "+1 multishot")
-    if (!col && o.int > 1) { o.crit += (o.int - 1) * 0.3; o.int = 1; }   // Mind (int) is clamped at 1.0 in targeting, so a wing past full would waste nodes — instead the overflow cascades into crit (which itself overflows into crit damage), so no Mind node is ever dead
+    if (!col) o.int = Math.min(1, o.int);   // Mind hard-caps at 100% — a full wing lands exactly there (see intScale); no overflow, no crit cascade
     return o;
   }
   const ZERO = { dmg: 1, rate: 1, range: 0, crit: 0, int: 0, splash: 1, speed: 1, suction: 1, yield: 1, collect: 0, capacity: 1, ingest: 1, multi: 0, explosive: 0, chain: 0, pierce: 0, n: { dmg: 0, rate: 0, range: 0, int: 0, crit: 0, splash: 0, speed: 0, suction: 0, collect: 0, capacity: 0, ingest: 0 } };
@@ -487,7 +497,7 @@
     return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, lost: 0, lostCash: 0 };
   }
   function freshOpts() { return { sound: true, haptics: true, shake: true, flash: true, fx: "full", notation: "short" }; }   // player settings (persist in META)
-  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), gems: 0, gemsEarned: 0, perks: {} }; }   // gems + Ascension perks persist across planets for the whole run
+  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), gems: 0, gemsEarned: 0, perks: {}, tutorialDone: false }; }   // gems + Ascension perks persist across planets for the whole run
   const opt = k => (META && META.opts ? META.opts[k] : freshOpts()[k]);
   function vibe(ms) { if (opt("haptics") && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
   const stat = () => META.stats;
@@ -1114,16 +1124,15 @@
     for (const dr of drones) { dr.cand = null; dr.cbd = Infinity; }
     for (const o of orbs) { let nd = null, bd = Infinity; for (const dr of drones) { if (COL_TYPES[dr.type].mode === "hole") continue; const q = (dr.x - o.x) ** 2 + (dr.y - o.y) ** 2; if (q < bd) { bd = q; nd = dr; } } if (nd && bd < nd.cbd) { nd.cbd = bd; nd.cand = o; } }
     const HOLE_SPOTS = [[0.5, 0.40], [0.30, 0.50], [0.70, 0.52], [0.50, 0.62]]; let holeN = 0;
-    // m4: each hole OWNS the orbs nearest it and drifts to that cluster's centroid — so several holes
-    // split the field (no clumping) and a hole always sits where its share of the loot is, instead of
-    // idling on a fixed dot while orbs expire elsewhere.
-    const holes = drones.filter(d => COL_TYPES[d.type].mode === "hole");
-    if (holes.length) { for (const h of holes) { h.ocx = 0; h.ocy = 0; h.on = 0; }
-      for (const o of orbs) { let nh = null, bd = Infinity; for (const h of holes) { const q = (h.x - o.x) ** 2 + (h.y - o.y) ** 2; if (q < bd) { bd = q; nh = h; } } if (nh) { nh.ocx += o.x; nh.ocy += o.y; nh.on++; } } }
+    // m4: holes keep their DISTINCT spread offsets (so several don't pile up) but the whole formation
+    // SLIDES toward the live loot centroid — so a hole sits where the orbs actually are (and follows
+    // them as the fight drifts), instead of idling on a fixed dot while loot expires elsewhere.
+    let oCx = 0, oCy = 0, oN = 0; for (const o of orbs) { oCx += o.x; oCy += o.y; oN++; }
+    const lootX = oN ? oCx / oN : W * 0.5, lootY = oN ? oCy / oN : H * 0.5;
     for (const dr of drones) {
       const hole = COL_TYPES[dr.type].mode === "hole", tgt = dr.cand;
       if (hole) { const hs = HOLE_SPOTS[holeN++ % HOLE_SPOTS.length];
-        const hx = dr.on ? dr.ocx / dr.on : W * hs[0], hy = dr.on ? dr.ocy / dr.on : H * hs[1];   // toward my own loot cluster, else my distinct home zone
+        const hx = lootX + (W * hs[0] - W * 0.5) * 0.7, hy = lootY + (H * hs[1] - H * 0.5) * 0.7;   // loot centroid + this hole's spread offset
         dr.vx += ((hx - dr.x) * 0.6 - dr.vx) * 0.04; dr.vy += ((hy - dr.y) * 0.6 - dr.vy) * 0.04; }
       else if (dr.parking) { dr.vx *= 0.55; dr.vy *= 0.55; }                                  // parked, consuming big loot
       else if (tgt) { const dx = tgt.x - dr.x, dy = tgt.y - dr.y, dl = Math.hypot(dx, dy) || 1, sp = cSpeed(dr.type); dr.vx += (dx / dl * sp - dr.vx) * AGILITY; dr.vy += (dy / dl * sp - dr.vy) * AGILITY; }
@@ -2620,8 +2629,42 @@
   $("home-settings").onclick = () => openSettings();
   $("set-close").onclick = $("set-back").onclick = () => $("settings").classList.remove("show");
   $("set-how").onclick = () => $("how").classList.add("show");
+  // ---- FIRST-RUN COACH MARKS: a guided walkthrough of the whole loop, shown once on a fresh save ----
+  const TUT_STEPS = [
+    { t: "Welcome, commander", x: "Your goal: conquer all <b>18 worlds</b> of the cluster. Your defenders auto-fire at the dots, and <b>killing dots is your entire economy</b> — let's run through how it all works." },
+    { sel: "#game", t: "Blast the field", x: "<b>Drag across the field</b> to fire a sweep yourself — active play is the fast path. Dots are tanky; the more you kill, the more cash they drop." },
+    { sel: '#tabs [data-tab="def"]', t: "Defenders", x: "Defenders auto-fire on their own. Buy more and switch classes in the <b>DEFENCE</b> tab — each class has a niche: <b>anti-swarm</b> (Mortar, Laser) vs <b>anti-armor</b> (Plasma, Railgun, Nova)." },
+    { sel: "#up-list", t: "Skill trees", x: "Tap a defender (or its <b>⬆ Tree</b>) to open its skill web: <b>Damage, Fire Rate, Range</b>, and <b>Mind</b> (smart targeting — no wasted shots). ✦ <b>Keystones</b> add multishot plus a weapon special." },
+    { sel: '#tabs [data-tab="drone"]', t: "Collectors", x: "Killed dots drop <b>cash orbs</b> — collectors gather them. Buy & upgrade them in the <b>COLLECTORS</b> tab, or your loot expires uncollected." },
+    { sel: '#tabs [data-tab="eco"]', t: "Economy", x: "The <b>ECONOMY</b> tab boosts cash value, spawn rate, your cash ceiling, and luck — the backbone of your income." },
+    { sel: "#abilities", t: "Abilities", x: "Tap an ability for a burst: <b>Frenzy</b> (fire rate), <b>Dot Rain</b> (flood the field), or <b>Black Hole</b> (vacuum). They run on cooldowns." },
+    { sel: "#galaxy-open", t: "Conquer & travel", x: "Fill <b>this bar</b> to conquer the planet and unlock <b>Travel</b>. Tap the bar for the <b>star map</b> — three solar systems, and every planet's native race has a <b>weakness</b> shown there." },
+    { sel: "#btn-ascend", t: "Ascension", x: "Conquering planets earns 💎 <b>Gems</b>. Spend them here on <b>permanent perks</b> that carry from planet to planet — they never reset." },
+    { t: "Go conquer", x: "That's the loop: <b>kill dots → gather cash → upgrade → fill the bar → travel</b>. Take all 18 worlds. Good luck, commander!" },
+  ];
+  const Tut = {
+    i: 0,
+    start(force) { if (!force && META.tutorialDone) return; this.i = 0; $("tutorial").classList.add("show"); this.render(); },
+    render() {
+      const s = TUT_STEPS[this.i], wrap = $("tutorial"), spot = $("tut-spot"), card = $("tut-card");
+      $("tut-step").textContent = "STEP " + (this.i + 1) + " / " + TUT_STEPS.length;
+      $("tut-title").textContent = s.t; $("tut-text").innerHTML = s.x;
+      $("tut-next").textContent = this.i >= TUT_STEPS.length - 1 ? "Got it ✓" : "Next ▸";
+      const el = s.sel ? document.querySelector(s.sel) : null, r = el && el.getBoundingClientRect();
+      if (r && r.width) { wrap.classList.remove("nospot"); const pad = 6;
+        spot.style.left = (r.left - pad) + "px"; spot.style.top = (r.top - pad) + "px"; spot.style.width = (r.width + pad * 2) + "px"; spot.style.height = (r.height + pad * 2) + "px";
+        card.style.transform = "translateX(-50%)";
+        if (r.top + r.height / 2 < innerHeight / 2) { card.style.top = "auto"; card.style.bottom = "20px"; } else { card.style.top = "20px"; card.style.bottom = "auto"; }
+      } else { wrap.classList.add("nospot"); }   // no target → centered card on a dim backdrop
+    },
+    next() { this.i++; if (this.i >= TUT_STEPS.length) this.finish(); else this.render(); },
+    finish() { $("tutorial").classList.remove("show"); META.tutorialDone = true; save(); },
+  };
+  $("tut-next").onclick = () => Tut.next();
+  $("tut-skip").onclick = () => Tut.finish();
+  $("set-tutorial").onclick = () => { $("settings").classList.remove("show"); if (state !== "play") { renderList(); setScreen("play"); } setTimeout(() => Tut.start(true), 350); };
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
-  $("home-play").onclick = () => { renderList(); setScreen("play"); };
+  $("home-play").onclick = () => { renderList(); setScreen("play"); if (!META.tutorialDone) setTimeout(() => Tut.start(), 550); };   // first-run coach marks once the play UI is laid out
   $("home-galaxies").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); };
   $("home-how").onclick = () => $("how").classList.add("show");
   $("how-close").onclick = $("how-back").onclick = () => $("how").classList.remove("show");
