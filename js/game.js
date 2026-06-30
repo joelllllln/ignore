@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v10.3";
+  const VERSION = "v10.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1433,7 +1433,7 @@
     if (bt.textContent !== label) bt.textContent = label;   // write only on change — no per-frame repaint flicker
     if (bt.disabled !== dis) bt.disabled = dis;
     bt.classList.toggle("ready", ready); bt.classList.toggle("enroute", enroute);
-    for (const k in ABIL_CD) { $("ab-" + k).disabled = abil[k] > 0; $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : ""; }
+    for (const k in ABIL_CD) { $("ab-" + k).classList.toggle("cd", abil[k] > 0); $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : ""; }   // use a CLASS for cooldown dimming, NOT the disabled attr — a disabled <button> makes its child info "i" inert (useAbility already no-ops on cooldown)
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {
