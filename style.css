@@ -382,6 +382,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .gi-name{font-family:var(--mono);letter-spacing:2px;color:#fff;font-size:15px;margin-bottom:4px}
 .gi-desc{font-size:12px;color:var(--dim);line-height:1.4}
 .gi-unlock{font-size:11px;color:#fff;margin-top:6px}
+.gi-counter{color:#cfe4ff;font-weight:700;letter-spacing:.02em}
 .gi-act{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .gi-tag{font-family:var(--mono);font-size:12px;color:var(--dim)}
 #gi-travel,#gi-jump,#gi-visit{background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;border-radius:9px;padding:10px 16px;font-family:var(--mono);cursor:pointer}

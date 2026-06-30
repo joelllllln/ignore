@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v9.3";
+  const VERSION = "v9.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -655,26 +655,30 @@
   // RACES[g] is the signature race that debuts on planet g; on planet g the exotic
   // spawns are mostly that race, mixed with earlier planets' races (you've seen them).
   // A race's toughness still ramps with the normal tier system, so each race has tiers.
+  // niche = which weapon class hard-counters this race (the per-planet rock-paper-scissors):
+  //   "swarm" → rapid-fire (Mortar/Laser get vsSwarm); "armor" → heavy hits (Plasma/Railgun/Nova get vsBig);
+  //   "balanced" → no class bonus (raw DPS / the all-rounder Turret). EVERY race is tagged so no world
+  //   silently defaults to "anti-armor" via the toughness-tier fallback (which only covers plain/elite dots now).
   const RACES = [
     null,
-    { p: 1,  key: "swift",     name: "Vesta Motes",      hp: 0.55, val: 1.7, weight: 1.0, speed: 3.0 },                    // fast, fragile, pays extra
-    { p: 2,  key: "zigzag",    name: "Ember Sparks",     hp: 0.7,  val: 1.5, weight: 1.0, speed: 2.2, zig: 1 },            // erratic, jukes around
-    { p: 3,  key: "splitter",  name: "Cinder Brood",     hp: 1.1,  val: 1.0, weight: 1.0, splits: 2, maxGen: 3 },          // splits again and again across generations
-    { p: 4,  key: "grower",    name: "Hearth Bloat",     hp: 1.2,  val: 1.3, weight: 0.9, grow: 1 },                       // swells bigger & richer the longer it lives
-    { p: 5,  key: "shield",    name: "Azure Bastion",    hp: 1.0,  val: 1.5, weight: 0.9, shield: 0.7, reflect: 0.3 },     // front shield soaks/reflects shots
-    { p: 6,  key: "healer",    name: "Verdant Mender",   hp: 1.0,  val: 1.6, weight: 0.8, regen: 0.018, healAura: 1 },      // heals itself AND nearby dots
-    { p: 7,  key: "orbiter",   name: "Cobalt Sentinel",  hp: 1.3,  val: 1.5, weight: 0.8, sat: 3, satGuard: 1 },           // orbiting satellites shield the core
-    { p: 8,  key: "flock",     name: "Mistral Gale",     hp: 0.7,  val: 1.4, weight: 1.0, speed: 1.7, flock: 1 },          // flocks together (boids)
-    { p: 9,  key: "cloak",     name: "Halcyon Mirage",   hp: 1.0,  val: 1.9, weight: 0.8, cloak: 1 },                      // cloaks invisible & untargetable in bursts
-    { p: 10, key: "pulsar",    name: "Tempest Cell",     hp: 1.5,  val: 1.7, weight: 0.7, pulse: 1, shock: 1 },            // throbs, shock rings shove your collectors
-    { p: 11, key: "phantom",   name: "Umbral Shade",     hp: 1.2,  val: 2.0, weight: 0.7, phase: 1 },                      // phases out, dodges most damage
-    { p: 12, key: "juggernaut",name: "Frost Glacian",    hp: 1.9,  val: 1.8, weight: 0.7, speed: 0.7, armorUp: 1 },        // slow tank that regrows armor over time
-    { p: 13, key: "reflector", name: "Onyx Warden",      hp: 1.4,  val: 1.9, weight: 0.7, deflect: 0.45 },                 // mirror facets deflect a share of every shot
-    { p: 14, key: "blink",     name: "Wraith",           hp: 1.1,  val: 2.2, weight: 0.7, blink: 1 },                      // teleports around, hard to pin
-    { p: 15, key: "bomber",    name: "Pyreling",         hp: 1.3,  val: 1.8, weight: 0.7, bomb: 1 },                       // detonates on death, scattering your loot
-    { p: 16, key: "gravity",   name: "Abyssal Pull",     hp: 1.6,  val: 2.0, weight: 0.7, gravity: 1 },                    // drags loot orbs away from your collectors
-    { p: 17, key: "leech",     name: "Devourer",         hp: 1.5,  val: 1.9, weight: 0.7, leech: 1 },                      // eats nearby loot orbs and heals from them
-    { p: 18, key: "spawner",   name: "Null Spawn",       hp: 2.0,  val: 2.2, weight: 0.6, spawner: 1 },                    // endlessly births minion dots
+    { p: 1,  key: "swift",     name: "Vesta Motes",      niche: "swarm",    hp: 0.55, val: 1.7, weight: 1.0, speed: 3.0 },                    // fast, fragile, pays extra
+    { p: 2,  key: "zigzag",    name: "Ember Sparks",     niche: "swarm",    hp: 0.7,  val: 1.5, weight: 1.0, speed: 2.2, zig: 1 },            // erratic, jukes around
+    { p: 3,  key: "splitter",  name: "Cinder Brood",     niche: "swarm",    hp: 1.1,  val: 1.0, weight: 1.0, splits: 2, maxGen: 3 },          // splits into many fragments → clear the flood
+    { p: 4,  key: "grower",    name: "Hearth Bloat",     niche: "swarm",    hp: 1.2,  val: 1.3, weight: 0.9, grow: 1 },                       // swells over time → clear fast before it bloats
+    { p: 5,  key: "shield",    name: "Azure Bastion",    niche: "armor",    hp: 1.0,  val: 1.5, weight: 0.9, shield: 0.7, reflect: 0.3 },     // front shield soaks/reflects → punch through
+    { p: 6,  key: "healer",    name: "Verdant Mender",   niche: "armor",    hp: 1.0,  val: 1.6, weight: 0.8, regen: 0.018, healAura: 1 },      // heals → out-burst the regen
+    { p: 7,  key: "orbiter",   name: "Cobalt Sentinel",  niche: "armor",    hp: 1.3,  val: 1.5, weight: 0.8, sat: 3, satGuard: 1 },           // guarded core → heavy hits
+    { p: 8,  key: "flock",     name: "Mistral Gale",     niche: "swarm",    hp: 0.7,  val: 1.4, weight: 1.0, speed: 1.7, flock: 1 },          // flocks together (boids)
+    { p: 9,  key: "cloak",     name: "Halcyon Mirage",   niche: "swarm",    hp: 1.0,  val: 1.9, weight: 0.8, cloak: 1 },                      // evasive → rapid fire catches its visible windows
+    { p: 10, key: "pulsar",    name: "Tempest Cell",     niche: "armor",    hp: 1.5,  val: 1.7, weight: 0.7, pulse: 1, shock: 1 },            // tanky disruptor → heavy hits
+    { p: 11, key: "phantom",   name: "Umbral Shade",     niche: "swarm",    hp: 1.2,  val: 2.0, weight: 0.7, phase: 1 },                      // phases out → rapid fire to land hits between phases
+    { p: 12, key: "juggernaut",name: "Frost Glacian",    niche: "armor",    hp: 1.9,  val: 1.8, weight: 0.7, speed: 0.7, armorUp: 1 },        // heavy tank that regrows armor
+    { p: 13, key: "reflector", name: "Onyx Warden",      niche: "armor",    hp: 1.4,  val: 1.9, weight: 0.7, deflect: 0.45 },                 // deflects a share of every shot → fewer, bigger hits
+    { p: 14, key: "blink",     name: "Wraith",           niche: "swarm",    hp: 1.1,  val: 2.2, weight: 0.7, blink: 1 },                      // teleports → rapid fire to catch it
+    { p: 15, key: "bomber",    name: "Pyreling",         niche: "balanced", hp: 1.3,  val: 1.8, weight: 0.7, bomb: 1 },                       // loot-scatter gimmick, no damage-type weakness
+    { p: 16, key: "gravity",   name: "Abyssal Pull",     niche: "armor",    hp: 1.6,  val: 2.0, weight: 0.7, gravity: 1 },                    // tanky loot-dragger → heavy hits
+    { p: 17, key: "leech",     name: "Devourer",         niche: "armor",    hp: 1.5,  val: 1.9, weight: 0.7, leech: 1 },                      // heals off loot → out-burst it
+    { p: 18, key: "spawner",   name: "Null Spawn",       niche: "swarm",    hp: 2.0,  val: 2.2, weight: 0.6, spawner: 1 },                    // floods minions → clear the swarm
   ];
   const raceAt = g => RACES[Math.min(Math.max(g, 1), RACES.length - 1)];
   // PER-PLANET DOT SIGNATURE — every world's dots get a distinct silhouette (polygon sides),
@@ -731,6 +735,13 @@
     bomber: "detonates on death, scattering your loot", gravity: "drags loot orbs away from your collectors",
     leech: "devours loot orbs and heals from them", spawner: "endlessly births minion dots",
   };
+  // per-race recommended counter, shown on the planet card so the rock-paper-scissors is legible
+  const NICHE_HINT = {
+    swarm:    "weak to RAPID FIRE — Mortar & Laser shred them",
+    armor:    "weak to HEAVY HITS — Plasma, Railgun & Nova punch through",
+    balanced: "no damage-type weakness — bring raw firepower (Turret holds up)",
+  };
+  const raceNiche = g => (raceAt(g) || {}).niche || "balanced";
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
   const BOSS_INTERVAL = 240;   // seconds of active (boss-free) play between bosses (was 600 — too rare to register in a 12–24h campaign)
@@ -829,6 +840,7 @@
       hp, maxHp: hp, value: val, value0: val, r, r0: r, tier, pg: g, menace: roll, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
       color: armored ? "#9a9a9a" : special ? "#ffffff" : kind !== "normal" ? "#cfcfcf" : `hsl(0,0%,${dotLook(g).sh}%)` };   // per-planet shade (no 6-planet repeat)
     if (cfg) {
+      d.niche = cfg.niche;                                       // this race's hard-counter category (drives the vsBig/vsSwarm class bonus in hitDot)
       if (cfg.shield) { d.shieldMax = hp * cfg.shield; d.shield = d.shieldMax; d.reflect = cfg.reflect; }
       if (cfg.regen) d.regen = cfg.regen;
       if (cfg.healAura) d.healAura = 0;
@@ -925,16 +937,20 @@
       }
     }
   }
-  // NICHE classification by RACE (so each planet's signature race actually rewards a specific class —
-  // "mixing beats spamming"), with the toughness tier as a fallback for plain/elite dots.
-  const SWARM_KINDS = { swift: 1, zigzag: 1, flock: 1 };                       // fast/fragile = "swarm"
-  const ARMOR_KINDS = { shield: 1, orbiter: 1, juggernaut: 1, reflector: 1 }; // defensive/tanky = "armored/big"
+  // NICHE classification (the per-planet rock-paper-scissors). EVERY native race carries an explicit
+  // d.niche ("swarm"/"armor"/"balanced") set at spawn, so the planet's signature race always rewards the
+  // right class. Only un-tagged dots — plain greys, armored elites, spawner minions — fall back to the
+  // toughness tier (small = swarm, tanky = big). This is what fixes the old "everything defaults to
+  // anti-armor" collapse (the tier fallback used to catch all 11 untagged races and skew them big).
   function hitDot(d, dmg, src) {
     if (d.dead) return;
-    const ty = DEF_TYPES[src];                                  // class NICHE: anti-armor vs anti-swarm
+    const ty = DEF_TYPES[src];                                  // class NICHE: anti-armor (vsBig) vs anti-swarm (vsSwarm)
     if (ty) {
-      const big = d.armored || ARMOR_KINDS[d.kind] || (d.tier || 0) >= 3;
-      const swarm = !d.armored && (SWARM_KINDS[d.kind] || (d.tier || 0) <= 1);
+      let big = false, swarm = false;
+      if (d.niche === "armor") big = true;                      // race-tagged tanky/defensive
+      else if (d.niche === "swarm") swarm = true;               // race-tagged fast/many/evasive
+      else if (d.niche === "balanced") { /* no class bonus — raw DPS */ }
+      else { big = d.armored || (d.tier || 0) >= 3; swarm = !d.armored && (d.tier || 0) <= 1; }   // plain/elite/minion: by toughness
       if (big) dmg *= ty.vsBig; else if (swarm) dmg *= ty.vsSwarm;
     }
     if (d.phased) dmg *= 0.45;                                   // phantom shrugs off most damage while phased
@@ -975,7 +991,7 @@
         const hp = d.maxHp * 0.42, cv = Math.max(1, Math.round(d.value * 0.4)), cr = Math.max(6, d.r * 0.66);
         dots.push({ x: d.x + rnd(-10, 10), y: d.y + rnd(-10, 10), vx: rnd(-50, 50), vy: rnd(-50, 50), hp, maxHp: hp,
           value: cv, value0: cv, r: cr, r0: cr, tier: 0, spin: 0, special: false, armored: false,
-          kind: "splitter", splits: d.splits, maxGen: d.maxGen, gen: (d.gen || 0) + 1, weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: d.color });
+          kind: "splitter", niche: "swarm", splits: d.splits, maxGen: d.maxGen, gen: (d.gen || 0) + 1, weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: d.color });   // fragments stay anti-swarm like their parent
       }
       if (d.bomb) { ring(d.x, d.y, d.r, d.r + 75, 0.5); burst(d.x, d.y, 18, 170, 2.6); shakeAdd(1.0); flashAdd(0.12);
         for (let oi = orbs.length - 1; oi >= 0; oi--) { const o = orbs[oi], dx = o.x - d.x, dy = o.y - d.y, q = dx * dx + dy * dy; if (q < 8100) { const dl = Math.sqrt(q) || 1; o.x = clamp(o.x + dx / dl * 70, 20, W - 20); o.y = clamp(o.y + dy / dl * 70, 40, H - 110); o.t += 3.5; } }   // Pyreling detonation scatters & ages your loot
@@ -1925,7 +1941,7 @@
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
       stats +
-      "<div class='gi-unlock'>" + iconMarkup("alien") + "Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "</div>" +
+      "<div class='gi-unlock'>" + iconMarkup("alien") + "Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "<br><span class='gi-counter'>↳ " + NICHE_HINT[race.niche || "balanced"] + "</span></div>" +
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action
       + "<button id='gi-autotog' class='gi-auto" + (autoIsOn(g) ? " on" : "") + "'>" + iconMarkup("gear") + "Auto " + (autoIsOn(g) ? "ON" : "OFF") + "</button>"
       + "<button id='gi-auto' class='gi-auto'>Edit ▸</button></div>";
@@ -2649,5 +2665,6 @@
     spawnBoss, grantTreeNodes, dots: () => dots,
     PERKS, gemReward, perkAgg,
     baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP, BOSS_GEM_CHANCE, BOSS_NODE_CHANCE,
+    RACES, raceNiche, NICHE_HINT,
   };
 })();
