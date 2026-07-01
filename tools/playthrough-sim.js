@@ -146,7 +146,7 @@ const { chromium } = requirePlaywright();
   console.log(`  conquerTarget(g) strictly climbs:        ${s.tgtMono ? 'PASS' : 'FAIL'}`);
   console.log(`  travel always affordable from a run:     ${s.allAfford ? 'PASS' : 'FAIL'}`);
   console.log(`  no planet walls (>2 days active-equiv):  ${s.noWall ? 'PASS' : 'FAIL'}`);
-  console.log(`  final Conquest multiplier ×${s.finalConquest}  (=1.8^17)`);
+  console.log(`  final Conquest multiplier ×${s.finalConquest}  (=CONQ_STEP^17 — 1.0 since the multiplier was retired)`);
   console.log(`  est. total active time to finish: ~${s.cumDays} days`);
   console.log('\n' + (errs.length ? 'ERRORS: ' + errs.join(' | ') : 'NO CONSOLE/PAGE ERRORS'));
   await browser.close();

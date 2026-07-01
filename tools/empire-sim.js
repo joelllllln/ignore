@@ -43,7 +43,7 @@ const fmtT = s => { if (!isFinite(s)) return '—'; const d = s/86400; if (d>=1)
         baseTarget: SIM.baseTarget(g), eco: SIM.eco(g), conquerHours: SIM.conquerHours(g),
         idleCap: SIM.IDLE_FRAC * SIM.ACTIVE_REF * SIM.eco(g) });
     }
-    return { planets, ACTIVE_MAX: 8.6, IDLE_PAYBACK_H: SIM.IDLE_PAYBACK_H, EMPIRE_RAMP: SIM.EMPIRE_RAMP, IDLE_FRAC: SIM.IDLE_FRAC, TOTAL: SIM.TOTAL_PLANETS };
+    return { planets, ACTIVE_MAX: 8.6, IDLE_PAYBACK_H: SIM.IDLE_PAYBACK_H, EMPIRE_RAMP: SIM.EMPIRE_RAMP, IDLE_FRAC: SIM.IDLE_FRAC, ACTIVE_REF: SIM.ACTIVE_REF, TOTAL: SIM.TOTAL_PLANETS };
   });
 
   const NAMES = ["Vesta","Ember","Cinder","Hearth","Azure","Verdant","Cobalt","Mistral","Halcyon","Tempest","Umbra","Frost","Onyx","Wraith","Pyre","Abyss","Maw","Oblivion"];
@@ -82,7 +82,7 @@ const fmtT = s => { if (!isFinite(s)) return '—'; const d = s/86400; if (d>=1)
     const mult = 1 + frac * (data.ACTIVE_MAX - 1);
     let cumIdle = 0, total = 0;
     for (let i=0;i<data.planets.length;i++) { const p = data.planets[i];
-      const capBase = p.idleCap / data.IDLE_FRAC;                       // = ACTIVE_REF*eco(g)
+      const capBase = data.ACTIVE_REF * p.eco;                          // = ACTIVE_REF*eco(g)  (NOT derived from idleCap — that divides by zero when IDLE_FRAC=0)
       const empireBar = Math.min(cumIdle * (1 + data.EMPIRE_RAMP * i), idleFrac * capBase);
       const fill = p.killPassive * mult + empireBar;
       total += fill > 0 ? p.baseTarget / fill : Infinity;

@@ -82,7 +82,7 @@ const fmtT = s => { if(!isFinite(s))return '—'; const d=s/86400; if(d>=1)retur
     if(line.trim())console.log(line);
     console.log('');
   }
-  console.log('Note: boss gems assume one boss ~every '+BOSS_PERIOD+'s of ACTIVE play, 5% gem each — an estimate.');
+  console.log('Note: boss gems assume one boss ~every '+BOSS_PERIOD+'s of ACTIVE play, '+(data.BOSS_GEM*100)+'% gem each — an estimate.');
   console.log(errs.length?'ERRORS: '+errs.join(' | '):'no errors');
   await b.close();
 })().catch(e => { console.error('FAIL:', e.message); process.exit(1); });

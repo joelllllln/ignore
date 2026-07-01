@@ -20,7 +20,7 @@ const path = require("path");
 function ctx() { const n = () => {}; const g = { addColorStop: n }; return new Proxy({}, { get(_, k) { if (String(k).indexOf("create") === 0) return () => g; if (k === "canvas") return { width: 800, height: 600 }; return n; }, set() { return true; } }); }
 function el(id) { return { id, value: "1", textContent: "", style: {}, dataset: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, set innerHTML(v) {}, get innerHTML() { return ""; }, appendChild(c) { return c; }, querySelector() { return el("q"); }, querySelectorAll() { return []; }, getContext: () => ctx(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), addEventListener() {} }; }
 const byId = {};
-global.document = { getElementById: i => byId[i] || (byId[i] = el(i)), querySelectorAll: () => [], createElement: () => el("c") };
+global.document = { getElementById: i => byId[i] || (byId[i] = el(i)), querySelectorAll: () => [], createElement: () => el("c"), addEventListener() {}, removeEventListener() {}, hidden: false };
 const cv = el("game"); cv.clientWidth = 800; cv.clientHeight = 600; byId["game"] = cv; byId["gmap"] = el("gmap"); byId["sttree"] = el("sttree");
 global.window = { innerWidth: 800, innerHeight: 600, devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} };
 global.requestAnimationFrame = () => {}; global.performance = { now: () => 0 };
