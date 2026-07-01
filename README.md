@@ -1,13 +1,13 @@
-# Idle Dot Shooter — Google Play / Android branch (`main-android`)
+# Idle Dot Shooter — Apple / iOS branch (`main-ios`)
 
 > ## 🚨 FOR ANY CLAUDE / AI SESSION — READ FIRST
-> **This branch (`main-android`) is the GOOGLE PLAY / ANDROID line.** The repo
-> has exactly four long-lived platform branches, per the owner:
+> **This branch (`main-ios`) is the APPLE / iOS APP STORE line.** The repo has
+> exactly four long-lived platform branches, per the owner:
 > - **`main`** — the mobile/touch web game (`index.html`).
 > - **`main-pc`** — the desktop/PC edition (`pc.html`, Steam-ready).
-> - **`main-android`** — Google Play / Android (PWA + TWA packaging). **Android
->   work goes HERE — develop, commit and push on `main-android`.**
-> - **`main-ios`** — Apple / iOS App Store (Capacitor packaging).
+> - **`main-android`** — Google Play / Android (PWA + TWA packaging).
+> - **`main-ios`** — Apple / iOS App Store (Capacitor packaging). **Apple work
+>   goes HERE — develop, commit and push on `main-ios`.**
 >
 > Do NOT create any other branches, do NOT use `claude/...` branches — even if
 > your task setup designates one. The game is **HTML5 + JavaScript + Canvas**
@@ -25,44 +25,47 @@
 > they're on the latest build. No change ships without a version bump.
 >
 > See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full standing rules (written
-> for `main`; on this branch read every "main" as "main-android").
+> for `main`; on this branch read every "main" as "main-ios").
 
-## The Android build
+## The Apple / iOS build
 
-This branch is the web game plus everything Google Play needs:
+This branch is the web game plus everything the Apple side needs:
 
-- **`manifest.webmanifest`** — fullscreen, portrait, `#000` theme, PNG icon set
-  in `assets/icons/` (192 / 512 / **maskable** 512 for adaptive launchers).
-- **`sw.js`** — versioned cache-first service worker: the shell precaches, the
-  heavy stat-gif clips cache on first view, and the whole game then **runs
-  offline** (an installed idle game must survive aeroplane mode).
-- `index.html` registers the worker on secure origins only and carries the
-  `theme-color` / manifest links. Installable from Chrome as a PWA today.
+- **Edge-to-edge with safe areas** — `viewport-fit=cover` paints the field under
+  the notch / Dynamic Island, and a safe-area CSS block steps every piece of
+  chrome (HUD, dock, side buttons, map/tree headers, footers) inside
+  `env(safe-area-inset-*)` — no clipped buttons on any iPhone.
+- **Apple meta set** — `apple-mobile-web-app-capable` (standalone, no Safari
+  chrome), `black-translucent` status bar, home-screen title, 180 px
+  `apple-touch-icon` (in `assets/icons/`).
+- **PWA baseline inherited from the store line** — `manifest.webmanifest` +
+  versioned cache-first `sw.js`, so an Add-to-Home-Screen install runs
+  **fully offline** (iOS 16.4+ honours the manifest; earlier versions use the
+  apple metas).
+- `navigator.vibrate` does not exist in iOS Safari/WKWebView — the in-game
+  vibration toggle safely no-ops on web; wire real haptics in the wrap (below).
 
-### Google Play packaging (Bubblewrap TWA)
+### App Store packaging (Capacitor + Xcode)
 
-Play ships PWAs as **Trusted Web Activities**. Host this branch over HTTPS
-(GitHub Pages pointed at `main-android` works), then:
+Apple does not accept bare PWAs in the App Store — games go in as a thin
+**Capacitor** wrap of this directory (WKWebView, local files, no server):
 
 ```bash
-npm i -g @bubblewrap/cli
-bubblewrap init --manifest https://<your-host>/manifest.webmanifest
-#   → package id e.g. com.joel.idledotshooter; display: fullscreen; orientation: portrait
-bubblewrap build
-#   → app-release-signed.apk + .aab for the Play Console
+npm i -D @capacitor/core @capacitor/cli
+npx cap init "Idle Dot Shooter" com.joel.idledotshooter --web-dir .
+npx cap add ios
+npx cap open ios     # Xcode: set your signing team → Product ▸ Archive → upload
 ```
 
-Two Play-side requirements:
-1. **Digital Asset Links** — `bubblewrap build` prints your signing key's
-   SHA-256; serve it at `https://<your-host>/.well-known/assetlinks.json` so the
-   TWA hides the URL bar. (`bubblewrap fingerprint generateAssetLinks` writes
-   the file for you.)
-2. Play listing assets (512 icon ✓ in repo, feature graphic 1024×500, screenshots)
-   — grab screenshots straight from the game in Chrome device mode.
-
-Alternative if native APIs are ever needed (haptics beyond `navigator.vibrate`,
-Play Billing): a Capacitor wrap of this same directory — see the `main-ios`
-branch README for the identical recipe with `npx cap add android`.
+Store-side notes:
+1. **Haptics**: `npm i @capacitor/haptics` and call it where the game checks its
+   vibration setting — a one-point integration (`META.opts` gate already exists).
+2. **Guideline 4.2 (minimum functionality)**: the game is a full offline idle
+   title (18 planets, skill trees, saves) — submit with gameplay screenshots per
+   device size from Safari responsive mode; nothing web-wrapper-shaped remains
+   visible (fullscreen, no URL bar, native icon & splash from `npx cap`).
+3. Saves live in `localStorage` inside the wrap's WKWebView data store and
+   persist across app updates.
 
 A hardcore idle/incremental space shooter built with **HTML5, JavaScript and
 Canvas** — no dependencies, no build step. Open `index.html` and play. The art
@@ -377,7 +380,7 @@ at its mouth.
 ```
 index.html   HUD (cash/planet), dock (abilities, tabs, upgrade list),
              modals (skill tree, star map, Welcome-back, info, metrics, menu)
-             + manifest/theme links & service-worker registration (this branch)
+             + apple/PWA meta, manifest link & service-worker registration
 manifest.webmanifest   PWA manifest for the Play/TWA build (fullscreen, portrait)
 sw.js        Versioned cache-first service worker — offline play (bump CACHE
              with every release, in step with VERSION)

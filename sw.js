@@ -3,7 +3,7 @@
 // game VERSION per the standing rules) so an update invalidates the old shell in
 // one activate. Core shell is precached; everything else same-origin (the big
 // stat-gif clips, icons) is cached on first use so it never blocks first paint.
-const CACHE = "ids-v12.2";
+const CACHE = "ids-v12.3";
 const CORE = ["./", "./index.html", "./style.css", "./js/game.js", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", e => {

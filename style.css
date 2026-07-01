@@ -419,3 +419,24 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .gi-tag{font-family:var(--mono);font-size:12px;color:var(--dim)}
 #gi-travel,#gi-jump,#gi-visit{background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;border-radius:9px;padding:10px 16px;font-family:var(--mono);cursor:pointer}
 #gi-travel:disabled{background:#333;color:var(--dim)}
+
+/* ── iOS safe areas (notch / Dynamic Island / home indicator) — main-ios branch ──
+   With viewport-fit=cover the canvas paints edge-to-edge; the chrome steps
+   inside the insets. env() is additive here: browsers without it keep the
+   base values above. Deltas mirror the originals (menu 8, metrics 52,
+   ascend 94, version 140 → +44/+86/+132 from the inset top). */
+@supports (padding: max(0px)) {
+  #top{padding-top:max(8px, env(safe-area-inset-top))}
+  #btn-menu{top:max(8px, env(safe-area-inset-top))}
+  #btn-metrics{top:calc(max(8px, env(safe-area-inset-top)) + 44px)}
+  #btn-ascend{top:calc(max(8px, env(safe-area-inset-top)) + 86px)}
+  #version{top:calc(max(8px, env(safe-area-inset-top)) + 132px)}
+  #dock{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  #boss-reward .br-card{margin-top:calc(64px + env(safe-area-inset-top) * .5)}
+  .map-bar{padding-top:max(12px, env(safe-area-inset-top))}
+  .st-head{padding-top:max(14px, env(safe-area-inset-top))}
+  .map-hint{bottom:calc(18px + env(safe-area-inset-bottom))}
+  .st-foot{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .gm-info{bottom:calc(44px + env(safe-area-inset-bottom))}
+  .st-info{bottom:calc(70px + env(safe-area-inset-bottom))}
+}
