@@ -48,7 +48,11 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v12.0";
+  const VERSION = "v12.1";
+  // PC EDITION — pc.html sets <body class="pc">: same engine, desktop shell. Gates the
+  // keyboard map, fullscreen toggle and tap→click copy; mobile (index.html) is untouched.
+  const IS_PC = typeof document !== "undefined" && !!document.body && !!document.body.classList && document.body.classList.contains("pc");
+  const pcCopy = s => IS_PC ? String(s).replace(/\bTap\b/g, "Click").replace(/\btap\b/g, "click") : s;   // applied ONLY to instructional copy (never node names like "Double Tap")
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1713,7 +1717,7 @@
     if (!autoExpanded) autoExpanded = new Set([S.galaxy]);
     if (tog) tog.style.display = "none";           // each planet has its own power toggle in its panel
     if (ph) ph.textContent = "· all " + TOTAL_PLANETS + " planets";
-    if (lock) lock.textContent = "Tap a planet to expand its build order · arm it with its power toggle · slots = planet number · +50% tax.";
+    if (lock) lock.textContent = pcCopy("Tap a planet to expand its build order · arm it with its power toggle · slots = planet number · +50% tax.");
     list.innerHTML = "";
     for (let g = 1; g <= TOTAL_PLANETS; g++) list.appendChild(autoPlanetSection(g));
     syncAutoBtn();
@@ -2606,6 +2610,7 @@
   /* ----------------------------- screens ------------------------- */
   function setScreen(s) {
     state = s;
+    if (document.body && document.body.classList) document.body.classList.toggle("playing", s === "play");   // pc.css lays the shell out by play-state
     $("home").classList.toggle("show", s === "home");
     $("top").style.display = (s === "play") ? "flex" : "none";
     $("dock").style.display = (s === "play") ? "block" : "none";
@@ -2614,6 +2619,7 @@
     $("btn-ascend").style.display = (s === "play") ? "flex" : "none";
     if (s === "play") syncAutoBtn();
     if (s === "home") { $("home-gal").textContent = S.peakGalaxy; }
+    if (IS_PC) resize();   // the PC console reserves field width only while playing — re-fit the canvas when it shows/hides
   }
 
   /* ----------------------------- input --------------------------- */
@@ -2736,7 +2742,7 @@
     render() {
       const s = TUT_STEPS[this.i], wrap = $("tutorial"), spot = $("tut-spot"), card = $("tut-card");
       $("tut-step").textContent = "STEP " + (this.i + 1) + " / " + TUT_STEPS.length;
-      $("tut-title").textContent = s.t; $("tut-text").innerHTML = s.x;
+      $("tut-title").textContent = pcCopy(s.t); $("tut-text").innerHTML = pcCopy(s.x);
       $("tut-next").textContent = this.i >= TUT_STEPS.length - 1 ? "Got it ✓" : "Next ▸";
       const el = s.sel ? document.querySelector(s.sel) : null, r = el && el.getBoundingClientRect();
       if (r && r.width) { wrap.classList.remove("nospot"); const pad = 6;
@@ -2767,6 +2773,36 @@
   }
   if ($("code-go")) $("code-go").onclick = applyCode;
   if ($("code-input")) $("code-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); applyCode(); } });
+
+  /* ----------------------------- PC input (pc.html shell only) ---- */
+  // Desktop keyboard map: 1/2/3 abilities · M star map · T first defender's tree ·
+  // A auto-buy · Esc closes the top modal (else opens the menu) · F fullscreen.
+  if (IS_PC) {
+    const fsToggle = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) {} };
+    if ($("btn-fullscreen")) $("btn-fullscreen").onclick = fsToggle;
+    // top-modal stack, front to back: whichever is open, Esc closes it via its own wired control
+    const ESC_STACK = [
+      ["skilltree", "st-close"], ["galaxy-map", "gm-close"], ["auto-modal", "auto-close"],
+      ["ascend", "ascend-close"], ["settings", "set-close"], ["metrics", "metrics-close"],
+      ["info-modal", "info-close"], ["how", "how-close"], ["welcome", "welcome-ok"], ["menu", "menu-close"],
+    ];
+    const topModal = () => { for (const [id] of ESC_STACK) { const el = $(id); if (el && el.classList.contains("show")) return id; } return null; };
+    window.addEventListener("keydown", e => {
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;   // never steal keys from the codes box etc.
+      const k = e.key, open = topModal();
+      if (k === "f" || k === "F") { e.preventDefault(); fsToggle(); return; }
+      if (k === "Escape") { if (open) { const btn = $(ESC_STACK.find(p => p[0] === open)[1]); if (btn) btn.click(); } else if (state === "play") $("btn-menu").click(); return; }
+      if (state !== "play") return;
+      if (k === "m" || k === "M") { if (open === "galaxy-map") { $("gm-close").click(); } else if (!open) { $("galaxy-open").click(); } return; }
+      if (open) return;                                                        // gameplay keys only act on the live field
+      if (k === "1") useAbility("frenzy");
+      else if (k === "2") useAbility("dotrain");
+      else if (k === "3") useAbility("blackhole");
+      else if (k === "a" || k === "A") $("btn-auto").click();
+      else if (k === "t" || k === "T") { const u = S.units && S.units[0]; if (u) openSkillTree(u.type); }
+    });
+  }
 
   /* ----------------------------- loop / boot --------------------- */
   function resize() {

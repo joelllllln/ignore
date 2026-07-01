@@ -1,0 +1,103 @@
+/* ═══════════════ PC EDITION SHELL ═══════════════
+   Loaded by pc.html AFTER style.css. Same engine, same DOM contract — this sheet
+   re-arranges the mobile chrome into a desktop game frame:
+   · right-hand full-height COMMAND CONSOLE (the mobile dock)
+   · bottom-centre ability HOTBAR with keybind chips (1/2/3)
+   · HUD spans the field; menu/metrics/gems/fullscreen hug the console edge
+   · hover states, focus rings, desktop scrollbars, crosshair field cursor
+   All rules are scoped under body.pc so style.css stays the single mobile truth. */
+
+:root { --dock-w: 400px; }
+@media (min-width: 2200px) { :root { --dock-w: 470px; } }
+@media (max-width: 1150px) { :root { --dock-w: 340px; } }
+
+body.pc { cursor: default; }
+body.pc #game { cursor: crosshair; }
+/* the console reserves field width only while playing — the canvas backing store
+   re-fits via resize() (setScreen calls it), so the world stays centred on the field.
+   NB: canvas is a REPLACED element — width:auto would resolve to its intrinsic size,
+   not the left/right stretch, so the reserved width must be explicit. */
+body.pc.playing #game { width: calc(100% - var(--dock-w)); }
+body.pc.playing #boss-reward { right: var(--dock-w); }
+
+/* ── top HUD — spans the field, clear of the console ── */
+body.pc #top { right: var(--dock-w); padding: 12px 14px; gap: 12px; }
+body.pc .t-cash { padding: 8px 16px; border-radius: 8px; }
+body.pc .t-cash b { font-size: 22px; }
+body.pc .t-galaxy { max-width: 560px; padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+body.pc .t-galaxy:hover { border-color: #fff; }
+body.pc .g-label { font-size: 12.5px; }
+body.pc .g-bar { height: 7px; }
+
+/* ── field-corner chrome — buttons hug the console edge; version bottom-left ── */
+body.pc #btn-menu { right: calc(var(--dock-w) + 10px); top: 10px; }
+body.pc #btn-metrics { right: calc(var(--dock-w) + 10px); top: 54px; }
+body.pc #btn-ascend { right: calc(var(--dock-w) + 10px); top: 98px; }
+body.pc #btn-fullscreen { right: calc(var(--dock-w) + 10px); top: 142px; width: 38px; height: 38px;
+  background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; color: var(--text); font-size: 15px; display: none; }
+body.pc.playing #btn-fullscreen { display: block; }
+body.pc #btn-menu:hover, body.pc #btn-metrics:hover, body.pc #btn-ascend:hover, body.pc #btn-fullscreen:hover { border-color: #fff; }
+body.pc #version { top: auto; right: auto; left: 10px; bottom: 8px; width: auto; text-align: left; font-size: 10px; }
+
+/* ── COMMAND CONSOLE — the mobile bottom dock becomes a full-height right sidebar ── */
+body.pc #dock { top: 0; right: 0; bottom: 0; left: auto; width: var(--dock-w); padding: 14px 14px 12px;
+  background: linear-gradient(270deg, rgba(12,12,12,.97), rgba(12,12,12,.93));
+  border-left: 1px solid var(--edge); }
+body.pc #dock-toggle { display: none; }              /* the console is always open on PC */
+body.pc .dock-head { display: flex; justify-content: space-between; align-items: baseline;
+  font: 800 12px var(--mono); letter-spacing: 3px; color: var(--dim); padding: 2px 2px 12px; }
+body.pc .dock-head .dh-sub { font: 600 9px var(--mono); letter-spacing: 1px; opacity: .7; }
+body.pc #tabs { margin-bottom: 10px; }
+body.pc .tab { padding: 11px 6px; border-radius: 6px; font-size: 12.5px; letter-spacing: 1px; }
+body.pc .tab:hover { color: var(--text); border-color: #fff; }
+body.pc #up-list { max-height: none; position: absolute; top: 100px; left: 14px; right: 8px; bottom: 76px; padding-right: 6px; gap: 6px; }
+body.pc .up { border-radius: 8px; padding: 9px 10px; }
+body.pc .up:hover { border-color: rgba(255,255,255,.5); }
+body.pc .u-buy:hover:not(:disabled) { background: #fff; }
+body.pc .u-up:hover { background: rgba(255,255,255,.2); }
+body.pc #actions { position: absolute; left: 14px; right: 14px; bottom: 12px; margin: 0; }
+body.pc .act { padding: 12px 8px; border-radius: 8px; font-size: 13.5px; }
+body.pc .act:hover:not(:disabled) { border-color: #fff; }
+
+/* ── ABILITY HOTBAR — bottom-centre of the field, keybind chips on the buttons ── */
+body.pc #abilities { display: none; position: fixed; z-index: 12; bottom: 16px;
+  left: calc((100% - var(--dock-w)) / 2); transform: translateX(-50%); margin: 0; gap: 10px; }
+body.pc.playing #abilities { display: flex; }
+body.pc .ab { flex: 0 0 auto; width: 172px; padding: 11px 8px 15px; border-radius: 8px; font-size: 13px; backdrop-filter: blur(3px); }
+body.pc .ab:hover:not(:disabled) { border-color: #fff; }
+body.pc .ab-key { position: absolute; bottom: 5px; right: 6px; font: 700 10px var(--mono); color: var(--dim);
+  border: 1px solid var(--edge); border-radius: 4px; padding: 1px 5px; line-height: 1.3; }
+body.pc .ab-s { top: 5px; right: 8px; }
+body.pc .ab-cd { height: 4px; }
+
+/* ── desktop reading sizes for panels & modals ── */
+body.pc .card { max-width: 560px; padding: 22px; border-radius: 6px; }
+body.pc #metrics .card, body.pc #auto-modal .card, body.pc #ascend .card, body.pc #settings .card { max-width: 660px; }
+body.pc #info-gif { max-width: 420px; }
+body.pc .st-info { left: auto; right: 22px; bottom: 86px; width: 400px; }
+body.pc .gm-info { left: 22px; right: auto; bottom: 22px; width: 440px; }
+body.pc .map-hint { font-size: 12.5px; letter-spacing: .3px; }
+body.pc .st-foot { padding: 12px 20px; }
+body.pc .st-foot .st-tip { font-size: 12px; }
+body.pc .auto-list { max-height: 58vh; }
+body.pc .ascend-body { max-height: 64vh; }
+
+/* ── home = PC title screen ── */
+body.pc .home-card { max-width: 620px; padding: 42px 48px 30px; }
+body.pc .home-title { font-size: 52px; letter-spacing: 9px; margin-bottom: 2px; }
+body.pc .home-edition { font: 800 11px var(--mono); letter-spacing: 7px; color: var(--dim); margin: 4px 0 12px; }
+body.pc .home-sub { color: var(--dim); font-size: 13px; line-height: 1.55; margin-bottom: 16px; }
+body.pc .home-stats { margin-bottom: 20px; }
+body.pc .big { font-size: 16px; padding: 15px; }
+body.pc .big:hover { background: #fff; }
+body.pc .big.alt:hover { background: rgba(255,255,255,.06); }
+body.pc .home-keys { margin-top: 18px; color: var(--dim); font: 600 10.5px var(--mono); letter-spacing: 1px; line-height: 2.1; }
+body.pc .home-keys b { color: var(--sd); border: 1px solid var(--edge); border-radius: 4px; padding: 1px 6px; margin: 0 2px; font-weight: 700; }
+
+/* ── keyboard & pointer affordances ── */
+body.pc button:focus-visible, body.pc input:focus-visible { outline: 1px solid #fff; outline-offset: 2px; }
+body.pc .x:hover { color: #fff; }
+body.pc ::-webkit-scrollbar { width: 10px; height: 10px; }
+body.pc ::-webkit-scrollbar-track { background: rgba(255,255,255,.04); }
+body.pc ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 5px; border: 2px solid rgba(0,0,0,.6); }
+body.pc ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.35); }
