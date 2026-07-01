@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v11.3";
+  const VERSION = "v11.4";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1457,6 +1457,7 @@
       label = "▸▸ SPEED UP · " + curSym(S.galaxy) + " " + fmt(fin) + "   " + fmtTime(remain); dis = remain <= 0 || S.cash <= 0; }   // pay to cut the journey — a full payment (= the launch cost) arrives instantly; less cuts it proportionally
     else if (conq || S.free) {
       if (last) { label = "★ FINAL WORLD"; }
+      else if (!S.free && S.galaxy + 1 <= S.peakGalaxy) { ready = true; dis = false; label = "VISIT " + galName(S.galaxy + 1) + " ▸"; }   // next world already reached (you jumped back) — instant hop, NOT a fresh paid re-launch
       else { const cost = travelCost(); ready = true; dis = S.cash < cost; label = "LAUNCH ⟶ " + curSym(S.galaxy) + " " + fmt(cost); }
     } else { label = "CONQUER " + Math.floor(clamp(curEarned / tgt, 0, 1) * 100) + "%"; }
     const bt = $("btn-travel");
@@ -2470,6 +2471,7 @@
     const g = S.galaxy;
     if (S.travel) return;                                   // already en route
     if (g >= TOTAL_PLANETS) return;                         // no planet beyond the last
+    if (!S.free && g + 1 <= S.peakGalaxy) { jumpTo(g + 1); return; }   // next world already reached — instant hop, never a fresh paid re-launch/journey (fixes re-launching P1→P2 after already doing it)
     if (!S.free && !planetMeta(g).conquered) return;        // must conquer the current planet first (test mode may jump)
     const cost = travelCost();
     if (S.cash < cost) return;                              // need the launch funds banked
