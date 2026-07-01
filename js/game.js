@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v11.7";
+  const VERSION = "v11.8";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1246,10 +1246,13 @@
     ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(d.x, d.y, r * 0.24, 0, TAU); ctx.fill();                       // core eye
     ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(d.x + Math.cos(d.spin) * r * 0.1, d.y + Math.sin(d.spin) * r * 0.1, r * 0.1, 0, TAU); ctx.fill();
     if (d.shield > 0) { ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 3; ctx.globalAlpha = clamp(d.shield / d.shieldMax, 0.25, 1); ctx.beginPath(); ctx.arc(d.x, d.y, r * 1.78, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
-    const bw = 150, bx = d.x - bw / 2, by = d.y - r * 1.95 - 16;                                                    // health bar + name
+    const bw = 150, bx = d.x - bw / 2, by = d.y - r * 1.95 - 16;                                                    // COMBINED health bar (hp + shield share one bar so it ALWAYS drains — no more "frozen" HP while the shield is up)
+    const maxTot = d.maxHp + (d.shieldMax || 0), hpW = bw * clamp(d.hp / maxTot, 0, 1), shW = bw * clamp((d.shield || 0) / maxTot, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(bx - 2, by - 2, bw + 4, 9);
-    ctx.fillStyle = "#fff"; ctx.fillRect(bx, by, bw * clamp(d.hp / d.maxHp, 0, 1), 5);
-    if (d.shield > 0) { ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.fillRect(bx, by, bw * clamp(d.shield / d.shieldMax, 0, 1), 5); }
+    ctx.fillStyle = "#fff"; ctx.fillRect(bx, by, hpW, 5);                                                            // solid HP (bright)
+    if (shW > 0.4) { ctx.fillStyle = "rgba(255,255,255,0.32)"; ctx.fillRect(bx + hpW, by, shW, 5);                    // SHIELD segment (dim) sits to the right and depletes FIRST — you always see the total bar shrinking
+      ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 1; for (let sx = bx + hpW + 3; sx < bx + hpW + shW; sx += 4) { ctx.beginPath(); ctx.moveTo(sx, by + 0.5); ctx.lineTo(sx - 2.5, by + 4.5); ctx.stroke(); }   // diagonal hatching = "shield/armor" so it reads distinctly in monochrome
+      ctx.fillStyle = "#fff"; ctx.fillRect(bx + hpW - 0.5, by, 1, 5); }                                              // crisp divider between HP and shield
     // 1-minute COUNTDOWN: a draining bar under the health bar + a ticking number (flashes white when low)
     const lifeFrac = clamp(1 - (d.life || 0) / (d.ttl || 60), 0, 1), left = Math.max(0, Math.ceil((d.ttl || 60) - (d.life || 0))), low = left <= 10;
     ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(bx - 2, by + 7, bw + 4, 4);
