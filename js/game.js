@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v11.4";
+  const VERSION = "v11.7";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -816,7 +816,7 @@
   function spawnBoss() {
     const g = S.galaxy, vm = derived.valueMul, base = 18 * Math.pow(vm, 1.3);
     let dps = 0; for (const u of S.units) dps += uDmg(u) * DEF_TYPES[u.type].rate * cls(u.type).rate;   // size HP to your real firepower → a ~minute+ fight, scales with you
-    const hp = Math.max(base * 30, dps * 60);
+    const hp = Math.max(base * 30, dps * 45);   // sized so units-alone can't quite clear it (hp + 35% shield) within the 60s timer, but units + the DOUBLED finger-draw beat it with real margin at every tier — active play is rewarded, idle just misses
     const r = clamp(40 + Math.log10(hp + 10) * 2.4, 42, 60);
     const val = Math.max(1, Math.round(eco(g) * vm * derived.incomeMul * 320));   // PHAT bounty for a hard, timed kill
     // each planet's boss gets its OWN seeded movement personality (not the lazy drift-to-centre)
@@ -1047,7 +1047,7 @@
     }
   }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
-  function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, dmg, "draw"); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }
+  function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, d.boss ? dmg * 2 : dmg, "draw"); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }   // DOUBLE draw damage vs bosses — active drawing is what seals the ~60s boss kill (units alone barely miss the timer through the shield)
   // tap / drag over loot to manually bank it (no collector needed) — instant, full value.
   function collectAt(x, y) {
     for (let i = orbs.length - 1; i >= 0; i--) {
