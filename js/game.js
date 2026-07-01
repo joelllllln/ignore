@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v11.1";
+  const VERSION = "v11.2";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1993,8 +1993,12 @@
       : (enroute && g === S.travel.to) ? "<span class='gi-tag'>" + iconMarkup("rocket") + "En route — arriving in " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + "</span>"   // already flying here: no fresh-start button until you land
       : enroute ? "<span class='gi-tag'>" + iconMarkup("rocket") + "In transit…</span>"                                                                                            // can't travel/visit elsewhere mid-flight
       : reached ? "<button id='gi-jump'>⊙ Visit ▸</button>"   // dive into & play your save on this visited world
-      : next ? (conqHere ? "<button id='gi-travel'>Travel here ▸ (fresh start)</button>" : "<span class='gi-tag'>" + iconMarkup("lock") + "Conquer " + galName(S.galaxy) + " first</span>")
-      : "<span class='gi-tag'>" + iconMarkup("lock") + "Locked</span>";
+      : next ? (conqHere
+          ? (S.cash >= travelCost()
+              ? "<button id='gi-travel'>Travel here ▸  " + curSym(S.galaxy) + " " + fmt(travelCost()) + "</button>"
+              : "<button id='gi-travel' class='gi-lock' disabled>Travel ▸ need " + curSym(S.galaxy) + " " + fmt(travelCost()) + "</button>")   // show the launch cost + grey out until you can afford it (no more dead 'travel here')
+          : "<span class='gi-tag'>" + iconMarkup("lock") + "Conquer " + galName(S.galaxy) + " first</span>")
+      : "<span class='gi-tag'>" + iconMarkup("lock") + "Conquer earlier worlds first</span>";
     const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g), pv = S.vault[g];
     // per-planet progression: currency bank, idle rate, build, conquer status
     const bank = current ? S.cash : (pv ? pv.cash || 0 : 0);
