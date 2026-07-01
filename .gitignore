@@ -1,16 +1,12 @@
-# Godot 4 editor and import caches
-.godot/
-.import/
-export.cfg
-export_presets.cfg
+# Transient dev/test artifacts — the game itself is dependency-free (no build step).
+# Playwright is installed ad-hoc only to run the headless sims in tools/.
+node_modules/
+package.json
+package-lock.json
 
-# Exported builds
-build/
-*.exe
-*.pck
-*.zip
-
-# OS / editor noise
+# OS / editor cruft
 .DS_Store
 Thumbs.db
-*.tmp
+*.swp
+.idea/
+.vscode/

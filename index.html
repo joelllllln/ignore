@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Idle Dot Shooter</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="root">
+  <canvas id="game"></canvas>
+
+  <!-- BUILD VERSION (bumped every update — top-right) -->
+  <div id="version" class="layer">v12.0</div>
+
+  <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
+  <div id="cine-top" class="cine"></div>
+  <div id="cine-bottom" class="cine"></div>
+  <div id="transition"></div>
+  <div id="land-title"></div>
+
+  <!-- BOSS REWARD popup (non-blocking; auto-dismisses) -->
+  <div id="boss-reward" class="layer">
+    <div class="br-card">
+      <div class="br-title" id="br-title"></div>
+      <div class="br-cash" id="br-cash"></div>
+      <div class="br-bonus" id="br-bonus"></div>
+    </div>
+  </div>
+
+  <!-- TOP BAR -->
+  <div id="top" class="layer">
+    <div class="t-cash"><div class="tc-main"><b id="ui-cash">0</b><span id="ui-cps">+0/s</span></div><span id="ui-cap"> </span></div>
+    <div class="t-galaxy" id="galaxy-open">
+      <div class="g-label">PLANET <b id="ui-galaxy">1</b> <span id="ui-gname"></span> <span class="g-tap">▾</span></div>
+      <div class="g-bar"><div id="galaxy-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM DOCK -->
+  <div id="dock" class="layer">
+    <div id="dock-toggle">▾ Minimise</div>
+    <div id="abilities">
+      <button class="ab" id="ab-frenzy"><i class="ab-i" data-info="frenzy">i</i><span class="ab-n"><i data-ico="bolt"></i>Frenzy</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
+      <button class="ab" id="ab-dotrain"><i class="ab-i" data-info="dotrain">i</i><span class="ab-n"><i data-ico="rain"></i>Dot Rain</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
+      <button class="ab" id="ab-blackhole"><i class="ab-i" data-info="blackhole">i</i><span class="ab-n"><i data-ico="blackhole"></i>Black Hole</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
+    </div>
+    <div id="tabs">
+      <button class="tab sel" data-tab="def">DEFENCE</button>
+      <button class="tab" data-tab="drone">COLLECTORS</button>
+      <button class="tab" data-tab="eco">ECONOMY</button>
+      <button id="buymode" title="Buy amount">BUY ×1</button>
+    </div>
+    <div id="up-list"></div>
+    <div id="actions">
+      <button class="act" id="btn-auto"><i data-ico="gear"></i>AUTO</button>
+      <button class="act travel" id="btn-travel">TRAVEL ▸</button>
+    </div>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div id="home" class="modal show">
+    <div class="card home-card">
+      <h1 class="home-title">IDLE&nbsp;DOT<span>SHOOTER</span></h1>
+      <div class="home-stats"><span>Planet <b id="home-gal">1</b></span></div>
+      <button class="big" id="home-play"><i data-ico="play"></i>PLAY</button>
+      <button class="big alt" id="home-galaxies"><i data-ico="planet"></i>PLANETS &amp; PROGRESS</button>
+      <button class="big alt" id="home-how"><i data-ico="help"></i>HOW TO PLAY</button>
+      <button class="big alt" id="home-settings"><i data-ico="gear"></i>SETTINGS</button>
+      <button class="big alt danger" id="home-reset"><i data-ico="reset"></i>RESET SAVE</button>
+      <div class="home-codes">
+        <label>CODES</label>
+        <input id="code-input" type="text" placeholder="enter code…" autocomplete="off" autocapitalize="none" spellcheck="false" />
+        <button id="code-go">OK</button>
+        <span id="code-msg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW TO -->
+  <div id="how" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>How to play</h2><button class="x" id="how-close">✕</button></div>
+      <ul class="how-list">
+        <li><i data-ico="turret"></i><b>Defenders</b> auto-fire at dots. Dots are TANKY — more damage = faster kills = more income, so your defenders &amp; their skill trees ARE your economy.</li>
+        <li><i data-ico="shield"></i><b>Armored dots</b> (double-ringed) have huge defense and move slowly — they need real firepower but drop a big bounty, and their cash orbs are heavy &amp; slow, so you'll want stronger collectors.</li>
+        <li><i data-ico="alien"></i>Every <b>planet has its own native enemy race</b> with a unique ability &amp; look — splitters that split again and again, shielded bastions, cloakers, teleporting wraiths, loot-eating devourers, minion-spawning broods and more. The tougher a dot, the more spikes &amp; rings it grows. Tap a planet on the map to see its native race.</li>
+        <li><i data-ico="gem"></i>Big kills drop <b>heavy loot</b> that a collector must sit and <b>consume</b> (watch the ring fill) — small dots are instant, fat ones tie a collector up.</li>
+        <li><i data-ico="tree"></i><b>Tap any defender</b> (or hit ⬆ Tree) to open its <b>skill tree</b> — an interconnected node map. Allocate outward from the centre; each node needs a <b>connected</b> node first. Nodes <b>stack additively</b> (each adds a flat bonus that sums — linear, no runaway; early nodes feel strong, later ones taper), and ✦ <b>keystones</b> add multishot AND a crazy <b>weapon specialization</b> — ✦Explosive Rounds (bombs), ✦Chain Lightning, or ✦Piercing Laser. A whole <b>◈ Mind</b> branch upgrades the unit's <b>intelligence &amp; coordination</b> — smart units avoid overkill, don't both shoot the same doomed dot, and triage the most valuable targets, so no shot is wasted. Costs climb steeply, so plan your route. Every unit of that class shares the tree.</li>
+        <li><i data-ico="collector"></i><b>Collectors</b> gather the cash dots drop. Buy more in the <b>COLLECTORS</b> tab and unlock new classes across all three systems: <b>Drone</b> → <b>Drone Swarm</b> → <b>Heavy Collector</b> → <b>Magnet</b> → <b>Tractor</b> → <b>Black Hole</b> → <b>Wormhole</b> (the last two slowly drag everything in). Each has its own skill web.</li>
+        <li><i data-ico="star4"></i><b>Conquer planets</b> to unlock <b>Travel</b> and add each world to your <b>idle empire</b> (it keeps earning for you forever, even offline). You still rebuild from scratch on each planet. You <b>steamroll</b> within a solar system as each conquer bar eases down, then a <b>new system</b> spikes the difficulty back up and you climb again. A planet is a real <b>hours-long campaign</b> — active play (drawing, abilities, fat upgrades) is the fast path.</li>
+      <li><i data-ico="castle"></i>Every <b>conquered planet keeps earning for you while you're away</b>, and your whole <b>idle empire grows stronger the more worlds you hold</b> — early planets are an active grind, but lategame your empire can largely <b>idle you to the next conquest</b>, so you never have to hand-manage all 18.</li>
+        <li><i data-ico="coin"></i><b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck.</li>
+        <li><i data-ico="planet"></i>Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for tougher dots, more of them, and bigger payouts.</li>
+        <li><i data-ico="brush"></i><b>Draw across the field</b> to blast dots yourself — and your draw hits <b>mini-bosses for DOUBLE</b>, so actively drawing is how you seal a boss kill before its timer runs out.</li>
+      </ul>
+      <button class="big" id="how-back">BACK</button>
+    </div>
+  </div>
+
+  <!-- CLASS SKILL TREE (full-screen node web) -->
+  <div id="skilltree" class="modal stmodal">
+    <div class="st-head"><div><b id="st-title">Turret</b> <span id="st-owned" class="muted"></span></div><button class="x" id="st-close">✕</button></div>
+    <div id="st-stats" class="st-stats"></div>
+    <div id="st-wallet" class="st-wallet">
+      <div class="sw-col"><span class="sw-lbl">TOTAL</span><b id="sw-tot">0</b></div>
+      <div class="sw-col"><span class="sw-lbl">PER SEC</span><b id="sw-rate">+0/s</b></div>
+    </div>
+    <canvas id="sttree"></canvas>
+    <div id="st-info" class="st-info">
+      <div class="si-head"><span class="si-name" id="si-name"></span><span class="si-tag" id="si-tag"></span></div>
+      <div class="si-desc" id="si-desc"></div>
+      <div class="si-fx" id="si-fx"></div>
+      <div class="si-prev" id="si-prev"></div>
+      <button id="st-upgrade" class="si-btn">UPGRADE</button>
+    </div>
+    <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><span id="st-pick-tip" class="st-tip pick" style="display:none"><i data-ico="gear"></i>PICK — tap nodes to add them to this Auto-Buy step</span><button id="st-auto" style="display:none"><i data-ico="gear"></i>Pick</button><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset"><i data-ico="reset"></i>Recenter</button><button id="st-sell">SELL ONE</button></div>
+  </div>
+
+  <!-- GALAXY MAP (interactive 3D) -->
+  <div id="galaxy-map" class="modal mapmodal">
+    <canvas id="gmap"></canvas>
+    <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-auto"><i data-ico="gear"></i>AUTO</button><button class="mbtn" id="gm-reset"><i data-ico="reset"></i>Recenter</button><button class="x" id="gm-close">✕</button></div></div>
+    <div class="map-hint">one finger = move · two fingers: pinch to zoom, drag to rotate · scroll = zoom · tap a ★ sun to centre · tap a planet to visit</div>
+    <div id="gm-info" class="gm-info"></div>
+  </div>
+
+  <!-- AUTO-BUY (idle automation) -->
+  <div id="auto-modal" class="modal">
+    <div class="card">
+      <div class="card-head"><h2><i data-ico="gear"></i>Auto-Buy <span id="auto-planet" class="auto-planet"></span></h2><button class="x" id="auto-close">✕</button></div>
+      <p class="muted" id="auto-sub"><b>Every planet, in one place.</b> Each has its own build order — tap a planet to expand it, <b>arm it with its power toggle</b>. Steps run sequentially; a planet gets <b>one slot per its number</b>. +50% tax.</p>
+      <button class="big" id="auto-toggle">AUTO-BUY: OFF</button>
+      <div id="auto-lock" class="auto-lock"></div>
+      <div id="auto-list" class="auto-list"></div>
+      <p class="muted auto-hint">Add steps &amp; choose each target. Economy/Units use a count (−/＋); a <b>tree</b> step → <b>EDIT</b> to hand-pick as many nodes as you want on that class (all one slot). The ▶ step finishes before the next starts. Runs while you're away.</p>
+      <button class="big" id="auto-back">DONE</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settings" class="modal">
+    <div class="card">
+      <div class="card-head"><h2><i data-ico="gear"></i>Settings</h2><button class="x" id="set-close">✕</button></div>
+      <div id="set-list" class="set-list"></div>
+      <button class="big alt" id="set-how"><i data-ico="help"></i>How to play</button>
+      <button class="big alt" id="set-tutorial"><i data-ico="help"></i>Replay tutorial</button>
+      <button class="big" id="set-back">DONE</button>
+    </div>
+  </div>
+
+  <!-- WELCOME BACK -->
+  <div id="welcome" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>Welcome back</h2></div>
+      <p id="welcome-text" class="muted"></p>
+      <div class="rb-gain" id="welcome-cash"></div>
+      <button class="big" id="welcome-ok">COLLECT</button>
+    </div>
+  </div>
+
+  <!-- INFO -->
+  <div id="info-modal" class="modal">
+    <div class="card">
+      <div class="card-head"><h2 id="info-title">Info</h2><button class="x" id="info-close">✕</button></div>
+      <img id="info-gif" alt="" />
+      <p id="info-text" class="muted"></p>
+      <button class="big" id="info-back">GOT IT</button>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <button id="btn-metrics" class="layer" title="Metrics">▁▄█</button>
+  <div id="metrics" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>Metrics</h2><button class="x" id="metrics-close">✕</button></div>
+      <div id="metrics-body"></div>
+      <button class="big" id="metrics-back">BACK</button>
+    </div>
+  </div>
+
+  <!-- ASCENSION (permanent cross-planet gem perk tree) -->
+  <button id="btn-ascend" class="layer" title="Ascension"><i data-ico="gem"></i><b id="ascend-n">0</b></button>
+  <div id="ascend" class="modal">
+    <div class="card">
+      <div class="card-head"><h2><i data-ico="gem"></i>Ascension</h2><button class="x" id="ascend-close">✕</button></div>
+      <p class="muted">Permanent perks that carry from planet to planet (your skill trees reset — these don't). Earn <b>Gems</b> by conquering planets and spend them here. Tier I costs 1 gem, II costs 2, III costs 3; a tier unlocks once you own 4 perks from the tier before it.</p>
+      <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> gems</div>
+      <div id="ascend-body" class="ascend-body"></div>
+      <button class="big" id="ascend-back">DONE</button>
+    </div>
+  </div>
+
+  <!-- FIRST-RUN COACH MARKS -->
+  <div id="tutorial">
+    <div id="tut-spot"></div>
+    <div id="tut-card">
+      <div id="tut-step" class="tut-step"></div>
+      <h3 id="tut-title"></h3>
+      <p id="tut-text"></p>
+      <div class="tut-btns"><button id="tut-skip">Skip</button><button id="tut-next" class="big">Next ▸</button></div>
+    </div>
+  </div>
+
+  <!-- MENU -->
+  <button id="btn-menu" class="layer"><i data-ico="menu"></i></button>
+  <div id="menu" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>Idle Dot Shooter</h2><button class="x" id="menu-close">✕</button></div>
+      <p class="muted">Auto-fire at the dots. Drone collects the cash. Buy upgrades across Defence, Drone &amp; Economy. Travel between planets across three solar systems for tougher dots and bigger payouts.</p>
+      <button class="big" id="menu-resume">RESUME</button>
+      <button class="big alt" id="menu-settings"><i data-ico="gear"></i>SETTINGS</button>
+      <button class="big alt" id="menu-home"><i data-ico="home"></i>MAIN MENU</button>
+      <button class="big danger" id="menu-reset">RESET SAVE</button>
+    </div>
+  </div>
+</div>
+<script src="js/game.js"></script>
+</body>
+</html>
