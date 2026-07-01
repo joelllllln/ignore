@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v11.0";
+  const VERSION = "v11.1";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -126,7 +126,8 @@
   // under the travel wall — instead of the nonsensical flat 15%·12B = $1.8B.
   const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
   const BUY_MUL = 5;   // global ~5× slowdown on buying units/upgrades/nodes — army-building is a long arc, not a 40-min sprint
-  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * BUY_MUL * Math.pow(1.5, countType(type)) * pk().cost);   // planet-local, geometric in count — ~5× the old cost, so the LAST unit lands only when you're in the billions; × Ascension cost-reduction perk
+  const TEST_MUL = () => S.free ? 0.01 : 1;   // TEST MODE is no longer "free" — everything costs 1% of normal (so the economy still runs, just 100× faster, and between-planet flow behaves)
+  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * BUY_MUL * Math.pow(1.5, countType(type)) * pk().cost * TEST_MUL());   // planet-local, geometric in count — ~5× the old cost, so the LAST unit lands only when you're in the billions; × Ascension cost-reduction perk
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -338,7 +339,7 @@
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const UP_DISC = { value: 0.9, spawnRate: 0.9 };   // Value & Spawn Rate are a permanent 10% cheaper than the rest
-  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost * (UP_DISC[u.id] || 1));   // planet-local: ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
+  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost * (UP_DISC[u.id] || 1) * TEST_MUL());   // planet-local: ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
 
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
@@ -349,7 +350,7 @@
   // against the now-removed Conquest multiplier's ×1.8^g income growth; with Conquest gone it would make
   // late-planet travel unaffordable, so it's dropped.)
   const TRAVEL_COST_K = 5e6;
-  const travelCost = g => { g = g || S.galaxy; return Math.round(eco(g) * TRAVEL_COST_K); };
+  const travelCost = g => { g = g || S.galaxy; return Math.round(eco(g) * TRAVEL_COST_K * TEST_MUL()); };
   // HYBRID DIFFICULTY (see diff/eco below): each planet's NUMBER-MAGNITUDE rides eco(g) — income AND
   // costs both ride it, so it cancels and the per-planet loop has the same shape everywhere. What does
   // NOT cancel is enemyHpMul: dots get genuinely tankier per planet (and ~double at each new solar
@@ -857,8 +858,8 @@
   }
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.pow(derived.valueMul, 1.3), base = 18 * enemyHpMul(g) * vscale, avg = base * 1.3;   // HP scales SUPER-linearly with Value — Value genuinely & heavily toughens enemies; cash is unaffected (it keys off hp/avg, where base cancels)
-    const men = S.free ? 1.0 : clamp(S.lv.value / 28, 0, 3.5);   // "menace": Value drives how tough/common the hard dots are — steeper & high cap so the strongest become real multi-second tanks
-    const men01 = S.free ? 1 : Math.min(1, men);                  // 0..1 gate — keeps dots BASIC until Value is invested
+    const men = clamp(S.lv.value / 28, 0, 3.5);   // "menace": Value drives how tough/common the hard dots are — steeper & high cap so the strongest become real multi-second tanks (test mode uses real menace too, so between-planet testing is representative)
+    const men01 = Math.min(1, men);               // 0..1 gate — keeps dots BASIC until Value is invested
     let roll = rnd(0.7, 1.0 + men * 5.0), armored = false, kind = "normal", cfg = null, mv = 20;
     // difficulty & craziness are bought with VALUE: at Value 0 every dot is the
     // plainest tier-0 grey. armored elites & exotic kinds only appear once you invest.
@@ -1452,10 +1453,11 @@
     $("galaxy-fill").style.width = clamp(conq ? 1 : curEarned / tgt, 0, 1) * 100 + "%";
     const last = S.galaxy >= TOTAL_PLANETS;
     let label, dis = true, ready = false, enroute = false;
-    if (S.travel) { enroute = true; if (S.free) { label = "▸▸ SKIP JOURNEY (" + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + ")"; dis = false; } else { label = "EN ROUTE … " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)); } }
+    if (S.travel) { enroute = true; const remain = Math.max(0, S.travel.dur - S.travel.t), fin = skipToFinishCost();
+      label = "▸▸ SPEED UP · " + curSym(S.galaxy) + " " + fmt(fin) + "   " + fmtTime(remain); dis = remain <= 0 || S.cash <= 0; }   // pay to cut the journey — a full payment (= the launch cost) arrives instantly; less cuts it proportionally
     else if (conq || S.free) {
       if (last) { label = "★ FINAL WORLD"; }
-      else { const cost = travelCost(); ready = true; dis = !(S.free || S.cash >= cost); label = "LAUNCH ⟶ " + (S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(cost)); }
+      else { const cost = travelCost(); ready = true; dis = S.cash < cost; label = "LAUNCH ⟶ " + curSym(S.galaxy) + " " + fmt(cost); }
     } else { label = "CONQUER " + Math.floor(clamp(curEarned / tgt, 0, 1) * 100) + "%"; }
     const bt = $("btn-travel");
     if (bt.textContent !== label) bt.textContent = label;   // write only on change — no per-frame repaint flicker
@@ -1469,18 +1471,18 @@
         row.desc.textContent = n + "/" + d.max + (locked ? "" : " · " + d.name);
         if (locked) { row.buy.innerHTML = iconMarkup("lock") + "from P" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
         else if (full) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.add("maxed"); }
-        else { row.buy.textContent = S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = !S.free && S.cash < c; row.buy.classList.toggle("afford", S.free || S.cash >= c); row.el.classList.remove("maxed"); }
+        else { row.buy.textContent = curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); row.el.classList.remove("maxed"); }
       } else {
         const u = UP[id], lvl = S.lv[id], maxed = u.max != null && lvl >= u.max;
         row.lv.textContent = "Lv " + lvl; row.desc.textContent = u.desc(lvl);
         if (maxed) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.el.classList.add("maxed"); row.buy.classList.remove("afford"); }
-        else { const c = upCost(u); row.buy.textContent = S.free ? "FREE" : curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = !S.free && S.cash < c; row.buy.classList.toggle("afford", S.free || S.cash >= c); row.el.classList.remove("maxed"); }
+        else { const c = upCost(u); row.buy.textContent = curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); row.el.classList.remove("maxed"); }
       }
     }
     // tab badges
     const aff = { def: false, drone: false, eco: false };
-    for (const t of DEF_ORDER) if (S.free || (S.galaxy >= DEF_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.def = true;
-    for (const t of COL_ORDER) if (S.free || (S.galaxy >= COL_TYPES[t].gal && S.cash >= unitBuyCost(t))) aff.drone = true;
+    for (const t of DEF_ORDER) if ((S.free || S.galaxy >= DEF_TYPES[t].gal) && S.cash >= unitBuyCost(t)) aff.def = true;
+    for (const t of COL_ORDER) if ((S.free || S.galaxy >= COL_TYPES[t].gal) && S.cash >= unitBuyCost(t)) aff.drone = true;
     for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
     for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
   }
@@ -1517,8 +1519,8 @@
     let bought = 0;
     for (let i = 0; i < buyN(); i++) {
       if (countType(type) >= TY(type).max) break;
-      const c = unitBuyCost(type); if (!S.free && S.cash < c) break;
-      if (!S.free) S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); bought++;
+      const c = unitBuyCost(type); if (S.cash < c) break;
+      S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); bought++;
     }
     if (!bought) return;
     if (isCol(type)) syncCollectors();
@@ -1528,8 +1530,8 @@
     let bought = 0;
     for (let i = 0; i < buyN(); i++) {
       const lvl = S.lv[u.id]; if (u.max != null && lvl >= u.max) break;
-      const c = upCost(u); if (!S.free && S.cash < c) break;
-      if (!S.free) S.cash -= c; S.lv[u.id]++; bought++;
+      const c = upCost(u); if (S.cash < c) break;
+      S.cash -= c; S.lv[u.id]++; bought++;
     }
     if (!bought) return;
     Audio_buy(); recompute(); syncHUD(); save();
@@ -1599,7 +1601,7 @@
   // one purchase pass: advance the active step (sequential — wait, don't skip, if it's unaffordable)
   function autoBuyOnce(b) {
     const a = autoActive(); if (!a || a.next.cost > b.cash) return false;
-    a.next.buy(); if (!S.free) b.cash -= a.next.cost; b.n = (b.n || 0) + 1; return true;
+    a.next.buy(); b.cash -= a.next.cost; b.n = (b.n || 0) + 1; return true;   // always pay (test mode's 1% cost is already baked into the cost fns)
   }
   // shortest node path from the tree's centre to a node (so picking a deep node also marks its prerequisites)
   function treePath(type, id) {
@@ -1613,10 +1615,10 @@
     if (!curAuto().on || !autoUnlocked()) return;
     autoAcc = Math.min(autoAcc + autoRate() * dt, 120);
     if (autoAcc < 1) return;
-    const b = { cash: S.free ? Infinity : S.cash }; let tries = Math.floor(autoAcc);
+    const b = { cash: S.cash }; let tries = Math.floor(autoAcc);
     while (tries-- > 0 && autoBuyOnce(b)) { autoAcc -= 1; }
     if (autoAcc >= 1) autoAcc = Math.min(autoAcc, 4);   // nothing affordable — don't bank an ever-growing backlog
-    if (b.n) { if (!S.free) S.cash = b.cash; recompute(); if (state === "play") renderList(); if ($("auto-modal") && $("auto-modal").classList.contains("show")) renderAuto(); }
+    if (b.n) { S.cash = b.cash; recompute(); if (state === "play") renderList(); if ($("auto-modal") && $("auto-modal").classList.contains("show")) renderAuto(); }
   }
   // OFFLINE: drain a banked budget into purchases (bounded). returns { bought, leftover }
   function autoBuyOffline(pool) {
@@ -1855,10 +1857,10 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * Math.pow(1.28, allocCount(type)) * k * (DEF_SCALE[type] || 1) * pk().cost); }   // base 6.0 → the FIRST node is a real save-up investment (~4× the old cost, ~40% of a 2nd unit), not pocket change; growth eased 1.33→1.28 so the pricier early cost doesn't balloon the late curve (the back half stays about as reachable as before); ×DEF_SCALE keeps stronger-per-node classes proportionally costed
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * Math.pow(1.28, allocCount(type)) * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }   // base 6.0 → the FIRST node is a real save-up investment (~4× the old cost, ~40% of a 2nd unit), not pocket change; growth eased 1.33→1.28 so the pricier early cost doesn't balloon the late curve (the back half stays about as reachable as before); ×DEF_SCALE keeps stronger-per-node classes proportionally costed
   function allocNode(type, n) {
-    if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (!S.free && S.cash < c) return;
-    if (!S.free) S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
+    if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
+    S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
   }
   function allocAll(type) {   // test-mode: instantly allocate the WHOLE tree (skips cost/affordability — free sandbox only)
     if (!S.free) return;
@@ -1878,7 +1880,7 @@
     const panel = $("st-info"), type = STree.type;
     if (!n || n.kind === "start") { panel.classList.remove("show"); STree.sel = n ? n.id : null; return; }
     STree.sel = n.id;
-    const has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.free || S.cash >= cost, fx = nodeFx(type, n);
+    const has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost, fx = nodeFx(type, n);
     $("si-name").textContent = nodeIcon(type, n) + "  " + (nodeLabel(type, n) || fx);
     $("si-tag").textContent = n.kind === "key" ? "✦ Notable Keystone" : n.kind === "major" ? "◆ Notable" : "• Passive";
     const keyDef = n.kind === "key" && !isCol(type);
@@ -1893,7 +1895,7 @@
       sk.map(k => STAT_GIF[k]).find(Boolean));   // show the clip for this node's primary stat
     const btn = $("st-upgrade");
     if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
-    else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = S.free ? "ALLOCATE · FREE" : "ALLOCATE · " + curSym(S.galaxy) + " " + fmt(cost); btn.disabled = !afford; }
+    else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = "ALLOCATE · " + curSym(S.galaxy) + " " + fmt(cost); btn.disabled = !afford; }
     else { $("si-prev").innerHTML = iconMarkup("lock") + "Locked — first allocate a node connected to this one."; btn.textContent = "LOCKED"; btn.disabled = true; }
     panel.classList.add("show");
   }
@@ -2464,13 +2466,23 @@
     const g = S.galaxy;
     if (S.travel) return;                                   // already en route
     if (g >= TOTAL_PLANETS) return;                         // no planet beyond the last
-    if (!S.free && !planetMeta(g).conquered) return;        // must conquer the current planet first
+    if (!S.free && !planetMeta(g).conquered) return;        // must conquer the current planet first (test mode may jump)
     const cost = travelCost();
-    if (!S.free && S.cash < cost) return;                   // need the launch funds banked
-    if (!S.free) { S.cash -= cost; }
+    if (S.cash < cost) return;                              // need the launch funds banked
+    S.cash -= cost;
     let fromW = null, toW = null; try { const w = GMap.planetWorld(g), w2 = GMap.planetWorld(g + 1); fromW = { x: w.x, y: w.y, z: w.z }; toW = { x: w2.x, y: w2.y, z: w2.z }; } catch (e) {}   // freeze BOTH endpoints at launch — the trajectory line is fixed in space and never drifts as the planets orbit
-    S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g), fromW, toW };
+    S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g), fromW, toW, cost };   // store the launch cost — the same amount, paid again, finishes the journey instantly (partial payments cut it proportionally)
     META.stats.travels++; flashAdd(0.35); shakeAdd(2); vibe(60); recompute(); syncHUD(); save();
+  }
+  // PAY TO SPEED UP the journey: the full-journey "instant" price = the launch cost; from any point, finishing
+  // the REMAINING trip costs that × (remaining ÷ total). You can pay a partial amount to cut just part of it.
+  const skipToFinishCost = () => { if (!S.travel) return 0; const dur = S.travel.dur || 1, remain = Math.max(0, dur - (S.travel.t || 0)); const full = S.travel.cost || travelCost(S.travel.from); return Math.ceil(full * remain / dur); };
+  function speedTravel() {
+    if (!S.travel) return; const dur = S.travel.dur || 1, t = S.travel.t || 0, remain = dur - t; if (remain <= 0) return;
+    const full = S.travel.cost || travelCost(S.travel.from);
+    const pay = Math.min(S.cash, Math.ceil(full * remain / dur)); if (pay <= 0) return;   // spend up to the cost-to-finish; less than that just cuts part of the trip
+    S.cash -= pay; S.travel.t = Math.min(dur, t + (pay / full) * dur);                     // buy that fraction of the WHOLE journey
+    vibe(20); flashAdd(0.15); syncHUD(); save();
   }
   // jump to ANY reached planet (revisit & upgrade your background empire, or test)
   function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; snapshotActive(); flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); activatePlanet(g); save(); }
@@ -2568,7 +2580,7 @@
   // pre-built roster). Toggle off by entering the code again.
   function unlockAll() {
     S.free = !S.free;                                       // toggle free sandbox
-    if (S.free) { S.peakGalaxy = TOTAL_PLANETS; S.cash = Math.max(S.cash, 1e12); }   // all planets jumpable; cash just for show (buys are free)
+    if (S.free) { S.peakGalaxy = TOTAL_PLANETS; S.cash = Math.max(S.cash, 1e12); }   // TEST MODE: all planets jumpable + a big cash float so the 1%-cost buys are trivially affordable
     if ($("buymode")) { $("buymode").style.display = S.free ? "" : "none"; $("buymode").textContent = "BUY ×" + BUY_AMTS[buyIdx]; }   // bulk-buy control is a test-mode tool
     syncCollectors(); recompute(); renderList(); syncHUD(); save();
     return S.free;
@@ -2619,7 +2631,7 @@
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
   for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
   $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
-  $("btn-travel").onclick = () => { if (S.travel) { if (S.free) S.travel.t = S.travel.dur; return; } travel(); };   // free mode: tapping while EN ROUTE skips the journey timer (arrival is processed next update tick)
+  $("btn-travel").onclick = () => { if (S.travel) { speedTravel(); return; } travel(); };   // en route: pay to speed up (partial = cut part, full = arrive instantly). arrival is processed next update tick
   const openFx = () => { if (!$("fxpage")) return; openExchange(); $("fxpage").classList.add("show"); };   // EXCHANGE retired — one global currency now; guarded so the removed buttons can't throw
   if ($("btn-exchange")) $("btn-exchange").onclick = openFx;
   if ($("fx-close")) $("fx-close").onclick = () => $("fxpage").classList.remove("show");
