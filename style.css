@@ -79,6 +79,15 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .ab-i{position:absolute;top:3px;left:4px;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid var(--edge);
   color:var(--text);font-family:var(--mono);font-style:italic;font-size:10px;line-height:13px;text-align:center}
 #info-text{font-size:14px;line-height:1.6}
+/* boss-reward popup — non-blocking banner that slides down from the top and auto-hides */
+#boss-reward{position:fixed;left:0;right:0;top:0;z-index:40;display:flex;justify-content:center;pointer-events:none;
+  transform:translateY(-140%);opacity:0;transition:transform .35s cubic-bezier(.2,1.3,.4,1),opacity .35s ease}
+#boss-reward.show{transform:translateY(0);opacity:1}
+#boss-reward .br-card{margin-top:64px;background:var(--panel);border:1px solid var(--edge);border-radius:14px;
+  padding:12px 22px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.6);min-width:220px}
+#boss-reward .br-title{font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:1.5px;color:#fff}
+#boss-reward .br-cash{font-family:var(--mono);font-weight:800;font-size:22px;color:var(--cash);margin-top:3px}
+#boss-reward .br-bonus{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--sd);margin-top:4px}
 #info-gif{display:none;width:100%;max-width:340px;margin:0 auto 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);image-rendering:auto}
 
 /* metrics modal */

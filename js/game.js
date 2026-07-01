@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v11.8";
+  const VERSION = "v11.9";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -670,6 +670,14 @@
     $("welcome-text").textContent = "You kept earning for " + fmtTime(w.elapsed) + " at your last on-screen rate." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : "");
     $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(w.gain); $("welcome").classList.add("show");
   }
+  function showBossReward(name, cashStr, gem, node) {   // non-blocking "what you got" banner on a boss kill; auto-dismisses
+    const el = $("boss-reward"); if (!el) return;
+    $("br-title").textContent = "▲ " + name + " DEFEATED";
+    $("br-cash").textContent = "+" + cashStr;
+    const bn = $("br-bonus"); if (bn) { bn.textContent = gem ? "◈ +1 GEM — spend it in Ascension" : node ? "✦ +1 FREE SKILL NODE" : "loot dropped — grab the orbs"; }
+    el.classList.add("show");
+    clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 4200);
+  }
   function applyAway(e) {
     e = clamp(e, 0, 12 * 3600); if (e < 1 || !S) return;
     if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;                 // expeditions keep travelling while away
@@ -1017,13 +1025,14 @@
         const np = 6; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
         const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the bounty even if orbs scatter)
         S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump; earnAcc += lump;   // bounty bypasses the capacity ceiling so the reward always lands in full (also feeds the live $/s)
-        let bonus = "";                          // rare bonus on top of the cash bounty
+        let bonus = "", gemDrop = false, nodeDrop = false;   // rare bonus on top of the cash bounty
         const roll = Math.random();
-        if (roll < BOSS_GEM_CHANCE) { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; bonus = "  ·  ◈ +1 GEM!"; floatTxt(W / 2, H / 2 - 30, "◈ A GEM DROPPED — spend it in Ascension"); flashAdd(0.4); }
-        else if (roll < BOSS_GEM_CHANCE + BOSS_NODE_CHANCE) { if (grantTreeNodes(1)) bonus = "  ·  ✦ +1 FREE NODE"; }
+        if (roll < BOSS_GEM_CHANCE) { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; bonus = "  ·  ◈ +1 GEM!"; gemDrop = true; flashAdd(0.4); }
+        else if (roll < BOSS_GEM_CHANCE + BOSS_NODE_CHANCE) { if (grantTreeNodes(1)) { bonus = "  ·  ✦ +1 FREE NODE"; nodeDrop = true; } }
         burst(d.x, d.y, 60, 240, 3.4); ring(d.x, d.y, d.r, d.r + 150, 0.7); ring(d.x, d.y, d.r, d.r + 80, 0.5); shakeAdd(9); flashAdd(0.5);
         floatTxt(d.x, d.y - d.r - 12, "✦ " + bossName(d.bg || S.galaxy) + " DEFEATED");
         floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + bonus);
+        showBossReward(bossName(d.bg || S.galaxy), curSym(S.galaxy) + " " + fmt(lump + d.value), gemDrop, nodeDrop);   // the "what you got" popup
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
         recompute(); syncHUD();
         return;

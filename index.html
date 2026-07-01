@@ -12,13 +12,22 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v11.8</div>
+  <div id="version" class="layer">v11.9</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
   <div id="cine-bottom" class="cine"></div>
   <div id="transition"></div>
   <div id="land-title"></div>
+
+  <!-- BOSS REWARD popup (non-blocking; auto-dismisses) -->
+  <div id="boss-reward" class="layer">
+    <div class="br-card">
+      <div class="br-title" id="br-title"></div>
+      <div class="br-cash" id="br-cash"></div>
+      <div class="br-bonus" id="br-bonus"></div>
+    </div>
+  </div>
 
   <!-- TOP BAR -->
   <div id="top" class="layer">
