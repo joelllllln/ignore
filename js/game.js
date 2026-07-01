@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v11.2";
+  const VERSION = "v11.3";
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1990,7 +1990,7 @@
     const enroute = !!S.travel;
     const weps = ALL_TYPES.filter(t => TY(t).gal === g).map(t => TY(t).name);
     const action = current ? "<span class='gi-tag'>▶ You are here</span> <button id='gi-visit'>⊙ Zoom to base ▸</button>"
-      : (enroute && g === S.travel.to) ? "<span class='gi-tag'>" + iconMarkup("rocket") + "En route — arriving in " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + "</span>"   // already flying here: no fresh-start button until you land
+      : (enroute && g === S.travel.to) ? "<span class='gi-tag'>" + iconMarkup("rocket") + "En route — arriving in " + fmtTime(Math.max(0, S.travel.dur - S.travel.t)) + "</span>" + (S.cash > 0 ? "<button id='gi-travel'>▸▸ Speed up · " + curSym(S.galaxy) + " " + fmt(skipToFinishCost()) + "</button>" : "")   // already flying here — pay to cut the journey (same as the dock button)
       : enroute ? "<span class='gi-tag'>" + iconMarkup("rocket") + "In transit…</span>"                                                                                            // can't travel/visit elsewhere mid-flight
       : reached ? "<button id='gi-jump'>⊙ Visit ▸</button>"   // dive into & play your save on this visited world
       : next ? (conqHere
@@ -2021,7 +2021,7 @@
     $("gm-info").classList.add("show");
     const at = $("gi-autotog"); if (at) at.onclick = () => { const c = autoCfg(g); c.on = !c.on; autoAcc = 0; save(); syncAutoBtn(); showGalaxyInfo(g); };   // toggle THIS planet's auto-buy on/off
     const ab = $("gi-auto"); if (ab) ab.onclick = () => { $("gm-info").classList.remove("show"); openAuto(g); };   // configure THIS planet's auto-buy build order
-    const t = $("gi-travel"); if (t) t.onclick = () => { travel(); $("gm-info").classList.remove("show"); };
+    const t = $("gi-travel"); if (t) t.onclick = () => { if (S.travel) { speedTravel(); showGalaxyInfo(g); } else { travel(); $("gm-info").classList.remove("show"); } };   // en route → pay to speed up (re-render to update cost/time); otherwise → launch
     const j = $("gi-jump"); if (j) j.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { jumpTo(g); $("galaxy-map").classList.remove("show"); GMap.hide(); }); };
     const vc = $("gi-visit"); if (vc) vc.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { $("galaxy-map").classList.remove("show"); GMap.hide(); }); };   // already here → just dive to the base
   }
