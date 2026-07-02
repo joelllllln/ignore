@@ -236,16 +236,19 @@ interconnected node map per class:
   nodes give fast power; the deep tree (and its keystones) is a long-game goal you chip
   at across many planets.
 
-### Fixed costs — the v14 economy
+### Buying more units
 
-**Prices never rise with your purchases.** Every unit of a class, every level of
-an economy upgrade and every tree node of a tier has ONE price on a given
-planet, set by the world's economy scale (`eco(g)`). You earn faster → you buy
-faster — that's the whole loop, like a proper idle game. Pacing comes from your
-income curve and from **menace** (higher Value makes dots tankier), not from
-price walls, and later planets still cost more because `eco(g)` climbs. The
-`tools/balance-check.js` audit now guards exactly this: any per-purchase cost
-scaling that creeps back in fails the build.
+Extra defenders/collectors are priced **geometrically** in the count
+(`base × 1.5^owned`), so the 2nd of a class is cheap and the 4th is a real
+investment — you build your rack up *over* a planet rather than buying it all at
+landing. Economy upgrades grow the same classic way, level by level. Because
+costs ride the planet's difficulty scale (`eco(g)`) just like income does, the
+*shape* is identical on every world. **Skill-tree nodes are the exception
+(v14.1): flat-priced per planet** — a passive is a passive, the 1st costs the
+same as the 80th (keystones keep a fixed premium), so the tree is a checklist
+you grind through, never a route to optimize. `tools/balance-check.js` audits
+both laws: geometric costs must outgrow their effects, node prices must not
+drift.
 
 ## Collectors
 
