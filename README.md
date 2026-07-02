@@ -222,8 +222,10 @@ interconnected node map per class:
   - **✦ Explosive Rounds** — every shot detonates for blast (splash) damage — a bomb tower.
   - **✦ Chain Lightning** — every shot arcs between nearby dots, one extra jump per keystone.
   - **✦ Piercing Laser** — every shot becomes a beam that punches through a whole line of dots.
-- Costs climb steeply along a tree (keystones cost far more than passives), so
-  plan your route. Every unit of a class shares its tree.
+- Node prices are **flat on each planet** (keystones cost more than passives, but
+  a passive is a passive — the 1st costs the same as the 80th). The tree is a
+  finite checklist you WILL complete — buy in any order, no route math. Every
+  unit of a class shares its tree.
 - The trees are **big** (80–170+ nodes each) and the bonuses are **large**. Damage,
   fire-rate, crit, and multishot are **separate axes** — additive *within* each wing
   but **multiplicative across** them at fire time. So the wings stack up fast: a fully
@@ -234,15 +236,16 @@ interconnected node map per class:
   nodes give fast power; the deep tree (and its keystones) is a long-game goal you chip
   at across many planets.
 
-### Buying more units
+### Fixed costs — the v14 economy
 
-Extra defenders/collectors are priced **geometrically** in the count
-(`base × 1.5^owned`), so the 2nd of a class is cheap and the 4th is a real
-investment — you build your rack up *over* a planet rather than buying it all at
-landing. Because costs ride the planet's difficulty scale (`eco(g)`) just like
-income does, the *shape* is identical on every world. Skill-tree nodes scale the
-same way (`base × 1.33^allocated`) — cheap early, steep late — so a full tree is a
-long-game goal, not a quick buy.
+**Prices never rise with your purchases.** Every unit of a class, every level of
+an economy upgrade and every tree node of a tier has ONE price on a given
+planet, set by the world's economy scale (`eco(g)`). You earn faster → you buy
+faster — that's the whole loop, like a proper idle game. Pacing comes from your
+income curve and from **menace** (higher Value makes dots tankier), not from
+price walls, and later planets still cost more because `eco(g)` climbs. The
+`tools/balance-check.js` audit now guards exactly this: any per-purchase cost
+scaling that creeps back in fails the build.
 
 ## Collectors
 
