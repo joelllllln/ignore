@@ -67,6 +67,25 @@ Store-side notes:
 3. Saves live in `localStorage` inside the wrap's WKWebView data store and
    persist across app updates.
 
+### Accounts & cloud saves (Apple)
+
+The game needs **no account to play** — progress autosaves locally, transfers
+across devices with **save codes** (Settings → Save transfer, or paste the
+`IDS1.` code into the home CODES box), and the App Store build should add
+**silent iCloud sync** rather than a login wall:
+
+- The engine mirrors every save to `window.__SAVE_BRIDGE.push(json)` and reads
+  whatever the shell wrote to `localStorage["ids_clone.v3"]` before boot
+  (newest `ts` wins). That's the whole contract.
+- In the **Capacitor** wrap: store the snapshot in **iCloud key-value storage**
+  (`capacitor-icloud-kv` community plugin, or a ~30-line custom plugin over
+  `NSUbiquitousKeyValueStore` — the save is a single ~10 KB JSON string, well
+  under the 1 MB KV limit). No sign-in UI at all: iCloud rides the device's
+  Apple ID, which is exactly how idle games do it on iOS.
+- **Game Center** (achievements/leaderboards, optional for v1) plugs in later
+  behind the same bridge without touching game code — and it strengthens a
+  Guideline 4.2 review story.
+
 A hardcore idle/incremental space shooter built with **HTML5, JavaScript and
 Canvas** — no dependencies, no build step. Open `index.html` and play. The art
 is deliberately minimalist black-and-white, but the field is heavily *juiced*
@@ -355,9 +374,19 @@ at its mouth.
 ## Idle, offline & saving
 
 - Cash keeps flowing with zero input. **Offline earnings**: while away your
-  defenders "keep firing" — on return you collect a capped share of your recent
-  coins-per-second, shown on a Welcome-back screen.
+  defenders "keep firing" — on return you collect your recent coins-per-second
+  (plus your empire's idle rate) for up to **24 hours** of absence, shown on a
+  Welcome-back screen. Screen-lock, app-switch, tab-freeze and full closes all
+  credit the same way (visibilitychange / pagehide / freeze lifecycle hooks).
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
+- **Save codes** (Settings → Save transfer): **Export** copies a portable
+  `IDS1.` code, **Import** (or pasting the code into the home-screen CODES box)
+  restores it — move progress across web, PC, Android and iOS with no account.
+- **Cloud-save bridge for the store builds**: every save also calls
+  `window.__SAVE_BRIDGE.push(json)` if a native shell provides it, and a shell
+  restores by writing its newest snapshot into `localStorage["ids_clone.v3"]`
+  before the page loads (newest `ts` wins). The Android/iOS branch READMEs show
+  the Play Games / iCloud wiring.
 - **⚙ Settings** (from the home screen or the in-game ☰ menu) is a full mobile
   options panel: toggle **sound**, **vibration/haptics**, **screen shake**, and
   **screen flashes** (photosensitivity), pick **particle quality** (Full / Low /
