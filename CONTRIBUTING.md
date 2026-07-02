@@ -68,7 +68,9 @@ included a code change without pasting this link.
   silhouettes stay clean.
 - Stats in skill trees **stack additively** (linear, no runaway) — that's a
   deliberate design choice; don't switch to multiplicative/compounding.
-- **TREE NODE costs are FLAT per planet** (owner decision, v14.1): a node's
-  price never rises with how many you've allocated — only tier (keystone/major)
-  and `eco(g)` set it. Units & economy upgrades KEEP their geometric growth
-  (`^owned` / `^level`). `tools/balance-check.js` audits both laws.
+- **TREE NODE costs are DEPTH-PRICED** (owner decision, v14.2, sim-calibrated):
+  a node's price is set by its ring (span ×12,000 inner→outer, keystones ×8,
+  majors ×3) and `eco(g)` — NEVER by how many nodes you've allocated. Do not
+  reintroduce allocation-count coupling (that's what made trees feel like a
+  route-optimizing game). Units & economy upgrades KEEP their geometric growth
+  (`^owned` / `^level`). `tools/balance-check.js` audits all of this.

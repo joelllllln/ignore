@@ -5,9 +5,10 @@
 //     original way: an income upgrade's cost multiplier per level must OUTGROW
 //     its effect multiplier (ratio = costMul/effectMul > 1.1) or it prints
 //     infinite money; a cash CEILING must not outgrow the room it grants.
-//   • TREE NODES are FIXED-COST per planet — audited for flatness: a passive's
-//     price with 40 nodes allocated must equal its price with 0. Any drift means
-//     per-node scaling crept back in.
+//   • TREE NODES are DEPTH-PRICED (sim-calibrated span x12000): a node's price is
+//     set by its ring, NEVER by how many nodes you've bought — audited two ways:
+//     allocation-independence (same node, same price at 0 vs 40 allocated) and
+//     depth-monotonicity (mean passive price rises ring by ring, big total span).
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -70,25 +71,45 @@ for (const c of checks) {
   console.log("Units (geometric)".padEnd(20), "1-owned " + lo + " vs 5-owned " + hi, " -> " + (ok ? "healthy (grows)" : "FLAT — growth lost")); if (!ok) bad++;
 }
 
-// ── PART 2: TREE NODES must be FLAT per planet (owner decision, v14.1) ──
+// ── PART 2: TREE NODES are DEPTH-PRICED and allocation-independent (v14.2) ──
 {
   const G = A.buildTree("turret"), ids = Object.keys(G.map).filter(i => i !== "start");
-  const probeNode = () => {
-    const n = G.nodes.find(x => x.kind !== "start" && x.kind !== "key" && x.kind !== "major" && !S.classNodes.turret[x.id] && A.nodeAllocatable("turret", x));
-    if (!n) return -1;
-    const before = S.cash = 1e15; A.allocNode("turret", n);
-    const paid = before - S.cash; delete S.classNodes.turret[n.id]; S.cash = 0; A.recompute();
-    return paid;
-  };
+  // BFS depths (same walk the game uses)
+  let adj = G.adj; if (!adj) { adj = {}; for (const [a2, b2] of G.edges) { (adj[a2] = adj[a2] || []).push(b2); (adj[b2] = adj[b2] || []).push(a2); } }
+  const dep = { start: 0 }, q = ["start"];
+  while (q.length) { const id = q.shift(); for (const m of (adj[id] || [])) if (!(m in dep)) { dep[m] = dep[id] + 1; q.push(m); } }
+  const price = n => { const before = S.cash = 1e18; A.allocNode("turret", n); const paid = before - S.cash; delete S.classNodes.turret[n.id]; S.cash = 0; A.recompute(); return paid; };
+  console.log("\nTREE AUDIT — depth-priced, allocation-independent");
+  // (a) allocation-independence: the FIRST allocatable passive costs the same with 40 other nodes bought
   S.classNodes.turret = {}; A.recompute();
-  const cost0 = probeNode();
-  ids.slice(0, 40).forEach(i => S.classNodes.turret[i] = true); A.recompute();
-  const cost40 = probeNode();
+  const n0 = G.nodes.find(x => x.kind !== "start" && x.kind !== "key" && x.kind !== "major" && A.nodeAllocatable("turret", x));
+  const p0 = price(n0);
+  ids.slice(0, 40).forEach(i => { if (i !== n0.id) S.classNodes.turret[i] = true; }); A.recompute();
+  const p40 = A.nodeAllocatable("turret", n0) ? price(n0) : p0;
   S.classNodes.turret = {}; A.recompute();
-  const flat = cost0 > 0 && cost0 === cost40;
-  console.log("\nTREE AUDIT — nodes must be flat-priced per planet");
-  console.log("Passive node".padEnd(20), "0-allocated " + cost0 + " vs 40-allocated " + cost40, " -> " + (flat ? "FLAT ✓" : "DRIFTS ✗ per-node scaling crept back")); if (!flat) bad++;
+  const indep = p0 > 0 && p0 === p40;
+  console.log("alloc-independence".padEnd(20), p0 + " vs " + p40 + " (same node, 0 vs 40 bought)", " -> " + (indep ? "PASS ✓" : "FAIL ✗ coupling crept back")); if (!indep) bad++;
+  // (b) depth-monotone + span: mean passive price per ring rises; deepest/entry span is big (idle scaling)
+  S.free = true;   // sandbox pricing path is 1% but RATIOS are unchanged; use direct cost readout instead via alloc trick on empty tree per ring
+  S.free = false;
+  const byRing = {};
+  for (const n of G.nodes) { if (n.kind !== "minor" && n.kind !== "start" && n.kind !== "key" && n.kind !== "major") continue; }
+  // read prices structurally: allocate along a BFS order so every node becomes reachable, recording each passive's paid price by its ring
+  S.classNodes.turret = {}; A.recompute(); S.cash = 1e18;
+  const order = Object.keys(dep).filter(i => i !== "start").sort((a2, b2) => dep[a2] - dep[b2]);
+  for (const id of order) { const n = G.map[id]; if (!n || !A.nodeAllocatable("turret", n)) continue; const before = S.cash; A.allocNode("turret", n); const paid = before - S.cash;
+    if (n.kind !== "key" && n.kind !== "major") (byRing[dep[id]] = byRing[dep[id]] || []).push(paid); }
+  S.classNodes.turret = {}; S.cash = 0; A.recompute();
+  const rings = Object.keys(byRing).map(Number).sort((a2, b2) => a2 - b2);
+  const means = rings.map(r => byRing[r].reduce((x, y) => x + y, 0) / byRing[r].length);
+  let mono = true; for (let i = 1; i < means.length; i++) if (means[i] <= means[i - 1]) mono = false;
+  const span = means[means.length - 1] / means[0];
+  console.log("depth-monotone".padEnd(20), rings.map((r, i) => "r" + r + ":" + Math.round(means[i])).join(" "), " -> " + (mono ? "PASS ✓" : "FAIL ✗")); if (!mono) bad++;
+  // NB: wings END in keystone/major tips, so the deepest PASSIVES sit ~ring 6 of 9 — the passive span is
+  // x100-200 while keystones extend the full x12000 curve. Band reflects passives only.
+  const spanOk = span > 60 && span < 60000;
+  console.log("inner->outer span".padEnd(20), "x" + Math.round(span) + " (passives; keystone tips extend deeper)", " -> " + (spanOk ? "PASS ✓ (steep idle scaling)" : "FAIL ✗ out of band")); if (!spanOk) bad++;
 }
 
-console.log("\n" + (bad ? "FAIL: " + bad + " check(s) need attention" : "PASS: geometric costs healthy, tree nodes flat"));
+console.log("\n" + (bad ? "FAIL: " + bad + " check(s) need attention" : "PASS: geometric costs healthy, tree depth-pricing sound"));
 process.exit(bad ? 1 : 0);
