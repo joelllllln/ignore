@@ -106,9 +106,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 @keyframes wh-sweep{0%{opacity:0;transform:translateX(-42%)}30%{opacity:1}100%{opacity:0;transform:translateX(42%)}}
 .wh-title{font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:2px;color:#fff;
   text-shadow:0 0 14px rgba(255,255,255,.4)}
-.wh-box{position:relative;width:340px;height:340px}
-#wh-canvas{width:340px;height:340px;display:block}
-.wh-pointer{position:absolute;left:50%;top:-8px;width:0;height:0;transform:translateX(-50%);transform-origin:50% 22%;
+.wh-box{position:relative;width:340px;height:310px}
+#wh-canvas{width:340px;height:310px;display:block}
+.wh-pointer{position:absolute;left:50%;top:30px;width:0;height:0;transform:translateX(-50%);transform-origin:50% 22%;
   border-left:11px solid transparent;border-right:11px solid transparent;border-top:21px solid #fff;
   filter:drop-shadow(0 0 9px rgba(255,255,255,.7))}
 .wh-pointer.tick{animation:wh-tick .09s ease}
@@ -119,7 +119,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 @keyframes wh-slam{0%{transform:scale(2.1);opacity:0;filter:blur(3px)}55%{opacity:1}100%{transform:scale(1);filter:blur(0)}}
 .wh-hint{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--dim);min-height:14px;animation:wh-pulse 1.4s ease infinite}
 @keyframes wh-pulse{50%{opacity:.35}}
-@media (max-width:400px){.wh-box,#wh-canvas{width:300px;height:300px}}
+@media (max-width:400px){.wh-box,#wh-canvas{width:300px;height:274px}.wh-pointer{top:24px}}
 #info-gif{display:none;width:100%;max-width:340px;margin:0 auto 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);image-rendering:auto}
 
 /* metrics modal */
