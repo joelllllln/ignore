@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v14.4";   // v14.4 = Spawn Rate never goes dead: knee 26->38/s (rides the PC field), pass-through 25->38%, overflow toughness pays a PREMIUM (not neutral), and the standing-cap THINNING is gone
+  const VERSION = "v14.5";   // v14.5 = free skill nodes are NAMED (float + boss popup say exactly what you got) and PROGRESSION-SCALED: the drop is the priciest node reachable on any owned tree, not a ring-1 filler
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -714,7 +714,9 @@
     countUpTo($("br-cash"), amount, "+" + curSym(S.galaxy) + " ", 600);
     const bn = $("br-bonus"); if (bn) { bn.textContent = escaped
       ? (amount > 0 ? "you dealt " + dealtPct + "% — salvage banked · defeat it for the full bounty" : "no damage landed — hit it next time for the bounty")
-      : gem ? "◈ +1 GEM — spend it in Ascension" : node ? "✦ +1 FREE SKILL NODE" : "loot dropped — grab the orbs"; }
+      : gem ? "◈ +1 GEM — spend it in Ascension"
+      : node ? "✦ FREE NODE — " + nodeLabel(node.type, node.node) + " · " + TY(node.type).name + " tree · worth " + curSym(S.galaxy) + " " + fmt(node.cost)
+      : "loot dropped — grab the orbs"; }
     el.classList.add("show");
     clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), escaped ? 5200 : 4200);
   }
@@ -850,18 +852,30 @@
   // auto-allocate up to n FREE skill-tree nodes, spread across the classes you currently field (boss reward).
   function grantTreeNodes(n) {
     const owned = [...new Set([...S.units.map(u => u.type), ...S.collectors.map(c => c.type)])];
-    let granted = 0, guard = 0;
-    while (granted < n && guard++ < 80) {
-      let any = false;
+    const grants = []; let guard = 0;
+    // v14.5: grant the PRICIEST node currently reachable on ANY owned class's tree — the gift scales
+    // with how deep you actually are (depth-priced rings: a lategame frontier node is worth thousands
+    // of times a ring-1 filler, and it's exactly the node you were saving for; keystones included).
+    // Near-ties break randomly so one class can't hog every drop. Returns the grants
+    // ({type, node, cost}) so the UI can NAME what you got.
+    while (grants.length < n && guard++ < 80) {
+      let bestCost = 0, ties = [];
       for (const t of owned) {
-        if (granted >= n) break;
         const G = buildTree(t), set = S.classNodes[t] || (S.classNodes[t] = {});
-        const cand = Object.values(G.map).find(node => node.id !== "start" && !set[node.id] && nodeAllocatable(t, node));
-        if (cand) { set[cand.id] = true; granted++; any = true; }
+        for (const node of Object.values(G.map)) {
+          if (node.id === "start" || set[node.id] || !nodeAllocatable(t, node)) continue;
+          const c = nodeCost(t, node);
+          if (c > bestCost * 1.001) { bestCost = c; ties = [{ type: t, node, cost: c }]; }
+          else if (c >= bestCost * 0.999) ties.push({ type: t, node, cost: c });
+        }
       }
-      if (!any) break;
+      if (!ties.length) break;
+      const pick = ties[(Math.random() * ties.length) | 0];
+      (S.classNodes[pick.type] || (S.classNodes[pick.type] = {}))[pick.node.id] = true;
+      grants.push(pick);
     }
-    return granted;
+    if (grants.length) recompute();
+    return grants;
   }
   function spawnBoss() {
     const g = S.galaxy, vm = derived.valueMul, base = 18 * Math.pow(vm, 1.3);
@@ -1063,14 +1077,14 @@
     d.hp -= dmg; d.hit = 0.08;
     if (d.hp <= 0) {
       d.dead = true;
-      if (d.boss) {   // a defeated mini-boss → a big cash bounty (the common drop) + a fat orb burst; RARELY a Gem (5%) or one free skill node (15%)
+      if (d.boss) {   // a defeated mini-boss → a big cash bounty (the common drop) + a fat orb burst; RARELY a Gem (1%) or one free skill node (15%, named & progression-priced)
         const np = 6; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
         const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the bounty even if orbs scatter)
         S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump; earnAcc += lump;   // bounty bypasses the capacity ceiling so the reward always lands in full (also feeds the live $/s)
         let bonus = "", gemDrop = false, nodeDrop = false;   // rare bonus on top of the cash bounty
         const roll = Math.random();
         if (roll < BOSS_GEM_CHANCE) { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; bonus = "  ·  ◈ +1 GEM!"; gemDrop = true; flashAdd(0.4); }
-        else if (roll < BOSS_GEM_CHANCE + BOSS_NODE_CHANCE) { if (grantTreeNodes(1)) { bonus = "  ·  ✦ +1 FREE NODE"; nodeDrop = true; } }
+        else if (roll < BOSS_GEM_CHANCE + BOSS_NODE_CHANCE) { const fn = grantTreeNodes(1)[0]; if (fn) { bonus = "  ·  ✦ FREE: " + nodeLabel(fn.type, fn.node); nodeDrop = fn; } }
         burst(d.x, d.y, 60, 240, 3.4); ring(d.x, d.y, d.r, d.r + 150, 0.7); ring(d.x, d.y, d.r, d.r + 80, 0.5); shakeAdd(9); flashAdd(0.5);
         floatTxt(d.x, d.y - d.r - 12, "✦ " + bossName(d.bg || S.galaxy) + " DEFEATED");
         floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + bonus);
