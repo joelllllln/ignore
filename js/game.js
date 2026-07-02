@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v12.0";
+  const VERSION = "v13.0";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, 24h away cap, lifecycle hardening)
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -441,6 +441,7 @@
   // whole difficulty curve), and the entire empire's idle output RAMPS UP the more planets you hold.
   // So early planets are an active grind, but by lategame your empire can largely IDLE you to the
   // next conquest — you don't have to hand-manage all 18 worlds.
+  const AWAY_CAP_H = 24;        // hard ceiling on credited away time (raised from 12h — a store idle game must survive a full day away; capacity clamp + auto-buy tax still bound the gain)
   const IDLE_PAYBACK_H = 26;    // left alone, a conquered planet repays its own conquest cost in ~26h of pure idle (before the ramp)
   const EMPIRE_RAMP = 0.30;     // every planet you hold boosts ALL your planets' idle output by +30% (empire snowball)
   // P4 fix — how fast the idle empire can fill the CONQUER BAR of the planet you're on, as a fraction of the
@@ -616,8 +617,27 @@
   /* ----------------------------- save ---------------------------- */
   const KEY = "ids_clone.v3";   // bumped for the v3 economy (single global currency + Conquest multiplier) — old saves start fresh on the new model
   let wiping = false;
-  function save() { if (wiping) return; try { if (S && S.vault) { const v = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }); v.earned = curEarned; } localStorage.setItem(KEY, JSON.stringify({ S, META, ts: Date.now(), cps })); } catch (e) {} }
+  function save() { if (wiping) return; try { if (S && S.vault) { const v = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }); v.earned = curEarned; }
+    const payload = JSON.stringify({ S, META, ts: Date.now(), cps });
+    localStorage.setItem(KEY, payload);
+    // CLOUD-SAVE BRIDGE — a native shell (Capacitor/TWA wrapper) can set window.__SAVE_BRIDGE = { push(json){...} }
+    // to mirror every save into Play Games Saved Games / iCloud. The shell restores by writing the newest
+    // snapshot into localStorage[KEY] BEFORE this script loads (newest ts wins) — no async plumbing in-game.
+    if (typeof window !== "undefined" && window.__SAVE_BRIDGE && window.__SAVE_BRIDGE.push) try { window.__SAVE_BRIDGE.push(payload); } catch (e) {}
+  } catch (e) {} }
   function wipeSave() { wiping = true; try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
+  // ---- SAVE CODES — manual cross-device transfer that works on every platform (web/PC/Android/iOS),
+  // no account needed: Settings → Export gives a portable code, Import restores it anywhere. ----
+  const SAVE_TAG = "IDS1.";   // format tag so future save-code formats can migrate old codes
+  function exportSave() { save(); const raw = localStorage.getItem(KEY); if (!raw) return null; return SAVE_TAG + btoa(unescape(encodeURIComponent(raw))); }
+  function importSave(code) {
+    try {
+      code = String(code || "").trim(); if (!code.startsWith(SAVE_TAG)) return "That doesn't look like a save code (missing IDS1 tag).";
+      const json = decodeURIComponent(escape(atob(code.slice(SAVE_TAG.length)))), d = JSON.parse(json);
+      if (!d || !d.S || !d.META) return "Save code is damaged — missing game state.";
+      localStorage.setItem(KEY, json); wiping = true; location.reload(); return null;   // wiping=true: block autosave/beforeunload from stomping the imported save before reload
+    } catch (e) { return "Couldn't read that save code."; }
+  }
   function load() {
     S = fresh(); META = freshMeta(); let off = null, offSmall = 0;
     try {
@@ -631,7 +651,7 @@
           META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {});
           META.opts = Object.assign(freshOpts(), d.META.opts || {});
           META.gems = +d.META.gems || 0; META.gemsEarned = +d.META.gemsEarned || 0; META.perks = (d.META.perks && typeof d.META.perks === "object") ? d.META.perks : {}; }
-        if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, 12 * 3600);
+        if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, AWAY_CAP_H * 3600);
           // away earnings = the on-screen $/s you were passively earning (your collector income + empire) × seconds away
           const rate = (d.cps > 0 ? d.cps : 0) + (S.vault ? empireIdleRate() : 0), offTotal = rate > 0 ? Math.floor(rate * e) : 0;
           if (offTotal > 0) { S.totalRun += offTotal; META.totalEver += offTotal;
@@ -679,7 +699,7 @@
     clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 4200);
   }
   function applyAway(e) {
-    e = clamp(e, 0, 12 * 3600); if (e < 1 || !S) return;
+    e = clamp(e, 0, AWAY_CAP_H * 3600); if (e < 1 || !S) return;
     if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;                 // expeditions keep travelling while away
     const rate = (cps > 0 ? cps : 0) + (S.vault ? empireIdleRate() : 0), offTotal = rate > 0 ? Math.floor(rate * e) : 0;   // away earnings = the on-screen $/s you were passively earning (collectors + empire) × seconds away
     if (offTotal > 0) {
@@ -696,6 +716,7 @@
   function onVisible() { if (!bgHideTs) return; const e = (Date.now() - bgHideTs) / 1000; bgHideTs = 0; last = 0; applyAway(e); }   // last=0 → the first resumed frame's dt is clamped, not a giant jump
   document.addEventListener("visibilitychange", () => { if (document.hidden) onHidden(); else onVisible(); });   // mobile: fires on screen-lock & app-switch
   window.addEventListener("pagehide", onHidden); window.addEventListener("pageshow", onVisible);                 // iOS Safari bfcache / tab suspension
+  document.addEventListener("freeze", onHidden); document.addEventListener("resume", onVisible);                 // Chrome Page Lifecycle (Android/TWA background freeze) — the OS can freeze the page without a visibilitychange
 
   /* ----------------------------- entities ------------------------ */
   function syncCollectors() {
@@ -2706,6 +2727,20 @@
       }
       row.appendChild(lab); row.appendChild(ctrl); box.appendChild(row);
     });
+    // ---- SAVE row — export/import codes (cross-device transfer without an account) ----
+    const srow = document.createElement("div"); srow.className = "set-row";
+    const slab = document.createElement("div"); slab.className = "set-lbl";
+    slab.innerHTML = "<b>Save transfer</b><span>Move your progress between devices with a save code</span>";
+    const sctrl = document.createElement("div"); sctrl.className = "set-ctrl";
+    const bx = document.createElement("button"); bx.className = "seg-btn save-io"; bx.textContent = "EXPORT";
+    bx.onclick = () => { vibe(10); const code = exportSave(); if (!code) return;
+      let copied = false; try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(code); copied = true; } } catch (e) {}
+      showInfoText("Your save code", (copied ? "<b>Copied to clipboard.</b> " : "") + "Paste it into Settings → Import on any device (web, PC, Android, iOS) to continue there:<br><br><textarea readonly rows='5' style='width:100%;background:#000;color:#cfcfcf;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:8px;font:11px monospace' onclick='this.select()'>" + code + "</textarea>"); };
+    const bi = document.createElement("button"); bi.className = "seg-btn save-io"; bi.textContent = "IMPORT";
+    bi.onclick = () => { vibe(10); const code = prompt("Paste your save code (starts with IDS1.) — this OVERWRITES the save on this device:"); if (code == null || !String(code).trim()) return;
+      const err = importSave(code); if (err) alert(err); };
+    sctrl.appendChild(bx); sctrl.appendChild(bi);
+    srow.appendChild(slab); srow.appendChild(sctrl); box.appendChild(srow);
   }
   function openSettings() { renderSettings(); $("settings").classList.add("show"); }
   $("btn-menu").onclick = () => $("menu").classList.add("show");
@@ -2760,8 +2795,14 @@
   // CODES box — "test" toggles FREE SANDBOX mode: all planets jumpable, every
   // defender/collector/upgrade unlocked and FREE to buy (you click & test yourself).
   function applyCode() {
-    const v = ($("code-input").value || "").trim().toLowerCase();
-    const msg = $("code-msg");
+    const raw = ($("code-input").value || "").trim(), msg = $("code-msg");
+    if (raw.startsWith(SAVE_TAG)) {   // a pasted SAVE CODE (case-sensitive — check before lowercasing); works everywhere incl. wraps without window.prompt
+      if (!confirm("Import this save code? It OVERWRITES the save on this device.")) return;
+      const err = importSave(raw);
+      if (err) { msg.textContent = "✗ " + err; msg.style.color = "var(--warn)"; }
+      return;
+    }
+    const v = raw.toLowerCase();
     if (v === "test") { const on = unlockAll(); msg.textContent = on ? "✓ FREE MODE ON" : "free mode off"; msg.style.color = "#fff"; $("code-input").value = ""; $("home-gal").textContent = S.peakGalaxy; }
     else { msg.textContent = v ? "✗ invalid code" : ""; msg.style.color = "var(--warn)"; }
   }
@@ -2793,7 +2834,7 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyPerk, openAscend, PERKS };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyPerk, openAscend, PERKS, exportSave, importSave };
   // read-only scaling hooks for the headless pacing/scaling simulator (tools/playthrough-sim.js) — no game logic, just exposes the real curves so the sim can never diverge from the shipped game
   if (typeof window !== "undefined") window.__SIM = {
     TOTAL_PLANETS, CONQ_STEP, SYS_JUMP, WITHIN_STEP, CUR_BASE, TOUGH_POW, BUY_MUL,
