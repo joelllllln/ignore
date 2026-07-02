@@ -446,3 +446,14 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 
 /* skill-tree ALLOCATE button pulses the moment it becomes affordable (live tick in the loop) */
 .si-btn.afford:not(:disabled){animation:affordpulse 1.3s infinite}
+
+/* ── polish pass: motion where the UI used to snap ── */
+/* modals fade in, cards rise — one beat, no exit animation (closing should feel instant) */
+.modal.show{animation:modalfade .16s ease}
+.modal.show .card{animation:cardrise .18s cubic-bezier(.2,.9,.3,1)}
+@keyframes modalfade{from{opacity:0}}
+@keyframes cardrise{from{opacity:0;transform:translateY(10px) scale(.98)}}
+/* cash counter breathes when money lands (throttled in syncHUD) */
+#ui-cash{display:inline-block}
+#ui-cash.bump{animation:cashbump .28s cubic-bezier(.2,.9,.3,1)}
+@keyframes cashbump{35%{transform:scale(1.12)}}
