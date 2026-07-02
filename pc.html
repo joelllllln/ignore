@@ -13,7 +13,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — bottom-left on PC) -->
-  <div id="version" class="layer">v14.7</div>
+  <div id="version" class="layer">v15.0</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -21,12 +21,25 @@
   <div id="transition"></div>
   <div id="land-title"></div>
 
-  <!-- BOSS REWARD popup (non-blocking; auto-dismisses) -->
+  <!-- BOSS REWARD popup (non-blocking; auto-dismisses) — used for boss ESCAPES; kills spin the wheel -->
   <div id="boss-reward" class="layer">
     <div class="br-card">
       <div class="br-title" id="br-title"></div>
       <div class="br-cash" id="br-cash"></div>
       <div class="br-bonus" id="br-bonus"></div>
+    </div>
+  </div>
+
+  <!-- BOSS BOUNTY WHEEL (v15.0): every boss kill spins for progress-matched cash, named skill nodes, or a rare gem -->
+  <div id="wheel" class="layer">
+    <div class="wh-card">
+      <div class="wh-title" id="wh-title">▲ BOSS BOUNTY</div>
+      <div class="wh-box">
+        <canvas id="wh-canvas"></canvas>
+        <div class="wh-pointer"></div>
+      </div>
+      <div class="wh-result" id="wh-result"> </div>
+      <div class="wh-hint" id="wh-hint">TAP TO SPIN</div>
     </div>
   </div>
 
