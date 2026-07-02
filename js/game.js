@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v13.0";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, 24h away cap, lifecycle hardening)
+  const VERSION = "v13.1";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, uncapped away earnings, lifecycle hardening)
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -85,7 +85,7 @@
     let i = 0; while (a >= 1000 && i < FMT_U.length - 1) { a /= 1000; i++; }
     return (neg ? "-" : "") + (a < 10 ? a.toFixed(2) : a < 100 ? a.toFixed(1) : Math.floor(a)) + FMT_U[i];
   }
-  function fmtTime(s) { s |= 0; const h = s / 3600 | 0, m = s % 3600 / 60 | 0, x = s % 60; return h ? h + "h " + m + "m" : m ? m + "m " + x + "s" : x + "s"; }
+  function fmtTime(s) { s |= 0; const d = s / 86400 | 0, h = s % 86400 / 3600 | 0, m = s % 3600 / 60 | 0, x = s % 60; return d ? d + "d " + h + "h" : h ? h + "h " + m + "m" : m ? m + "m " + x + "s" : x + "s"; }   // days tier matters now that away time is uncapped
 
   /* ----------------------- defender unit types ------------------- */
   // Each class has a NICHE: vsBig = bonus damage to armored/tanky dots, vsSwarm =
@@ -441,7 +441,7 @@
   // whole difficulty curve), and the entire empire's idle output RAMPS UP the more planets you hold.
   // So early planets are an active grind, but by lategame your empire can largely IDLE you to the
   // next conquest — you don't have to hand-manage all 18 worlds.
-  const AWAY_CAP_H = 24;        // hard ceiling on credited away time (raised from 12h — a store idle game must survive a full day away; capacity clamp + auto-buy tax still bound the gain)
+  const AWAY_CAP_H = Infinity;  // NO ceiling on credited away time (owner call) — gone a week, earn a week. The clamp's lower bound still guards backwards clock jumps, and the real bounds live elsewhere: cash is capacity-clamped, the conquer bar caps at its target, auto-buy pays +50%.
   const IDLE_PAYBACK_H = 26;    // left alone, a conquered planet repays its own conquest cost in ~26h of pure idle (before the ramp)
   const EMPIRE_RAMP = 0.30;     // every planet you hold boosts ALL your planets' idle output by +30% (empire snowball)
   // P4 fix — how fast the idle empire can fill the CONQUER BAR of the planet you're on, as a fraction of the
