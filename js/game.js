@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v14.2";   // v14.2 = DEPTH-priced trees (sim-calibrated span x12000, keystones x8): rings cost more the deeper you go, buying never inflates other nodes
+  const VERSION = "v14.3";   // v14.3 = PC collectors compensate for the bigger field (speed/reach/pull x~2 at 1080p) — same collection latency as mobile
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -59,6 +59,7 @@
   const pcCopy = s => IS_PC ? String(s).replace(/\bTap\b/g, "Click").replace(/\btap\b/g, "click") : s;   // applied ONLY to instructional copy (never node names like "Double Tap")
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
+  let FIELD_COMP = 1;         // PC-only collector compensation: the desktop field is ~4x a phone's AREA, so collector speed/reach/pull scale by ~sqrt(area ratio) (set in resize) — same collection LATENCY as mobile, throughput stats (capacity/process) untouched
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
   const Sfx = {
@@ -230,14 +231,14 @@
   // (the pull/ring radius) is capped well under the field so collectors must keep
   // roaming to cover it — they never become stationary field-wide magnets. The
   // black hole keeps its huge reach.
-  const cSpeed   = type => Math.min(900, COL_TYPES[type].speed * cls(type).speed);
+  const cSpeed   = type => Math.min(900, COL_TYPES[type].speed * cls(type).speed) * FIELD_COMP;   // x FIELD_COMP: a bigger field needs faster roaming (cap scales with it — "fast but never teleports past orbs" stays relatively true)
   // REACH = gather RADIUS (the engagement gate): base radius (the well-tuned old pull base) × the Reach wing.
   // Any orb inside cReach is locked on and reeled toward the collector. Capped so a collector still roams.
   const REACH_CAP = type => COL_TYPES[type].mode === "hole" ? 900 : 240;
-  const cReach   = type => Math.min(REACH_CAP(type), COL_TYPES[type].suction * cls(type).collect);
+  const cReach   = type => Math.min(REACH_CAP(type), COL_TYPES[type].suction * cls(type).collect) * FIELD_COMP;   // x FIELD_COMP: grab radius keeps the same RELATIVE coverage of the bigger PC field
   // PULL = drag STRENGTH (×1 at base): how fast an engaged orb is reeled to the mouth. Applied to the reel
   // force at the orb site; heavy/armored loot drags slowly, so Pull matters most for fat orbs & big Reach.
-  const cPull    = type => cls(type).suction;
+  const cPull    = type => cls(type).suction * FIELD_COMP;   // x FIELD_COMP: reel distances grow with the field, so drag strength grows with it — engaged orbs land in the same time as on mobile
   const MOUTH    = 16;   // fixed grab distance: once an orb is reeled within MOUTH it starts being consumed (Process/Capacity take over)
   const cIngest  = type => cls(type).ingest;                 // how fast loot is swallowed (x branch); big loot benefits most
   const cCapacity = type => Math.max(1, Math.round(COL_TYPES[type].cap * cls(type).capacity));   // how many orbs it processes in parallel (bays); low base × the slow Capacity wing — a real throttle you upgrade (m2)
@@ -2965,6 +2966,7 @@
   /* ----------------------------- loop / boot --------------------- */
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2); SW = canvas.clientWidth; SH = canvas.clientHeight;
+    FIELD_COMP = (document.body && document.body.classList && document.body.classList.contains("pc")) ? clamp(Math.sqrt((SW * SH) / (460 * 830)), 1, 2.2) : 1;   // PC shell only (detected off <body class="pc"> so this line is identical on every branch); ~2.07 at 1920x1080 with the console open
     canvas.width = SW * DPR | 0; canvas.height = SH * DPR | 0; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     W = SW * WORLD_SCALE; H = SH * WORLD_SCALE; camFit = Math.min(SW / W, SH / H);   // fit the whole world on screen by default
     camZoom = camZoom ? clamp(camZoom, camFit * ZOOM_OUT, 1.15) : camFit;            // default still fills the screen; you can now pull back to camFit*ZOOM_OUT to see more
