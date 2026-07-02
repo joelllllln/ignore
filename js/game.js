@@ -48,15 +48,11 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-<<<<<<< HEAD
-  const VERSION = "v13.0";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, 24h away cap, lifecycle hardening)
+  const VERSION = "v13.1";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, uncapped away earnings, lifecycle hardening)
   // PC EDITION — pc.html sets <body class="pc">: same engine, desktop shell. Gates the
   // keyboard map, fullscreen toggle and tap→click copy; mobile (index.html) is untouched.
   const IS_PC = typeof document !== "undefined" && !!document.body && !!document.body.classList && document.body.classList.contains("pc");
   const pcCopy = s => IS_PC ? String(s).replace(/\bTap\b/g, "Click").replace(/\btap\b/g, "click") : s;   // applied ONLY to instructional copy (never node names like "Double Tap")
-=======
-  const VERSION = "v13.1";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, uncapped away earnings, lifecycle hardening)
->>>>>>> main
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
