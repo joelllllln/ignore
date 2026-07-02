@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v15.3";   // v15.3 = slot drum looks SOLID: strict back-face culling clamped to the rim (no ghost fold-over), filled body hull, opaque octagon cap with gradient, left-edge closure, glass clipped to the drum
+  const VERSION = "v15.4";   // v15.4 = the drum gets its WEIRD SIDES: dead-on game-show view with BOTH octagonal end plates splayed outward, prize panels bulging between them — the classic slot-drum silhouette
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -736,10 +736,10 @@
      tiers, white glow, a shimmering jackpot slice — matching the game's palette. */
   const Wheel = (() => {
     // SLOT-DRUM geometry (v15.2): ONE octagonal reel facing you, spinning vertically past a payline
-    // (owner: "a slot machine with 1 wheel spinning in front of you, but it's an octagon"). 3/4 view:
-    // the right end cap reads as the OCTAGON, faces are the 8 prize panels. XL/XR = ring centres,
-    // RY* = vertical radii (left ring slightly smaller = perspective), RX* = the yaw bulge.
-    const CSW = 340, CSH = 310, C = 170, CY = 150, XL = 50, XR = 262, RYL = 104, RYR = 118, RXL = 26, RXR = 42;
+    // (owner: "a slot machine with 1 wheel spinning in front of you, but it's an octagon"). dead-on game-show view:
+    // BOTH octagonal side plates are visible, splayed outward (the classic drum look), prize panels
+    // bulge between them. XL/XR = plate centres, RY = drum radius, RXS = the outward side splay.
+    const CSW = 340, CSH = 310, C = 170, CY = 150, XL = 84, XR = 256, RY = 116, RXS = 34;
     let segs = [], v0 = 0, bossNm = "", state = "off";      // off | arm | spin | done
     let a = 0, a0 = 0, aT = 0, t = 0, dur = 4.2, armT = 0, doneT = 0, tickIdx = -1, studT = 0, won = -1, parts = [], raf = 0, lastTs = 0, wired = false, resultTxt = "";
     const el = () => $("wheel");
@@ -848,17 +848,17 @@
       const x = cv.getContext("2d"); x.setTransform(cv.width / CSW, 0, 0, cv.height / CSH, 0, 0); x.clearRect(0, 0, CSW, CSH);
       const n = segs.length || 8, span = TAU / n, HALF = Math.PI / 2;
       const pulse = state === "done" ? 0.5 + 0.5 * Math.sin(doneT * 6) : 0;
-      // ring point at world angle φ (0 = drum front, toward the player; +φ rolls up-and-back)
-      const PL = f => [XL + Math.cos(f) * RXL, CY - Math.sin(f) * RYL];
-      const PR = f => [XR + Math.cos(f) * RXR, CY - Math.sin(f) * RYR];
+      // ring points: the two octagonal side plates splay OUTWARD (left plate bulges left, right bulges
+      // right) — the classic game-show drum. φ 0 = payline front; +φ rolls up-and-back.
+      const PL = f => [XL - Math.cos(f) * RXS, CY - Math.sin(f) * RY];
+      const PR = f => [XR + Math.cos(f) * RXS, CY - Math.sin(f) * RY];
       const wrap = f => (((f + Math.PI) % TAU) + TAU) % TAU - Math.PI;
       // ── ground shadow ──
-      x.save(); x.translate(C - 8, CY + RYR + 10); x.scale(1, 0.22);
-      const gs = x.createRadialGradient(0, 0, 20, 0, 0, 150);
+      x.save(); x.translate(C, CY + RY + 12); x.scale(1, 0.2);
+      const gs = x.createRadialGradient(0, 0, 20, 0, 0, 160);
       gs.addColorStop(0, "rgba(0,0,0,.55)"); gs.addColorStop(1, "rgba(0,0,0,0)");
-      x.fillStyle = gs; x.beginPath(); x.arc(0, 0, 150, 0, TAU); x.fill(); x.restore();
-      // ── the drum SILHOUETTE hull (front corners clamped to the ±90° rim — the clean octagon window
-      // profile; also the clip for the cabinet glass so nothing floats past the metal) ──
+      x.fillStyle = gs; x.beginPath(); x.arc(0, 0, 160, 0, TAU); x.fill(); x.restore();
+      // ── SILHOUETTE hull (front corners clamped to the ±90° rim) — solid body + the glass clip ──
       const fc = [];
       for (let k = 0; k < n; k++) { const f = wrap(k * span + a); if (f > -HALF + 0.001 && f < HALF - 0.001) fc.push(f); }
       fc.sort((p, q) => q - p);   // top → bottom
@@ -872,7 +872,7 @@
         x.closePath();
       };
       hull(); x.fillStyle = "hsl(0,0%,9%)"; x.fill();   // solid metal body — no see-through gaps, ever
-      // ── prize faces: STRICT front hemisphere, edges clamped to the rim (no ghost fold-over) ──
+      // ── prize panels: STRICT front hemisphere, edges clamped to the rim (no ghost fold-over) ──
       const order = [];
       for (let i = 0; i < n; i++) {
         const w1 = wrap(i * span + a), w2 = w1 + span;
@@ -880,7 +880,7 @@
         if (a2 - a1 < 0.012) continue;
         order.push([Math.cos((a1 + a2) / 2), i, a1, a2]);
       }
-      order.sort((p, q) => p[0] - q[0]);   // paint back-to-front; payline face lands on top
+      order.sort((p, q) => p[0] - q[0]);   // paint back-to-front; the payline panel lands on top
       for (const [cm, i, a1, a2] of order) {
         const sg = segs[i], mid = (a1 + a2) / 2;
         const A2 = PL(a1), B2 = PR(a1), C2 = PR(a2), D2 = PL(a2);
@@ -893,10 +893,10 @@
         if (winGlow) { x.shadowColor = "rgba(255,255,255,.9)"; x.shadowBlur = 24; }
         x.fill(); x.shadowBlur = 0;
         x.strokeStyle = "rgba(255,255,255," + (0.14 + 0.3 * Math.max(0, cm)) + ")"; x.lineWidth = 1.4; x.stroke();   // the horizontal seams ARE the octagon edges
-        // label — affine-fitted onto the rolling panel (squashes as the face turns away)
+        // label — affine-fitted onto the rolling panel (squashes as the panel turns away)
         if (cm > 0.3) {
-          const mL = PL(mid), mR = PR(mid), cx2 = (mL[0] + mR[0]) / 2 - 18, cy2 = (mL[1] + mR[1]) / 2;
-          x.save(); x.translate(cx2, cy2); x.transform(1, (mR[1] - mL[1]) / (mR[0] - mL[0]), 0, Math.max(0.2, cm), 0, 0);
+          const mL = PL(mid), mR = PR(mid), cx2 = (mL[0] + mR[0]) / 2, cy2 = (mL[1] + mR[1]) / 2;
+          x.save(); x.translate(cx2, cy2); x.transform(1, 0, 0, Math.max(0.2, cm), 0, 0);
           const bright = lum > 52;
           x.textAlign = "center"; x.textBaseline = "middle";
           x.font = "700 " + (sg.kind === "gem" ? 13 : 15) + "px ui-monospace,Consolas,monospace";
@@ -907,54 +907,54 @@
           x.restore();
         }
       }
-      // top & bottom rim edges — the drum sits IN a window
+      // top & bottom rim edges — the drum sits IN its window
       const tL2 = PL(HALF), tR2 = PR(HALF), bL2 = PL(-HALF), bR2 = PR(-HALF);
       x.strokeStyle = "rgba(255,255,255,.3)"; x.lineWidth = 1.6;
       x.beginPath(); x.moveTo(tL2[0], tL2[1]); x.lineTo(tR2[0], tR2[1]); x.stroke();
       x.beginPath(); x.moveTo(bL2[0], bL2[1]); x.lineTo(bR2[0], bR2[1]); x.stroke();
-      // left end closure — a slim visible edge so the drum reads solid from this side too
-      x.beginPath(); x.moveTo(tL2[0], tL2[1]);
-      for (let i2 = fc.length - 1; i2 >= 0; i2--) { const q = PL(fc[i2]); x.lineTo(q[0], q[1]); }
-      x.lineTo(bL2[0], bL2[1]); x.strokeStyle = "rgba(255,255,255,.2)"; x.lineWidth = 1.2; x.stroke();
-      // ── right END CAP — the literal OCTAGON: solid plate, spokes, corner studs, boss hub ──
-      { const rim = 1.09;
-        x.beginPath();
-        for (let k = 0; k <= n; k++) { const q = PR(k * span + a), qx = XR + (q[0] - XR) * rim, qy = CY + (q[1] - CY) * rim; k ? x.lineTo(qx, qy) : x.moveTo(qx, qy); }
+      // ── the WEIRD SIDES — both octagonal end plates, solid, with spokes, studs and hubs ──
+      const cap = (ring, cx) => {
+        const vs = []; for (let k = 0; k < n; k++) vs.push(ring(k * span + a));
+        let mx = 0, my = 0; for (const v of vs) { mx += v[0]; my += v[1]; } mx /= n; my /= n;
+        x.beginPath();   // rim plate (slightly larger, scaled from the plate's own centre)
+        vs.forEach((v, k) => { const qx = mx + (v[0] - mx) * 1.1, qy = my + (v[1] - my) * 1.1; k ? x.lineTo(qx, qy) : x.moveTo(qx, qy); });
         x.closePath(); x.fillStyle = "hsl(0,0%,17%)"; x.fill(); x.strokeStyle = "rgba(255,255,255,.55)"; x.lineWidth = 2; x.stroke();
-        x.beginPath();
-        for (let k = 0; k <= n; k++) { const q = PR(k * span + a); k ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); }
+        x.beginPath();   // plate face
+        vs.forEach((v, k) => { k ? x.lineTo(v[0], v[1]) : x.moveTo(v[0], v[1]); });
         x.closePath();
-        const cg = x.createLinearGradient(XR - RXR, CY - RYR, XR + RXR, CY + RYR);
+        const cg = x.createLinearGradient(mx - RXS, my - RY, mx + RXS, my + RY);
         cg.addColorStop(0, "hsl(0,0%,15%)"); cg.addColorStop(1, "hsl(0,0%,8%)");
         x.fillStyle = cg; x.fill(); x.strokeStyle = "rgba(255,255,255,.3)"; x.lineWidth = 1; x.stroke();
-        for (let k = 0; k < n; k++) { const q = PR(k * span + a);
-          x.beginPath(); x.moveTo(XR, CY); x.lineTo(q[0], q[1]); x.strokeStyle = "rgba(255,255,255,.2)"; x.lineWidth = 1; x.stroke();
+        vs.forEach((v, k) => {   // spokes + corner studs (the stud passing the payline flashes)
+          x.beginPath(); x.moveTo(mx, my); x.lineTo(v[0], v[1]); x.strokeStyle = "rgba(255,255,255,.2)"; x.lineWidth = 1; x.stroke();
           const hot = studT > 0 && segAt(a) === k;
-          x.beginPath(); x.arc(q[0], q[1], hot ? 3.8 : 2.2, 0, TAU); x.fillStyle = hot ? "#fff" : "rgba(255,255,255,.6)"; x.fill(); }
-        x.beginPath(); x.arc(XR, CY, 13, 0, TAU); x.fillStyle = "rgba(10,10,10,.98)"; x.fill(); x.strokeStyle = "rgba(255,255,255,.5)"; x.lineWidth = 1.4; x.stroke();
-        x.font = "800 13px ui-monospace,Consolas,monospace"; x.textAlign = "center"; x.textBaseline = "middle";
+          x.beginPath(); x.arc(v[0], v[1], hot ? 3.8 : 2.2, 0, TAU); x.fillStyle = hot ? "#fff" : "rgba(255,255,255,.6)"; x.fill();
+        });
+        x.beginPath(); x.arc(mx, my, 11, 0, TAU); x.fillStyle = "rgba(10,10,10,.98)"; x.fill(); x.strokeStyle = "rgba(255,255,255,.5)"; x.lineWidth = 1.4; x.stroke();
+        x.font = "800 12px ui-monospace,Consolas,monospace"; x.textAlign = "center"; x.textBaseline = "middle";
         x.fillStyle = state === "done" ? "rgba(255,255,255," + (0.7 + pulse * 0.3) + ")" : "rgba(255,255,255,.8)";
-        x.fillText(state === "done" ? "✦" : "▲", XR, CY + 1);
-      }
-      // ── cabinet glass: hoods + sheen CLIPPED to the drum body (they never float past the metal) ──
+        x.fillText(state === "done" ? "✦" : "▲", mx, my + 1);
+      };
+      cap(PL, XL); cap(PR, XR);
+      // ── cabinet glass: hoods + sheen CLIPPED to the drum body ──
       x.save(); hull(); x.clip();
-      let g2 = x.createLinearGradient(0, CY - RYR, 0, CY - 56);
+      let g2 = x.createLinearGradient(0, CY - RY, 0, CY - 56);
       g2.addColorStop(0, "rgba(0,0,0,.58)"); g2.addColorStop(1, "rgba(0,0,0,0)");
-      x.fillStyle = g2; x.fillRect(0, CY - RYR - 2, CSW, RYR - 54);
-      g2 = x.createLinearGradient(0, CY + 56, 0, CY + RYR);
+      x.fillStyle = g2; x.fillRect(XL - 2, CY - RY - 2, XR - XL + 4, RY - 54);
+      g2 = x.createLinearGradient(0, CY + 56, 0, CY + RY);
       g2.addColorStop(0, "rgba(0,0,0,0)"); g2.addColorStop(1, "rgba(0,0,0,.58)");
-      x.fillStyle = g2; x.fillRect(0, CY + 56, CSW, RYR - 54 + 2);
+      x.fillStyle = g2; x.fillRect(XL - 2, CY + 56, XR - XL + 4, RY - 54 + 2);
       g2 = x.createLinearGradient(0, CY - 30, 0, CY + 6);
       g2.addColorStop(0, "rgba(255,255,255,0)"); g2.addColorStop(0.5, "rgba(255,255,255,.06)"); g2.addColorStop(1, "rgba(255,255,255,0)");
-      x.fillStyle = g2; x.fillRect(0, CY - 30, CSW, 36);
+      x.fillStyle = g2; x.fillRect(XL - 2, CY - 30, XR - XL + 4, 36);
       x.restore();
-      // ── PAYLINE — arrows flanking the front face (they kick on every tick, flare on the win) ──
+      // ── PAYLINE — arrows outside the side plates (kick on ticks, flare on the win) ──
       const kick = studT > 0 ? 5 : 0, flare = state === "done" ? 0.55 + pulse * 0.45 : 0.85;
       x.fillStyle = "rgba(255,255,255," + flare + ")";
-      x.beginPath(); x.moveTo(XL - 26 + kick, CY - 9); x.lineTo(XL - 26 + kick, CY + 9); x.lineTo(XL - 9 + kick, CY); x.closePath(); x.fill();
-      x.beginPath(); x.moveTo(XR + RXR + 22 - kick, CY - 9); x.lineTo(XR + RXR + 22 - kick, CY + 9); x.lineTo(XR + RXR + 5 - kick, CY); x.closePath(); x.fill();
+      x.beginPath(); x.moveTo(XL - RXS - 28 + kick, CY - 9); x.lineTo(XL - RXS - 28 + kick, CY + 9); x.lineTo(XL - RXS - 11 + kick, CY); x.closePath(); x.fill();
+      x.beginPath(); x.moveTo(XR + RXS + 28 - kick, CY - 9); x.lineTo(XR + RXS + 28 - kick, CY + 9); x.lineTo(XR + RXS + 11 - kick, CY); x.closePath(); x.fill();
       x.strokeStyle = "rgba(255,255,255," + (state === "done" ? 0.28 + pulse * 0.2 : 0.15) + ")"; x.lineWidth = 1;
-      x.beginPath(); x.moveTo(XL - 4, CY); x.lineTo(XR + 2, CY); x.stroke();
+      x.beginPath(); x.moveTo(XL - 4, CY); x.lineTo(XR + 4, CY); x.stroke();
       for (const p of parts) {                              // confetti
         x.save(); x.translate(p.x, p.y); x.rotate(p.spin); x.globalAlpha = Math.max(0, 1 - p.t / p.life);
         x.fillStyle = "#fff"; x.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); x.restore();
