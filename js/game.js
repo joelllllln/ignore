@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v15.0";   // v15.0 = BOSS BOUNTY WHEEL: every boss kill spins an animated fortune wheel — progress-matched cash tiers, your top reachable skill nodes by NAME, a 2% gem — wind-up, ticks, confetti, slam reveal
+  const VERSION = "v15.1";   // v15.1 = the Bounty Wheel goes 3D: tilted cylinder render — elliptical face, extruded shaded rim, raised hub puck, ground shadow, specular sheen — same spin physics & prizes
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -735,7 +735,7 @@
      underneath; a tap launches instantly / dismisses after landing. Monochrome AAA — luminance
      tiers, white glow, a shimmering jackpot slice — matching the game's palette. */
   const Wheel = (() => {
-    const CS = 340, C = CS / 2, R = 150, HUB = 46;          // css size / centre / rim / hub radii
+    const CSW = 340, CSH = 310, C = 170, CY = 150, R = 150, HUB = 46, K = 0.66, DEPTH = 20;   // 3D wheel: css W/H, centre, rim/hub radii, vertical squash (tilt) and rim thickness
     let segs = [], v0 = 0, bossNm = "", state = "off";      // off | arm | spin | done
     let a = 0, a0 = 0, aT = 0, t = 0, dur = 4.2, armT = 0, doneT = 0, tickIdx = -1, studT = 0, won = -1, parts = [], raf = 0, lastTs = 0, wired = false, resultTxt = "";
     const el = () => $("wheel");
@@ -811,7 +811,7 @@
       Audio_node();
       for (let i = 0; i < 74; i++) {                        // confetti — white sparks from the pointer + hub
         const top_ = Math.random() < 0.65, ang = rnd(0, TAU), sp = rnd(60, 300);
-        parts.push({ x: top_ ? C : C, y: top_ ? 12 : C, vx: Math.cos(ang) * sp * (top_ ? 0.5 : 1), vy: top_ ? rnd(40, 200) : Math.sin(ang) * sp, r: rnd(1.5, 3.5), life: rnd(0.7, 1.3), t: 0, spin: rnd(0, TAU) });
+        parts.push({ x: C, y: top_ ? CY - K * R : CY, vx: Math.cos(ang) * sp * (top_ ? 0.5 : 1), vy: top_ ? rnd(40, 200) : Math.sin(ang) * sp, r: rnd(1.5, 3.5), life: rnd(0.7, 1.3), t: 0, spin: rnd(0, TAU) });
       }
     }
     function tap() {
@@ -839,11 +839,38 @@
     }
     function draw() {
       const cv = $("wh-canvas"); if (!cv) return;
-      const need = Math.round(CS * (window.devicePixelRatio || 1));
-      if (cv.width !== need) { cv.width = need; cv.height = need; }
-      const x = cv.getContext("2d"); x.setTransform(cv.width / CS, 0, 0, cv.width / CS, 0, 0); x.clearRect(0, 0, CS, CS);
+      const dp = window.devicePixelRatio || 1, nw = Math.round(CSW * dp), nh = Math.round(CSH * dp);
+      if (cv.width !== nw || cv.height !== nh) { cv.width = nw; cv.height = nh; }
+      const x = cv.getContext("2d"); x.setTransform(cv.width / CSW, 0, 0, cv.height / CSH, 0, 0); x.clearRect(0, 0, CSW, CSH);
       const pulse = state === "done" ? 0.5 + 0.5 * Math.sin(doneT * 6) : 0;
-      x.save(); x.translate(C, C); x.rotate(a);
+      const P = (th, r, dy) => [C + Math.cos(th) * r, CY + Math.sin(th) * r * K + (dy || 0)];   // wheel angle → tilted screen point (the 3D projection)
+      // ── ground shadow — sells the cylinder sitting in space ──
+      x.save(); x.translate(C, CY + DEPTH + K * R * 0.6); x.scale(1, 0.3);
+      const gs = x.createRadialGradient(0, 0, R * 0.15, 0, 0, R * 1.05);
+      gs.addColorStop(0, "rgba(0,0,0,.6)"); gs.addColorStop(1, "rgba(0,0,0,0)");
+      x.fillStyle = gs; x.beginPath(); x.arc(0, 0, R * 1.05, 0, TAU); x.fill(); x.restore();
+      // ── extruded rim wall (the visible front half of the cylinder side), shaded per slice ──
+      let accS = 0;
+      for (let i = 0; i < segs.length; i++) {
+        const sg = segs[i], s0 = accS + a, s1 = accS + sg.w / 100 * TAU + a; accS += sg.w / 100 * TAU;
+        const pts = [], N = Math.max(2, Math.ceil((s1 - s0) / 0.05));
+        for (let j = 0; j <= N; j++) { const th = s0 + (s1 - s0) * j / N; if (Math.sin(th) > 0.012) pts.push(th); }
+        if (pts.length < 2) continue;
+        x.beginPath();
+        pts.forEach((th, j) => { const q = P(th, R); j ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); });
+        for (let j = pts.length - 1; j >= 0; j--) { const q = P(pts[j], R, DEPTH); x.lineTo(q[0], q[1]); }
+        x.closePath();
+        const winGlow = state === "done" && i === won;
+        x.fillStyle = "hsl(0,0%," + Math.round(sg.lum * 0.42 + (winGlow ? 16 : 0)) + "%)";   // side wall = darker of the face — lathe-turned metal
+        x.fill(); x.strokeStyle = "rgba(0,0,0,.4)"; x.lineWidth = 1; x.stroke();
+      }
+      { // bottom lip catch-light
+        x.beginPath();
+        for (let j = 0; j <= 90; j++) { const q = P(j / 90 * Math.PI, R, DEPTH); j ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); }
+        x.strokeStyle = "rgba(255,255,255,.12)"; x.lineWidth = 1.4; x.stroke();
+      }
+      // ── the spinning face — a tilted disc (all slice/label math lives in squashed space) ──
+      x.save(); x.translate(C, CY); x.scale(1, K); x.rotate(a);
       let acc = 0;
       for (let i = 0; i < segs.length; i++) {
         const sg = segs[i], w = sg.w / 100 * TAU, aa = acc, bb = acc + w; acc = bb;
@@ -856,7 +883,7 @@
         if (winGlow) { x.shadowColor = "rgba(255,255,255,.9)"; x.shadowBlur = 26; }
         x.fill(); x.shadowBlur = 0;
         x.strokeStyle = "rgba(255,255,255,.42)"; x.lineWidth = 1.6; x.stroke();
-        // radial label — bright text on dark slices, black on bright ones
+        // radial label — bright text on dark slices, black on bright ones (foreshortens with the tilt)
         const mid = aa + w / 2, bright = lum > 52;
         x.save(); x.rotate(mid); x.textAlign = "right"; x.textBaseline = "middle";
         x.font = "700 " + (sg.kind === "gem" ? 10 : 11.5) + "px ui-monospace,Consolas,monospace";
@@ -867,19 +894,34 @@
         x.restore();
       }
       x.restore();
-      // rim + studs (the stud by the pointer flashes on every tick)
-      x.strokeStyle = "rgba(255,255,255,.35)"; x.lineWidth = 2.5; x.beginPath(); x.arc(C, C, R + 3, 0, TAU); x.stroke();
+      // ── specular sheen across the tilted face (fixed light from the upper left) ──
+      x.save();
+      x.beginPath(); x.save(); x.translate(C, CY); x.scale(1, K); x.arc(0, 0, R, 0, TAU); x.restore(); x.clip();
+      const sh = x.createLinearGradient(C - R, CY - R * K, C + R * 0.35, CY + R * K * 0.5);
+      sh.addColorStop(0, "rgba(255,255,255,.11)"); sh.addColorStop(0.5, "rgba(255,255,255,.02)"); sh.addColorStop(1, "rgba(255,255,255,0)");
+      x.fillStyle = sh; x.fillRect(C - R, CY - R * K, R * 2, R * 2 * K);
+      x.restore();
+      // ── rim ring + studs on the ellipse (the stud by the pointer flashes on every tick) ──
+      x.beginPath(); x.save(); x.translate(C, CY); x.scale(1, K); x.arc(0, 0, R + 3, 0, TAU); x.restore();
+      x.strokeStyle = "rgba(255,255,255,.42)"; x.lineWidth = 2.2; x.stroke();
       for (let i = 0; i < 20; i++) {
-        const sa = i / 20 * TAU - Math.PI / 2, top_ = i === 0;
-        x.beginPath(); x.arc(C + Math.cos(sa) * (R + 3), C + Math.sin(sa) * (R + 3), top_ && studT > 0 ? 4.4 : 2.6, 0, TAU);
-        x.fillStyle = top_ && studT > 0 ? "#fff" : "rgba(255,255,255,.5)"; x.fill();
+        const th = i / 20 * TAU - Math.PI / 2, top_ = i === 0, q = P(th, R + 3);
+        x.beginPath(); x.arc(q[0], q[1], top_ && studT > 0 ? 4.4 : 2.6, 0, TAU);
+        x.fillStyle = top_ && studT > 0 ? "#fff" : "rgba(255,255,255," + (Math.sin(th) > 0 ? 0.6 : 0.42) + ")"; x.fill();
       }
-      // hub — dark disc, boss glyph, thin ring
-      x.beginPath(); x.arc(C, C, HUB, 0, TAU); x.fillStyle = "rgba(8,8,8,.96)"; x.fill();
-      x.strokeStyle = "rgba(255,255,255,.4)"; x.lineWidth = 1.5; x.stroke();
-      x.font = "800 20px ui-monospace,Consolas,monospace"; x.textAlign = "center"; x.textBaseline = "middle";
-      x.fillStyle = state === "done" ? "rgba(255,255,255," + (0.7 + pulse * 0.3) + ")" : "rgba(255,255,255,.8)";
-      x.fillText(state === "done" ? "✦" : "▲", C, C + 1);
+      // ── raised hub puck (its own little cylinder) + boss glyph ──
+      { const LIFT = 7;
+        x.beginPath();
+        for (let j = 0; j <= 60; j++) { const q = P(j / 60 * Math.PI, HUB, -LIFT); j ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); }
+        for (let j = 60; j >= 0; j--) { const q = P(j / 60 * Math.PI, HUB, 0); x.lineTo(q[0], q[1]); }
+        x.closePath(); x.fillStyle = "hsl(0,0%,15%)"; x.fill(); x.strokeStyle = "rgba(0,0,0,.5)"; x.stroke();
+        x.beginPath(); x.save(); x.translate(C, CY - LIFT); x.scale(1, K); x.arc(0, 0, HUB, 0, TAU); x.restore();
+        x.fillStyle = "rgba(8,8,8,.97)"; x.fill(); x.strokeStyle = "rgba(255,255,255,.4)"; x.lineWidth = 1.4; x.stroke();
+        x.save(); x.translate(C, CY - LIFT); x.scale(1, K);
+        x.font = "800 20px ui-monospace,Consolas,monospace"; x.textAlign = "center"; x.textBaseline = "middle";
+        x.fillStyle = state === "done" ? "rgba(255,255,255," + (0.7 + pulse * 0.3) + ")" : "rgba(255,255,255,.8)";
+        x.fillText(state === "done" ? "✦" : "▲", 0, 1); x.restore();
+      }
       for (const p of parts) {                              // confetti
         x.save(); x.translate(p.x, p.y); x.rotate(p.spin); x.globalAlpha = Math.max(0, 1 - p.t / p.life);
         x.fillStyle = "#fff"; x.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); x.restore();
