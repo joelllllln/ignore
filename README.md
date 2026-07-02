@@ -65,6 +65,18 @@ npx electron-builder --win --linux   # then upload the artifacts via steamcmd / 
 For Steam overlay/achievements later, add `steamworks.js` — nothing in the game
 blocks it.
 
+### Accounts & cloud saves (Steam)
+
+No account needed to play. Progress moves between devices with **save codes**
+(Settings → Save transfer to EXPORT; to import inside the Electron wrap, paste
+the `IDS1.` code into the **home-screen CODES box** — that path never calls
+`window.prompt`, which Electron doesn't implement). For **Steam Cloud**:
+either enable *Steam Auto-Cloud* on the wrap's userData save path in the
+Steamworks dashboard (zero code), or wire the engine's bridge —
+`window.__SAVE_BRIDGE.push(json)` fires on every save, and the shell restores
+by writing the newest snapshot into `localStorage["ids_clone.v3"]` before the
+page loads (newest `ts` wins) — to `steamworks.js` Remote Storage.
+
 A hardcore idle/incremental space shooter built with **HTML5, JavaScript and
 Canvas** — no dependencies, no build step. Open `index.html` and play. The art
 is deliberately minimalist black-and-white, but the field is heavily *juiced*
@@ -353,9 +365,19 @@ at its mouth.
 ## Idle, offline & saving
 
 - Cash keeps flowing with zero input. **Offline earnings**: while away your
-  defenders "keep firing" — on return you collect a capped share of your recent
-  coins-per-second, shown on a Welcome-back screen.
+  defenders "keep firing" — on return you collect your recent coins-per-second
+  (plus your empire's idle rate) for up to **24 hours** of absence, shown on a
+  Welcome-back screen. Screen-lock, app-switch, tab-freeze and full closes all
+  credit the same way (visibilitychange / pagehide / freeze lifecycle hooks).
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
+- **Save codes** (Settings → Save transfer): **Export** copies a portable
+  `IDS1.` code, **Import** (or pasting the code into the home-screen CODES box)
+  restores it — move progress across web, PC, Android and iOS with no account.
+- **Cloud-save bridge for the store builds**: every save also calls
+  `window.__SAVE_BRIDGE.push(json)` if a native shell provides it, and a shell
+  restores by writing its newest snapshot into `localStorage["ids_clone.v3"]`
+  before the page loads (newest `ts` wins). The Android/iOS branch READMEs show
+  the Play Games / iCloud wiring.
 - **⚙ Settings** (from the home screen or the in-game ☰ menu) is a full mobile
   options panel: toggle **sound**, **vibration/haptics**, **screen shake**, and
   **screen flashes** (photosensitivity), pick **particle quality** (Full / Low /
