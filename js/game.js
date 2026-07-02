@@ -48,7 +48,8 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v13.2";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, uncapped away earnings, lifecycle hardening, live tree affordability)
+  const VERSION = "v13.3";   // v13 = the store-readiness milestone; .3 = the juice/polish pass (UI sounds, deploy pops, node ripples, counter bump, modal motion)
+  let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   // PC EDITION — pc.html sets <body class="pc">: same engine, desktop shell. Gates the
   // keyboard map, fullscreen toggle and tap→click copy; mobile (index.html) is untouched.
   const IS_PC = typeof document !== "undefined" && !!document.body && !!document.body.classList && document.body.classList.contains("pc");
@@ -1058,6 +1059,7 @@
         floatTxt(d.x, d.y - d.r - 12, "✦ " + bossName(d.bg || S.galaxy) + " DEFEATED");
         floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + bonus);
         showBossReward(bossName(d.bg || S.galaxy), curSym(S.galaxy) + " " + fmt(lump + d.value), gemDrop, nodeDrop);   // the "what you got" popup
+        Audio_boss();   // the one field event that earns a real sound
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
         recompute(); syncHUD();
         return;
@@ -1481,7 +1483,12 @@
   function syncHUD() {
     const bg = empireIdleRate();
     const cq = S.conquest || 1, cqStr = cq < 100 ? cq.toFixed(1) : fmt(cq);   // fmt() floors small numbers (1.8→"1"), so keep a decimal while the multiplier is small
-    $("ui-cash").textContent = curSym(S.galaxy) + " " + fmt(S.cash); $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
+    { const uc = $("ui-cash"); uc.textContent = curSym(S.galaxy) + " " + fmt(S.cash);
+      // juice: bump the counter when cash GROWS — throttled so a steady trickle breathes instead of strobing
+      const nowMs = performance.now();
+      if (S.cash > hudCashLast && nowMs - hudBumpT > 400) { hudBumpT = nowMs; uc.classList.remove("bump"); void uc.offsetWidth; uc.classList.add("bump"); }
+      hudCashLast = S.cash; }
+    $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
     { const cpsEl = $("ui-cps"); if (cpsEl) cpsEl.textContent = "+" + curSym(S.galaxy) + fmt(Math.max(0, cps)) + "/s"; }   // live ACTIVE income rate beside the total, always visible while playing
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
     { const g = (META && META.gems) || 0, ab = $("ascend-n"); if (ab) ab.textContent = g; const abtn = $("btn-ascend"); if (abtn) abtn.classList.toggle("has", g > 0 && PERKS.some(p => !perkOwned(p.id) && tierOpen(p.tier) && p.cost <= g)); }   // glow the Ascension button only when you can actually afford+unlock something
@@ -1562,6 +1569,9 @@
     }
     if (!bought) return;
     if (isCol(type)) syncCollectors();
+    // deploy pop — a small burst + ring where the new unit racks in, so a purchase lands ON the field, not just in the list
+    if (!isCol(type)) { const i = S.units.length - 1, p = unitPos(i, S.units.length); burst(p.x, p.y, 10, 130, 1.6); ring(p.x, p.y, 6, 44, 0.4); }
+    else { const dr = drones[drones.length - 1]; if (dr) { burst(dr.x, dr.y, 10, 130, 1.4); ring(dr.x, dr.y, 6, 40, 0.4); } }
     Audio_buy(); renderList(); save();
   }
   function buyUpgrade(u) {
@@ -1574,7 +1584,28 @@
     if (!bought) return;
     Audio_buy(); recompute(); syncHUD(); save();
   }
-  function Audio_buy() {}  // (silent build)
+  // ── tiny synthesized UI sounds (no assets, all gated by the sound setting). Kept SOFT and short —
+  // routine actions whisper, only the rare boss kill gets a real hit. Auto-buy uses its own closures,
+  // so none of these ever fire from background automation. ──
+  function Audio_buy() {   // soft two-note confirm — a routine manual purchase
+    if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
+    [[620, 0], [930, 0.05]].forEach(([f, d]) => { const o = a.createOscillator(); o.type = "triangle"; o.frequency.value = f;
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.1, t0 + d + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.085);
+      o.connect(g).connect(a.destination); o.start(t0 + d); o.stop(t0 + d + 0.1); });
+  }
+  function Audio_node() {   // a skill node locks in — quick rising arpeggio, a touch grander than a buy
+    if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
+    [[523, 0], [659, 0.055], [880, 0.11]].forEach(([f, d]) => { const o = a.createOscillator(); o.type = "triangle"; o.frequency.value = f;
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.11, t0 + d + 0.014); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.16);
+      o.connect(g).connect(a.destination); o.start(t0 + d); o.stop(t0 + d + 0.18); });
+  }
+  function Audio_boss() {   // boss down — one low thump + a crack of noise (rare, earned)
+    if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
+    const o = a.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(150, t0); o.frequency.exponentialRampToValueAtTime(34, t0 + 0.45);
+    const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + 0.52);
+    const nz = Sfx.noise(); if (nz) { const hp = a.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1800; const ng = a.createGain(); ng.gain.setValueAtTime(0.22, t0); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16); nz.connect(hp).connect(ng).connect(a.destination); nz.start(t0); nz.stop(t0 + 0.18); }
+  }
 
   /* ----------------------- AUTO-BUY (idle automation) -----------------------
      A SEQUENTIAL queue of steps — each step is "buy <thing> N times", and the queue
@@ -1898,7 +1929,9 @@
   function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * Math.pow(1.28, allocCount(type)) * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }   // base 6.0 → the FIRST node is a real save-up investment (~4× the old cost, ~40% of a 2nd unit), not pocket change; growth eased 1.33→1.28 so the pricier early cost doesn't balloon the late curve (the back half stays about as reachable as before); ×DEF_SCALE keeps stronger-per-node classes proportionally costed
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
-    S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true; recompute(); syncHUD(); save();
+    S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true;
+    Audio_node(); STree.pulse(n);   // lock-in chime + a ripple on the web at the node (manual path only — auto-buy allocates via its own closure)
+    recompute(); syncHUD(); save();
   }
   function allocAll(type) {   // test-mode: instantly allocate the WHOLE tree (skips cost/affordability — free sandbox only)
     if (!S.free) return;
@@ -1951,8 +1984,9 @@
   }
   const STree = {
     type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null, pick: false, pickStep: null,
-    ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [],
+    ptrs: new Map(), lx: 0, ly: 0, moved: false, pinchD: 0, hit: [], fx: [],
     selNode() { return this.sel ? buildTree(this.type).map[this.sel] : null; },
+    pulse(n) { if (n && n.x !== undefined) this.fx.push({ x: n.x, y: n.y, t: 0 }); },   // allocation ripple, in TREE-space so it pans/zooms with the web
     init() {
       this.cv = $("sttree"); if (!this.cv) return; this.c = this.cv.getContext("2d");
       this.cv.addEventListener("pointerdown", e => { this.ptrs.set(e.pointerId, this.pt(e)); this.moved = false; const p = this.pt(e); this.lx = p.x; this.ly = p.y; if (this.ptrs.size === 2) { const a = [...this.ptrs.values()]; this.pinchD = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); } });
@@ -2005,6 +2039,14 @@
         c.font = Math.round(n.kind === "minor" ? clamp(p.u * 0.11, 8, 11) : clamp(p.u * 0.13, 9, 13)) + "px ui-monospace,monospace";
         c.fillText(nodeLabel(type, n), p.x, p.y - rad - 5);
       }
+      // allocation ripples — expanding, fading rings at freshly-bought nodes
+      for (let i = this.fx.length - 1; i >= 0; i--) {
+        const f = this.fx[i]; f.t += dt; const k = f.t / 0.55; if (k >= 1) { this.fx.splice(i, 1); continue; }
+        const p = this.sc(f.x, f.y), e = 1 - (1 - k) * (1 - k);   // ease-out
+        c.globalAlpha = (1 - k) * 0.85; c.strokeStyle = "#fff"; c.lineWidth = 1 + 2.5 * (1 - k);
+        c.beginPath(); c.arc(p.x, p.y, p.u * (0.28 + e * 1.3), 0, TAU); c.stroke();
+      }
+      c.globalAlpha = 1;
       $("st-title").textContent = TY(type).name.toUpperCase();
       $("st-owned").textContent = "· " + countType(type) + " deployed · " + allocCount(type) + " nodes · affects ALL";
       $("st-stats").innerHTML = statLine(type);
