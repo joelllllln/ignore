@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v13.1";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, uncapped away earnings, lifecycle hardening)
+  const VERSION = "v13.2";   // v13 = the store-readiness milestone (save codes, cloud-save bridge, uncapped away earnings, lifecycle hardening, live tree affordability)
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -1928,10 +1928,22 @@
       sk.map(k => "<b>" + STAT_TITLE[k] + "</b> — " + STAT_INFO[k]).join("<br><br>"),
       sk.map(k => STAT_GIF[k]).find(Boolean));   // show the clip for this node's primary stat
     const btn = $("st-upgrade");
-    if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; }
-    else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = "ALLOCATE · " + curSym(S.galaxy) + " " + fmt(cost); btn.disabled = !afford; }
-    else { $("si-prev").innerHTML = iconMarkup("lock") + "Locked — first allocate a node connected to this one."; btn.textContent = "LOCKED"; btn.disabled = true; }
+    if (has) { $("si-prev").innerHTML = "✓ Allocated · class now <span class='si-after'>" + statLine(type) + "</span>"; btn.textContent = "ALLOCATED"; btn.disabled = true; btn.dataset.liveCost = ""; btn.classList.remove("afford"); }
+    else if (can) { const p = nodePreview(type, n); $("si-prev").innerHTML = "Now: " + p.before + "<br>After: <span class='si-after'>" + p.after + "</span>"; btn.textContent = "ALLOCATE · " + curSym(S.galaxy) + " " + fmt(cost); btn.disabled = !afford; btn.dataset.liveCost = String(cost); btn.classList.toggle("afford", afford); }
+    else { $("si-prev").innerHTML = iconMarkup("lock") + "Locked — first allocate a node connected to this one."; btn.textContent = "LOCKED"; btn.disabled = true; btn.dataset.liveCost = ""; btn.classList.remove("afford"); }
     panel.classList.add("show");
+  }
+  // QOL: the node panel renders once on tap, but idle income keeps flowing — without this tick the
+  // ALLOCATE button stayed greyed until you re-tapped the node. Runs every frame while the tree is
+  // open: the moment cash crosses the stamped cost, the button enables and pulses (and re-greys if
+  // you dip back below, e.g. after buying something else mid-hover).
+  function refreshTreeAfford() {
+    const panel = $("st-info"); if (!panel || !panel.classList.contains("show")) return;
+    const btn = $("st-upgrade"), c = btn && btn.dataset ? btn.dataset.liveCost : "";
+    if (!c) return;                                     // only live in the ALLOCATE state (not ALLOCATED/LOCKED)
+    const afford = S.cash >= +c;
+    if (btn.disabled !== !afford) btn.disabled = !afford;   // write only on change — no per-frame repaint
+    btn.classList.toggle("afford", afford);
   }
   const STree = {
     type: "turret", cx: 0, cy: 0, zoom: 1, t: 0, cv: null, c: null, w: 0, h: 0, sel: null, pick: false, pickStep: null,
@@ -2821,7 +2833,7 @@
   }
   window.addEventListener("resize", resize);
   let last = 0, saveAcc = 0;
-  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) { STree.render(dt); const wt = $("sw-tot"), wr = $("sw-rate"); if (wt) wt.textContent = fmt(S.cash); if (wr) wr.textContent = "+" + fmt(Math.max(0, cps)) + "/s"; }   // live wallet in the tree: total climbs, plus $/s
+  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) { STree.render(dt); refreshTreeAfford(); const wt = $("sw-tot"), wr = $("sw-rate"); if (wt) wt.textContent = fmt(S.cash); if (wr) wr.textContent = "+" + fmt(Math.max(0, cps)) + "/s"; }   // live wallet in the tree: total climbs, plus $/s — and the node panel's ALLOCATE lights the moment you can afford it
     if (veilT > 0) { veilT = Math.max(0, veilT - dt); setVeil(135 * (1 - veilT / VEIL_FADE)); }   // iris the black veil open over the base after landing
     if (landT > 0) { landT = Math.max(0, landT - dt); camZoom += (camFit - camZoom) * Math.min(1, dt * 3.5); if (landT === 0) { camZoom = camFit; const root = $("root"); if (root) root.classList.remove("cinematic"); } }   // camera pulls back to the base, then letterbox retracts
     fxAcc += dt; if (fxAcc > 0.2) { fxAcc = 0; refreshExchange(); }   // tick the live FX rates while the exchange is open
