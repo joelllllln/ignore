@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v14.3";   // v14.3 = PC collectors compensate for the bigger field (speed/reach/pull x~2 at 1080p) — same collection latency as mobile
+  const VERSION = "v14.4";   // v14.4 = Spawn Rate never goes dead: knee 26->38/s (rides the PC field), pass-through 25->38%, overflow toughness pays a PREMIUM (not neutral), and the standing-cap THINNING is gone
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -366,14 +366,17 @@
   // system), the COMBAT wall a fresh fleet feels on landing — you out-grow it with more units & deeper trees.
   const enemyHpMul = g => Math.pow(diff(g), 0.4);       // dampened difficulty → dots tankier per planet (in-planet Value ramps them further)
   const galSpawnMul = g => 1;                           // flat base spawn (you raise it in-planet with Spawn Rate)
-  const galCap = g => 400;                              // flat field cap
-  // SOFT spawn ceiling. Below SPAWN_SMOOTH/sec dots spawn 1:1 with Spawn Rate. Above it, the on-screen
-  // count keeps GROWING (so Spawn Rate is never pointless) but gently tapered — only ~25% of the extra
-  // rate becomes new bodies, the other ~75% becomes per-dot TOUGHNESS. So the field has room to breathe
-  // (no instant 1:1 respawn wall) yet every Spawn-Rate level still visibly adds dots AND beef.
-  const SPAWN_SMOOTH = 26, SPAWN_PASS = 0.25;
-  const spawnVis = raw => raw <= SPAWN_SMOOTH ? raw : SPAWN_SMOOTH + (raw - SPAWN_SMOOTH) * SPAWN_PASS;   // visible dots/sec (soft-capped)
-  const spawnOver = raw => { const v = spawnVis(raw); return raw > v ? Math.min(Math.pow(raw / v, 0.69), 8) : 1; };   // un-spawned share → toughness (income-neutral vs the old uncapped spawn)
+  const galCap = g => Math.round(400 * Math.min(FIELD_COMP, 1.5));   // field cap — the PC shell's bigger arena holds a bigger standing crowd (up to 600); never shrinks for any reason
+  // SOFT spawn ceiling (v14.4 — "Spawn Rate never goes dead"). Below the knee dots spawn 1:1 with
+  // Spawn Rate. Above it the on-screen count KEEPS growing (38% of the extra rate becomes bodies) and
+  // the rest converts to per-dot TOUGHNESS at a PREMIUM: cash rides menace^TOUGH_POW and
+  // 0.8 × 1.45 ≈ 1.16 > 1, so overflow levels earn strictly MORE per point than 1:1 levels did —
+  // the stat visibly and economically pays at EVERY level. Knee rides FIELD_COMP (the PC shell's
+  // bigger field genuinely shows more raw spawns before tapering).
+  const SPAWN_SMOOTH = 38, SPAWN_PASS = 0.38;
+  const spawnKnee = () => SPAWN_SMOOTH * Math.min(FIELD_COMP, 1.5);
+  const spawnVis = raw => { const k = spawnKnee(); return raw <= k ? raw : k + (raw - k) * SPAWN_PASS; };   // visible dots/sec (soft knee — keeps climbing forever, never flat)
+  const spawnOver = raw => { const v = spawnVis(raw); return raw > v ? Math.min(Math.pow(raw / v, 0.8), 8) : 1; };   // un-spawned share → toughness at a premium (see TOUGH_POW note above)
 
   /* ====================== PLANET LAYERS (per-planet economy) ======================
      Each planet has its OWN currency and is its OWN fresh run. eco(g) is that planet's
@@ -611,13 +614,12 @@
     derived.incomeMul = S.conquest || 1;               // Conquest multiplier — REMOVED (CONQ_STEP=1 keeps S.conquest=1), so this is always 1 / inert. Plumbing kept so it's reversible.
     derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity) * (S.conquest || 1);   // cash ceiling scales with difficulty AND conquest so it never lags your income
     derived.valueMul = (1 + 0.08 * L.value) * pk().value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace". × small permanent Ascension value perk.
-    // Spawn Rate: each level wants +2 dots/sec. But the field caps at galCap (400) dots, so past a
-    // soft cap the screen can't hold more — instead of wasting the upgrade, the surplus "spills over"
-    // into MENACE: every dot spawns tougher & (via TOUGH_POW) worth disproportionately more. So Spawn
-    // Rate keeps paying off even with a full screen, exactly like Value never caps out.
+    // Spawn Rate: each level wants +2 dots/sec. Past the soft knee the screen can't hold every extra
+    // body — instead of wasting the upgrade, the surplus "spills over" into MENACE: every dot spawns
+    // tougher & (via TOUGH_POW) worth disproportionately MORE than the skipped spawn would have paid.
+    // So Spawn Rate keeps paying off at every level, exactly like Value never caps out.
     const rawSpawn = (0.9 + 2.0 * L.spawnRate) * pk().spawn;
     derived.spawnPerSec = rawSpawn;                                           // FULL benefit — the field cap limits count, so if you kill fast you just get flooded with more dots
-    derived.spawnSurplus = Math.max(0, rawSpawn - 12);                        // rate beyond the field's comfortable throughput — becomes MENACE, but only while the field is actually saturated
     if (derived.spawnMenace == null) derived.spawnMenace = 1;                 // live value, updated each frame from real field fullness in the spawn loop
     derived.luck = Math.min(0.6, 0.003 * L.luck + pk().luck);    // +0.3% chance of a rare 9× SPECIAL dot per Luck level (buffed from 0.1% — was a trap stat vs Value) + Ascension Fortune perk
     derived.cls = {}; for (const t of ALL_TYPES) derived.cls[t] = classStats(t);
@@ -1144,17 +1146,15 @@
     for (const k in abil) if (abil[k] > 0) abil[k] = Math.max(0, abil[k] - dt);
     autoBuyTick(dt);   // idle automation: spend cash on upgrades by your priority order
 
-    const baseCap = galCap(S.galaxy);
-    const sup = Math.min(derived.spawnSurplus || 0, 80);
     const rawRate = derived.spawnPerSec * galSpawnMul(S.galaxy);
     // SOFT-SMOOTHED SPAWNING. The field has room to BREATHE — a cleared screen refills as a gentle pulse,
     // not an instant 1:1 wall (that was the stutter). But Spawn Rate is never pointless: dots keep growing
-    // with it (soft-capped via spawnVis), and the rest converts to per-dot TOUGHNESS (spawnOver, tuned
-    // income-neutral). So every Spawn-Rate level still visibly adds bodies AND beef.
+    // with it (soft knee via spawnVis, 38% pass-through), and the rest converts to per-dot TOUGHNESS at a
+    // PREMIUM (spawnOver × TOUGH_POW > linear). The standing cap NEVER shrinks (the old surplus "thinning"
+    // made buying Spawn Rate reduce on-screen dots — exactly the "this stat does nothing" feel; removed v14.4).
     const visRate = spawnVis(rawRate);
     const overflowMen = spawnOver(rawRate);
-    const thin = clamp(1 - 0.011 * sup, 0.3, 1);                             // late game also THINS the standing count
-    const cap = Math.max(50, Math.round(baseCap * thin));
+    const cap = galCap(S.galaxy);
     const sat = clamp((dots.length / cap - 0.6) / 0.4, 0, 1);                // extra toughness only if the field genuinely backs up (you can't keep up)
     const targetMenace = overflowMen * (1 + sat * 0.6);
     derived.spawnMenace += (targetMenace - derived.spawnMenace) * Math.min(1, dt * 2);   // smooth so it doesn't jitter
@@ -2998,6 +2998,7 @@
     DEF_TYPES, COL_TYPES, DEF_ORDER, COL_ORDER, UNIT_FACTOR, DEF_SCALE,
     SYSTEMS, PLANET_LOCAL: () => PLANET_LOCAL, PLANET_SYS: () => PLANET_SYS,
     valueMul: lv => 1 + 0.08 * lv,
+    spawnVis, spawnOver, spawnKnee, SPAWN_PASS,   // real spawn curves (v14.4) so the audit can never diverge from the shipped game
     spawnBoss, grantTreeNodes, dots: () => dots,
     PERKS, gemReward, perkAgg,
     baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP, BOSS_GEM_CHANCE, BOSS_NODE_CHANCE,
