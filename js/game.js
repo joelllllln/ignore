@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v14.5";   // v14.5 = free skill nodes are NAMED (float + boss popup say exactly what you got) and PROGRESSION-SCALED: the drop is the priciest node reachable on any owned tree, not a ring-1 filler
+  const VERSION = "v14.6";   // v14.6 = DOTS pay by game progress: conquest multiplier restored (×1.8 per conquered world, retro-credited, rides income+target+capacity); boss free node = exactly ONE, 50% of bosses
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -441,12 +441,13 @@
   const buildPow = g => Math.pow(BUILD, Math.max(0, (g | 0) - 1));
   const baseTarget = g => conquerHours(g) * 3600 * ACTIVE_REF * buildPow(g) * eco(g) * (S.conquest || 1);   // income-model part (no empire) — also drives idle bgRate, so the empire never feeds back on itself
   const conquerTarget = g => Math.ceil(baseTarget(g));   // P4: the target is now the pure income-model only. The idle empire no longer INFLATES the target; instead its bar-fill is CAPPED at IDLE_FRAC of active (see the empire feed in the loop), which stops idle trivialising a conquest without the old feedback term. (EMPIRE_W retained for reference / easy revert.)
-  // CONQUEST MULTIPLIER — REMOVED. CONQ_STEP = 1.0 means conquering a planet no longer grants a permanent
-  // income multiplier (S.conquest stays 1 forever, so derived.incomeMul / capacity / conquerTarget are all
-  // unaffected by it). Conquering still UNLOCKS travel and grows the idle empire (EMPIRE_RAMP) — that's the
-  // progression now. Pacing is unchanged because the old multiplier rode BOTH income and the conquer target,
-  // so it cancelled out of conquer-time anyway. (Set back to 1.8 to restore the multiplier.)
-  const CONQ_STEP = 1.0;
+  // CONQUEST MULTIPLIER — RESTORED (owner call, v14.6): "dots should be rewarded according to how far
+  // I am in the game". Every conquered world makes EVERY dot in the cluster pay ×1.8 more (dots, boss
+  // bounties, salvage — all ride derived.incomeMul). It also rides the conquer TARGET and the cash
+  // CAPACITY, so per-planet pacing stays honest — but unit/upgrade/tree costs stay eco-based, so your
+  // build-up genuinely accelerates: the felt steamroll. S.conquest is DERIVED from the conquered-world
+  // COUNT in recompute (not accumulated), so older saves get retro credit and the value can never drift.
+  const CONQ_STEP = 1.8;
   const BG_EFF = 0.4;                                                // (legacy) live-rate fraction — superseded by the target-based idle below
   // IDLE EMPIRE — a conquered planet keeps earning for you while you're away on another world. Its
   // idle rate is a fraction of ITS OWN conquest cost (so it auto-scales with the difficulty curve and the
@@ -611,7 +612,9 @@
   function recompute() {
     const L = S.lv, m = META;
     derived.perk = perkAgg();                                           // FIRST — valueMul/spawn/luck below read it via pk()
-    derived.incomeMul = S.conquest || 1;               // Conquest multiplier — REMOVED (CONQ_STEP=1 keeps S.conquest=1), so this is always 1 / inert. Plumbing kept so it's reversible.
+    let conqN = 0; for (const k in (S.vault || {})) if (S.vault[k] && S.vault[k].conquered) conqN++;   // conquered-world count (≤18 — cheap every recompute)
+    S.conquest = Math.pow(CONQ_STEP, conqN);           // CONQUEST MULTIPLIER (restored v14.6) — derived from the count: retro-credits old saves, can never drift
+    derived.incomeMul = S.conquest;                    // every dot / boss bounty / salvage pays ×1.8 per conquered world — the further into the game, the more every dot rewards you
     derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity) * (S.conquest || 1);   // cash ceiling scales with difficulty AND conquest so it never lags your income
     derived.valueMul = (1 + 0.08 * L.value) * pk().value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace". × small permanent Ascension value perk.
     // Spawn Rate: each level wants +2 dots/sec. Past the soft knee the screen can't hold every extra
@@ -850,7 +853,7 @@
   // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
   const BOSS_INTERVAL = 240;   // seconds of active (boss-free) play between bosses (was 600 — too rare to register in a 12–24h campaign)
   const BOSS_GEM_CHANCE = 0.01;   // a defeated mini-boss has a 1% chance to drop a Gem — kept LOW because a full active run kills thousands of bosses, so 5% flooded the Ascension economy (tree maxed with a huge wasted surplus); 1% keeps gems meaningful
-  const BOSS_NODE_CHANCE = 0.15;  // …and a 15% chance to grant ONE free skill node. Otherwise it's just the cash bounty (the common case). No more "3 free nodes every boss".
+  const BOSS_NODE_CHANCE = 0.5;   // …and a 50% chance (owner call, v14.6) to grant exactly ONE free skill node. The other half is just the cash bounty. Never more than one node per boss.
   const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
   const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
   // auto-allocate up to n FREE skill-tree nodes, spread across the classes you currently field (boss reward).
@@ -1081,7 +1084,7 @@
     d.hp -= dmg; d.hit = 0.08;
     if (d.hp <= 0) {
       d.dead = true;
-      if (d.boss) {   // a defeated mini-boss → a big cash bounty (the common drop) + a fat orb burst; RARELY a Gem (1%) or one free skill node (15%, named & progression-priced)
+      if (d.boss) {   // a defeated mini-boss → a big cash bounty + a fat orb burst; a Gem (1%) or exactly ONE free skill node (50%, named & progression-priced)
         const np = 6; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
         const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the bounty even if orbs scatter)
         S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump; earnAcc += lump;   // bounty bypasses the capacity ceiling so the reward always lands in full (also feeds the live $/s)
@@ -1304,7 +1307,7 @@
     { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add;
         if (!planetMeta(S.galaxy).conquered) { const barCap = IDLE_FRAC * ACTIVE_REF * eco(S.galaxy) * (S.conquest || 1); curEarned += Math.min(bgSum, barCap) * dt; } } }   // treasury gets the FULL empire rate; the conquer BAR gets at most IDLE_FRAC of active income (P4 — idle never out-paces playing)
     // conquest check — UNCONDITIONAL so ANY income source (active orbs OR idle empire) can complete it
-    { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); S.conquest = (S.conquest || 1) * CONQ_STEP; const gg = gemReward(S.galaxy); META.gems += gg; META.gemsEarned += gg; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + gg + " ◈ GEMS — spend in Ascension"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); syncHUD();
+    { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); const gg = gemReward(S.galaxy); META.gems += gg; META.gemsEarned += gg; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + gg + " ◈ GEMS — spend in Ascension"); floatTxt(W / 2, H / 2 + 8, "✦ CONQUEST BONUS — every dot everywhere now pays ×" + CONQ_STEP.toFixed(1) + " more"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); syncHUD();
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours"); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
