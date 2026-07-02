@@ -68,3 +68,7 @@ included a code change without pasting this link.
   silhouettes stay clean.
 - Stats in skill trees **stack additively** (linear, no runaway) — that's a
   deliberate design choice; don't switch to multiplicative/compounding.
+- **Costs are FLAT per planet** (owner decision, v14): a unit/level/node's price
+  never rises with how many you've bought — only `eco(g)` scales prices across
+  planets. Do NOT reintroduce per-purchase cost growth (`^owned`, `^level`,
+  `^allocated`); `tools/balance-check.js` fails the build if it creeps back.
