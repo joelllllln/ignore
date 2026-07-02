@@ -465,3 +465,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 @keyframes travelsheen{0%,55%{left:-45%}100%{left:110%}}
 /* gem chip pops when a gem lands (class re-triggered in syncHUD) */
 #btn-ascend.bump{animation:cashbump .32s cubic-bezier(.2,.9,.3,1)}
+
+/* boss recap banner — escape variant reads muted next to a kill */
+#boss-reward.escape .br-title{color:var(--dim)}
+#boss-reward.escape .br-cash{color:var(--sd)}
