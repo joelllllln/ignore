@@ -222,9 +222,13 @@ interconnected node map per class:
   - **✦ Explosive Rounds** — every shot detonates for blast (splash) damage — a bomb tower.
   - **✦ Chain Lightning** — every shot arcs between nearby dots, one extra jump per keystone.
   - **✦ Piercing Laser** — every shot becomes a beam that punches through a whole line of dots.
-- Node prices are **flat on each planet** (keystones cost more than passives, but
-  a passive is a passive — the 1st costs the same as the 80th). The tree is a
-  finite checklist you WILL complete — buy in any order, no route math. Every
+- Node prices scale with **depth**: each ring outward costs ~2.3–2.8× the last
+  (inner→outer span ×12,000, normalized per class), with keystones ×8 and majors
+  ×3 on their ring. Crucially, **buying a node never changes any other node's
+  price** — no allocation coupling, so any node you can afford is always a good
+  buy. Inner rings are quick pickups; the outer rings and keystones are the
+  long-game saves (a full tree ≈ 30–135% of its home planet's campaign income,
+  sim-calibrated). Every
   unit of a class shares its tree.
 - The trees are **big** (80–170+ nodes each) and the bonuses are **large**. Damage,
   fire-rate, crit, and multishot are **separate axes** — additive *within* each wing
@@ -243,12 +247,11 @@ Extra defenders/collectors are priced **geometrically** in the count
 investment — you build your rack up *over* a planet rather than buying it all at
 landing. Economy upgrades grow the same classic way, level by level. Because
 costs ride the planet's difficulty scale (`eco(g)`) just like income does, the
-*shape* is identical on every world. **Skill-tree nodes are the exception
-(v14.1): flat-priced per planet** — a passive is a passive, the 1st costs the
-same as the 80th (keystones keep a fixed premium), so the tree is a checklist
-you grind through, never a route to optimize. `tools/balance-check.js` audits
-both laws: geometric costs must outgrow their effects, node prices must not
-drift.
+*shape* is identical on every world. **Skill-tree nodes price by DEPTH instead
+(v14.2)**: the ring sets the cost, never your purchase count — standard idle
+tree scaling (steep outward walls, zero allocation coupling, no punished buys).
+`tools/balance-check.js` audits all three laws: geometric costs must outgrow
+their effects, node prices must be allocation-independent and depth-monotone.
 
 ## Collectors
 

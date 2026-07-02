@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v14.1";   // v14 scoped down (owner call): TREE NODES are flat-priced per planet; units & economy upgrades keep their classic geometric cost growth
+  const VERSION = "v14.2";   // v14.2 = DEPTH-priced trees (sim-calibrated span x12000, keystones x8): rings cost more the deeper you go, buying never inflates other nodes
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -1965,7 +1965,27 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * 11.8 * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }   // TREES ONLY are FIXED-COST (owner call): every node of a tier costs the same on a planet (anchored at the old ~10th-node price; keystones 20x, majors 5x) — the tree is a checklist, not a route. Units & economy upgrades keep their geometric growth
+  // DEPTH-BASED tree pricing (owner call, sim-calibrated): a node's price is set by how deep it sits in
+  // the web — each ring outward costs ~2.3-2.8x the last (inner->outer span x12000, normalized per class so
+  // every tree spans the same ratio regardless of size). Buying a node NEVER changes any other node's
+  // price (that allocation-count coupling was what forced route-optimizing). Keystones x8, majors x3 on
+  // top of their ring. Sim result: full trees land at ~30-135% of their home planet's campaign income —
+  // front rings are quick buys, the outer rings + keystones are the long-game saves.
+  const TREE_SPAN = 12000, KEY_MUL = 8, MAJOR_MUL = 3;
+  const _treeDepth = {};
+  function treeDepths(type) {
+    if (_treeDepth[type]) return _treeDepth[type];
+    const G = buildTree(type);
+    let adj = G.adj;
+    if (!adj) { adj = {}; for (const [a, b] of G.edges) { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); } }
+    const d = { start: 0 }, q = ["start"];
+    while (q.length) { const id = q.shift(); for (const m of (adj[id] || [])) if (!(m in d)) { d[m] = d[id] + 1; q.push(m); } }
+    let max = 1; for (const k in d) if (d[k] > max) max = d[k];
+    return _treeDepth[type] = { d, max };
+  }
+  function nodeCost(type, n) { const k = n.kind === "key" ? KEY_MUL : n.kind === "major" ? MAJOR_MUL : 1;
+    const td = treeDepths(type), depth = td.d[n.id] || 1;
+    return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * Math.pow(TREE_SPAN, depth / td.max) * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true;
