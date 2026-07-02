@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v13.6";   // .6 = ability cooldowns persist across exits (tick while away, never reset) + boss shield removed
+  const VERSION = "v14.0";   // v14 = the FIXED-COST economy: prices never rise with purchases — the planet sets the price, income and menace set the pace
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -135,7 +135,7 @@
   const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
   const BUY_MUL = 5;   // global ~5× slowdown on buying units/upgrades/nodes — army-building is a long arc, not a 40-min sprint
   const TEST_MUL = () => S.free ? 0.01 : 1;   // TEST MODE is no longer "free" — everything costs 1% of normal (so the economy still runs, just 100× faster, and between-planet flow behaves)
-  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * BUY_MUL * Math.pow(1.5, countType(type)) * pk().cost * TEST_MUL());   // planet-local, geometric in count — ~5× the old cost, so the LAST unit lands only when you're in the billions; × Ascension cost-reduction perk
+  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * BUY_MUL * 2.25 * pk().cost * TEST_MUL());   // FIXED COST (owner call): every unit of a class costs the same on a planet (anchored at the old 2nd-extra price). The planet sets the price via eco(g); your count never inflates it
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -347,7 +347,7 @@
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const UP_DISC = { value: 0.9, spawnRate: 0.9 };   // Value & Spawn Rate are a permanent 10% cheaper than the rest
-  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost * (UP_DISC[u.id] || 1) * TEST_MUL());   // planet-local: ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
+  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, 7) * pk().cost * (UP_DISC[u.id] || 1) * TEST_MUL());   // FIXED COST (owner call): a level always costs the same on a planet (anchored at the old ~level-7 price; u.mul now only sets each upgrade's flat price point). Progress is governed by income + menace, not price walls
 
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
@@ -1969,7 +1969,7 @@
   // allocation: a node is allocatable if a connected node is already allocated.
   const nodeAllocated = (type, id) => id === "start" || !!(S.classNodes[type] && S.classNodes[type][id]);
   const nodeAllocatable = (type, n) => !nodeAllocated(type, n.id) && (buildTree(type).adj[n.id] || []).some(a => nodeAllocated(type, a));
-  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * Math.pow(1.28, allocCount(type)) * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }   // base 6.0 → the FIRST node is a real save-up investment (~4× the old cost, ~40% of a 2nd unit), not pocket change; growth eased 1.33→1.28 so the pricier early cost doesn't balloon the late curve (the back half stays about as reachable as before); ×DEF_SCALE keeps stronger-per-node classes proportionally costed
+  function nodeCost(type, n) { const k = n.kind === "key" ? 20 : n.kind === "major" ? 5 : 1; return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * 11.8 * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }   // FIXED COST (owner call): every node of a tier costs the same on a planet (anchored at the old ~10th-node price; keystones stay 20x, majors 5x). The tree is a finite checklist you WILL complete — buy in any order, no route math
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true;
