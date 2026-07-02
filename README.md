@@ -372,9 +372,12 @@ at its mouth.
 
 - Cash keeps flowing with zero input. **Offline earnings**: while away your
   defenders "keep firing" — on return you collect your recent coins-per-second
-  (plus your empire's idle rate) for up to **24 hours** of absence, shown on a
-  Welcome-back screen. Screen-lock, app-switch, tab-freeze and full closes all
-  credit the same way (visibilitychange / pagehide / freeze lifecycle hooks).
+  (plus your empire's idle rate) for the **entire time you were gone, with no
+  time cap**, shown on a Welcome-back screen. Screen-lock, app-switch,
+  tab-freeze and full closes all credit the same way (visibilitychange /
+  pagehide / freeze lifecycle hooks). Cash still respects your Capacity
+  ceiling and the conquer bar caps at its target, so a long absence is big
+  but never game-breaking.
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
 - **Save codes** (Settings → Save transfer): **Export** copies a portable
   `IDS1.` code, **Import** (or pasting the code into the home-screen CODES box)
