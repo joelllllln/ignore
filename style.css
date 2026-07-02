@@ -108,7 +108,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   text-shadow:0 0 14px rgba(255,255,255,.4)}
 .wh-box{position:relative;width:340px;height:310px}
 #wh-canvas{width:340px;height:310px;display:block}
-.wh-pointer{position:absolute;left:50%;top:30px;width:0;height:0;transform:translateX(-50%);transform-origin:50% 22%;
+.wh-pointer{display:none;position:absolute;left:50%;top:30px;width:0;height:0;transform:translateX(-50%);transform-origin:50% 22%;
   border-left:11px solid transparent;border-right:11px solid transparent;border-top:21px solid #fff;
   filter:drop-shadow(0 0 9px rgba(255,255,255,.7))}
 .wh-pointer.tick{animation:wh-tick .09s ease}
