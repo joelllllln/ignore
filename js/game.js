@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v13.4";   // v13 = the store-readiness milestone; .4 = more micro-juice (ready flashes, milestone pulses, count-ups, sheens)
+  const VERSION = "v13.5";   // .5 = the boss rework: visible finger damage, easier pools, salvage on escape, end-of-boss recap for both outcomes
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -701,13 +701,16 @@
     $("welcome-text").textContent = "You kept earning for " + fmtTime(w.elapsed) + " at your last on-screen rate." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : "");
     countUpTo($("welcome-cash"), w.gain, curSym(S.galaxy) + " ", 800); $("welcome").classList.add("show");
   }
-  function showBossReward(name, amount, gem, node) {   // non-blocking "what you got" banner on a boss kill; auto-dismisses
+  function showBossReward(name, amount, gem, node, escaped, dealtPct) {   // non-blocking end-of-boss recap (kill OR escape); auto-dismisses
     const el = $("boss-reward"); if (!el) return;
-    $("br-title").textContent = "▲ " + name + " DEFEATED";
+    el.classList.toggle("escape", !!escaped);
+    $("br-title").textContent = escaped ? "✕ " + name + " ESCAPED" : "▲ " + name + " DEFEATED";
     countUpTo($("br-cash"), amount, "+" + curSym(S.galaxy) + " ", 600);
-    const bn = $("br-bonus"); if (bn) { bn.textContent = gem ? "◈ +1 GEM — spend it in Ascension" : node ? "✦ +1 FREE SKILL NODE" : "loot dropped — grab the orbs"; }
+    const bn = $("br-bonus"); if (bn) { bn.textContent = escaped
+      ? (amount > 0 ? "you dealt " + dealtPct + "% — salvage banked · defeat it for the full bounty" : "no damage landed — hit it next time for the bounty")
+      : gem ? "◈ +1 GEM — spend it in Ascension" : node ? "✦ +1 FREE SKILL NODE" : "loot dropped — grab the orbs"; }
     el.classList.add("show");
-    clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 4200);
+    clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), escaped ? 5200 : 4200);
   }
   function applyAway(e) {
     e = clamp(e, 0, AWAY_CAP_H * 3600); if (e < 1 || !S) return;
@@ -856,7 +859,7 @@
   function spawnBoss() {
     const g = S.galaxy, vm = derived.valueMul, base = 18 * Math.pow(vm, 1.3);
     let dps = 0; for (const u of S.units) dps += uDmg(u) * DEF_TYPES[u.type].rate * cls(u.type).rate;   // size HP to your real firepower → a ~minute+ fight, scales with you
-    const hp = Math.max(base * 30, dps * 45);   // sized so units-alone can't quite clear it (hp + 35% shield) within the 60s timer, but units + the DOUBLED finger-draw beat it with real margin at every tier — active play is rewarded, idle just misses
+    const hp = Math.max(base * 20, dps * 30);   // sized so a full rack alone clears it (hp + 25% shield) in ~38s of the 60s window — bosses are now reliably beatable; finger-drawing (x2 damage) seals it in half the time and a miss still pays salvage
     const r = clamp(40 + Math.log10(hp + 10) * 2.4, 42, 60);
     const val = Math.max(1, Math.round(eco(g) * vm * derived.incomeMul * 320));   // PHAT bounty for a hard, timed kill
     // each planet's boss gets its OWN seeded movement personality (not the lazy drift-to-centre)
@@ -864,7 +867,7 @@
     const styles = ["lissajous", "orbit", "charge", "pace", "prowl", "dash"];
     dots.push({ x: W / 2, y: H * 0.3, vx: rnd(-18, 18), vy: rnd(-8, 8), hp, maxHp: hp, value: val, value0: val,
       r, r0: r, tier: 6, spin: Math.random() * TAU, special: false, armored: true, kind: "boss", boss: true, bg: g, life: 0, ttl: 60,
-      shieldMax: hp * 0.35, shield: hp * 0.35, armorUp: 0, regen: 0.012, add: 0,
+      shieldMax: hp * 0.25, shield: hp * 0.25, armorUp: 0, regen: 0.012, add: 0,
       mstyle: styles[Math.floor(mr(0) * styles.length)], mt: 0, mphase: mr(1) * TAU, mfx: 0.5 + mr(2) * 0.9, mfy: 0.45 + mr(3) * 0.9, mdir: mr(4) < 0.5 ? -1 : 1, mrad: 95 + mr(5) * 75, mtimer: 0, mtx: W / 2, mty: H * 0.35, mdash: false,
       weight: 5, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#ffffff" });
     floatTxt(W / 2, H / 2 - 70, "▲ " + bossName(g) + " ▲"); flashAdd(0.55); shakeAdd(9);
@@ -1089,7 +1092,16 @@
     }
   }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
-  function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) { hitDot(d, d.boss ? dmg * 2 : dmg, "draw"); d.drawCd = 0.07; } } trail.push({ x, y, life: 0.35 }); }   // DOUBLE draw damage vs bosses — active drawing is what seals the ~60s boss kill (units alone barely miss the timer through the shield)
+  function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) {
+    const dd = d.boss ? dmg * 2 : dmg;   // DOUBLE draw damage vs bosses — active drawing is what seals the boss kill
+    hitDot(d, dd, "draw"); d.drawCd = 0.07;
+    if (d.boss && !d.dead) {   // the finger must stay VISIBLE under constant turret fire: the generic hit-flash is
+      // pinned on by bullets, so draw hits add their own sparks at the contact point + throttled damage numbers
+      burst(x, y, 4, 120, 1.4); d.hit = 0.14;
+      d.drawFxAcc = (d.drawFxAcc || 0) + dd;
+      if (d.drawFxT === undefined || d.life - d.drawFxT > 0.22 || d.life < d.drawFxT) { floatTxt(x, y - d.r * 0.4, "−" + fmt(Math.round(d.drawFxAcc))); d.drawFxT = d.life; d.drawFxAcc = 0; }
+    }
+  } } trail.push({ x, y, life: 0.35 }); }
   // tap / drag over loot to manually bank it (no collector needed) — instant, full value.
   function collectAt(x, y) {
     for (let i = orbs.length - 1; i >= 0; i--) {
@@ -1151,7 +1163,15 @@
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
       if (d.boss) {
         d.life = (d.life || 0) + dt;
-        if (d.life >= (d.ttl || 60)) { d.dead = true; burst(d.x, d.y, 30, 200, 2.6); ring(d.x, d.y, d.r, d.r + 130, 0.5); floatTxt(d.x, d.y - d.r - 12, "✕ " + bossName(d.bg || S.galaxy) + " ESCAPED"); flashAdd(0.3); shakeAdd(3); continue; }   // 1-MINUTE LIMIT — fails out with no reward if you can't bring it down in time
+        if (d.life >= (d.ttl || 60)) { d.dead = true; burst(d.x, d.y, 30, 200, 2.6); ring(d.x, d.y, d.r, d.r + 130, 0.5);
+          // 1-MINUTE LIMIT — but the damage you DID land pays out as SALVAGE (half rate on the kill bounty), so a near-miss never feels like nothing
+          const frac = clamp(1 - (Math.max(0, d.hp) + Math.max(0, d.shield || 0)) / (d.maxHp + (d.shieldMax || 0)), 0, 1);
+          const partial = Math.round(d.value * 3 * frac * 0.5);   // a kill pays ~3x value (lump + orbs); salvage = half of that, scaled by damage dealt
+          if (partial > 0) { S.cash += partial; S.totalRun += partial; META.totalEver += partial; curEarned += partial; earnAcc += partial; }
+          floatTxt(d.x, d.y - d.r - 12, "✕ " + bossName(d.bg || S.galaxy) + " ESCAPED");
+          if (partial > 0) floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(partial) + " salvage");
+          showBossReward(bossName(d.bg || S.galaxy), partial, false, false, true, Math.round(frac * 100));
+          flashAdd(0.3); shakeAdd(3); continue; }
         d.add += dt; if (d.add > 6 && dots.length < cap - 2) { d.add = 0;   // boss summons a couple of adds to keep the pressure on
           const mb = 18 * Math.pow(derived.valueMul, 1.3) * rnd(1.5, 3), mr = clamp(8 + Math.log10(mb + 10) * 2, 8, 16), mv = Math.max(1, Math.round((d.value0 || 1) * 0.01));
           for (let i = 0; i < 2; i++) dots.push({ x: d.x + rnd(-24, 24), y: d.y + rnd(-24, 24), vx: rnd(-65, 65), vy: rnd(-50, 50), hp: mb, maxHp: mb, value: mv, value0: mv, r: mr, r0: mr, tier: 1, spin: 0, special: false, armored: false, kind: "minion", weight: 1, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#bbbbbb" });
