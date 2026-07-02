@@ -64,6 +64,25 @@ Alternative if native APIs are ever needed (haptics beyond `navigator.vibrate`,
 Play Billing): a Capacitor wrap of this same directory — see the `main-ios`
 branch README for the identical recipe with `npx cap add android`.
 
+### Accounts & cloud saves (Google sign-in)
+
+The game needs **no account to play** — progress autosaves locally, transfers
+across devices with **save codes** (Settings → Save transfer, or paste the
+`IDS1.` code into the home CODES box), and the store build should add **silent
+Play Games cloud saves** rather than a login wall:
+
+- The engine mirrors every save to `window.__SAVE_BRIDGE.push(json)` and reads
+  whatever the shell wrote to `localStorage["ids_clone.v3"]` before boot
+  (newest `ts` wins). That's the whole contract.
+- In a **Capacitor** wrap: sign in silently with **Play Games Services v2**
+  (`@awesome-cordova-plugins`/community `play-games-services` plugin or a thin
+  custom plugin), store the snapshot with **Saved Games**, and on launch write
+  the newest snapshot into `localStorage` before the WebView loads the page.
+- In the plain **TWA**: skip cloud saves for v1 (a TWA cannot reach Play Games
+  Saved Games) — save codes cover device moves; ship the Capacitor wrap when
+  cloud sync matters. Play Games sign-in/achievements/leaderboards can come
+  later behind the same bridge without touching game code.
+
 A hardcore idle/incremental space shooter built with **HTML5, JavaScript and
 Canvas** — no dependencies, no build step. Open `index.html` and play. The art
 is deliberately minimalist black-and-white, but the field is heavily *juiced*
@@ -352,9 +371,19 @@ at its mouth.
 ## Idle, offline & saving
 
 - Cash keeps flowing with zero input. **Offline earnings**: while away your
-  defenders "keep firing" — on return you collect a capped share of your recent
-  coins-per-second, shown on a Welcome-back screen.
+  defenders "keep firing" — on return you collect your recent coins-per-second
+  (plus your empire's idle rate) for up to **24 hours** of absence, shown on a
+  Welcome-back screen. Screen-lock, app-switch, tab-freeze and full closes all
+  credit the same way (visibilitychange / pagehide / freeze lifecycle hooks).
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
+- **Save codes** (Settings → Save transfer): **Export** copies a portable
+  `IDS1.` code, **Import** (or pasting the code into the home-screen CODES box)
+  restores it — move progress across web, PC, Android and iOS with no account.
+- **Cloud-save bridge for the store builds**: every save also calls
+  `window.__SAVE_BRIDGE.push(json)` if a native shell provides it, and a shell
+  restores by writing its newest snapshot into `localStorage["ids_clone.v3"]`
+  before the page loads (newest `ts` wins). The Android/iOS branch READMEs show
+  the Play Games / iCloud wiring.
 - **⚙ Settings** (from the home screen or the in-game ☰ menu) is a full mobile
   options panel: toggle **sound**, **vibration/haptics**, **screen shake**, and
   **screen flashes** (photosensitivity), pick **particle quality** (Full / Low /
