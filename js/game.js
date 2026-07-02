@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v13.5";   // .5 = the boss rework: visible finger damage, easier pools, salvage on escape, end-of-boss recap for both outcomes
+  const VERSION = "v13.6";   // .6 = ability cooldowns persist across exits (tick while away, never reset) + boss shield removed
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -626,7 +626,7 @@
   const KEY = "ids_clone.v3";   // bumped for the v3 economy (single global currency + Conquest multiplier) — old saves start fresh on the new model
   let wiping = false;
   function save() { if (wiping) return; try { if (S && S.vault) { const v = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 }); v.earned = curEarned; }
-    const payload = JSON.stringify({ S, META, ts: Date.now(), cps });
+    const payload = JSON.stringify({ S, META, ts: Date.now(), cps, abil });   // abil persisted so leaving the app never refreshes ability cooldowns
     localStorage.setItem(KEY, payload);
     // CLOUD-SAVE BRIDGE — a native shell (Capacitor/TWA wrapper) can set window.__SAVE_BRIDGE = { push(json){...} }
     // to mirror every save into Play Games Saved Games / iCloud. The shell restores by writing the newest
@@ -675,6 +675,9 @@
     } catch (e) {}
     if (!S.vault) S.vault = {};
     if (!S.imported) S.imported = {};
+    try { const d2 = JSON.parse(localStorage.getItem(KEY));   // ability cooldowns survive a reload/app-kill: restore minus real seconds away (never an instant refresh)
+      if (d2 && d2.abil) { const eAb = d2.ts ? Math.max(0, (Date.now() - d2.ts) / 1000) : 0;
+        for (const k in abil) if (k in d2.abil) abil[k] = Math.max(0, (+d2.abil[k] || 0) - eAb); } } catch (e) {}
     ensureAuto();
     curEarned = (S.vault[S.galaxy] && S.vault[S.galaxy].earned) || 0;
     recompute();
@@ -719,6 +722,7 @@
   function applyAway(e) {
     e = clamp(e, 0, AWAY_CAP_H * 3600); if (e < 1 || !S) return;
     if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;                 // expeditions keep travelling while away
+    for (const k in abil) if (abil[k] > 0) abil[k] = Math.max(0, abil[k] - e);        // cooldowns tick while away (loop was frozen) — but never reset
     const rate = (cps > 0 ? cps : 0) + (S.vault ? empireIdleRate() : 0), offTotal = rate > 0 ? Math.floor(rate * e) : 0;   // away earnings = the on-screen $/s you were passively earning (collectors + empire) × seconds away
     if (offTotal > 0) {
       S.totalRun += offTotal; META.totalEver += offTotal;
@@ -863,7 +867,7 @@
   function spawnBoss() {
     const g = S.galaxy, vm = derived.valueMul, base = 18 * Math.pow(vm, 1.3);
     let dps = 0; for (const u of S.units) dps += uDmg(u) * DEF_TYPES[u.type].rate * cls(u.type).rate;   // size HP to your real firepower → a ~minute+ fight, scales with you
-    const hp = Math.max(base * 20, dps * 30);   // sized so a full rack alone clears it (hp + 25% shield) in ~38s of the 60s window — bosses are now reliably beatable; finger-drawing (x2 damage) seals it in half the time and a miss still pays salvage
+    const hp = Math.max(base * 20, dps * 30);   // one honest HP pool, no shield — a full rack alone clears it in ~30s of the 60s window; finger-drawing (x2 damage) seals it far faster and a miss still pays salvage
     const r = clamp(40 + Math.log10(hp + 10) * 2.4, 42, 60);
     const val = Math.max(1, Math.round(eco(g) * vm * derived.incomeMul * 320));   // PHAT bounty for a hard, timed kill
     // each planet's boss gets its OWN seeded movement personality (not the lazy drift-to-centre)
@@ -871,7 +875,7 @@
     const styles = ["lissajous", "orbit", "charge", "pace", "prowl", "dash"];
     dots.push({ x: W / 2, y: H * 0.3, vx: rnd(-18, 18), vy: rnd(-8, 8), hp, maxHp: hp, value: val, value0: val,
       r, r0: r, tier: 6, spin: Math.random() * TAU, special: false, armored: true, kind: "boss", boss: true, bg: g, life: 0, ttl: 60,
-      shieldMax: hp * 0.25, shield: hp * 0.25, armorUp: 0, regen: 0.012, add: 0,
+      shieldMax: 0, shield: 0, armorUp: 0, regen: 0.012, add: 0,   // shield REMOVED (owner call) — the fight is one honest HP bar
       mstyle: styles[Math.floor(mr(0) * styles.length)], mt: 0, mphase: mr(1) * TAU, mfx: 0.5 + mr(2) * 0.9, mfy: 0.45 + mr(3) * 0.9, mdir: mr(4) < 0.5 ? -1 : 1, mrad: 95 + mr(5) * 75, mtimer: 0, mtx: W / 2, mty: H * 0.35, mdash: false,
       weight: 5, hit: 0, drawCd: 0, refl: 0, born: 0, color: "#ffffff" });
     floatTxt(W / 2, H / 2 - 70, "▲ " + bossName(g) + " ▲"); flashAdd(0.55); shakeAdd(9);
