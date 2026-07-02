@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v14.7";   // v14.7 = BOSS drop rides your progress: bounty floored at 20s of LIVE income (kill ≈ a minute of income at any stage); v14.6's global conquest multiplier reverted (owner: bosses, not dots in general)
+  const VERSION = "v15.0";   // v15.0 = BOSS BOUNTY WHEEL: every boss kill spins an animated fortune wheel — progress-matched cash tiers, your top reachable skill nodes by NAME, a 2% gem — wind-up, ticks, confetti, slam reveal
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -727,6 +727,172 @@
     el.classList.add("show");
     clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), escaped ? 5200 : 4200);
   }
+
+  /* ══════════════ BOSS BOUNTY WHEEL (v15.0) ══════════════
+     Every boss KILL spins a fortune wheel instead of the old recap popup (escapes keep the popup).
+     Slices are rebuilt fresh per kill and are all PROGRESS-MATCHED: cash tiers show LITERAL multiples
+     of the live-income bounty this boss pays, node slices are the priciest skill nodes you can
+     actually reach right now (named on the wheel), and a ◈ GEM hides at exactly 2%. The outcome is
+     weight-rolled before the wheel moves — the spin only travels to it ("you get what you get") —
+     with a wind-up pull, 5–6 revolutions, per-slice pointer ticks with recoil, a long quintic
+     slow-down, confetti burst and a slammed-in reveal. Non-blocking: the field keeps playing
+     underneath; a tap launches instantly / dismisses after landing. Monochrome AAA — luminance
+     tiers, white glow, a shimmering jackpot slice — matching the game's palette. */
+  const Wheel = (() => {
+    const CS = 340, C = CS / 2, R = 150, HUB = 46;          // css size / centre / rim / hub radii
+    let segs = [], v0 = 0, bossNm = "", state = "off";      // off | arm | spin | done
+    let a = 0, a0 = 0, aT = 0, t = 0, dur = 4.2, armT = 0, doneT = 0, tickIdx = -1, studT = 0, won = -1, parts = [], raf = 0, lastTs = 0, wired = false, resultTxt = "";
+    const el = () => $("wheel");
+    const easeOutQuint = k => 1 + (--k) * k * k * k * k;
+    const easeInOut = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    // which slice sits under the fixed top pointer for a given wheel rotation
+    function segAt(ang) {
+      let x = (((-Math.PI / 2 - ang) % TAU) + TAU) % TAU, acc = 0;
+      for (let i = 0; i < segs.length; i++) { acc += segs[i].w / 100 * TAU; if (x < acc) return i; }
+      return segs.length - 1;
+    }
+    function build(v) {
+      const top = nodeCandidates().slice(0, 3);
+      const L = [];
+      const cash = (mul, w) => L.push({ kind: mul >= 10 ? "jack" : "cash", mul, w, lum: mul >= 10 ? 68 : mul >= 3 ? 37 : 30, label: (mul >= 10 ? "★ " : "") + curSym(S.galaxy) + " " + fmt(Math.round(v * mul)) });
+      const node = p => L.push({ kind: "node", pick: p, w: 0, lum: 46, label: "✦ " + nodeLabel(p.type, p.node) });
+      const nw = [18, 16, 14];                              // node slice weights (48 total when all three exist)
+      const spare = nw.slice(top.length).reduce((s, x) => s + x, 0);   // trees maxed? missing node weight feeds the ×2 slices
+      if (top[0]) { node(top[0]); L[L.length - 1].w = nw[0]; }
+      cash(2, 14 + Math.ceil(spare / 2));
+      if (top[1]) { node(top[1]); L[L.length - 1].w = nw[1]; }
+      cash(3, 12);
+      if (top[2]) { node(top[2]); L[L.length - 1].w = nw[2]; }
+      cash(2, 14 + Math.floor(spare / 2));
+      L.push({ kind: "gem", w: 2, lum: 84, label: "◈ GEM" });   // owner call: super low, exactly 2%
+      cash(10, 10);                                         // the JACKPOT slice — ×10 the bounty
+      return L;
+    }
+    function roll() { let r = Math.random() * 100, acc = 0; for (let i = 0; i < segs.length; i++) { acc += segs[i].w; if (r < acc) return i; } return segs.length - 1; }
+    // ── the prize actually lands (called once, at the moment the wheel stops) ──
+    function apply(sg) {
+      if (sg.kind === "node") {
+        let p = sg.pick;
+        if (!nodeAllocatable(p.type, p.node) || (S.classNodes[p.type] && S.classNodes[p.type][p.node.id])) p = nodeCandidates()[0];   // auto-buy raced us mid-spin — regift the current best
+        if (p) { applyNodePick(p); syncHUD(); save(); return "✦ " + nodeLabel(p.type, p.node).toUpperCase() + " — " + TY(p.type).name + " tree"; }
+        sg = { kind: "cash", mul: 2 };                      // every tree maxed: pay double instead
+      }
+      if (sg.kind === "gem") { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; save(); return "◈ +1 GEM — spend it in Ascension"; }
+      const amt = Math.round(v0 * sg.mul);                  // cash tiers bypass the capacity ceiling, exactly like the banked lump
+      S.cash += amt; S.totalRun += amt; META.totalEver += amt; curEarned += amt; earnAcc += amt; syncHUD();
+      return "+" + curSym(S.galaxy) + " " + fmt(amt) + (sg.mul >= 10 ? "  ·  JACKPOT!" : "");
+    }
+    function show(v, name) {
+      const host = el(); if (!host) return false;
+      if (!wired) { wired = true; host.addEventListener("pointerdown", tap); }
+      segs = build(v); v0 = v; bossNm = name || "BOSS"; won = roll();
+      state = "arm"; armT = 0; doneT = 0; t = 0; tickIdx = -1; parts.length = 0; resultTxt = "";
+      a = a0 = rnd(0, TAU);
+      $("wh-title").textContent = "▲ " + bossNm.toUpperCase() + " BOUNTY";
+      $("wh-result").textContent = ""; $("wh-result").classList.remove("slam");
+      $("wh-hint").textContent = "TAP TO SPIN";
+      host.classList.add("show");
+      lastTs = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+      return true;
+    }
+    function launch() {
+      if (state !== "arm") return;
+      state = "spin"; t = 0; a0 = a; dur = rnd(3.9, 4.6);
+      // land the winning slice centred under the pointer (± a little in-slice jitter), 5–6 turns out
+      let acc = 0; for (let i = 0; i < won; i++) acc += segs[i].w / 100 * TAU;
+      const half = segs[won].w / 100 * TAU / 2, centre = acc + half;
+      const base = -Math.PI / 2 - centre + rnd(-0.6, 0.6) * half;
+      const delta = (((base - a) % TAU) + TAU) % TAU;
+      aT = a + (5 + (Math.random() < 0.5 ? 0 : 1)) * TAU + delta;
+      $("wh-hint").textContent = " ";
+    }
+    function land() {
+      state = "done"; doneT = 0;
+      resultTxt = apply(segs[won]);
+      const rs = $("wh-result"); rs.textContent = resultTxt; rs.classList.remove("slam"); void rs.offsetWidth; rs.classList.add("slam");
+      $("wh-hint").textContent = "TAP TO CLOSE";
+      flashAdd(segs[won].kind === "jack" ? 0.55 : 0.3); shakeAdd(segs[won].kind === "jack" ? 7 : 3); vibe(segs[won].kind === "jack" ? [50, 40, 90] : [30, 20, 40]);
+      Audio_node();
+      for (let i = 0; i < 74; i++) {                        // confetti — white sparks from the pointer + hub
+        const top_ = Math.random() < 0.65, ang = rnd(0, TAU), sp = rnd(60, 300);
+        parts.push({ x: top_ ? C : C, y: top_ ? 12 : C, vx: Math.cos(ang) * sp * (top_ ? 0.5 : 1), vy: top_ ? rnd(40, 200) : Math.sin(ang) * sp, r: rnd(1.5, 3.5), life: rnd(0.7, 1.3), t: 0, spin: rnd(0, TAU) });
+      }
+    }
+    function tap() {
+      if (state === "arm") launch();
+      else if (state === "done" && doneT > 0.45) hide();
+    }
+    function hide() { state = "off"; cancelAnimationFrame(raf); const h = el(); if (h) h.classList.remove("show"); }
+    function loop(ts) {
+      if (state === "off") return;
+      const dt = Math.min(0.05, lastTs ? (ts - lastTs) / 1000 : 0.016); lastTs = ts;
+      if (state === "arm") { armT += dt; a = a0 - easeInOut(Math.min(armT / 0.6, 1)) * 0.22; if (armT >= 0.85) launch(); }   // wind-up pull, then it rips
+      else if (state === "spin") {
+        t += dt; const k = Math.min(t / dur, 1);
+        a = a0 + (aT - a0) * easeOutQuint(k);
+        const idx = segAt(a);
+        if (idx !== tickIdx) { tickIdx = idx; studT = 0.12; Audio_tick(); const p = document.querySelector("#wheel .wh-pointer"); if (p) { p.classList.remove("tick"); void p.offsetWidth; p.classList.add("tick"); } }
+        if (k >= 1) land();
+      }
+      else if (state === "done") { doneT += dt; if (doneT > 3.8) { hide(); return; } }
+      if (studT > 0) studT -= dt;
+      for (const p of parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; p.spin += dt * 6; }
+      parts = parts.filter(p => p.t < p.life);
+      draw();
+      raf = requestAnimationFrame(loop);
+    }
+    function draw() {
+      const cv = $("wh-canvas"); if (!cv) return;
+      const need = Math.round(CS * (window.devicePixelRatio || 1));
+      if (cv.width !== need) { cv.width = need; cv.height = need; }
+      const x = cv.getContext("2d"); x.setTransform(cv.width / CS, 0, 0, cv.width / CS, 0, 0); x.clearRect(0, 0, CS, CS);
+      const pulse = state === "done" ? 0.5 + 0.5 * Math.sin(doneT * 6) : 0;
+      x.save(); x.translate(C, C); x.rotate(a);
+      let acc = 0;
+      for (let i = 0; i < segs.length; i++) {
+        const sg = segs[i], w = sg.w / 100 * TAU, aa = acc, bb = acc + w; acc = bb;
+        const winGlow = state === "done" && i === won;
+        x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, R, aa, bb); x.closePath();
+        let lum = sg.lum;
+        if (sg.kind === "jack") lum += Math.sin((state === "off" ? 0 : performance.now() / 300) + i) * 6;   // jackpot slice shimmers
+        if (winGlow) lum = Math.min(92, lum + 22 + pulse * 10);
+        x.fillStyle = "hsl(0,0%," + lum + "%)";
+        if (winGlow) { x.shadowColor = "rgba(255,255,255,.9)"; x.shadowBlur = 26; }
+        x.fill(); x.shadowBlur = 0;
+        x.strokeStyle = "rgba(255,255,255,.42)"; x.lineWidth = 1.6; x.stroke();
+        // radial label — bright text on dark slices, black on bright ones
+        const mid = aa + w / 2, bright = lum > 52;
+        x.save(); x.rotate(mid); x.textAlign = "right"; x.textBaseline = "middle";
+        x.font = "700 " + (sg.kind === "gem" ? 10 : 11.5) + "px ui-monospace,Consolas,monospace";
+        x.fillStyle = bright ? "rgba(0,0,0,.9)" : winGlow ? "#fff" : "rgba(255,255,255," + (sg.kind === "cash" ? 0.88 : 0.98) + ")";
+        let lb = sg.label; if (lb.length > 15) lb = lb.slice(0, 14) + "…";
+        x.fillText(lb, R - 12, 0);
+        if (sg.kind === "jack") { x.font = "800 7px ui-monospace,Consolas,monospace"; x.fillText("J A C K P O T", R - 12, -11); }
+        x.restore();
+      }
+      x.restore();
+      // rim + studs (the stud by the pointer flashes on every tick)
+      x.strokeStyle = "rgba(255,255,255,.35)"; x.lineWidth = 2.5; x.beginPath(); x.arc(C, C, R + 3, 0, TAU); x.stroke();
+      for (let i = 0; i < 20; i++) {
+        const sa = i / 20 * TAU - Math.PI / 2, top_ = i === 0;
+        x.beginPath(); x.arc(C + Math.cos(sa) * (R + 3), C + Math.sin(sa) * (R + 3), top_ && studT > 0 ? 4.4 : 2.6, 0, TAU);
+        x.fillStyle = top_ && studT > 0 ? "#fff" : "rgba(255,255,255,.5)"; x.fill();
+      }
+      // hub — dark disc, boss glyph, thin ring
+      x.beginPath(); x.arc(C, C, HUB, 0, TAU); x.fillStyle = "rgba(8,8,8,.96)"; x.fill();
+      x.strokeStyle = "rgba(255,255,255,.4)"; x.lineWidth = 1.5; x.stroke();
+      x.font = "800 20px ui-monospace,Consolas,monospace"; x.textAlign = "center"; x.textBaseline = "middle";
+      x.fillStyle = state === "done" ? "rgba(255,255,255," + (0.7 + pulse * 0.3) + ")" : "rgba(255,255,255,.8)";
+      x.fillText(state === "done" ? "✦" : "▲", C, C + 1);
+      for (const p of parts) {                              // confetti
+        x.save(); x.translate(p.x, p.y); x.rotate(p.spin); x.globalAlpha = Math.max(0, 1 - p.t / p.life);
+        x.fillStyle = "#fff"; x.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); x.restore();
+      }
+      x.globalAlpha = 1;
+    }
+    return { show, build, apply, tap, hide, state: () => state, won: () => won, segs: () => segs };
+  })();
+
   function applyAway(e) {
     e = clamp(e, 0, AWAY_CAP_H * 3600); if (e < 1 || !S) return;
     if (S.travel && S.travel.dur) S.travel.t = (S.travel.t || 0) + e;                 // expeditions keep travelling while away
@@ -852,36 +1018,36 @@
   const kindChance = g => Math.min(0.14 + 0.05 * (g - 1), 0.6);
   // ── MINI-BOSSES: one elite per planet, unique name & seeded design, every ~5 min of active play ──
   const BOSS_INTERVAL = 240;   // seconds of active (boss-free) play between bosses (was 600 — too rare to register in a 12–24h campaign)
-  const BOSS_GEM_CHANCE = 0.01;   // a defeated mini-boss has a 1% chance to drop a Gem — kept LOW because a full active run kills thousands of bosses, so 5% flooded the Ascension economy (tree maxed with a huge wasted surplus); 1% keeps gems meaningful
-  const BOSS_NODE_CHANCE = 0.5;   // …and a 50% chance (owner call, v14.6) to grant exactly ONE free skill node. The other half is just the cash bounty. Never more than one node per boss.
+  // Boss drop odds live on the BOUNTY WHEEL now (v15.0, see const Wheel): ~48% one named skill node
+  // (three slices, each a different top reachable node), ~50% cash tiers (×2/×3/×10 of the bounty),
+  // exactly 2% ◈ GEM (owner call — kept super low; a full run kills thousands of bosses).
   const BOSS_NAMES = ["Dustmaw", "Arcfiend", "Slagtitan", "Cinderlord", "Tidewretch", "Sporemother", "Cobalt Sentinel", "Galereaver", "Glimmertyrant", "Voltaic Colossus", "Umbral Dread", "Rimewarden", "Shardbreaker", "Wispcaller", "Ashen Behemoth", "Voidstone Idol", "Bilewurm", "The Null King"];
   const bossName = g => BOSS_NAMES[Math.min(Math.max(g, 1), 18) - 1] || "Boss";
   // auto-allocate up to n FREE skill-tree nodes, spread across the classes you currently field (boss reward).
-  function grantTreeNodes(n) {
+  // Every un-owned node currently REACHABLE across all owned classes, priciest first — depth-priced
+  // cost is a direct progression proxy, so the front of this list is always "the node you were saving
+  // for". Feeds both the free-node grants and the Bounty Wheel's node slices.
+  function nodeCandidates() {
     const owned = [...new Set([...S.units.map(u => u.type), ...S.collectors.map(c => c.type)])];
-    const grants = []; let guard = 0;
-    // v14.5: grant the PRICIEST node currently reachable on ANY owned class's tree — the gift scales
-    // with how deep you actually are (depth-priced rings: a lategame frontier node is worth thousands
-    // of times a ring-1 filler, and it's exactly the node you were saving for; keystones included).
-    // Near-ties break randomly so one class can't hog every drop. Returns the grants
-    // ({type, node, cost}) so the UI can NAME what you got.
-    while (grants.length < n && guard++ < 80) {
-      let bestCost = 0, ties = [];
-      for (const t of owned) {
-        const G = buildTree(t), set = S.classNodes[t] || (S.classNodes[t] = {});
-        for (const node of Object.values(G.map)) {
-          if (node.id === "start" || set[node.id] || !nodeAllocatable(t, node)) continue;
-          const c = nodeCost(t, node);
-          if (c > bestCost * 1.001) { bestCost = c; ties = [{ type: t, node, cost: c }]; }
-          else if (c >= bestCost * 0.999) ties.push({ type: t, node, cost: c });
-        }
+    const out = [];
+    for (const t of owned) {
+      const G = buildTree(t), set = S.classNodes[t] || (S.classNodes[t] = {});
+      for (const node of Object.values(G.map)) {
+        if (node.id === "start" || set[node.id] || !nodeAllocatable(t, node)) continue;
+        out.push({ type: t, node, cost: nodeCost(t, node) });
       }
-      if (!ties.length) break;
-      const pick = ties[(Math.random() * ties.length) | 0];
-      (S.classNodes[pick.type] || (S.classNodes[pick.type] = {}))[pick.node.id] = true;
-      grants.push(pick);
     }
-    if (grants.length) recompute();
+    return out.sort((x, y) => y.cost - x.cost);
+  }
+  function applyNodePick(p) { (S.classNodes[p.type] || (S.classNodes[p.type] = {}))[p.node.id] = true; recompute(); }
+  function grantTreeNodes(n) {   // grant the priciest reachable node(s); near-ties break randomly so one class can't hog every drop
+    const grants = []; let guard = 0;
+    while (grants.length < n && guard++ < 80) {
+      const cands = nodeCandidates(); if (!cands.length) break;
+      const ties = cands.filter(c => c.cost >= cands[0].cost * 0.999);
+      const pick = ties[(Math.random() * ties.length) | 0];
+      applyNodePick(pick); grants.push(pick);
+    }
     return grants;
   }
   function spawnBoss() {
@@ -1089,18 +1255,17 @@
     d.hp -= dmg; d.hit = 0.08;
     if (d.hp <= 0) {
       d.dead = true;
-      if (d.boss) {   // a defeated mini-boss → a big cash bounty + a fat orb burst; a Gem (1%) or exactly ONE free skill node (50%, named & progression-priced)
+      if (d.boss) {   // a defeated mini-boss → orb burst + a 1× banked floor, then the BOUNTY WHEEL spins for the rest (cash tiers / named skill node / 2% gem)
         const np = 6; for (let i = 0; i < np; i++) { const a = i / np * TAU; orbs.push({ x: d.x + Math.cos(a) * d.r * 0.6, y: d.y + Math.sin(a) * d.r * 0.6, value: Math.round(d.value / np), t: 0, weight: 2, consume: 0, consumeMax: 1.2, r0: 6.5, big: true }); }
-        const lump = Math.round(d.value * 2);   // guaranteed instant bank (you can't miss the bounty even if orbs scatter)
+        const lump = Math.round(d.value);   // 1× banked instantly — the can't-miss floor (orbs carry another 1×); the wheel decides the bonus on top
         S.cash += lump; S.totalRun += lump; META.totalEver += lump; curEarned += lump; earnAcc += lump;   // bounty bypasses the capacity ceiling so the reward always lands in full (also feeds the live $/s)
-        let bonus = "", gemDrop = false, nodeDrop = false;   // rare bonus on top of the cash bounty
-        const roll = Math.random();
-        if (roll < BOSS_GEM_CHANCE) { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; bonus = "  ·  ◈ +1 GEM!"; gemDrop = true; flashAdd(0.4); }
-        else if (roll < BOSS_GEM_CHANCE + BOSS_NODE_CHANCE) { const fn = grantTreeNodes(1)[0]; if (fn) { bonus = "  ·  ✦ FREE: " + nodeLabel(fn.type, fn.node); nodeDrop = fn; } }
         burst(d.x, d.y, 60, 240, 3.4); ring(d.x, d.y, d.r, d.r + 150, 0.7); ring(d.x, d.y, d.r, d.r + 80, 0.5); shakeAdd(9); flashAdd(0.5);
         floatTxt(d.x, d.y - d.r - 12, "✦ " + bossName(d.bg || S.galaxy) + " DEFEATED");
-        floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + bonus);
-        showBossReward(bossName(d.bg || S.galaxy), lump + d.value, gemDrop, nodeDrop);   // the "what you got" popup (banner counts the bounty up)
+        floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value));
+        if (!Wheel.show(d.value, bossName(d.bg || S.galaxy))) {   // shell without wheel markup (safety net): legacy 2× lump + recap popup
+          const l2 = Math.round(d.value); S.cash += l2; S.totalRun += l2; META.totalEver += l2; curEarned += l2; earnAcc += l2;
+          showBossReward(bossName(d.bg || S.galaxy), lump + l2 + d.value, false, false);
+        }
         Audio_boss();   // the one field event that earns a real sound
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
         recompute(); syncHUD();
@@ -1671,6 +1836,12 @@
     const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
     o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + 0.52);
     const nz = Sfx.noise(); if (nz) { const hp = a.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1800; const ng = a.createGain(); ng.gain.setValueAtTime(0.22, t0); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16); nz.connect(hp).connect(ng).connect(a.destination); nz.start(t0); nz.stop(t0 + 0.18); }
+  }
+  function Audio_tick() {   // the Bounty Wheel pointer clips a slice boundary — the quietest sound in the game
+    if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
+    const o = a.createOscillator(); o.type = "square"; o.frequency.value = 2200 + Math.random() * 350;
+    const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.03, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.028);
+    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + 0.032);
   }
 
   /* ----------------------- AUTO-BUY (idle automation) -----------------------
@@ -3011,7 +3182,7 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyPerk, openAscend, PERKS, exportSave, importSave };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyPerk, openAscend, PERKS, exportSave, importSave, Wheel };
   // read-only scaling hooks for the headless pacing/scaling simulator (tools/playthrough-sim.js) — no game logic, just exposes the real curves so the sim can never diverge from the shipped game
   if (typeof window !== "undefined") window.__SIM = {
     TOTAL_PLANETS, CONQ_STEP, SYS_JUMP, WITHIN_STEP, CUR_BASE, TOUGH_POW, BUY_MUL,
@@ -3024,7 +3195,8 @@
     setCps: v => { cps = +v || 0; },              // test hook: set the live income/s the boss bounty floor reads (v14.7)
     spawnBoss, grantTreeNodes, dots: () => dots,
     PERKS, gemReward, perkAgg,
-    baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP, BOSS_GEM_CHANCE, BOSS_NODE_CHANCE,
+    baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP,
+    Wheel, nodeCandidates,                        // Bounty Wheel test hooks (v15.0): build/apply/segs/state
     RACES, raceNiche, NICHE_HINT,
   };
 })();
