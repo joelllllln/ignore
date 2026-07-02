@@ -443,3 +443,6 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 /* save transfer (Settings → Export / Import) */
 .save-io{background:transparent;border:1px solid var(--edge);color:var(--text);border-radius:8px;padding:8px 12px;font:700 12px var(--mono);letter-spacing:.5px;cursor:pointer}
 .save-io:hover{border-color:#fff}
+
+/* skill-tree ALLOCATE button pulses the moment it becomes affordable (live tick in the loop) */
+.si-btn.afford:not(:disabled){animation:affordpulse 1.3s infinite}
