@@ -48,8 +48,11 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v13.3";   // v13 = the store-readiness milestone; .3 = the juice/polish pass (UI sounds, deploy pops, node ripples, counter bump, modal motion)
+  const VERSION = "v13.4";   // v13 = the store-readiness milestone; .4 = more micro-juice (ready flashes, milestone pulses, count-ups, sheens)
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
+  const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
+  let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
+  let hudGemLast = 0;                  // gem chip pop on increase
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
@@ -687,14 +690,21 @@
   // stops, so nothing can "run" in the background. Instead we stamp the time on hide and, the moment we
   // come back, credit the elapsed wall-clock time exactly like a reload would (idle empire + half your
   // active rate, capped at 12h, auto-buy spends it). So progress genuinely continues while you're away.
+  function countUpTo(el, target, prefix, dur) {   // juice: "number goes up" — ease a displayed amount to its final value
+    if (!el) return; const t0 = performance.now(); dur = dur || 700;
+    const step = now => { const k = clamp((now - t0) / dur, 0, 1), e = 1 - (1 - k) * (1 - k);
+      el.textContent = prefix + fmt(Math.round(target * e));
+      if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
   function showWelcome(w) {
     $("welcome-text").textContent = "You kept earning for " + fmtTime(w.elapsed) + " at your last on-screen rate." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : "");
-    $("welcome-cash").textContent = curSym(S.galaxy) + " " + fmt(w.gain); $("welcome").classList.add("show");
+    countUpTo($("welcome-cash"), w.gain, curSym(S.galaxy) + " ", 800); $("welcome").classList.add("show");
   }
-  function showBossReward(name, cashStr, gem, node) {   // non-blocking "what you got" banner on a boss kill; auto-dismisses
+  function showBossReward(name, amount, gem, node) {   // non-blocking "what you got" banner on a boss kill; auto-dismisses
     const el = $("boss-reward"); if (!el) return;
     $("br-title").textContent = "▲ " + name + " DEFEATED";
-    $("br-cash").textContent = "+" + cashStr;
+    countUpTo($("br-cash"), amount, "+" + curSym(S.galaxy) + " ", 600);
     const bn = $("br-bonus"); if (bn) { bn.textContent = gem ? "◈ +1 GEM — spend it in Ascension" : node ? "✦ +1 FREE SKILL NODE" : "loot dropped — grab the orbs"; }
     el.classList.add("show");
     clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 4200);
@@ -1054,7 +1064,7 @@
         burst(d.x, d.y, 60, 240, 3.4); ring(d.x, d.y, d.r, d.r + 150, 0.7); ring(d.x, d.y, d.r, d.r + 80, 0.5); shakeAdd(9); flashAdd(0.5);
         floatTxt(d.x, d.y - d.r - 12, "✦ " + bossName(d.bg || S.galaxy) + " DEFEATED");
         floatTxt(d.x, d.y - d.r - 30, "+" + curSym(S.galaxy) + " " + fmt(lump + d.value) + bonus);
-        showBossReward(bossName(d.bg || S.galaxy), curSym(S.galaxy) + " " + fmt(lump + d.value), gemDrop, nodeDrop);   // the "what you got" popup
+        showBossReward(bossName(d.bg || S.galaxy), lump + d.value, gemDrop, nodeDrop);   // the "what you got" popup (banner counts the bounty up)
         Audio_boss();   // the one field event that earns a real sound
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
         recompute(); syncHUD();
@@ -1487,7 +1497,9 @@
     $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
     { const cpsEl = $("ui-cps"); if (cpsEl) cpsEl.textContent = "+" + curSym(S.galaxy) + fmt(Math.max(0, cps)) + "/s"; }   // live ACTIVE income rate beside the total, always visible while playing
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
-    { const g = (META && META.gems) || 0, ab = $("ascend-n"); if (ab) ab.textContent = g; const abtn = $("btn-ascend"); if (abtn) abtn.classList.toggle("has", g > 0 && PERKS.some(p => !perkOwned(p.id) && tierOpen(p.tier) && p.cost <= g)); }   // glow the Ascension button only when you can actually afford+unlock something
+    { const g = (META && META.gems) || 0, ab = $("ascend-n"); if (ab) ab.textContent = g; const abtn = $("btn-ascend"); if (abtn) { abtn.classList.toggle("has", g > 0 && PERKS.some(p => !perkOwned(p.id) && tierOpen(p.tier) && p.cost <= g));
+      if (g > hudGemLast) { abtn.classList.remove("bump"); void abtn.offsetWidth; abtn.classList.add("bump"); }   // juice: the gem chip pops when one drops
+      hudGemLast = g; } }   // glow the Ascension button only when you can actually afford+unlock something
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
     const tgt = conquerTarget(S.galaxy), conq = planetMeta(S.galaxy).conquered;
     $("galaxy-fill").style.width = clamp(conq ? 1 : curEarned / tgt, 0, 1) * 100 + "%";
@@ -1504,7 +1516,14 @@
     if (bt.textContent !== label) bt.textContent = label;   // write only on change — no per-frame repaint flicker
     if (bt.disabled !== dis) bt.disabled = dis;
     bt.classList.toggle("ready", ready); bt.classList.toggle("enroute", enroute);
-    for (const k in ABIL_CD) { $("ab-" + k).classList.toggle("cd", abil[k] > 0); $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : ""; }   // use a CLASS for cooldown dimming, NOT the disabled attr — a disabled <button> makes its child info "i" inert (useAbility already no-ops on cooldown)
+    for (const k in ABIL_CD) { const b = $("ab-" + k); b.classList.toggle("cd", abil[k] > 0); $("cd-" + k).style.width = abil[k] > 0 ? (abil[k] / ABIL_CD[k] * 100) + "%" : "0"; $("s-" + k).textContent = abil[k] > 0 ? Math.ceil(abil[k]) + "s" : "";   // use a CLASS for cooldown dimming, NOT the disabled attr — a disabled <button> makes its child info "i" inert (useAbility already no-ops on cooldown)
+      if (hudAbPrev[k] > 0 && abil[k] <= 0) { b.classList.remove("ready-pop"); void b.offsetWidth; b.classList.add("ready-pop"); }   // juice: one bright pulse the moment a cooldown ends
+      hudAbPrev[k] = abil[k]; }
+    // juice: pulse the conquer bar each quarter it crosses (25/50/75%) — a visible milestone beat
+    { const pq = clamp(conq ? 1 : curEarned / tgt, 0, 1), q = Math.floor(pq * 4);
+      if (S.galaxy !== hudConqG) { hudConqG = S.galaxy; hudConqQ = q; }
+      else if (q > hudConqQ && q < 4) { hudConqQ = q; const gb = document.querySelector(".g-bar"); if (gb) { gb.classList.remove("milestone"); void gb.offsetWidth; gb.classList.add("milestone"); } }
+      else if (q < hudConqQ) hudConqQ = q; }
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {

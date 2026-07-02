@@ -457,3 +457,31 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 #ui-cash{display:inline-block}
 #ui-cash.bump{animation:cashbump .28s cubic-bezier(.2,.9,.3,1)}
 @keyframes cashbump{35%{transform:scale(1.12)}}
+
+/* ── micro-juice pass 2 (visual only) ── */
+/* conquer bar: a slow sheen sweeps the fill; the track pops when a quarter-milestone is crossed */
+#galaxy-fill{position:relative;overflow:hidden}
+#galaxy-fill::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);transform:translateX(-100%);animation:barsheen 3.4s ease-in-out infinite}
+@keyframes barsheen{0%,55%{transform:translateX(-100%)}90%,100%{transform:translateX(100%)}}
+.g-bar.milestone{animation:barpop .5s cubic-bezier(.2,.9,.3,1)}
+@keyframes barpop{35%{transform:scaleY(1.7);box-shadow:0 0 12px rgba(255,255,255,.55)}}
+/* ability buttons flash once the moment their cooldown ends */
+.ab.ready-pop{animation:abready .55s ease}
+@keyframes abready{30%{transform:scale(1.07);border-color:#fff;box-shadow:0 0 16px rgba(255,255,255,.5)}}
+/* PC hotbar visibly takes a 1/2/3 keypress */
+.ab.kb-hit{animation:kbhit .18s ease}
+@keyframes kbhit{40%{transform:scale(.93)}}
+/* shop rows cascade in softly when the list rebuilds (tab switch / purchase) */
+#up-list .up{animation:rowin .16s both}
+#up-list .up:nth-child(2){animation-delay:.025s}
+#up-list .up:nth-child(3){animation-delay:.05s}
+#up-list .up:nth-child(4){animation-delay:.075s}
+#up-list .up:nth-child(5){animation-delay:.1s}
+#up-list .up:nth-child(n+6){animation-delay:.12s}
+@keyframes rowin{from{opacity:0}}
+/* travel button: a dark sheen drifts across while it's READY to launch */
+.act.travel.ready{position:relative;overflow:hidden}
+.act.travel.ready::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-45%;background:linear-gradient(100deg,transparent,rgba(0,0,0,.22),transparent);animation:travelsheen 2.8s ease-in-out infinite}
+@keyframes travelsheen{0%,55%{left:-45%}100%{left:110%}}
+/* gem chip pops when a gem lands (class re-triggered in syncHUD) */
+#btn-ascend.bump{animation:cashbump .32s cubic-bezier(.2,.9,.3,1)}
