@@ -88,6 +88,38 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #boss-reward .br-title{font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:1.5px;color:#fff}
 #boss-reward .br-cash{font-family:var(--mono);font-weight:800;font-size:22px;color:var(--cash);margin-top:3px}
 #boss-reward .br-bonus{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--sd);margin-top:4px}
+
+/* ── BOSS BOUNTY WHEEL (v15.0) — the spin-to-win ritual on every boss kill. AAA monochrome:
+   luminance-tiered slices, white neon glow, sweeping card sheen, springy pointer, slammed-in reveal. */
+#wheel{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 42%,rgba(0,0,0,.22),rgba(0,0,0,.78));
+  opacity:0;pointer-events:none;transition:opacity .28s ease}
+#wheel.show{opacity:1;pointer-events:auto}
+#wheel .wh-card{position:relative;background:var(--panel);border:1px solid var(--edge);border-radius:18px;
+  padding:16px 18px 13px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.05),0 18px 60px rgba(0,0,0,.8),0 0 46px rgba(255,255,255,.08);
+  transform:scale(.86) translateY(16px);transition:transform .34s cubic-bezier(.2,1.5,.4,1)}
+#wheel.show .wh-card{transform:scale(1) translateY(0)}
+#wheel .wh-card::after{content:"";position:absolute;inset:0;border-radius:18px;pointer-events:none;opacity:0;
+  background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,.16) 50%,transparent 68%)}
+#wheel.show .wh-card::after{animation:wh-sweep 1.15s ease .18s 1}
+@keyframes wh-sweep{0%{opacity:0;transform:translateX(-42%)}30%{opacity:1}100%{opacity:0;transform:translateX(42%)}}
+.wh-title{font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:2px;color:#fff;
+  text-shadow:0 0 14px rgba(255,255,255,.4)}
+.wh-box{position:relative;width:340px;height:340px}
+#wh-canvas{width:340px;height:340px;display:block}
+.wh-pointer{position:absolute;left:50%;top:-8px;width:0;height:0;transform:translateX(-50%);transform-origin:50% 22%;
+  border-left:11px solid transparent;border-right:11px solid transparent;border-top:21px solid #fff;
+  filter:drop-shadow(0 0 9px rgba(255,255,255,.7))}
+.wh-pointer.tick{animation:wh-tick .09s ease}
+@keyframes wh-tick{40%{transform:translateX(-50%) scaleY(.7)}100%{transform:translateX(-50%) scaleY(1)}}
+.wh-result{min-height:27px;font-family:var(--mono);font-weight:800;font-size:19px;color:var(--cash);text-align:center;
+  text-shadow:0 0 16px rgba(255,255,255,.35);max-width:340px}
+.wh-result.slam{animation:wh-slam .5s cubic-bezier(.2,1.6,.35,1)}
+@keyframes wh-slam{0%{transform:scale(2.1);opacity:0;filter:blur(3px)}55%{opacity:1}100%{transform:scale(1);filter:blur(0)}}
+.wh-hint{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--dim);min-height:14px;animation:wh-pulse 1.4s ease infinite}
+@keyframes wh-pulse{50%{opacity:.35}}
+@media (max-width:400px){.wh-box,#wh-canvas{width:300px;height:300px}}
 #info-gif{display:none;width:100%;max-width:340px;margin:0 auto 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);image-rendering:auto}
 
 /* metrics modal */
