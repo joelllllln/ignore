@@ -39,6 +39,7 @@ function simulate(P, noise) {
   };
   for (let run = 1; run <= 60; run++) {
     spend();
+    const lvStart = engineLv, multStart = M();
     let g = 1, runH = 0, banked = [];
     let pend = 0;
     const cval = x => Math.ceil(Math.pow(CB, x - 1));
@@ -52,7 +53,7 @@ function simulate(P, noise) {
       if (runH > 30) break;   // hard safety
     }
     const pendFinal = pend || banked.reduce((s2, x) => s2 + cval(x), 0);
-    runs.push({ run, wall: g, hours: runH, pend: pendFinal, banked: cores, ratio: Math.max(1, lifetime) > 1 ? pendFinal / Math.max(1, lifetime) : Infinity });
+    runs.push({ run, wall: g, hours: runH, pend: pendFinal, banked: cores, lvStart, multStart, ratio: Math.max(1, lifetime) > 1 ? pendFinal / Math.max(1, lifetime) : Infinity });
     cores += pendFinal; lifetime += pendFinal;
     if (g > TOTAL) return { done: true, runs, hours, cores, engineLv };
   }
@@ -150,15 +151,25 @@ if (process.argv.includes("--verify")) {
   process.exit(bad ? 1 : 0);
 }
 
+// ---- --json: emit the run trajectory + per-planet hour curves (feeds the pacing chart) ----
+if (process.argv.includes("--json")) {
+  const res = simulate(DEFAULT, false);
+  const perPlanet = res.runs.map(r => ({ run: r.run, mult: r.multStart,
+    hours: Array.from({ length: TOTAL }, (_, i) => (DEFAULT.W0 * Math.pow(DEFAULT.R, i)) / r.multStart + 0.05 + 0.2 / Math.sqrt(r.multStart)) }));
+  console.log(JSON.stringify({ P: DEFAULT, wallH: WALL_H, runs: res.runs, perPlanet, totalHours: res.hours, engineLv: res.engineLv, cores: res.cores }));
+  process.exit(0);
+}
+
 // ---- single-run report on the DEFAULT (shipped) constants ----
 const res = simulate(DEFAULT, false);
 console.log("ASCENSION PACING — shipped constants", JSON.stringify(DEFAULT), "\n");
 console.log("run  wall  run-hrs  cum-hrs  pending  banked-after  engineLv  mult");
-let cum = 0, cores = 0, lv = 0;
+let cum = 0, cores = 0;
 for (const r of res.runs) {
   cum += r.hours; cores = r.banked + r.pend;
-  console.log(String(r.run).padStart(3), ("P" + r.wall).padStart(5), r.hours.toFixed(1).padStart(8), cum.toFixed(1).padStart(8), String(r.pend).padStart(8), String(cores).padStart(13));
+  console.log(String(r.run).padStart(3), ("P" + r.wall).padStart(5), r.hours.toFixed(1).padStart(8), cum.toFixed(1).padStart(8), String(r.pend).padStart(8), String(cores).padStart(13), String(r.lvStart).padStart(9), ("\u00d7" + fmtM(r.multStart)).padStart(7));
 }
+function fmtM(m) { return m >= 1024 ? (m / 1024).toFixed(m % 1024 ? 1 : 0) + "k" : String(Math.round(m)); }
 console.log("\nfinished:", res.done, "· ascensions:", res.runs.length - 1, "· total active hours:", res.hours.toFixed(1), "· final cores:", res.cores, "· engine lv:", res.engineLv);
 const f = gates(res, DEFAULT);
 console.log(f.length ? "GATES FAIL: " + f.join(" | ") : "ALL GATES PASS");
