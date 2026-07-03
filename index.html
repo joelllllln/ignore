@@ -19,7 +19,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v15.6</div>
+  <div id="version" class="layer">v16.0</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -109,8 +109,9 @@
         <li><i data-ico="gem"></i>Big kills drop <b>heavy loot</b> that a collector must sit and <b>consume</b> (watch the ring fill) — small dots are instant, fat ones tie a collector up.</li>
         <li><i data-ico="tree"></i><b>Tap any defender</b> (or hit ⬆ Tree) to open its <b>skill tree</b> — an interconnected node map. Allocate outward from the centre; each node needs a <b>connected</b> node first. Nodes <b>stack additively</b> (each adds a flat bonus that sums — linear, no runaway; early nodes feel strong, later ones taper), and ✦ <b>keystones</b> add multishot AND a crazy <b>weapon specialization</b> — ✦Explosive Rounds (bombs), ✦Chain Lightning, or ✦Piercing Laser. A whole <b>◈ Mind</b> branch upgrades the unit's <b>intelligence &amp; coordination</b> — smart units avoid overkill, don't both shoot the same doomed dot, and triage the most valuable targets, so no shot is wasted. Node prices grow with DEPTH — each ring outward costs more, but buying a node never raises any other node&#8217;s price, so any node you can afford is always a good buy. Every unit of that class shares the tree.</li>
         <li><i data-ico="collector"></i><b>Collectors</b> gather the cash dots drop. Buy more in the <b>COLLECTORS</b> tab and unlock new classes across all three systems: <b>Drone</b> → <b>Drone Swarm</b> → <b>Heavy Collector</b> → <b>Magnet</b> → <b>Tractor</b> → <b>Black Hole</b> → <b>Wormhole</b> (the last two slowly drag everything in). Each has its own skill web.</li>
-        <li><i data-ico="star4"></i><b>Conquer planets</b> to unlock <b>Travel</b> and add each world to your <b>idle empire</b> (it keeps earning for you forever, even offline). You still rebuild from scratch on each planet. You <b>steamroll</b> within a solar system as each conquer bar eases down, then a <b>new system</b> spikes the difficulty back up and you climb again. A planet is a real <b>hours-long campaign</b> — active play (drawing, abilities, fat upgrades) is the fast path.</li>
-      <li><i data-ico="castle"></i>Every <b>conquered planet keeps earning for you while you're away</b>, and your whole <b>idle empire grows stronger the more worlds you hold</b> — early planets are an active grind, but lategame your empire can largely <b>idle you to the next conquest</b>, so you never have to hand-manage all 18.</li>
+        <li><i data-ico="star4"></i><b>Conquer planets</b> to unlock <b>Travel</b> and add each world to your <b>idle empire</b> (it keeps earning for you forever, even offline). You still rebuild from scratch on each planet — and every conquer bar takes roughly <b>twice as long as the last</b>, so each run eventually slows into a wall. That's by design: it's your cue to <b>Ascend</b>. Active play (drawing, abilities, fat upgrades) is always the fast path.</li>
+      <li><i data-ico="castle"></i>Every <b>conquered planet keeps earning for you while you're away</b>, and your whole <b>idle empire grows stronger the more worlds you hold</b>.</li>
+      <li><i data-ico="gem"></i><b>ASCENSION</b> — the long game. Each planet's conquer bar takes ~<b>twice as long</b> as the last, so every run eventually hits a <b>WALL</b>. Ascend: the cluster resets, every conquered planet banks <b>◈ cores</b> (deeper = exponentially more), and permanent lines — <b>Engine: ×2 ALL income per level</b> — make the next run <b>melt</b> your old territory. Planet 18 is the summit of many ascensions.</li>
         <li><i data-ico="coin"></i><b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck.</li>
         <li><i data-ico="planet"></i>Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for tougher dots, more of them, and bigger payouts.</li>
         <li><i data-ico="brush"></i><b>Draw across the field</b> to blast dots yourself — and your draw hits <b>mini-bosses for DOUBLE</b>, so actively drawing is how you seal a boss kill before its timer runs out.</li>
@@ -206,8 +207,8 @@
   <div id="ascend" class="modal">
     <div class="card">
       <div class="card-head"><h2><i data-ico="gem"></i>Ascension</h2><button class="x" id="ascend-close">✕</button></div>
-      <p class="muted">Permanent perks that carry from planet to planet (your skill trees reset — these don't). Earn <b>Gems</b> by conquering planets and spend them here. Tier I costs 1 gem, II costs 2, III costs 3; a tier unlocks once you own 4 perks from the tier before it.</p>
-      <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> gems</div>
+      <p class="muted">The prestige loop: push the cluster until the next conquer bar is a <b>WALL</b>, then ascend — the run resets and every conquered planet banks <b>◈ cores</b> (deeper worlds pay exponentially more). Cores buy the permanent lines below; they never reset.</p>
+      <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> ◈ cores</div>
       <div id="ascend-body" class="ascend-body"></div>
       <button class="big" id="ascend-back">DONE</button>
     </div>
