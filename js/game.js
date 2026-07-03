@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.0";   // v16.0 = ASCENSION: gems removed (migrated to ◈ cores), planets repaced onto a geometric wall (0.35h·2^g), full prestige loop — pending cores always visible, ascend resets the run, Engine ×2 income/lv drives the whoosh. Pacing sim-locked (tools/ascension-sim.js)
+  const VERSION = "v16.1";   // v16.1 = depth is OPTIMAL: core curve 1.6→1.7 + engine costs ×2.0/lv + a 3-conquest floor on ascending — the fastest route now conquers ~11-12 planets per run (sim-proven), shallow-churn resets are dead
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -564,11 +564,11 @@
      each ascension melts the early planets and moves the wall out. Engine deliberately does NOT ride
      valueMul — dot HP scales with valueMul^1.3 (menace), and ×16k through that channel would
      out-tank your guns. All curves are SIM-LOCKED by tools/ascension-sim.js. */
-  const CORE_B = 1.6;
+  const CORE_B = 1.7;   // v16.1: raised from 1.6 so the MARGINAL deeper planet pays ~85% of its time cost in cores — kills the shallow-churn speedrun (optimal play now conquers ~11-12 planets/run, sim-proven)
   const coreVal = g => Math.ceil(Math.pow(CORE_B, Math.max(0, (g | 0) - 1)));
   const ASC_LINES = [
-    { key: "engine",  ico: "coin",   name: "Singularity Engine", max: 20, c0: 1, cr: 1.8, fx: "\u00d72 ALL income / lv",   word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " income" },
-    { key: "war",     ico: "swords", name: "Warcore",            max: 20, c0: 1, cr: 1.8, fx: "\u00d72 damage / lv",       word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " damage" },
+    { key: "engine",  ico: "coin",   name: "Singularity Engine", max: 20, c0: 1, cr: 2.0, fx: "\u00d72 ALL income / lv",   word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " income" },
+    { key: "war",     ico: "swords", name: "Warcore",            max: 20, c0: 1, cr: 2.0, fx: "\u00d72 damage / lv",       word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " damage" },
     { key: "clock",   ico: "bolt",   name: "Overclock",          max: 8,  c0: 2, cr: 2.0, fx: "+15% fire rate / lv",        word: lv => "\u00d7" + Math.pow(1.15, lv).toFixed(2) + " rate" },
     { key: "frugal",  ico: "gear",   name: "War Economy",        max: 8,  c0: 2, cr: 2.0, fx: "\u22125% all costs / lv",   word: lv => "\u00d7" + Math.pow(0.95, lv).toFixed(2) + " costs" },
     { key: "bond",    ico: "castle", name: "Empire Bond",        max: 10, c0: 2, cr: 2.0, fx: "+50% empire idle / lv",      word: lv => "\u00d7" + Math.pow(1.5, lv).toFixed(1) + " empire" },
@@ -605,6 +605,7 @@
     Audio_node(); recompute(); syncHUD(); renderAscend(); save();
   }
   function ascend() {
+    if (conqueredCount() < 3) return;                  // v16.1: you must actually CONQUER a few planets — no shallow-churn ascensions
     const pend = pendingCores(); if (pend < 1) return;
     if (!confirm("ASCEND?\n\nBank +" + pend + " \u25c8 cores.\nPlanets, empire, units, trees and cash RESET.\nCores, Ascension lines and your Auto-Buy plans stay.")) return;
     META.asc.cores = (META.asc.cores | 0) + pend; META.asc.lifetime = (META.asc.lifetime | 0) + pend;
@@ -1778,7 +1779,7 @@
     $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
     { const cpsEl = $("ui-cps"); if (cpsEl) cpsEl.textContent = "+" + curSym(S.galaxy) + fmt(Math.max(0, cps)) + "/s"; }   // live ACTIVE income rate beside the total, always visible while playing
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
-    { const p = pendingCores(), ab = $("ascend-n"); if (ab) ab.textContent = "+" + fmt(p); const abtn = $("btn-ascend"); if (abtn) { abtn.classList.toggle("has", p >= 5);   // the ALWAYS-VISIBLE offer (v16.0): what ascending right now banks; glows once it's a real haul
+    { const p = pendingCores(), ab = $("ascend-n"); if (ab) ab.textContent = "+" + fmt(p); const abtn = $("btn-ascend"); if (abtn) { abtn.classList.toggle("has", p >= 5 && conqueredCount() >= 3);   // the ALWAYS-VISIBLE offer (v16.0): what ascending right now banks; glows once it's a real haul
       if (p > hudGemLast) { abtn.classList.remove("bump"); void abtn.offsetWidth; abtn.classList.add("bump"); }   // juice: the pending pot pops whenever it grows
       hudGemLast = p; } }
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
@@ -2528,7 +2529,8 @@
   function renderAscend() {
     const A2 = (META && META.asc) || { cores: 0, lv: {} }, pend = pendingCores();
     $("ascend-bal").textContent = fmt(A2.cores | 0);
-    let html = '<button class="big asc-go" id="ascend-go"' + (pend < 1 ? " disabled" : "") + '>\u25c8 ASCEND NOW \u2014 BANK +' + fmt(pend) + '</button>'
+    const conqN2 = conqueredCount(), locked = conqN2 < 3;
+    let html = '<button class="big asc-go" id="ascend-go"' + ((pend < 1 || locked) ? " disabled" : "") + '>' + (locked ? "\u25c8 CONQUER 3 PLANETS TO ASCEND (" + conqN2 + "/3)" : "\u25c8 ASCEND NOW \u2014 BANK +" + fmt(pend)) + '</button>'
       + '<p class="muted asc-note"><b>Resets:</b> planets \u00b7 empire \u00b7 units \u00b7 trees \u00b7 cash. <b>Keeps:</b> \u25c8 cores, every line below, your Auto-Buy plans. Deeper planets bank exponentially more \u2014 push until the bar is a WALL, then let go.</p>'
       + '<div class="perk-grid">';
     for (const l of ASC_LINES) {

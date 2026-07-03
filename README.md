@@ -338,10 +338,14 @@ earning for you). The loop:
   more), and permanent lines (the **Engine: ×2 ALL income per level**) multiply the
   next run. Income rides the Engine; **conquer targets never do** — so each
   ascension melts the old territory and stalls further out. The full design:
-  **planet 18 falls on ~run 9, ≈61 active hours total**, sim-locked by
-  `tools/ascension-sim.js` (324-config sweep, 7 pacing gates, noise robustness —
-  run it before touching any pacing constant). Gems no longer exist; old saves
-  auto-migrate every gem ever earned into ◈ cores.
+  **planet 18 falls on ~run 10, ≈67 active hours total** — and the OPTIMAL route
+  (see `--policy`) is ~41 h over 12 deep runs averaging ~12 conquests each:
+  ascending requires **3 conquests**, and shallow-churn resets are strictly
+  slower by construction (core growth 1.7 vs time growth 2.0 + reset overhead).
+  All of it is sim-locked by `tools/ascension-sim.js` (design gates, policy
+  gate, `--verify` game contract, noise robustness — run it before touching any
+  pacing constant). Gems no longer exist; old saves auto-migrate every gem ever
+  earned into ◈ cores.
 - **Conquer → the planet joins your empire** and **Travel unlocks.** A held planet
   feeds idle income straight into your global treasury (online **and** offline).
   **Revisit** any conquered planet anytime to keep upgrading it.
