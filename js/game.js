@@ -48,11 +48,11 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v15.6";   // v15.6 = AUTO-BUY UX: unmissable PLAN COMPLETE (banner+flash+chime+✓ badge+panel state), monochrome restyle (blue purged), tree picking gets a ✓ DONE pill, numbered buy-order badges & live "SAVED" feedback — and auto now buys in YOUR pick order
+  const VERSION = "v16.0";   // v16.0 = ASCENSION: gems removed (migrated to ◈ cores), planets repaced onto a geometric wall (0.35h·2^g), full prestige loop — pending cores always visible, ascend resets the run, Engine ×2 income/lv drives the whoosh. Pacing sim-locked (tools/ascension-sim.js)
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
-  let hudGemLast = 0;                  // gem chip pop on increase
+  let hudGemLast = 0;                  // pending-◈ chip pop on increase (name is a v15 relic)
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
   const WORLD_SCALE = 1.45;   // the playfield is this much bigger than the screen (unchanged gameplay)
   let FIELD_COMP = 1;         // PC-only collector compensation: the desktop field is ~4x a phone's AREA, so collector speed/reach/pull scale by ~sqrt(area ratio) (set in resize) — same collection LATENCY as mobile, throughput stats (capacity/process) untouched
@@ -401,26 +401,19 @@
   const SYS_JUMP = 6.0, WITHIN_STEP = 1.5;
   const diff = g => { g = Math.max(1, Math.min(g, TOTAL_PLANETS)); let v = 1; for (let k = 2; k <= g; k++) v *= (PLANET_LOCAL[planetIdx(k)] === 0 ? SYS_JUMP : WITHIN_STEP); return v; };
   const eco = g => CUR_BASE * diff(g);   // planet number-magnitude (single global currency; costs & drops BOTH ride this so it cancels — progression now is class unlocks, deeper trees & the idle empire)
-  const startMul = g => 40;              // flat fresh-landing starter purse (× eco(g)) — you rebuild from scratch on every planet
+  const startMul = g => 40 * pk().start; // fresh-landing starter purse (× eco(g)) — × the Head Start ascension line (pk() is 1 before first recompute)
   // ONE global currency now — no per-planet money, no exchange. (kept as helpers so existing call-sites resolve.)
   const curName = g => "Credits";
   const curSym  = g => "✦";
   const curWorth = g => eco(g);
-  // CONQUER-TIME CURVE — designed ACTIVE-play hours per planet: a gentle steamroll DOWN within a solar
-  // system, then a JUMP back UP crossing into a new system (the wall), declining again. These are the
-  // wall-clock hours an engaged active player (brushing + abilities + upgrades) should spend per planet.
-  // DESIGN: every planet sits in the 12–24h active band. Crossing into a NEW solar system SPIKES its
-  // first planet back up to the hard end (~24h — "goes hard again"); within a system each successive
-  // planet is easier, easing down toward ~12h (the steamroll). Helios opens gentler (the tutorial system,
-  // no wall to cross into it) and still eases to 12h.
-  const SYS_ACTIVE_HOURS = [
-    [16, 14, 13, 12],                       // Helios (4) — gentle intro, eases to 12h
-    [24, 20, 17, 15, 13, 12],               // Cygnus (6) — WALL: spikes to 24h, eases to 12h
-    [24, 22, 20, 18, 16, 14, 13, 12],       // Erebus (8) — WALL: spikes to 24h, eases to 12h
-  ];
-  const DESIRED_HOURS = [0]; SYS_ACTIVE_HOURS.forEach(a => a.forEach(h => DESIRED_HOURS.push(h)));
-  const PACE = 1 / 3;   // GLOBAL pacing speed-up: every planet's conquer target is 3× quicker than the base curve below (the target scales linearly with conquerHours)
-  const conquerHours = g => (DESIRED_HOURS[Math.max(1, Math.min(g | 0, TOTAL_PLANETS))] || 8) * PACE;
+  // CONQUER-TIME CURVE (v16.0 — the ASCENSION WALL). Active hours per planet grow GEOMETRICALLY:
+  // ~21 min on planet 1, ×2 every planet after. At ×1 income the wall lands on planet 4–6 inside the
+  // first session; every Ascension multiplies INCOME (never the target), so each run melts the old
+  // territory and stalls a planet or two further out — planet 18 is the summit of ~9 ascensions
+  // (~61 active hours), not one 60-day march. Constants are SIM-LOCKED by tools/ascension-sim.js
+  // (324-config sweep, 7 pacing gates, 40/40 noise robustness) — run the sim before touching them.
+  const ASC_W0 = 0.35, ASC_R = 2.0;
+  const conquerHours = g => ASC_W0 * Math.pow(ASC_R, Math.max(0, (g | 0) - 1));
   // The target is anchored to your real INCOME so the active TIME actually lands on the curve above. Real
   // active brushing income does NOT just track eco·Conquest — each planet you also unlock more classes and
   // afford deeper trees, so measured income compounds an EXTRA ~BUILD× per planet on top. We model that with
@@ -517,7 +510,7 @@
     return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, lost: 0, lostCash: 0 };
   }
   function freshOpts() { return { sound: true, haptics: true, shake: true, flash: true, fx: "full", notation: "short", perf: false }; }   // player settings (persist in META). perf = optional FPS-saver (simplifies dots on busy fields)
-  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), gems: 0, gemsEarned: 0, perks: {}, tutorialDone: false }; }   // gems + Ascension perks persist across planets for the whole run
+  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), asc: { cores: 0, lv: {}, runs: 0, best: 0, lifetime: 0 }, tutorialDone: false }; }   // the ASCENSION layer lives in META — the only thing that survives an ascension
   const opt = k => (META && META.opts ? META.opts[k] : freshOpts()[k]);
   function vibe(ms) { if (opt("haptics") && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
   const stat = () => META.stats;
@@ -562,56 +555,79 @@
   let buyIdx = 0;                                      // index into BUY_AMTS
   const buyN = () => BUY_AMTS[buyIdx] === "max" ? 100000 : BUY_AMTS[buyIdx];   // "max" = buy until unaffordable/maxed
 
-  /* ---- ASCENSION: a PERMANENT, cross-planet perk tree bought with Gems ----
-     Skill trees reset every planet; this does NOT. You earn a few Gems per planet
-     CONQUERED and spend them on small, global, one-time perks that persist for the
-     whole run (stored in META). Costs are tiered: Tier I = 1 gem, II = 2, III = 3.
-     Bonuses are deliberately SMALL (a gentle edge, not a power spike) and the tree
-     is bigger than 18 planets' worth of gems, so it's never fully finishable yet. */
-  const PERK_LINES = [
-    { key: "dmg",    ico: "swords",    name: "Weapon Calibration", kind: "mul",  word: "damage",             v: [0.05, 0.08, 0.12] },
-    { key: "rate",   ico: "bolt",      name: "Autoloaders",        kind: "mul",  word: "fire rate",          v: [0.05, 0.08, 0.12] },
-    { key: "crit",   ico: "spark",     name: "Targeting Logic",    kind: "pct",  word: "crit chance",        v: [0.03, 0.04, 0.06] },
-    { key: "range",  ico: "rocket",    name: "Sensor Range",       kind: "flat", word: "range",              v: [12, 20, 30] },
-    { key: "value",  ico: "coin",      name: "Bounty Networks",    kind: "mul",  word: "cash value",         v: [0.02, 0.02, 0.03] },
-    { key: "cost",   ico: "gear",      name: "War Economy",        kind: "cost", word: "upgrade costs",      v: [0.02, 0.03, 0.04] },
-    { key: "yield",  ico: "collector", name: "Salvage Refits",     kind: "mul",  word: "collector yield",    v: [0.02, 0.03, 0.04] },
-    { key: "spawn",  ico: "rain",      name: "Provocation",        kind: "mul",  word: "spawn rate",         v: [0.02, 0.02, 0.03] },
-    { key: "empire", ico: "castle",    name: "Empire Logistics",   kind: "mul",  word: "idle empire income", v: [0.03, 0.04, 0.05] },
-    { key: "luck",   ico: "star4",     name: "Fortune",            kind: "pct",  word: "rare-dot luck",      v: [0.04, 0.06, 0.10] },
-    { key: "gem",    ico: "gem",       name: "Gem Resonance",      kind: "flat", word: "gem per conquer",    v: [null, null, 1] },
+  /* ---- ASCENSION (v16.0, ground-up) — the prestige loop. Gems are GONE. ----
+     Push the cluster until the next conquer bar is a WALL (hours), then ASCEND: the whole run resets
+     (planets, empire, units, trees, cash — Auto-Buy plans survive) and every conquered planet banks
+     ◈ CORES: coreVal(g) = ceil(1.6^(g-1)) — deeper worlds pay exponentially more — plus 50% partial
+     credit on the bar you were stuck on. Cores buy the PERMANENT lines below. The Engine (×2 ALL
+     income per level) is the whoosh: it rides derived.incomeMul, and conquer TARGETS never do, so
+     each ascension melts the early planets and moves the wall out. Engine deliberately does NOT ride
+     valueMul — dot HP scales with valueMul^1.3 (menace), and ×16k through that channel would
+     out-tank your guns. All curves are SIM-LOCKED by tools/ascension-sim.js. */
+  const CORE_B = 1.6;
+  const coreVal = g => Math.ceil(Math.pow(CORE_B, Math.max(0, (g | 0) - 1)));
+  const ASC_LINES = [
+    { key: "engine",  ico: "coin",   name: "Singularity Engine", max: 20, c0: 1, cr: 1.8, fx: "\u00d72 ALL income / lv",   word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " income" },
+    { key: "war",     ico: "swords", name: "Warcore",            max: 20, c0: 1, cr: 1.8, fx: "\u00d72 damage / lv",       word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " damage" },
+    { key: "clock",   ico: "bolt",   name: "Overclock",          max: 8,  c0: 2, cr: 2.0, fx: "+15% fire rate / lv",        word: lv => "\u00d7" + Math.pow(1.15, lv).toFixed(2) + " rate" },
+    { key: "frugal",  ico: "gear",   name: "War Economy",        max: 8,  c0: 2, cr: 2.0, fx: "\u22125% all costs / lv",   word: lv => "\u00d7" + Math.pow(0.95, lv).toFixed(2) + " costs" },
+    { key: "bond",    ico: "castle", name: "Empire Bond",        max: 10, c0: 2, cr: 2.0, fx: "+50% empire idle / lv",      word: lv => "\u00d7" + Math.pow(1.5, lv).toFixed(1) + " empire" },
+    { key: "fortune", ico: "star4",  name: "Fortune",            max: 6,  c0: 2, cr: 2.2, fx: "+2% rare-dot luck / lv",     word: lv => "+" + (2 * lv) + "% luck" },
+    { key: "head",    ico: "rocket", name: "Head Start",         max: 4,  c0: 4, cr: 3.0, fx: "\u00d75 landing purse / lv", word: lv => "\u00d7" + fmt(Math.pow(5, lv)) + " start cash" },
   ];
-  const TIER_NUM = ["", "I", "II", "III"];
-  const PERKS = [];
-  PERK_LINES.forEach(line => { for (let t = 1; t <= 3; t++) { const amt = line.v[t - 1]; if (amt == null) continue;
-    PERKS.push({ id: line.key + t, tier: t, cost: t, key: line.key, kind: line.kind, ico: line.ico, word: line.word, name: line.name + " " + TIER_NUM[t], amt }); } });
-  const PERK_BY = {}; PERKS.forEach(p => PERK_BY[p.id] = p);
-  const PERK0 = { dmg: 1, rate: 1, value: 1, cost: 1, yield: 1, spawn: 1, empire: 1, crit: 0, range: 0, luck: 0, gem: 0 };
-  const pk = () => derived.perk || PERK0;                                   // current aggregated perk bonuses (1× / +0 defaults before first recompute)
-  const perkOwned = id => !!(META && META.perks && META.perks[id]);
-  const tierOwned = t => { let n = 0; for (const p of PERKS) if (p.tier === t && perkOwned(p.id)) n++; return n; };
-  const tierOpen = t => t === 1 || (t === 2 && tierOwned(1) >= 4) || (t === 3 && tierOwned(2) >= 4);   // a tier unlocks once you own 4 of the previous tier
-  function perkAgg() {                                                      // fold all owned perks into one multiplier/offset bundle
-    const a = { dmg: 1, rate: 1, value: 1, cost: 1, yield: 1, spawn: 1, empire: 1, crit: 0, range: 0, luck: 0, gem: 0 };
-    const own = (META && META.perks) || {};
-    for (const p of PERKS) { if (!own[p.id]) continue;
-      if (p.kind === "cost") a.cost *= (1 - p.amt);                         // cost reduction stacks multiplicatively, can't hit 0
-      else if (p.kind === "mul") a[p.key] *= (1 + p.amt);
-      else a[p.key] += p.amt; }                                            // pct (crit/luck) + flat (range/gem) are additive
+  const ASC_BY = {}; ASC_LINES.forEach(l => ASC_BY[l.key] = l);
+  const ascLv = k => (META && META.asc && META.asc.lv && META.asc.lv[k]) | 0;
+  const ascCost = (l, lv) => Math.ceil(l.c0 * Math.pow(l.cr, lv));
+  const PERK0 = { dmg: 1, rate: 1, value: 1, cost: 1, yield: 1, spawn: 1, empire: 1, income: 1, start: 1, crit: 0, range: 0, luck: 0 };
+  const pk = () => derived.perk || PERK0;                                   // current aggregated Ascension bonuses (neutral defaults before first recompute)
+  function perkAgg() {   // fold the Ascension lines into one bundle — same interface the old perk shop used, so every consumer is unchanged
+    const a = Object.assign({}, PERK0);
+    a.income = Math.pow(2, ascLv("engine"));
+    a.dmg    = Math.pow(2, ascLv("war"));
+    a.rate   = Math.pow(1.15, ascLv("clock"));
+    a.cost   = Math.pow(0.95, ascLv("frugal"));
+    a.empire = Math.pow(1.5, ascLv("bond"));
+    a.luck   = 0.02 * ascLv("fortune");
+    a.start  = Math.pow(5, ascLv("head"));
     return a;
   }
-  const perkFx = p => p.key === "range" ? "+" + p.amt + " range"
-    : p.key === "gem" ? "+" + p.amt + " gem / conquer"
-    : (p.kind === "cost" ? "−" : "+") + Math.round(p.amt * 100) + "% " + p.word;
-  const gemReward = g => 2 + Math.floor((g - 1) / 6) + (pk().gem || 0);     // "a few" gems per conquer, gently scaling with depth, + any Gem Resonance
+  // pending ◈ — the ALWAYS-VISIBLE offer: what ascending right now would bank
+  function pendingCores() {
+    let p = 0; if (S && S.vault) for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) p += coreVal(+k);
+    if (S && S.vault && !(S.vault[S.galaxy] && S.vault[S.galaxy].conquered)) { const t = conquerTarget(S.galaxy); if (t > 0) p += Math.floor(coreVal(S.galaxy) * Math.min(1, curEarned / t) * 0.5); }
+    return p;
+  }
+  function buyAsc(key) {
+    const l = ASC_BY[key]; if (!l || !META || !META.asc) return;
+    const lv = ascLv(key); if (lv >= l.max) return;
+    const c = ascCost(l, lv); if ((META.asc.cores | 0) < c) return;
+    META.asc.cores -= c; (META.asc.lv || (META.asc.lv = {}))[key] = lv + 1;
+    Audio_node(); recompute(); syncHUD(); renderAscend(); save();
+  }
+  function ascend() {
+    const pend = pendingCores(); if (pend < 1) return;
+    if (!confirm("ASCEND?\n\nBank +" + pend + " \u25c8 cores.\nPlanets, empire, units, trees and cash RESET.\nCores, Ascension lines and your Auto-Buy plans stay.")) return;
+    META.asc.cores = (META.asc.cores | 0) + pend; META.asc.lifetime = (META.asc.lifetime | 0) + pend;
+    META.asc.runs = (META.asc.runs | 0) + 1; META.asc.best = Math.max(META.asc.best | 0, conqueredCount());
+    const keepAuto = S.auto;                       // build orders are configuration, not progress — they survive the reset
+    S = fresh(); S.auto = keepAuto;
+    dots.length = 0; orbs.length = 0; beams.length = 0; shells.length = 0;
+    for (const k in abil) abil[k] = 0;
+    curEarned = 0; earnAcc = 0; earnT = 0; cps = 0; spawnAcc = 0; bossAcc = 0; autoAcc = 0;
+    recompute(); syncCollectors(); renderList(); GMap.init(); syncHUD(); save();
+    const am = $("ascend"); if (am) am.classList.remove("show");
+    floatTxt(W / 2, H / 2 - 40, "\u25c8 ASCENSION " + META.asc.runs);
+    floatTxt(W / 2, H / 2 - 16, "+" + pend + " \u25c8 banked \u00b7 the cluster resets \u00b7 you come back harder");
+    flashAdd(0.8); shakeAdd(8); vibe([60, 40, 120]); Audio_boss();
+  }
 
   function recompute() {
     const L = S.lv, m = META;
     derived.perk = perkAgg();                                           // FIRST — valueMul/spawn/luck below read it via pk()
     let conqN = 0; for (const k in (S.vault || {})) if (S.vault[k] && S.vault[k].conquered) conqN++;   // conquered-world count (≤18 — cheap every recompute)
     S.conquest = Math.pow(CONQ_STEP, conqN);           // derived from the count (drift-proof). CONQ_STEP=1.0 → always ×1, INERT — the multiplier is one constant away if ever wanted
-    derived.incomeMul = S.conquest;
-    derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity) * (S.conquest || 1);   // cash ceiling scales with difficulty AND conquest so it never lags your income
+    derived.incomeMul = S.conquest * pk().income;      // ← THE WHOOSH (v16.0): the Ascension Engine multiplies every dot/boss/salvage payout, and conquer TARGETS never ride incomeMul — so each ascension melts the early planets
+    derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity) * (derived.incomeMul || 1);   // cash ceiling rides the SAME income multiplier as the payouts (engine incl.) so it never lags your income
     derived.valueMul = (1 + 0.08 * L.value) * pk().value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace". × small permanent Ascension value perk.
     // Spawn Rate: each level wants +2 dots/sec. Past the soft knee the screen can't hold every extra
     // body — instead of wasting the upgrade, the surplus "spills over" into MENACE: every dot spawns
@@ -660,7 +676,15 @@
           META.stats.collected = Object.assign(freshStats().collected, st.collected || {});
           META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {});
           META.opts = Object.assign(freshOpts(), d.META.opts || {});
-          META.gems = +d.META.gems || 0; META.gemsEarned = +d.META.gemsEarned || 0; META.perks = (d.META.perks && typeof d.META.perks === "object") ? d.META.perks : {}; }
+          const da = d.META.asc; if (da && typeof da === "object") META.asc = { cores: +da.cores || 0, lv: (da.lv && typeof da.lv === "object") ? da.lv : {}, runs: +da.runs || 0, best: +da.best || 0, lifetime: +da.lifetime || 0 };
+          // v16.0 MIGRATION — gems are GONE. Refund every gem this save ever earned as ◈ cores (perk
+          // purchases were paid FROM earned gems, so gemsEarned covers them; oldest saves lack it → count perks).
+          if (d.META.gems != null || d.META.perks) {
+            let refund = Math.max(+d.META.gemsEarned || 0, +d.META.gems || 0);
+            if (refund <= 0 && d.META.perks) for (const id in d.META.perks) if (d.META.perks[id]) refund += (+String(id).slice(-1) || 1);
+            if (refund > 0) { META.asc.cores += refund; META.asc.lifetime += refund; }
+            delete META.gems; delete META.gemsEarned; delete META.perks;   // scrub the legacy fields — otherwise the next save re-carries them and the refund would re-run on EVERY load
+          } }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, AWAY_CAP_H * 3600);
           // away earnings = the on-screen $/s you were passively earning (your collector income + empire) × seconds away
           const rate = (d.cps > 0 ? d.cps : 0) + (S.vault ? empireIdleRate() : 0), offTotal = rate > 0 ? Math.floor(rate * e) : 0;
@@ -766,7 +790,7 @@
       cash(3, 12);
       top[2] ? (node(top[2]), L[L.length - 1].w = nw[2]) : cash(nmul[2], nw[2]);
       cash(2, 14);
-      L.push({ kind: "gem", w: 2, lum: 84, label: "◈ GEM" });   // owner call: super low, exactly 2%
+      L.push({ kind: "core", w: 2, lum: 84, label: "◈ CORE" });   // super low, exactly 2% — a rare Ascension core, banked directly
       cash(10, 10);                                         // the JACKPOT face — ×10 the bounty
       return L;
     }
@@ -779,7 +803,7 @@
         if (p) { applyNodePick(p); syncHUD(); save(); return "✦ " + nodeLabel(p.type, p.node).toUpperCase() + " — " + TY(p.type).name + " tree"; }
         sg = { kind: "cash", mul: 2 };                      // every tree maxed: pay double instead
       }
-      if (sg.kind === "gem") { META.gems = (META.gems || 0) + 1; META.gemsEarned = (META.gemsEarned || 0) + 1; save(); return "◈ +1 GEM — spend it in Ascension"; }
+      if (sg.kind === "core") { META.asc.cores = (META.asc.cores | 0) + 1; META.asc.lifetime = (META.asc.lifetime | 0) + 1; save(); return "◈ +1 CORE — banked to Ascension"; }
       const amt = Math.round(v0 * sg.mul);                  // cash tiers bypass the capacity ceiling, exactly like the banked lump
       S.cash += amt; S.totalRun += amt; META.totalEver += amt; curEarned += amt; earnAcc += amt; syncHUD();
       return "+" + curSym(S.galaxy) + " " + fmt(amt) + (sg.mul >= 10 ? "  ·  JACKPOT!" : "");
@@ -885,7 +909,7 @@
           x.save(); x.translate(C, (y1 + y2) / 2); x.scale(1, Math.max(0.2, cm));
           const bright = lum > 52;
           x.textAlign = "center"; x.textBaseline = "middle";
-          x.font = "700 " + (sg.kind === "gem" ? 14 : 16) + "px ui-monospace,Consolas,monospace";
+          x.font = "700 " + (sg.kind === "core" ? 14 : 16) + "px ui-monospace,Consolas,monospace";
           x.fillStyle = bright ? "rgba(0,0,0,.9)" : winGlow ? "#fff" : "rgba(255,255,255," + (sg.kind === "cash" ? 0.9 : 0.98) + ")";
           let lb = sg.label; if (lb.length > 20) lb = lb.slice(0, 19) + "…";
           x.fillText(lb, 0, sg.kind === "jack" ? 6 : 0);
@@ -1518,7 +1542,7 @@
     { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add;
         if (!planetMeta(S.galaxy).conquered) { const barCap = IDLE_FRAC * ACTIVE_REF * eco(S.galaxy) * (S.conquest || 1); curEarned += Math.min(bgSum, barCap) * dt; } } }   // treasury gets the FULL empire rate; the conquer BAR gets at most IDLE_FRAC of active income (P4 — idle never out-paces playing)
     // conquest check — UNCONDITIONAL so ANY income source (active orbs OR idle empire) can complete it
-    { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); const gg = gemReward(S.galaxy); META.gems += gg; META.gemsEarned += gg; recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + gg + " ◈ GEMS — spend in Ascension"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); syncHUD();
+    { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); const cg = coreVal(S.galaxy); recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + cg + " ◈ PENDING — Ascension charging (" + pendingCores() + " ready)"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); syncHUD();
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
         if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours"); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
@@ -1754,9 +1778,9 @@
     $("ui-cap").textContent = curName(S.galaxy) + (cq > 1.001 ? "  ·  ✦×" + cqStr : "") + (bg > 0 ? "  ·  +" + fmt(bg) + "/s idle" : "");   // compact meta on its own line (see .t-cash span CSS) so it never squeezes the conquer bar
     { const cpsEl = $("ui-cps"); if (cpsEl) cpsEl.textContent = "+" + curSym(S.galaxy) + fmt(Math.max(0, cps)) + "/s"; }   // live ACTIVE income rate beside the total, always visible while playing
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
-    { const g = (META && META.gems) || 0, ab = $("ascend-n"); if (ab) ab.textContent = g; const abtn = $("btn-ascend"); if (abtn) { abtn.classList.toggle("has", g > 0 && PERKS.some(p => !perkOwned(p.id) && tierOpen(p.tier) && p.cost <= g));
-      if (g > hudGemLast) { abtn.classList.remove("bump"); void abtn.offsetWidth; abtn.classList.add("bump"); }   // juice: the gem chip pops when one drops
-      hudGemLast = g; } }   // glow the Ascension button only when you can actually afford+unlock something
+    { const p = pendingCores(), ab = $("ascend-n"); if (ab) ab.textContent = "+" + fmt(p); const abtn = $("btn-ascend"); if (abtn) { abtn.classList.toggle("has", p >= 5);   // the ALWAYS-VISIBLE offer (v16.0): what ascending right now banks; glows once it's a real haul
+      if (p > hudGemLast) { abtn.classList.remove("bump"); void abtn.offsetWidth; abtn.classList.add("bump"); }   // juice: the pending pot pops whenever it grows
+      hudGemLast = p; } }
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
     const tgt = conquerTarget(S.galaxy), conq = planetMeta(S.galaxy).conquered;
     $("galaxy-fill").style.width = clamp(conq ? 1 : curEarned / tgt, 0, 1) * 100 + "%";
@@ -2500,31 +2524,24 @@
   function setInfoGif(name) { const im = $("info-gif"); if (!im) return; if (name) { im.src = GIF_DIR + name + ".gif"; im.style.display = "block"; } else { im.removeAttribute("src"); im.style.display = "none"; } }
   function showInfo(title, id) { $("info-title").textContent = title; $("info-text").textContent = INFO[id] || ""; setInfoGif(INFO_GIF[id]); $("info-modal").classList.add("show"); }
   function showInfoText(title, html, gifId) { $("info-title").textContent = title; $("info-text").innerHTML = html; setInfoGif(gifId); $("info-modal").classList.add("show"); }
-  // ---- ASCENSION perk tree (permanent, gem-bought) ----
-  function buyPerk(id) {
-    const p = PERK_BY[id]; if (!p || perkOwned(id) || !tierOpen(p.tier) || (META.gems || 0) < p.cost) return;
-    META.gems -= p.cost; (META.perks || (META.perks = {}))[id] = true;
-    recompute(); save(); syncHUD(); renderAscend(); vibe(20); flashAdd(0.2);
-  }
+  // ---- ASCENSION screen (v16.0): the always-armed ASCEND button + the permanent core lines ----
   function renderAscend() {
-    const gems = (META && META.gems) || 0;
-    $("ascend-bal").textContent = gems;
-    let html = "";
-    for (let t = 1; t <= 3; t++) {
-      const open = tierOpen(t), need = t === 2 ? 4 - tierOwned(1) : t === 3 ? 4 - tierOwned(2) : 0;
-      html += '<div class="perk-tier"><div class="perk-tier-h"><span>TIER ' + TIER_NUM[t] + ' · ' + t + ' gem' + (t > 1 ? 's' : '') + ' each</span>' +
-        (open ? '' : '<span class="locked">' + iconMarkup("lock") + 'own ' + Math.max(0, need) + ' more from Tier ' + TIER_NUM[t - 1] + '</span>') + '</div><div class="perk-grid">';
-      for (const p of PERKS) { if (p.tier !== t) continue;
-        const owned = perkOwned(p.id), afford = gems >= p.cost, cls = owned ? "owned" : !open || !afford ? (open ? "cant" : "locked") : "";
-        html += '<button class="perk ' + cls + '" data-perk="' + p.id + '"' + ((owned || !open) ? ' disabled' : '') + '>' +
-          '<span class="pk-top">' + iconMarkup(p.ico) + p.name + '</span>' +
-          '<span class="pk-eff">' + perkFx(p) + '</span>' +
-          '<span class="pk-cost">' + (owned ? "✓ owned" : iconMarkup("gem") + p.cost) + '</span></button>';
-      }
-      html += '</div></div>';
+    const A2 = (META && META.asc) || { cores: 0, lv: {} }, pend = pendingCores();
+    $("ascend-bal").textContent = fmt(A2.cores | 0);
+    let html = '<button class="big asc-go" id="ascend-go"' + (pend < 1 ? " disabled" : "") + '>\u25c8 ASCEND NOW \u2014 BANK +' + fmt(pend) + '</button>'
+      + '<p class="muted asc-note"><b>Resets:</b> planets \u00b7 empire \u00b7 units \u00b7 trees \u00b7 cash. <b>Keeps:</b> \u25c8 cores, every line below, your Auto-Buy plans. Deeper planets bank exponentially more \u2014 push until the bar is a WALL, then let go.</p>'
+      + '<div class="perk-grid">';
+    for (const l of ASC_LINES) {
+      const lv = ascLv(l.key), maxed = lv >= l.max, c = ascCost(l, lv), afford = (A2.cores | 0) >= c;
+      html += '<button class="perk ' + (maxed ? "owned" : afford ? "" : "cant") + '" data-asc="' + l.key + '"' + (maxed ? " disabled" : "") + '>'
+        + '<span class="pk-top">' + iconMarkup(l.ico) + l.name + ' <b class="pk-lv">' + lv + "/" + l.max + '</b></span>'
+        + '<span class="pk-eff">' + l.fx + ' \u00b7 now ' + l.word(lv) + '</span>'
+        + '<span class="pk-cost">' + (maxed ? "\u2605 MAXED" : "\u25c8 " + fmt(c)) + '</span></button>';
     }
-    const body = $("ascend-body"); body.innerHTML = html; hydrateIcons(body); hydrateIcons($("ascend-bal").parentElement);
-    body.querySelectorAll("button[data-perk]").forEach(b => b.onclick = () => buyPerk(b.getAttribute("data-perk")));
+    html += '</div>';
+    const body = $("ascend-body"); body.innerHTML = html; hydrateIcons(body);
+    const go = $("ascend-go"); if (go) go.onclick = ascend;
+    body.querySelectorAll("button[data-asc]").forEach(b2 => b2.onclick = () => buyAsc(b2.getAttribute("data-asc")));
   }
   function openAscend() { renderAscend(); $("ascend").classList.add("show"); }
   function buildMetrics() {
@@ -3171,7 +3188,7 @@
     { sel: '#tabs [data-tab="eco"]', t: "Economy", x: "The <b>ECONOMY</b> tab boosts cash value, spawn rate, your cash ceiling, and luck — the backbone of your income." },
     { sel: "#abilities", t: "Abilities", x: "Tap an ability for a burst: <b>Frenzy</b> (fire rate), <b>Dot Rain</b> (flood the field), or <b>Black Hole</b> (vacuum). They run on cooldowns." },
     { sel: "#galaxy-open", t: "Conquer & travel", x: "Fill <b>this bar</b> to conquer the planet and unlock <b>Travel</b>. Tap the bar for the <b>star map</b> — three solar systems, and every planet's native race has a <b>weakness</b> shown there." },
-    { sel: "#btn-ascend", t: "Ascension", x: "Conquering planets earns 💎 <b>Gems</b>. Spend them here on <b>permanent perks</b> that carry from planet to planet — they never reset." },
+    { sel: "#btn-ascend", t: "Ascension", x: "This counter is your <b>pending ◈ cores</b> — every conquered planet charges it (deeper worlds pay exponentially more). When the next conquer bar becomes a <b>WALL</b>, ascend: the run resets, the cores bank, and permanent lines like the <b>Engine (×2 ALL income per level)</b> make the next run melt everything you just fought through." },
     { t: "Go conquer", x: "That's the loop: <b>kill dots → gather cash → upgrade → fill the bar → travel</b>. Take all 18 worlds. Good luck, commander!" },
   ];
   const Tut = {
@@ -3244,7 +3261,7 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyPerk, openAscend, PERKS, exportSave, importSave, Wheel };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyAsc, openAscend, ascend, pendingCores, coreVal, ascLv, ASC_LINES, exportSave, importSave, Wheel };
   // read-only scaling hooks for the headless pacing/scaling simulator (tools/playthrough-sim.js) — no game logic, just exposes the real curves so the sim can never diverge from the shipped game
   if (typeof window !== "undefined") window.__SIM = {
     TOTAL_PLANETS, CONQ_STEP, SYS_JUMP, WITHIN_STEP, CUR_BASE, TOUGH_POW, BUY_MUL,
@@ -3256,7 +3273,7 @@
     spawnVis, spawnOver, spawnKnee, SPAWN_PASS,   // real spawn curves (v14.4) so the audit can never diverge from the shipped game
     setCps: v => { cps = +v || 0; },              // test hook: set the live income/s the boss bounty floor reads (v14.7)
     spawnBoss, grantTreeNodes, dots: () => dots,
-    PERKS, gemReward, perkAgg,
+    ASC_LINES, ASC_BY, coreVal, pendingCores, perkAgg, ascLv, buyAsc, ascend, ascCost, CORE_B, ASC_W0, ASC_R,
     baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP,
     Wheel, nodeCandidates,                        // Bounty Wheel test hooks (v15.0): build/apply/segs/state
     RACES, raceNiche, NICHE_HINT,
