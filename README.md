@@ -324,15 +324,18 @@ earning for you). The loop:
   bar — that unlocks **Travel**. A planet is a deliberate **hours-long campaign**;
   active play — drawing to brush dots, abilities, and fat Value/Spawn upgrades —
   is the fast path.
-- **Designed conquer-time curve.** Each conquer bar is sized so the *active* hours
-  land on an intended curve in the **12–24h band**: you **steamroll through a solar
-  system** (Helios ≈ 16→12h), then crossing into a **new system spikes the wall
-  back up to ~24h** and you climb again (Cygnus ≈ 24→12h, Erebus ≈ 24→12h). The
-  target tracks the planet's economy `eco(g)` (which your income rides too), so
-  late worlds stay full campaigns instead of collapsing to minutes. Skilled active
-  play banks **~8.6× idle**, so the whole 18-planet run is **≈12 days fully active,
-  ≈60 days at ~10% active (mostly idle), ≈106 days pure idle** — engagement is
-  rewarded, but idle is a viable path.
+- **Designed conquer-time curve (v16.0 — the ASCENSION WALL).** Each planet's
+  conquer bar takes **~×2 the active hours of the one before it** (`0.35h·2^(g−1)`),
+  so every run climbs into a **wall** — planet 4–6 on a fresh account, inside the
+  first session. That wall is the cue to **Ascend**: the run resets, every conquered
+  planet banks **◈ cores** (`ceil(1.6^(g−1))` each — deeper pays exponentially
+  more), and permanent lines (the **Engine: ×2 ALL income per level**) multiply the
+  next run. Income rides the Engine; **conquer targets never do** — so each
+  ascension melts the old territory and stalls further out. The full design:
+  **planet 18 falls on ~run 9, ≈61 active hours total**, sim-locked by
+  `tools/ascension-sim.js` (324-config sweep, 7 pacing gates, noise robustness —
+  run it before touching any pacing constant). Gems no longer exist; old saves
+  auto-migrate every gem ever earned into ◈ cores.
 - **Conquer → the planet joins your empire** and **Travel unlocks.** A held planet
   feeds idle income straight into your global treasury (online **and** offline).
   **Revisit** any conquered planet anytime to keep upgrading it.

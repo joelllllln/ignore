@@ -13,7 +13,7 @@
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — bottom-left on PC) -->
-  <div id="version" class="layer">v15.6</div>
+  <div id="version" class="layer">v16.0</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -207,8 +207,8 @@
   <div id="ascend" class="modal">
     <div class="card">
       <div class="card-head"><h2><i data-ico="gem"></i>Ascension</h2><button class="x" id="ascend-close">✕</button></div>
-      <p class="muted">Permanent perks that carry from planet to planet (your skill trees reset — these don't). Earn <b>Gems</b> by conquering planets and spend them here. Tier I costs 1 gem, II costs 2, III costs 3; a tier unlocks once you own 4 perks from the tier before it.</p>
-      <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> gems</div>
+      <p class="muted">The prestige loop: push the cluster until the next conquer bar is a <b>WALL</b>, then ascend — the run resets and every conquered planet banks <b>◈ cores</b> (deeper worlds pay exponentially more). Cores buy the permanent lines below; they never reset.</p>
+      <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> ◈ cores</div>
       <div id="ascend-body" class="ascend-body"></div>
       <button class="big" id="ascend-back">DONE</button>
     </div>
