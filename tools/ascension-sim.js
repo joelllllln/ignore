@@ -23,6 +23,7 @@ const ENGINE_SHARE = 0.55;   // share of cores the player effectively puts into 
 
 function simulate(P, noise) {
   const { W0, R, CB, E, C0, CR } = P;
+  const wallH = global.WALL_OVERRIDE || WALL_H, engShare = global.SHARE_OVERRIDE || ENGINE_SHARE;
   const rnd = noise ? () => 1 + (Math.random() * 2 - 1) * 0.2 : () => 1;
   let cores = 0, engineLv = 0, engineSpent = 0;
   let hours = 0, runs = [], deepest = 0;
@@ -30,15 +31,16 @@ function simulate(P, noise) {
   const engCost = lv => Math.ceil(C0 * Math.pow(CR, lv));
   let lifetime = 0;
   const spend = () => {   // greedy: engine gets ENGINE_SHARE of every core; the rest goes to war/overclock etc. (a matching spend, not a hoard)
-    let budget = cores * ENGINE_SHARE;
+    let budget = cores * engShare;
     while (engCost(engineLv) <= budget) {
       const c = engCost(engineLv); budget -= c; cores -= c; engineSpent += c; engineLv++;
-      const other = Math.min(cores, Math.round(c * (1 - ENGINE_SHARE) / ENGINE_SHARE));
+      const other = Math.min(cores, Math.round(c * (1 - engShare) / Math.max(0.01, engShare)));
       cores -= other;   // the sibling lines soak their share too
     }
   };
   for (let run = 1; run <= 60; run++) {
     spend();
+    const lvStart = engineLv, multStart = M();
     let g = 1, runH = 0, banked = [];
     let pend = 0;
     const cval = x => Math.ceil(Math.pow(CB, x - 1));
@@ -46,13 +48,13 @@ function simulate(P, noise) {
       const t = (W0 * Math.pow(R, g - 1)) / M() * rnd() + 0.05 + 0.2 / Math.sqrt(M());
       if (g > deepest) deepest = g;
       // bail into ascension when the NEXT bar costs more than a session (and there's something to bank)
-      if (t > WALL_H && banked.length >= 2) { pend = banked.reduce((s2, x) => s2 + cval(x), 0) + Math.floor(cval(g) * 0.25); break; }
+      if (t > wallH && banked.length >= 3) { pend = banked.reduce((s2, x) => s2 + cval(x), 0) + Math.floor(cval(g) * 0.25); break; }   // the GAME also enforces the 3-conquest floor before ascending (v16.1)
       hours += t; runH += t;
       banked.push(g); g++;
       if (runH > 30) break;   // hard safety
     }
     const pendFinal = pend || banked.reduce((s2, x) => s2 + cval(x), 0);
-    runs.push({ run, wall: g, hours: runH, pend: pendFinal, banked: cores, ratio: Math.max(1, lifetime) > 1 ? pendFinal / Math.max(1, lifetime) : Infinity });
+    runs.push({ run, wall: g, hours: runH, pend: pendFinal, banked: cores, lvStart, multStart, ratio: Math.max(1, lifetime) > 1 ? pendFinal / Math.max(1, lifetime) : Infinity });
     cores += pendFinal; lifetime += pendFinal;
     if (g > TOTAL) return { done: true, runs, hours, cores, engineLv };
   }
@@ -81,15 +83,17 @@ function gates(res, P, loose) {
 }
 
 // SHIPPED constants — the sweep winner (324 configs, all gates + 40/40 noisy robustness):
-//   conquer hours 0.35·2^(g-1) / M · core award ceil(1.6^(g-1)) · engine ×2 income per level @ cost ceil(1.8^lv)
-const DEFAULT = { W0: 0.35, R: 2.0, CB: 1.6, E: 2.0, C0: 1, CR: 1.8 };
+//   conquer hours 0.35·2^(g-1) / M · core award ceil(1.7^(g-1)) · engine ×2 income per level @ cost ceil(2^lv)
+// v16.1: CB/CR retuned so OPTIMAL play conquers ~11-12 planets/run (bail ~1.5h) instead of churning
+// shallow resets — proven by this file's --policy sweep, which now gates it.
+const DEFAULT = { W0: 0.35, R: 2.0, CB: 1.7, E: 2.0, C0: 1, CR: 2.0 };
 
 if (process.argv.includes("--sweep")) {
   console.log("SWEEP — 324 configs × gates\n");
   const winners = [];
   for (const W0 of [0.25, 0.35, 0.5])
     for (const R of [1.5, 1.65, 1.8, 2.0])
-      for (const CB of [1.6, 1.8, 2.0])
+      for (const CB of [1.6, 1.7, 1.8, 2.0])
         for (const E of [1.5, 1.7, 2.0])
           for (const CR of [1.8, 2.0, 2.5]) {
             const P = { W0, R, CB, E, C0: 1, CR };
@@ -113,6 +117,28 @@ if (process.argv.includes("--sweep")) {
   for (let i = 0; i < N; i++) { const r = simulate(best, true); if (!gates(r, best, true).length) pass++; }
   console.log(`\nrobustness: best config passes ${pass}/${N} noisy trials (need ≥ ${Math.ceil(N * 0.9)})`);
   process.exit(pass >= N * 0.9 ? 0 : 1);
+}
+
+// ---- --policy: sweep player strategies on the SHIPPED constants — proves the optimum plays DEEP ----
+if (process.argv.includes("--policy")) {
+  const shares = [0.55, 0.7, 0.85, 1.0], walls = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5];
+  let best = { h: 1e9 };
+  console.log("policy sweep on shipped constants (bail \u00d7 engine-share \u2192 hours/runs/avg-depth):\n");
+  for (const w of walls) { let row = (w + "h").padEnd(6);
+    for (const sh of shares) {
+      global.WALL_OVERRIDE = w; global.SHARE_OVERRIDE = sh;
+      const r = simulate(DEFAULT, false);
+      const avg = r.done ? (r.runs.reduce((a, b) => a + Math.min(18, b.wall) - 1, 0) / r.runs.length) : 0;
+      row += (r.done ? r.hours.toFixed(1) + "h/" + r.runs.length + "r/d" + avg.toFixed(0) : "never").padStart(17);
+      if (r.done && r.hours < best.h) best = { h: r.hours, runs: r.runs.length, w, sh, avg };
+    }
+    console.log(row);
+  }
+  delete global.WALL_OVERRIDE; delete global.SHARE_OVERRIDE;
+  console.log("\nOPTIMAL:", best.h.toFixed(1) + "h over " + best.runs + " runs \u00b7 bail " + best.w + "h \u00b7 engine " + Math.round(best.sh * 100) + "% \u00b7 avg depth " + best.avg.toFixed(1) + " planets/run");
+  const deepEnough = best.w >= 1.5 && best.avg >= 8;
+  console.log(deepEnough ? "PASS: the fastest route conquers real depth (no churn exploit)" : "FAIL: shallow churn is still optimal");
+  process.exit(deepEnough ? 0 : 1);
 }
 
 // ---- --verify: load the SHIPPED game headless and assert it matches this sim's design contract ----
@@ -150,15 +176,25 @@ if (process.argv.includes("--verify")) {
   process.exit(bad ? 1 : 0);
 }
 
+// ---- --json: emit the run trajectory + per-planet hour curves (feeds the pacing chart) ----
+if (process.argv.includes("--json")) {
+  const res = simulate(DEFAULT, false);
+  const perPlanet = res.runs.map(r => ({ run: r.run, mult: r.multStart,
+    hours: Array.from({ length: TOTAL }, (_, i) => (DEFAULT.W0 * Math.pow(DEFAULT.R, i)) / r.multStart + 0.05 + 0.2 / Math.sqrt(r.multStart)) }));
+  console.log(JSON.stringify({ P: DEFAULT, wallH: WALL_H, runs: res.runs, perPlanet, totalHours: res.hours, engineLv: res.engineLv, cores: res.cores }));
+  process.exit(0);
+}
+
 // ---- single-run report on the DEFAULT (shipped) constants ----
 const res = simulate(DEFAULT, false);
 console.log("ASCENSION PACING — shipped constants", JSON.stringify(DEFAULT), "\n");
 console.log("run  wall  run-hrs  cum-hrs  pending  banked-after  engineLv  mult");
-let cum = 0, cores = 0, lv = 0;
+let cum = 0, cores = 0;
 for (const r of res.runs) {
   cum += r.hours; cores = r.banked + r.pend;
-  console.log(String(r.run).padStart(3), ("P" + r.wall).padStart(5), r.hours.toFixed(1).padStart(8), cum.toFixed(1).padStart(8), String(r.pend).padStart(8), String(cores).padStart(13));
+  console.log(String(r.run).padStart(3), ("P" + r.wall).padStart(5), r.hours.toFixed(1).padStart(8), cum.toFixed(1).padStart(8), String(r.pend).padStart(8), String(cores).padStart(13), String(r.lvStart).padStart(9), ("\u00d7" + fmtM(r.multStart)).padStart(7));
 }
+function fmtM(m) { return m >= 1024 ? (m / 1024).toFixed(m % 1024 ? 1 : 0) + "k" : String(Math.round(m)); }
 console.log("\nfinished:", res.done, "· ascensions:", res.runs.length - 1, "· total active hours:", res.hours.toFixed(1), "· final cores:", res.cores, "· engine lv:", res.engineLv);
 const f = gates(res, DEFAULT);
 console.log(f.length ? "GATES FAIL: " + f.join(" | ") : "ALL GATES PASS");
