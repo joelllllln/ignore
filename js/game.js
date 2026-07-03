@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v15.5";   // v15.5 = side plates REMOVED (owner call — they read as weird hexagons): clean face-on slot window, full-width octagon panels scrolling past the payline between plain machine rails
+  const VERSION = "v15.6";   // v15.6 = AUTO-BUY UX: unmissable PLAN COMPLETE (banner+flash+chime+✓ badge+panel state), monochrome restyle (blue purged), tree picking gets a ✓ DONE pill, numbered buy-order badges & live "SAVED" feedback — and auto now buys in YOUR pick order
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -1912,6 +1912,7 @@
       if (isTreeStep(s)) { if (!s.nodes || typeof s.nodes !== "object") s.nodes = {}; delete s.count; }
       else { s.count = Math.max(0, s.count | 0); delete s.nodes; }
     }
+    if ((p.doneFx || p.doneSeen) && p.queue.some(stepPending)) { p.doneFx = false; p.doneSeen = false; }   // new work → the ✓ state retires itself
     return p;
   }
   const curAuto = () => autoCfg(S.galaxy);   // the config that actually RUNS (your active planet)
@@ -1921,6 +1922,17 @@
   const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());         // purchases/sec — empire snowball makes it faster
   const autoTax = c => Math.ceil(c * AUTO_TAX);
   const treeNodesPending = s => { if (!isTreeStep(s)) return 0; const t = s.target.slice(5), sel = s.nodes || {}; let n = 0; for (const id in sel) if (sel[id] && !nodeAllocated(t, id)) n++; return n; };
+  const stepPending = s => (isTreeStep(s) ? treeNodesPending(s) : (s && s.count || 0)) > 0;
+  const autoAllDone = cfg => cfg.queue.length > 0 && !cfg.queue.some(stepPending);   // every programmed step fully bought
+  // PLAN COMPLETE — the moment a planet's whole build order finishes, say so in MANY ways (owner call):
+  // field banner + flash + rumble + chime, a ✓ badge pinned to the AUTO buttons, and the planet's
+  // panel shows PLAN COMPLETE until more steps are added (doneFx auto-clears in autoCfg when new
+  // work appears). doneSeen stops the badge pulsing once the player has opened the panel.
+  function autoDoneFx() {
+    floatTxt(W / 2, H * 0.3, "✓ AUTO-BUY PLAN COMPLETE");
+    floatTxt(W / 2, H * 0.3 + 22, "Planet " + S.galaxy + " build order finished — add more steps");
+    flashAdd(0.35); shakeAdd(2); vibe([30, 30, 60]); Audio_node(); syncAutoBtn();
+  }
   // next eco/unit purchase: { cost (taxed), buy() } or null
   function autoTargetNext(target) {
     if (ECO_KEYS.includes(target)) { const u = UP[target]; if (u.max != null && (S.lv[target] || 0) >= u.max) return null; return { cost: autoTax(upCost(u)), buy() { S.lv[target] = (S.lv[target] || 0) + 1; } }; }
@@ -1931,9 +1943,16 @@
   function stepNext(s) {
     if (!s || !s.target) return null;
     if (isTreeStep(s)) {
-      const t = s.target.slice(5), sel = s.nodes || {}, G = buildTree(t); let best = null;
-      for (const id in sel) { if (!sel[id] || nodeAllocated(t, id)) continue; const n = G.map[id]; if (!n || !nodeAllocatable(t, n)) continue; const c = nodeCost(t, n); if (!best || c < best.cost) best = { cost: c, id }; }
-      return best ? { cost: autoTax(best.cost), buy() { (S.classNodes[t] || (S.classNodes[t] = {}))[best.id] = true; } } : null;
+      // buys follow YOUR PICK ORDER (insertion order of s.nodes — the numbers shown on the tree).
+      // Paths are inserted shallow→deep at pick time, so the next un-owned node in order is always
+      // reachable; if one ever isn't, the loop just moves on — the step can never stall.
+      const t = s.target.slice(5), sel = s.nodes || {}, G = buildTree(t);
+      for (const id in sel) {
+        if (!sel[id] || nodeAllocated(t, id)) continue;
+        const n = G.map[id]; if (!n || !nodeAllocatable(t, n)) continue;
+        return { cost: autoTax(nodeCost(t, n)), buy() { (S.classNodes[t] || (S.classNodes[t] = {}))[id] = true; } };
+      }
+      return null;
     }
     if ((s.count || 0) <= 0) return null;
     const nx = autoTargetNext(s.target); if (!nx) return null;
@@ -1966,6 +1985,8 @@
     while (tries-- > 0 && autoBuyOnce(b)) { autoAcc -= 1; }
     if (autoAcc >= 1) autoAcc = Math.min(autoAcc, 4);   // nothing affordable — don't bank an ever-growing backlog
     if (b.n) { S.cash = b.cash; recompute(); if (state === "play") renderList(); if ($("auto-modal") && $("auto-modal").classList.contains("show")) renderAuto(); }
+    const cfg = curAuto();
+    if (!cfg.doneFx && autoAllDone(cfg)) { cfg.doneFx = true; autoDoneFx(); save(); if ($("auto-modal") && $("auto-modal").classList.contains("show")) renderAuto(); }
   }
   // OFFLINE: drain a banked budget into purchases (bounded). returns { bought, leftover }
   function autoBuyOffline(pool) {
@@ -1974,7 +1995,10 @@
     while (n < 50000 && autoBuyOnce(b)) n++;
     return { bought: n, leftover: b.cash };
   }
-  function syncAutoBtn() { const on = !!(curAuto().on && autoUnlocked()); ["btn-auto", "gm-auto"].forEach(id => { const b = $(id); if (b) b.classList.toggle("on", on); }); }
+  function syncAutoBtn() {
+    const cfg = curAuto(), on = !!(cfg.on && autoUnlocked());
+    ["btn-auto", "gm-auto"].forEach(id => { const b = $(id); if (!b) return; b.classList.toggle("on", on); b.classList.toggle("done", !!cfg.doneFx); b.classList.toggle("seen", !!cfg.doneSeen); });
+  }
   // the choices for a step's target on planet g — every Economy upgrade, plus every Unit/Tree unlocked by planet g
   function autoTargetOptions(g) {
     const gg = g || S.galaxy, o = [];
@@ -2019,16 +2043,17 @@
     }
     return row;
   }
-  function openAuto(g) { ensureAuto(); if (!autoExpanded) autoExpanded = new Set(); autoExpanded.add(g || S.galaxy); renderAuto(); $("auto-modal").classList.add("show"); }
+  function openAuto(g) { ensureAuto(); if (!autoExpanded) autoExpanded = new Set(); autoExpanded.add(g || S.galaxy); const cfg = curAuto(); if (cfg.doneFx) { cfg.doneSeen = true; save(); } renderAuto(); $("auto-modal").classList.add("show"); }
   // one collapsible panel for a planet in the all-planets overview
   function autoPlanetSection(g) {
     const peek = S.auto.planets[g], on = !!(peek && peek.on), qlen = peek && Array.isArray(peek.queue) ? peek.queue.length : 0;
     const slots = autoSlots(g), live = g === S.galaxy, exp = autoExpanded.has(g);
-    const wrap = document.createElement("div"); wrap.className = "auto-sec" + (exp ? " exp" : "") + (on ? " on" : "");
+    const done = !!(peek && peek.doneFx);
+    const wrap = document.createElement("div"); wrap.className = "auto-sec" + (exp ? " exp" : "") + (on ? " on" : "") + (done ? " done" : "");
     const head = document.createElement("div"); head.className = "auto-sec-head";
     head.innerHTML = '<button class="asx-pow' + (on ? " on" : "") + '">' + iconMarkup("power") + '</button>'
       + '<div class="asx-main"><div class="asx-name">' + (exp ? "▾ " : "▸ ") + "Planet " + g + " · " + galName(g) + (live ? ' <span class="asx-here">• here</span>' : '') + '</div>'
-      + '<div class="asx-sub">' + (on ? "ON" : "off") + " · " + Math.min(qlen, slots) + "/" + slots + " step" + (slots > 1 ? "s" : "") + '</div></div>';
+      + '<div class="asx-sub">' + (done ? "✓ PLAN COMPLETE — add more steps" : (on ? "ON" : "off") + " · " + Math.min(qlen, slots) + "/" + slots + " step" + (slots > 1 ? "s" : "")) + '</div></div>';
     head.querySelector(".asx-pow").onclick = e => { e.stopPropagation(); const cfg = autoCfg(g); cfg.on = !cfg.on; if (live) autoAcc = 0; save(); syncAutoBtn(); renderAuto(); };
     head.querySelector(".asx-main").onclick = () => { if (autoExpanded.has(g)) autoExpanded.delete(g); else autoExpanded.add(g); renderAuto(); };
     wrap.appendChild(head);
@@ -2318,11 +2343,19 @@
         c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
       }
       c.globalAlpha = 1; this.hit = [];
+      const psetAll = this.pick ? this.pickSet() : null;
+      this._pickIdx = null; if (psetAll) { this._pickIdx = {}; let oi = 0; for (const id in psetAll) if (psetAll[id]) this._pickIdx[id] = ++oi; }
       for (const n of G.nodes) {
         const p = this.sc(n.x, n.y), rad = this.nodeRad(n, p.u), has = nodeAllocated(type, n.id), can = nodeAllocatable(type, n), cost = nodeCost(type, n), afford = S.cash >= cost;
         this.hit.push({ n, x: p.x, y: p.y, r: rad + 7 });
         const pset = this.pickSet();
-        if (pset && pset[n.id] && !has) { c.globalAlpha = 1; c.strokeStyle = "#8cf"; c.lineWidth = 3; c.setLineDash([5, 4]); c.beginPath(); c.arc(p.x, p.y, rad + 6, 0, TAU); c.stroke(); c.setLineDash([]); }   // picked for this Auto-Buy step
+        if (pset && pset[n.id] && !has) {   // picked for this Auto-Buy step: dashed ring + its BUY-ORDER number
+          c.globalAlpha = 1; c.strokeStyle = "#fff"; c.lineWidth = 3; c.setLineDash([5, 4]); c.beginPath(); c.arc(p.x, p.y, rad + 6, 0, TAU); c.stroke(); c.setLineDash([]);
+          const oi = this._pickIdx && this._pickIdx[n.id];
+          if (oi) { const bx = p.x + rad + 9, by = p.y - rad - 5;
+            c.beginPath(); c.arc(bx, by, 8.5, 0, TAU); c.fillStyle = "#fff"; c.fill();
+            c.fillStyle = "#000"; c.font = "800 10px ui-monospace,monospace"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(oi > 99 ? "99+" : oi, bx, by + 0.5); c.textBaseline = "alphabetic"; }
+        }
         if (n.id === this.sel) { c.globalAlpha = 1; c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, rad + 7, 0, TAU); c.stroke(); }
         if (can && afford) { const pl = 0.5 + 0.5 * Math.sin(this.t * 4); c.globalAlpha = 0.35 + pl * 0.5; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad + 4, 0, TAU); c.stroke(); c.globalAlpha = 1; }
         c.beginPath(); c.arc(p.x, p.y, rad, 0, TAU);
@@ -2349,19 +2382,38 @@
       $("st-owned").textContent = "· " + countType(type) + " deployed · " + allocCount(type) + " nodes · affects ALL";
       $("st-stats").innerHTML = statLine(type);
       const ab = $("st-auto"); if (ab) { ab.style.display = this.pickStep ? "" : "none"; ab.classList.toggle("on", !!this.pick); }
-      const tip = $("st-pick-tip"); if (tip) tip.style.display = (this.pick && this.pickStep) ? "" : "none";
+      const picking = !!(this.pick && this.pickStep);
+      const tip = $("st-pick-tip");
+      if (tip) { tip.style.display = picking ? "" : "none";
+        if (picking) { if (this.pickMsg) { this.pickMsg.t += dt; if (this.pickMsg.t > 2.6) this.pickMsg = null; }
+          const txt = this.pickMsg ? this.pickMsg.txt : "PICK MODE — every tap is saved to this Auto-Buy step instantly";
+          if (tip.textContent !== txt) tip.textContent = txt;
+          tip.classList.toggle("saved", !!this.pickMsg); } }
+      const pd = $("st-pick-done");
+      if (pd) { pd.style.display = picking ? "" : "none";
+        if (picking) { const ps = this.pickSet(), tot = ps ? Object.values(ps).filter(Boolean).length : 0;
+          const txt2 = "✓ DONE — ORDER SAVED (" + tot + ")"; if (pd.textContent !== txt2) pd.textContent = txt2; } }
     },
     tap(x, y) {
       let best = null, bd = Infinity; for (const h of this.hit) { const q = (h.x - x) ** 2 + (h.y - y) ** 2; if (q < bd && q < h.r * h.r) { bd = q; best = h; } }
-      const pset = this.pick ? this.pickSet() : null;
-      if (pset) {   // PICK MODE — tap marks/unmarks this node for the bound Auto-Buy step (adding also marks its path to the centre so it's reachable)
-        if (!best || best.n.kind === "start" || nodeAllocated(this.type, best.n.id)) return;
-        if (pset[best.n.id]) delete pset[best.n.id];
-        else for (const id of treePath(this.type, best.n.id)) if (!nodeAllocated(this.type, id)) pset[id] = true;
-        save(); return;
-      }
+      if (this.pick && this.pickSet()) { if (best) this.togglePick(best.n); return; }
       if (!best) { this.sel = null; $("st-info").classList.remove("show"); return; }
       showNodeInfo(best.n);
+    },
+    // PICK MODE toggle — every tap is SAVED to the bound Auto-Buy step instantly, and the UI says so:
+    // ripple + soft chime + a "✓ SAVED" line + the numbered badge + the DONE pill's live count.
+    // Adding a deep node also marks its path SHALLOW→DEEP, so the shown numbers ARE the buy order.
+    togglePick(n) {
+      const pset = this.pickSet(); if (!pset || !n || n.kind === "start" || nodeAllocated(this.type, n.id)) return 0;
+      let delta = 0;
+      if (pset[n.id]) { delete pset[n.id]; delta = -1; }
+      else { const path = treePath(this.type, n.id).reverse(); for (const id of path) if (!nodeAllocated(this.type, id) && !pset[id]) { pset[id] = true; delta++; } this.pulse(n); Audio_buy(); }
+      const total = Object.values(pset).filter(Boolean).length;
+      this.pickMsg = { t: 0, txt: delta > 0
+        ? "✓ SAVED  #" + total + " " + nodeLabel(this.type, n) + (delta > 1 ? "  (+" + (delta - 1) + " path)" : "") + "  ·  " + total + " in this step"
+        : "✕ removed  ·  " + total + " left in this step" };
+      const pd = $("st-pick-done"); if (pd) { pd.classList.remove("bump"); void pd.offsetWidth; pd.classList.add("bump"); }
+      save(); return delta;
     },
   };
   function openSkillTree(type) { selType = type; $("skilltree").classList.add("show"); STree.open(type); if ($("st-max")) $("st-max").style.display = S.free ? "" : "none"; }
@@ -3033,6 +3085,7 @@
   if ($("fx-massconvert")) $("fx-massconvert").onclick = () => { exchangeAll(); openExchange(); };
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); syncAutoBtn(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
+  { const pd = $("st-pick-done"); if (pd) pd.onclick = () => { STree.pick = false; save(); closeSkillTree(); openAuto(S.galaxy); }; }   // ✓ DONE: back to the Auto-Buy panel with the order stored
   $("st-upgrade").onclick = () => {
     const type = STree.type, node = STree.selNode(); if (!node || !nodeAllocatable(type, node)) return;
     allocNode(type, node);
