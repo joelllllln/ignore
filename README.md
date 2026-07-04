@@ -271,18 +271,22 @@ earning for you). The loop:
   conquer bar takes **~×2 the active hours of the one before it** (`0.35h·2^(g−1)`),
   so every run climbs into a **wall** — planet 4–6 on a fresh account, inside the
   first session. That wall is the cue to **Ascend**: the run resets, every conquered
-  planet banks **◈ cores** (`ceil(1.6^(g−1))` each — deeper pays exponentially
+  planet banks **◈ cores** (`ceil(1.7^(g−1))` each — deeper pays exponentially
   more), and permanent lines (the **Engine: ×2 ALL income per level**) multiply the
   next run. Income rides the Engine; **conquer targets never do** — so each
   ascension melts the old territory and stalls further out. The full design:
   **planet 18 falls on ~run 10, ≈67 active hours total** — and the OPTIMAL route
-  (see `--policy`) is ~41 h over 12 deep runs averaging ~12 conquests each:
-  ascending requires **3 conquests**, and shallow-churn resets are strictly
-  slower by construction (core growth 1.7 vs time growth 2.0 + reset overhead).
-  All of it is sim-locked by `tools/ascension-sim.js` (design gates, policy
-  gate, `--verify` game contract, noise robustness — run it before touching any
-  pacing constant). Gems no longer exist; old saves auto-migrate every gem ever
-  earned into ◈ cores.
+  is **THE LADDER** (sim-gated by `--policy`): hop at **3 worlds** on run 1, then
+  every ascension carries you a few worlds deeper — **P3 → P5 → P7 → P9 → P11 →
+  P12 → … → P18**, ~41 h over 12 runs. Ascending requires **3 conquests**,
+  shallow-churn resets are strictly slower by construction (core growth 1.7 vs
+  time growth 2.0 + reset overhead), and the game coaches the hop in-game (v16.2):
+  when the current bar needs > **1.5 h** at your live income, the ◈ button burns
+  **amber** and the ascend modal shows the bar's ETA + how much stronger you
+  return. All of it is sim-locked by `tools/ascension-sim.js` (design gates,
+  ladder/policy gate, `--verify` game contract incl. the hop threshold, noise
+  robustness — run it before touching any pacing constant). Gems no longer exist;
+  old saves auto-migrate every gem ever earned into ◈ cores.
 - **Conquer → the planet joins your empire** and **Travel unlocks.** A held planet
   feeds idle income straight into your global treasury (online **and** offline).
   **Revisit** any conquered planet anytime to keep upgrading it.
