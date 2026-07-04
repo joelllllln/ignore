@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.2";   // v16.2 = THE LADDER, coached: optimal play hops at ~3 worlds on run 1 then rides each ascension a few worlds deeper (3→5→7→9→…→18, sim-gated) — the ◈ button's WALL state + the ascend modal's ETA line tell you exactly when to let go
+  const VERSION = "v16.3";   // v16.3 = prestige is ONE line (owner call): the Singularity Engine, +50% ALL income per level — gentler than the old ×2, half-price first levels so run 1's bank still leaps +2 worlds, old multi-line spends auto-refunded at their old prices. Ladder re-proven: 3→5→7→9→11→…→18
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -510,7 +510,7 @@
     return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, lost: 0, lostCash: 0 };
   }
   function freshOpts() { return { sound: true, haptics: true, shake: true, flash: true, fx: "full", notation: "short", perf: false }; }   // player settings (persist in META). perf = optional FPS-saver (simplifies dots on busy fields)
-  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), asc: { cores: 0, lv: {}, runs: 0, best: 0, lifetime: 0 }, tutorialDone: false }; }   // the ASCENSION layer lives in META — the only thing that survives an ascension
+  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), asc: { cores: 0, lv: {}, runs: 0, best: 0, lifetime: 0, v: 2 }, tutorialDone: false }; }   // the ASCENSION layer lives in META — the only thing that survives an ascension. asc.v = shop schema (2 = the one-line v16.3 shop; < 2 saves get their old multi-line spend refunded on load)
   const opt = k => (META && META.opts ? META.opts[k] : freshOpts()[k]);
   function vibe(ms) { if (opt("haptics") && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
   const stat = () => META.stats;
@@ -559,37 +559,31 @@
      Push the cluster until the next conquer bar is a WALL (hours), then ASCEND: the whole run resets
      (planets, empire, units, trees, cash — Auto-Buy plans survive) and every conquered planet banks
      ◈ CORES: coreVal(g) = ceil(CORE_B^(g-1)) — deeper worlds pay exponentially more — plus 50% partial
-     credit on the bar you were stuck on. Cores buy the PERMANENT lines below. The Engine (×2 ALL
-     income per level) is the whoosh: it rides derived.incomeMul, and conquer TARGETS never do, so
-     each ascension melts the early planets and moves the wall out. Engine deliberately does NOT ride
-     valueMul — dot HP scales with valueMul^1.3 (menace), and ×16k through that channel would
-     out-tank your guns. All curves are SIM-LOCKED by tools/ascension-sim.js. */
+     credit on the bar you were stuck on. Cores buy ONE permanent line (v16.3): the Singularity
+     Engine, +50% ALL income per level. It is the whoosh: it rides derived.incomeMul, and conquer
+     TARGETS never do, so each ascension melts the early planets and moves the wall out. The Engine
+     deliberately does NOT ride valueMul — dot HP scales with valueMul^1.3 (menace), and thousands-x
+     through that channel would out-tank your guns. All curves are SIM-LOCKED by tools/ascension-sim.js. */
   const CORE_B = 1.7;   // v16.1: raised from 1.6 so the MARGINAL deeper planet pays ~85% of its time cost in cores — kills the shallow-churn speedrun (optimal play now conquers ~11-12 planets/run, sim-proven)
   const coreVal = g => Math.ceil(Math.pow(CORE_B, Math.max(0, (g | 0) - 1)));
   const ASC_HOP_H = 1.5;   // THE LADDER's hop point, proven by tools/ascension-sim.js --policy: once the CURRENT bar needs more than this many hours at your live income (floor met), ascending and re-running IS the faster route — v16.2 says so in the UI instead of leaving it a spreadsheet fact
+  // v16.3 (owner call): prestige does ONE thing \u2014 cash. A single line, gentler than the old \u00d72:
+  // +50% ALL income per level. The half-price base (c0 0.5) keeps run 1's small bank buying the
+  // +2-planet leap; cr 1.5 keeps the late cost-per-planet-of-reach at \u00d72 (1.5^(ln2/ln1.5) \u2248 2 =
+  // wall growth), so campaign length and churn-resistance survive the softer curve. Sim-swept.
+  const ASC_E = 1.5;
+  const multFmt = m => m < 10 ? String(Math.round(m * 10) / 10) : fmt(Math.round(m));   // \u00d71.5, \u00d72.3, \u00d75.1, \u00d711 \u2014 fmt() alone floors small floats to "1"
   const ASC_LINES = [
-    { key: "engine",  ico: "coin",   name: "Singularity Engine", max: 20, c0: 1, cr: 2.0, fx: "\u00d72 ALL income / lv",   word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " income" },
-    { key: "war",     ico: "swords", name: "Warcore",            max: 20, c0: 1, cr: 2.0, fx: "\u00d72 damage / lv",       word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " damage" },
-    { key: "clock",   ico: "bolt",   name: "Overclock",          max: 8,  c0: 2, cr: 2.0, fx: "+15% fire rate / lv",        word: lv => "\u00d7" + Math.pow(1.15, lv).toFixed(2) + " rate" },
-    { key: "frugal",  ico: "gear",   name: "War Economy",        max: 8,  c0: 2, cr: 2.0, fx: "\u22125% all costs / lv",   word: lv => "\u00d7" + Math.pow(0.95, lv).toFixed(2) + " costs" },
-    { key: "bond",    ico: "castle", name: "Empire Bond",        max: 10, c0: 2, cr: 2.0, fx: "+50% empire idle / lv",      word: lv => "\u00d7" + Math.pow(1.5, lv).toFixed(1) + " empire" },
-    { key: "fortune", ico: "star4",  name: "Fortune",            max: 6,  c0: 2, cr: 2.2, fx: "+2% rare-dot luck / lv",     word: lv => "+" + (2 * lv) + "% luck" },
-    { key: "head",    ico: "rocket", name: "Head Start",         max: 4,  c0: 4, cr: 3.0, fx: "\u00d75 landing purse / lv", word: lv => "\u00d7" + fmt(Math.pow(5, lv)) + " start cash" },
+    { key: "engine", ico: "coin", name: "Singularity Engine", max: 30, c0: 0.5, cr: 1.5, fx: "+50% ALL income / lv", word: lv => "\u00d7" + multFmt(Math.pow(ASC_E, lv)) + " income" },
   ];
   const ASC_BY = {}; ASC_LINES.forEach(l => ASC_BY[l.key] = l);
   const ascLv = k => (META && META.asc && META.asc.lv && META.asc.lv[k]) | 0;
   const ascCost = (l, lv) => Math.ceil(l.c0 * Math.pow(l.cr, lv));
   const PERK0 = { dmg: 1, rate: 1, value: 1, cost: 1, yield: 1, spawn: 1, empire: 1, income: 1, start: 1, crit: 0, range: 0, luck: 0 };
   const pk = () => derived.perk || PERK0;                                   // current aggregated Ascension bonuses (neutral defaults before first recompute)
-  function perkAgg() {   // fold the Ascension lines into one bundle — same interface the old perk shop used, so every consumer is unchanged
+  function perkAgg() {   // fold Ascension into one bundle — same interface the old perk shop used, so every consumer is unchanged
     const a = Object.assign({}, PERK0);
-    a.income = Math.pow(2, ascLv("engine"));
-    a.dmg    = Math.pow(2, ascLv("war"));
-    a.rate   = Math.pow(1.15, ascLv("clock"));
-    a.cost   = Math.pow(0.95, ascLv("frugal"));
-    a.empire = Math.pow(1.5, ascLv("bond"));
-    a.luck   = 0.02 * ascLv("fortune");
-    a.start  = Math.pow(5, ascLv("head"));
+    a.income = Math.pow(ASC_E, ascLv("engine"));   // the ONLY prestige effect (v16.3) — every other stat stays neutral
     return a;
   }
   // pending ◈ — the ALWAYS-VISIBLE offer: what ascending right now would bank
@@ -614,7 +608,7 @@
     let cores = ((META && META.asc && META.asc.cores) | 0) + pendingCores(), lv = ascLv("engine"), bought = 0;
     const l = ASC_BY.engine;
     while (lv + bought < l.max && ascCost(l, lv + bought) <= cores) { cores -= ascCost(l, lv + bought); bought++; }
-    return Math.pow(2, bought);   // ×1 when nothing new is affordable
+    return Math.pow(ASC_E, bought);   // ×1 when nothing new is affordable
   }
   function buyAsc(key) {
     const l = ASC_BY[key]; if (!l || !META || !META.asc) return;
@@ -626,7 +620,7 @@
   function ascend() {
     if (conqueredCount() < 3) return;                  // v16.1: you must actually CONQUER a few planets — no shallow-churn ascensions
     const pend = pendingCores(); if (pend < 1) return;
-    if (!confirm("ASCEND?\n\nBank +" + pend + " \u25c8 cores.\nPlanets, empire, units, trees and cash RESET.\nCores, Ascension lines and your Auto-Buy plans stay.")) return;
+    if (!confirm("ASCEND?\n\nBank +" + pend + " \u25c8 cores.\nPlanets, empire, units, trees and cash RESET.\nCores, your Engine levels and your Auto-Buy plans stay.")) return;
     META.asc.cores = (META.asc.cores | 0) + pend; META.asc.lifetime = (META.asc.lifetime | 0) + pend;
     META.asc.runs = (META.asc.runs | 0) + 1; META.asc.best = Math.max(META.asc.best | 0, conqueredCount());
     const keepAuto = S.auto;                       // build orders are configuration, not progress — they survive the reset
@@ -696,7 +690,7 @@
           META.stats.collected = Object.assign(freshStats().collected, st.collected || {});
           META.stats.abilities = Object.assign({ frenzy: 0, dotrain: 0, blackhole: 0 }, st.abilities || {});
           META.opts = Object.assign(freshOpts(), d.META.opts || {});
-          const da = d.META.asc; if (da && typeof da === "object") META.asc = { cores: +da.cores || 0, lv: (da.lv && typeof da.lv === "object") ? da.lv : {}, runs: +da.runs || 0, best: +da.best || 0, lifetime: +da.lifetime || 0 };
+          const da = d.META.asc; if (da && typeof da === "object") META.asc = { cores: +da.cores || 0, lv: (da.lv && typeof da.lv === "object") ? da.lv : {}, runs: +da.runs || 0, best: +da.best || 0, lifetime: +da.lifetime || 0, v: +da.v || 0 };
           // v16.0 MIGRATION — gems are GONE. Refund every gem this save ever earned as ◈ cores (perk
           // purchases were paid FROM earned gems, so gemsEarned covers them; oldest saves lack it → count perks).
           if (d.META.gems != null || d.META.perks) {
@@ -704,6 +698,16 @@
             if (refund <= 0 && d.META.perks) for (const id in d.META.perks) if (d.META.perks[id]) refund += (+String(id).slice(-1) || 1);
             if (refund > 0) { META.asc.cores += refund; META.asc.lifetime += refund; }
             delete META.gems; delete META.gemsEarned; delete META.perks;   // scrub the legacy fields — otherwise the next save re-carries them and the refund would re-run on EVERY load
+          }
+          // v16.3 MIGRATION — the Ascension shop is ONE line now (income only, ×1.5/lv). Refund every
+          // core spent in the old seven-line shop at its OLD prices and clear the levels for a clean
+          // rebuy. asc.v = 2 marks a migrated/new save so NEW Engine levels are never refunded again.
+          if ((META.asc.v | 0) < 2) {
+            const OLD_COST = { engine: [1, 2.0], war: [1, 2.0], clock: [2, 2.0], frugal: [2, 2.0], bond: [2, 2.0], fortune: [2, 2.2], head: [4, 3.0] };
+            let back = 0; const lvs = META.asc.lv || {};
+            for (const k in lvs) { const oc = OLD_COST[k], n = lvs[k] | 0; if (!oc || n <= 0) continue; for (let i = 0; i < n; i++) back += Math.ceil(oc[0] * Math.pow(oc[1], i)); }
+            if (back > 0) META.asc.cores += back;   // lifetime already counted these cores when they were first banked
+            META.asc.lv = {}; META.asc.v = 2;
           } }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, AWAY_CAP_H * 3600);
           // away earnings = the on-screen $/s you were passively earning (your collector income + empire) × seconds away
@@ -2556,15 +2560,15 @@
     let coach = "";
     if (!locked && isFinite(eta) && eta > 0)
       coach = eta > ASC_HOP_H
-        ? '<p class="asc-coach hot">\u26a0 THE WALL \u2014 this bar needs \u2248 ' + fmtH(eta) + ' more at your income. Hop: you return ' + (prevM > 1 ? '\u00d7' + fmt(prevM) + ' stronger' : 'stronger') + ' and blow straight past it.</p>'
+        ? '<p class="asc-coach hot">\u26a0 THE WALL \u2014 this bar needs \u2248 ' + fmtH(eta) + ' more at your income. Hop: you return ' + (prevM > 1 ? '\u00d7' + multFmt(prevM) + ' stronger' : 'stronger') + ' and blow straight past it.</p>'
         : '<p class="asc-coach">This bar lands in \u2248 ' + fmtH(eta) + ' \u2014 worth taking before you hop (deeper worlds bank exponentially more \u25c8).</p>';
     let html = '<button class="big asc-go" id="ascend-go"' + ((pend < 1 || locked) ? " disabled" : "") + '>' + (locked ? "\u25c8 CONQUER 3 PLANETS TO ASCEND (" + conqN2 + "/3)" : "\u25c8 ASCEND NOW \u2014 BANK +" + fmt(pend)) + '</button>'
       + coach
-      + '<p class="muted asc-note"><b>Resets:</b> planets \u00b7 empire \u00b7 units \u00b7 trees \u00b7 cash. <b>Keeps:</b> \u25c8 cores, every line below, your Auto-Buy plans. <b>THE LADDER:</b> hop at ~3 worlds on run 1, then ride every ascension a few worlds deeper \u2014 grinding a wall is never faster than hopping it.</p>'
+      + '<p class="muted asc-note"><b>Resets:</b> planets \u00b7 empire \u00b7 units \u00b7 trees \u00b7 cash. <b>Keeps:</b> \u25c8 cores, your Engine levels, your Auto-Buy plans. <b>THE LADDER:</b> hop at ~3 worlds on run 1, then ride every ascension a few worlds deeper \u2014 grinding a wall is never faster than hopping it.</p>'
       + '<div class="perk-grid">';
     for (const l of ASC_LINES) {
       const lv = ascLv(l.key), maxed = lv >= l.max, c = ascCost(l, lv), afford = (A2.cores | 0) >= c;
-      html += '<button class="perk ' + (maxed ? "owned" : afford ? "" : "cant") + '" data-asc="' + l.key + '"' + (maxed ? " disabled" : "") + '>'
+      html += '<button class="perk solo ' + (maxed ? "owned" : afford ? "" : "cant") + '" data-asc="' + l.key + '"' + (maxed ? " disabled" : "") + '>'
         + '<span class="pk-top">' + iconMarkup(l.ico) + l.name + ' <b class="pk-lv">' + lv + "/" + l.max + '</b></span>'
         + '<span class="pk-eff">' + l.fx + ' \u00b7 now ' + l.word(lv) + '</span>'
         + '<span class="pk-cost">' + (maxed ? "\u2605 MAXED" : "\u25c8 " + fmt(c)) + '</span></button>';

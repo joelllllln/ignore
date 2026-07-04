@@ -45,6 +45,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .perk-tier-h{display:flex;justify-content:space-between;align-items:center;font:700 11px var(--mono);letter-spacing:1px;color:var(--dim);margin:0 0 6px}
 .perk-tier-h .locked{color:var(--warn);font-weight:700;letter-spacing:0}
 .perk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.perk.solo{grid-column:1/-1}   /* v16.3: the shop is ONE line — the Engine card spans the full grid */
 .perk{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--panel);border:1px solid var(--edge);border-radius:8px;padding:8px;color:var(--text);font:inherit;cursor:pointer}
 .perk .pk-top{display:flex;align-items:center;gap:5px;font-weight:700;font-size:12px}
 .perk .pk-top svg.ico{width:14px;height:14px;flex:0 0 auto}
