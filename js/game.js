@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.1";   // v16.1 = depth is OPTIMAL: core curve 1.6→1.7 + engine costs ×2.0/lv + a 3-conquest floor on ascending — the fastest route now conquers ~11-12 planets per run (sim-proven), shallow-churn resets are dead
+  const VERSION = "v16.2";   // v16.2 = THE LADDER, coached: optimal play hops at ~3 worlds on run 1 then rides each ascension a few worlds deeper (3→5→7→9→…→18, sim-gated) — the ◈ button's WALL state + the ascend modal's ETA line tell you exactly when to let go
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -562,7 +562,7 @@
   /* ---- ASCENSION (v16.0, ground-up) — the prestige loop. Gems are GONE. ----
      Push the cluster until the next conquer bar is a WALL (hours), then ASCEND: the whole run resets
      (planets, empire, units, trees, cash — Auto-Buy plans survive) and every conquered planet banks
-     ◈ CORES: coreVal(g) = ceil(1.6^(g-1)) — deeper worlds pay exponentially more — plus 50% partial
+     ◈ CORES: coreVal(g) = ceil(CORE_B^(g-1)) — deeper worlds pay exponentially more — plus 50% partial
      credit on the bar you were stuck on. Cores buy the PERMANENT lines below. The Engine (×2 ALL
      income per level) is the whoosh: it rides derived.incomeMul, and conquer TARGETS never do, so
      each ascension melts the early planets and moves the wall out. Engine deliberately does NOT ride
@@ -570,6 +570,7 @@
      out-tank your guns. All curves are SIM-LOCKED by tools/ascension-sim.js. */
   const CORE_B = 1.7;   // v16.1: raised from 1.6 so the MARGINAL deeper planet pays ~85% of its time cost in cores — kills the shallow-churn speedrun (optimal play now conquers ~11-12 planets/run, sim-proven)
   const coreVal = g => Math.ceil(Math.pow(CORE_B, Math.max(0, (g | 0) - 1)));
+  const ASC_HOP_H = 1.5;   // THE LADDER's hop point, proven by tools/ascension-sim.js --policy: once the CURRENT bar needs more than this many hours at your live income (floor met), ascending and re-running IS the faster route — v16.2 says so in the UI instead of leaving it a spreadsheet fact
   const ASC_LINES = [
     { key: "engine",  ico: "coin",   name: "Singularity Engine", max: 20, c0: 1, cr: 2.0, fx: "\u00d72 ALL income / lv",   word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " income" },
     { key: "war",     ico: "swords", name: "Warcore",            max: 20, c0: 1, cr: 2.0, fx: "\u00d72 damage / lv",       word: lv => "\u00d7" + fmt(Math.pow(2, lv)) + " damage" },
@@ -600,6 +601,24 @@
     let p = 0; if (S && S.vault) for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) p += coreVal(+k);
     if (S && S.vault && !(S.vault[S.galaxy] && S.vault[S.galaxy].conquered)) { const t = conquerTarget(S.galaxy); if (t > 0) p += Math.floor(coreVal(S.galaxy) * Math.min(1, curEarned / t) * 0.5); }
     return p;
+  }
+  // THE LADDER (v16.2) — the optimal route is 3 worlds on run 1, then a few worlds deeper every
+  // ascension (sim-gated: 3→5→7→9→11→…→18). These make the hop point VISIBLE in play:
+  const wallEtaH = () => {   // hours left on the CURRENT conquer bar at your live income (Infinity while income is 0)
+    const v = S.vault && S.vault[S.galaxy]; if (v && v.conquered) return 0;
+    const rem = conquerTarget(S.galaxy) - curEarned;
+    return rem <= 0 ? 0 : (cps > 0 ? rem / cps / 3600 : Infinity);
+  };
+  const wallAhead = () => {   // floor met + you've genuinely worked this bar (≥5%) + it now outprices a hop ⇒ the sim says GO
+    if (conqueredCount() < 3) return false;
+    const t = conquerTarget(S.galaxy); if (!(t > 0) || curEarned < t * 0.05) return false;
+    const e = wallEtaH(); return isFinite(e) && e > ASC_HOP_H;
+  };
+  function ascPreview() {   // the "come back ×N stronger" promise: banked + pending cores poured greedily into the Engine
+    let cores = ((META && META.asc && META.asc.cores) | 0) + pendingCores(), lv = ascLv("engine"), bought = 0;
+    const l = ASC_BY.engine;
+    while (lv + bought < l.max && ascCost(l, lv + bought) <= cores) { cores -= ascCost(l, lv + bought); bought++; }
+    return Math.pow(2, bought);   // ×1 when nothing new is affordable
   }
   function buyAsc(key) {
     const l = ASC_BY[key]; if (!l || !META || !META.asc) return;
@@ -1784,6 +1803,8 @@
     { const cpsEl = $("ui-cps"); if (cpsEl) cpsEl.textContent = "+" + curSym(S.galaxy) + fmt(Math.max(0, cps)) + "/s"; }   // live ACTIVE income rate beside the total, always visible while playing
     $("ui-cash").classList.toggle("capped", S.cash >= derived.capacity * 0.999);   // pulse when at the currency ceiling
     { const p = pendingCores(), ab = $("ascend-n"); if (ab) ab.textContent = "+" + fmt(p); const abtn = $("btn-ascend"); if (abtn) { abtn.classList.toggle("has", p >= 5 && conqueredCount() >= 3);   // the ALWAYS-VISIBLE offer (v16.0): what ascending right now banks; glows once it's a real haul
+      const wl = wallAhead(); abtn.classList.toggle("wall", wl);   // v16.2 ladder coach: this bar now outprices a hop — ascending is the FASTER route, and the button burns amber until you take it
+      const wt = wl ? "THE WALL IS HERE — ascend & return stronger" : "Ascension"; if (abtn.title !== wt) abtn.title = wt;
       if (p > hudGemLast) { abtn.classList.remove("bump"); void abtn.offsetWidth; abtn.classList.add("bump"); }   // juice: the pending pot pops whenever it grows
       hudGemLast = p; } }
     $("ui-galaxy").textContent = S.galaxy; $("ui-gname").textContent = galName(S.galaxy) + " · " + sysName(S.galaxy);
@@ -2534,8 +2555,16 @@
     const A2 = (META && META.asc) || { cores: 0, lv: {} }, pend = pendingCores();
     $("ascend-bal").textContent = fmt(A2.cores | 0);
     const conqN2 = conqueredCount(), locked = conqN2 < 3;
+    // v16.2 ladder coach: an honest ETA on the CURRENT bar + what hopping buys \u2014 the modal answers "now or push?"
+    const eta = wallEtaH(), prevM = ascPreview(), fmtH = h => h >= 1 ? (h >= 10 ? Math.round(h) : h.toFixed(1)) + "h" : Math.max(1, Math.round(h * 60)) + "m";
+    let coach = "";
+    if (!locked && isFinite(eta) && eta > 0)
+      coach = eta > ASC_HOP_H
+        ? '<p class="asc-coach hot">\u26a0 THE WALL \u2014 this bar needs \u2248 ' + fmtH(eta) + ' more at your income. Hop: you return ' + (prevM > 1 ? '\u00d7' + fmt(prevM) + ' stronger' : 'stronger') + ' and blow straight past it.</p>'
+        : '<p class="asc-coach">This bar lands in \u2248 ' + fmtH(eta) + ' \u2014 worth taking before you hop (deeper worlds bank exponentially more \u25c8).</p>';
     let html = '<button class="big asc-go" id="ascend-go"' + ((pend < 1 || locked) ? " disabled" : "") + '>' + (locked ? "\u25c8 CONQUER 3 PLANETS TO ASCEND (" + conqN2 + "/3)" : "\u25c8 ASCEND NOW \u2014 BANK +" + fmt(pend)) + '</button>'
-      + '<p class="muted asc-note"><b>Resets:</b> planets \u00b7 empire \u00b7 units \u00b7 trees \u00b7 cash. <b>Keeps:</b> \u25c8 cores, every line below, your Auto-Buy plans. Deeper planets bank exponentially more \u2014 push until the bar is a WALL, then let go.</p>'
+      + coach
+      + '<p class="muted asc-note"><b>Resets:</b> planets \u00b7 empire \u00b7 units \u00b7 trees \u00b7 cash. <b>Keeps:</b> \u25c8 cores, every line below, your Auto-Buy plans. <b>THE LADDER:</b> hop at ~3 worlds on run 1, then ride every ascension a few worlds deeper \u2014 grinding a wall is never faster than hopping it.</p>'
       + '<div class="perk-grid">';
     for (const l of ASC_LINES) {
       const lv = ascLv(l.key), maxed = lv >= l.max, c = ascCost(l, lv), afford = (A2.cores | 0) >= c;
@@ -3310,8 +3339,10 @@
     valueMul: lv => 1 + 0.08 * lv,
     spawnVis, spawnOver, spawnKnee, SPAWN_PASS,   // real spawn curves (v14.4) so the audit can never diverge from the shipped game
     setCps: v => { cps = +v || 0; },              // test hook: set the live income/s the boss bounty floor reads (v14.7)
+    setEarned: v => { curEarned = +v || 0; },     // test hook: drive the conquer bar so the wall coach can be audited (v16.2)
     spawnBoss, grantTreeNodes, dots: () => dots,
     ASC_LINES, ASC_BY, coreVal, pendingCores, perkAgg, ascLv, buyAsc, ascend, ascCost, CORE_B, ASC_W0, ASC_R,
+    ASC_HOP_H, wallEtaH, wallAhead, ascPreview,   // the ladder coach (v16.2): hop-point contract audited by ascension-sim --verify
     baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP,
     Wheel, nodeCandidates,                        // Bounty Wheel test hooks (v15.0): build/apply/segs/state
     RACES, raceNiche, NICHE_HINT,
