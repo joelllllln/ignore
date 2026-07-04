@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.3";   // v16.3 = prestige is ONE line (owner call): the Singularity Engine, +50% ALL income per level — gentler than the old ×2, half-price first levels so run 1's bank still leaps +2 worlds, old multi-line spends auto-refunded at their old prices. Ladder re-proven: 3→5→7→9→11→…→18
+  const VERSION = "v16.4";   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -410,13 +410,15 @@
   const curName = g => "Credits";
   const curSym  = g => "✦";
   const curWorth = g => eco(g);
-  // CONQUER-TIME CURVE (v16.0 — the ASCENSION WALL). Active hours per planet grow GEOMETRICALLY:
-  // ~21 min on planet 1, ×2 every planet after. At ×1 income the wall lands on planet 4–6 inside the
-  // first session; every Ascension multiplies INCOME (never the target), so each run melts the old
-  // territory and stalls a planet or two further out — planet 18 is the summit of ~9 ascensions
-  // (~61 active hours), not one 60-day march. Constants are SIM-LOCKED by tools/ascension-sim.js
-  // (324-config sweep, 7 pacing gates, 40/40 noise robustness) — run the sim before touching them.
-  const ASC_W0 = 0.35, ASC_R = 2.0;
+  // CONQUER-TIME CURVE (the ASCENSION WALL). Active hours per planet grow GEOMETRICALLY:
+  // ~24 min on planet 1, ×1.65 every planet after (v16.4: softened from ×2 — a ×2 wall forces
+  // ×2^17 income multipliers by P18 and ×millions once MORE SOLAR SYSTEMS land; ×1.65 keeps every
+  // number humble and leaves headroom for future systems). At ×1 income the wall lands on planet
+  // 4–6 inside the first session; every Ascension multiplies INCOME (never the target), so each run
+  // melts the old territory and stalls further out — planet 18 is the summit of ~7 ascensions
+  // (~55 active hours). Constants are SIM-LOCKED by tools/ascension-sim.js (1296-config sweep with
+  // the wall IN the grid, 7 pacing gates, ladder gate, 40/40 noise robustness) — run it before touching.
+  const ASC_W0 = 0.4, ASC_R = 1.65;
   const conquerHours = g => ASC_W0 * Math.pow(ASC_R, Math.max(0, (g | 0) - 1));
   // The target is anchored to your real INCOME so the active TIME actually lands on the curve above. Real
   // active brushing income does NOT just track eco·Conquest — each planet you also unlock more classes and
@@ -514,7 +516,7 @@
     return { playSec: 0, dotsPopped: 0, specials: 0, armored: 0, kills, collected, abilities: { frenzy: 0, dotrain: 0, blackhole: 0 }, travels: 0, lost: 0, lostCash: 0 };
   }
   function freshOpts() { return { sound: true, haptics: true, shake: true, flash: true, fx: "full", notation: "short", perf: false }; }   // player settings (persist in META). perf = optional FPS-saver (simplifies dots on busy fields)
-  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), asc: { cores: 0, lv: {}, runs: 0, best: 0, lifetime: 0, v: 2 }, tutorialDone: false }; }   // the ASCENSION layer lives in META — the only thing that survives an ascension. asc.v = shop schema (2 = the one-line v16.3 shop; < 2 saves get their old multi-line spend refunded on load)
+  function freshMeta() { return { totalEver: 0, stats: freshStats(), opts: freshOpts(), asc: { cores: 0, lv: {}, runs: 0, best: 0, lifetime: 0, v: 3 }, tutorialDone: false }; }   // the ASCENSION layer lives in META — the only thing that survives an ascension. asc.v = shop schema (3 = the v16.4 flat-curve shop; older saves get every past spend refunded at its era's prices on load)
   const opt = k => (META && META.opts ? META.opts[k] : freshOpts()[k]);
   function vibe(ms) { if (opt("haptics") && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
   const stat = () => META.stats;
@@ -562,23 +564,23 @@
   /* ---- ASCENSION (v16.0, ground-up) — the prestige loop. Gems are GONE. ----
      Push the cluster until the next conquer bar is a WALL (hours), then ASCEND: the whole run resets
      (planets, empire, units, trees, cash — Auto-Buy plans survive) and every conquered planet banks
-     ◈ CORES: coreVal(g) = ceil(CORE_B^(g-1)) — deeper worlds pay exponentially more — plus 50% partial
-     credit on the bar you were stuck on. Cores buy ONE permanent line (v16.3): the Singularity
-     Engine, +50% ALL income per level. It is the whoosh: it rides derived.incomeMul, and conquer
+     ◈ CORES: coreVal(g) = ceil(CORE_A·CORE_B^(g-1)) — a few from planet 1, exponentially more deeper —
+     plus 50% partial credit on the bar you were stuck on. Cores buy ONE permanent line: the Singularity
+     Engine, +25% ALL income per level (v16.4). It is the whoosh: it rides derived.incomeMul, and conquer
      TARGETS never do, so each ascension melts the early planets and moves the wall out. The Engine
-     deliberately does NOT ride valueMul — dot HP scales with valueMul^1.3 (menace), and thousands-x
+     deliberately does NOT ride valueMul — dot HP scales with valueMul^1.3 (menace), and hundreds-x
      through that channel would out-tank your guns. All curves are SIM-LOCKED by tools/ascension-sim.js. */
-  const CORE_B = 1.7;   // v16.1: raised from 1.6 so the MARGINAL deeper planet pays ~85% of its time cost in cores — kills the shallow-churn speedrun (optimal play now conquers ~11-12 planets/run, sim-proven)
-  const coreVal = g => Math.ceil(Math.pow(CORE_B, Math.max(0, (g | 0) - 1)));
-  const ASC_HOP_H = 1.5;   // THE LADDER's hop point, proven by tools/ascension-sim.js --policy: once the CURRENT bar needs more than this many hours at your live income (floor met), ascending and re-running IS the faster route — v16.2 says so in the UI instead of leaving it a spreadsheet fact
-  // v16.3 (owner call): prestige does ONE thing \u2014 cash. A single line, gentler than the old \u00d72:
-  // +50% ALL income per level. The half-price base (c0 0.5) keeps run 1's small bank buying the
-  // +2-planet leap; cr 1.5 keeps the late cost-per-planet-of-reach at \u00d72 (1.5^(ln2/ln1.5) \u2248 2 =
-  // wall growth), so campaign length and churn-resistance survive the softer curve. Sim-swept.
-  const ASC_E = 1.5;
-  const multFmt = m => m < 10 ? String(Math.round(m * 10) / 10) : fmt(Math.round(m));   // \u00d71.5, \u00d72.3, \u00d75.1, \u00d711 \u2014 fmt() alone floors small floats to "1"
+  const CORE_A = 4, CORE_B = 1.3;   // v16.4: "a few" cores from planet 1 (base ×4) on a FAR flatter curve — P18 pays ~346 not 8,273, and planet 30 will still be sane when more systems land. CB tracks the ×1.65 wall (CB/R ≈ 0.79: the marginal deeper planet still pays most of its time cost — churn stays dead)
+  const coreVal = g => Math.ceil(CORE_A * Math.pow(CORE_B, Math.max(0, (g | 0) - 1)));
+  const ASC_HOP_H = 1.0;   // THE LADDER's hop point, proven by tools/ascension-sim.js --policy: once the CURRENT bar needs more than this many hours at your live income (floor met), ascending and re-running IS the faster route — the UI says so instead of leaving it a spreadsheet fact (1.5h → 1h with the ×1.65 wall)
+  // Prestige does ONE thing \u2014 cash (v16.3), and gently (v16.4): +25% ALL income per level on a
+  // near-flat cost curve, so every ascension affords a couple of levels and endgame income tops out
+  // around \u00d7800 (was \u00d725,000). Cost growth 1.19^lv \u2248 CB per planet-of-reach \u2014 reach never gets
+  // cheaper than cores grow, which (with the 3-conquest floor) keeps shallow churn strictly slower.
+  const ASC_E = 1.25;
+  const multFmt = m => m < 10 ? String(Math.round(m * 10) / 10) : fmt(Math.round(m));   // \u00d71.3, \u00d72.4, \u00d75.1, \u00d711 \u2014 fmt() alone floors small floats to "1"
   const ASC_LINES = [
-    { key: "engine", ico: "coin", name: "Singularity Engine", max: 30, c0: 0.5, cr: 1.5, fx: "+50% ALL income / lv", word: lv => "\u00d7" + multFmt(Math.pow(ASC_E, lv)) + " income" },
+    { key: "engine", ico: "coin", name: "Singularity Engine", max: 60, c0: 3, cr: 1.19, fx: "+25% ALL income / lv", word: lv => "\u00d7" + multFmt(Math.pow(ASC_E, lv)) + " income" },
   ];
   const ASC_BY = {}; ASC_LINES.forEach(l => ASC_BY[l.key] = l);
   const ascLv = k => (META && META.asc && META.asc.lv && META.asc.lv[k]) | 0;
@@ -703,15 +705,23 @@
             if (refund > 0) { META.asc.cores += refund; META.asc.lifetime += refund; }
             delete META.gems; delete META.gemsEarned; delete META.perks;   // scrub the legacy fields — otherwise the next save re-carries them and the refund would re-run on EVERY load
           }
-          // v16.3 MIGRATION — the Ascension shop is ONE line now (income only, ×1.5/lv). Refund every
-          // core spent in the old seven-line shop at its OLD prices and clear the levels for a clean
-          // rebuy. asc.v = 2 marks a migrated/new save so NEW Engine levels are never refunded again.
+          // v16.3 MIGRATION — the Ascension shop became ONE line (income only). Refund every core
+          // spent in the old seven-line shop at its OLD prices and clear the levels for a clean
+          // rebuy. asc.v marks the shop schema so a refund can never run twice.
           if ((META.asc.v | 0) < 2) {
             const OLD_COST = { engine: [1, 2.0], war: [1, 2.0], clock: [2, 2.0], frugal: [2, 2.0], bond: [2, 2.0], fortune: [2, 2.2], head: [4, 3.0] };
             let back = 0; const lvs = META.asc.lv || {};
             for (const k in lvs) { const oc = OLD_COST[k], n = lvs[k] | 0; if (!oc || n <= 0) continue; for (let i = 0; i < n; i++) back += Math.ceil(oc[0] * Math.pow(oc[1], i)); }
             if (back > 0) META.asc.cores += back;   // lifetime already counted these cores when they were first banked
             META.asc.lv = {}; META.asc.v = 2;
+          }
+          // v16.4 MIGRATION — the whole geometry flattened (wall ×1.65, Engine +25%/lv @ 3·1.19^lv).
+          // Refund v16.3 Engine levels at the v16.3 prices (ceil(0.5·1.5^lv)) for a clean rebuy.
+          if ((META.asc.v | 0) < 3) {
+            const n = (META.asc.lv && META.asc.lv.engine) | 0; let back = 0;
+            for (let i = 0; i < n; i++) back += Math.ceil(0.5 * Math.pow(1.5, i));
+            if (back > 0) META.asc.cores += back;
+            META.asc.lv = {}; META.asc.v = 3;
           } }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, AWAY_CAP_H * 3600);
           // away earnings = the on-screen $/s you were passively earning (your collector income + empire) × seconds away
@@ -3345,7 +3355,7 @@
     setCps: v => { cps = +v || 0; },              // test hook: set the live income/s the boss bounty floor reads (v14.7)
     setEarned: v => { curEarned = +v || 0; },     // test hook: drive the conquer bar so the wall coach can be audited (v16.2)
     spawnBoss, grantTreeNodes, dots: () => dots,
-    ASC_LINES, ASC_BY, coreVal, pendingCores, perkAgg, ascLv, buyAsc, ascend, ascCost, CORE_B, ASC_W0, ASC_R,
+    ASC_LINES, ASC_BY, coreVal, pendingCores, perkAgg, ascLv, buyAsc, ascend, ascCost, CORE_A, CORE_B, ASC_W0, ASC_R,
     ASC_HOP_H, wallEtaH, wallAhead, ascPreview,   // the ladder coach (v16.2): hop-point contract audited by ascension-sim --verify
     baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP,
     Wheel, nodeCandidates,                        // Bounty Wheel test hooks (v15.0): build/apply/segs/state
