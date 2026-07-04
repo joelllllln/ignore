@@ -333,29 +333,32 @@ earning for you). The loop:
   bar — that unlocks **Travel**. A planet is a deliberate **hours-long campaign**;
   active play — drawing to brush dots, abilities, and fat Value/Spawn upgrades —
   is the fast path.
-- **Designed conquer-time curve (v16.0 — the ASCENSION WALL).** Each planet's
-  conquer bar takes **~×2 the active hours of the one before it** (`0.35h·2^(g−1)`),
-  so every run climbs into a **wall** — planet 4–6 on a fresh account, inside the
-  first session. That wall is the cue to **Ascend**: the run resets, every conquered
-  planet banks **◈ cores** (`ceil(1.7^(g−1))` each — deeper pays exponentially
-  more). Cores buy ONE permanent thing (v16.3): the **Singularity Engine, +50%
-  ALL income per level** (cost `ceil(0.5·1.5^lv)` — half-price first levels, and
-  1.5^(ln2/ln1.5) ≈ 2 keeps the late cost-per-planet-of-reach at ×2). Income
-  rides the Engine; **conquer targets never do** — so each ascension melts the
-  old territory and stalls further out. The full design: **planet 18 falls on
-  ~run 9, ≈44 active hours total** — and the OPTIMAL route is **THE LADDER**
-  (sim-gated by `--policy`): hop at **3 worlds** on run 1, then every ascension
-  carries you a few worlds deeper — **P3 → P5 → P7 → P9 → P11 → P12 → … → P18**,
-  ~37 h over 13 runs. Ascending requires **3 conquests**, shallow-churn resets
-  are strictly slower by construction (core growth 1.7 vs time growth 2.0 +
-  reset overhead), and the game coaches the hop in-game: when the current bar
-  needs > **1.5 h** at your live income, the ◈ button burns **amber** and the
-  ascend modal shows the bar's ETA + how much stronger you return. All of it is
-  sim-locked by `tools/ascension-sim.js` (design gates, ladder/policy gate,
-  `--verify` game contract incl. the one-line shop + hop threshold, noise
-  robustness — run it before touching any pacing constant). Gems no longer
-  exist; old saves auto-migrate gems → cores, and v16.0–16.2 saves get every
-  core spent in the old seven-line shop refunded at its old prices.
+- **Designed conquer-time curve (the ASCENSION WALL).** Each planet's conquer
+  bar takes **~×1.65 the active hours of the one before it** (`0.4h·1.65^(g−1)`;
+  v16.4 softened it from ×2 — a ×2 wall forces astronomic income multipliers
+  and leaves no room for the **future solar systems** planned beyond the first
+  three), so every run climbs into a **wall** — planet 4–6 on a fresh account,
+  inside the first session. That wall is the cue to **Ascend**: the run resets,
+  every conquered planet banks a **handful of ◈ cores** (`ceil(4·1.3^(g−1))` —
+  planet 1 pays 4, planet 18 ~346; flat enough that planet 30 will still make
+  sense). Cores buy ONE permanent thing: the **Singularity Engine, +25% ALL
+  income per level** (cost `ceil(3·1.19^lv)`; endgame income tops out ~×800,
+  not ×25,000). Income rides the Engine; **conquer targets never do** — so each
+  ascension melts the old territory and stalls further out. The full design:
+  **planet 18 falls on ~run 8, ≈55 active hours total** — and the OPTIMAL route
+  is **THE LADDER** (sim-gated by `--policy`): hop at **3 worlds** on run 1,
+  then every ascension carries you deeper — **P3 → P4 → P5 → P7 → P8 → … → P18**,
+  ~46 h over 17 quick runs. Ascending requires **3 conquests**, shallow-churn
+  resets are strictly slower by construction (core growth tracks the wall:
+  CB/R ≈ 0.79, and engine reach never gets cheaper than cores grow), and the
+  game coaches the hop in-game: when the current bar needs > **1 h** at your
+  live income, the ◈ button burns **amber** and the ascend modal shows the
+  bar's ETA + how much stronger you return. All of it is sim-locked by
+  `tools/ascension-sim.js` (design gates, ladder/policy gate, `--verify` game
+  contract incl. the one-line shop + hop threshold, noise robustness — run it
+  before touching any pacing constant). Gems no longer exist; old saves
+  auto-migrate gems → cores, and every core ever spent in an older shop
+  (seven-line era or the v16.3 curve) is refunded at its era's prices.
 - **Conquer → the planet joins your empire** and **Travel unlocks.** A held planet
   feeds idle income straight into your global treasury (online **and** offline).
   **Revisit** any conquered planet anytime to keep upgrading it.
