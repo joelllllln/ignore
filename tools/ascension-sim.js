@@ -3,8 +3,9 @@
 // Models the v16.0 loop END TO END with the exact shipped formulas:
 //   conquer time  t(g) = W0·R^(g-1) hours / M  + ramp        (M = engine income mult; targets do NOT ride M — that's the whoosh)
 //   core award    c(g) = ceil(CB^(g-1)) per planet conquered  (+ 50% partial credit on the planet you're stuck on)
-//   engine        M = E^lv, level lv costs ceil(C0·CR^lv) cores (war/overclock etc. modelled as a 45% core tax — engine is ~55% of spend)
-//   player policy ascend when pending ≥ 1.75× banked (and ≥ 5) OR the next planet needs > WALL_H hours; spend greedily on engine
+//   engine        M = E^lv, level lv costs ceil(C0·CR^lv) cores — v16.3: prestige is ONE line (income
+//                 only, ×1.5/lv), so every core goes into the Engine; there is no sibling-line tax
+//   player policy ascend when the next planet needs > WALL_H hours (and ≥ 3 banked); spend all-in on engine
 //
 // GATES (the design contract — the sim FAILS if any breaks):
 //   G1 run 1 walls on planet 4–6 within 3–8 active hours (first ascension day one)
@@ -19,24 +20,18 @@
 
 const TOTAL = 18;
 const WALL_H = 3;            // "so slow the player restarts": players bail into ascension when the NEXT bar exceeds a session (~3h)
-const ENGINE_SHARE = 0.55;   // share of cores the player effectively puts into the income engine
 
 function simulate(P, noise) {
   const { W0, R, CB, E, C0, CR } = P;
-  const wallH = global.WALL_OVERRIDE || WALL_H, engShare = global.SHARE_OVERRIDE || ENGINE_SHARE;
+  const wallH = global.WALL_OVERRIDE || WALL_H;
   const rnd = noise ? () => 1 + (Math.random() * 2 - 1) * 0.2 : () => 1;
   let cores = 0, engineLv = 0, engineSpent = 0;
   let hours = 0, runs = [], deepest = 0;
   const M = () => Math.pow(E, engineLv);
   const engCost = lv => Math.ceil(C0 * Math.pow(CR, lv));
   let lifetime = 0;
-  const spend = () => {   // greedy: engine gets ENGINE_SHARE of every core; the rest goes to war/overclock etc. (a matching spend, not a hoard)
-    let budget = cores * engShare;
-    while (engCost(engineLv) <= budget) {
-      const c = engCost(engineLv); budget -= c; cores -= c; engineSpent += c; engineLv++;
-      const other = Math.min(cores, Math.round(c * (1 - engShare) / Math.max(0.01, engShare)));
-      cores -= other;   // the sibling lines soak their share too
-    }
+  const spend = () => {   // v16.3: prestige is ONE line — every core goes into the Engine, all-in, no sibling tax
+    while (engCost(engineLv) <= cores) { const c = engCost(engineLv); cores -= c; engineSpent += c; engineLv++; }
   };
   for (let run = 1; run <= 60; run++) {
     spend();
@@ -82,37 +77,42 @@ function gates(res, P, loose) {
   return f;
 }
 
-// SHIPPED constants — the sweep winner (324 configs, all gates + 40/40 noisy robustness):
-//   conquer hours 0.35·2^(g-1) / M · core award ceil(1.7^(g-1)) · engine ×2 income per level @ cost ceil(2^lv)
-// v16.1: CB/CR retuned so OPTIMAL play conquers ~11-12 planets/run (bail ~1.5h) instead of churning
-// shallow resets — proven by this file's --policy sweep, which now gates it.
-const DEFAULT = { W0: 0.35, R: 2.0, CB: 1.7, E: 2.0, C0: 1, CR: 2.0 };
+// SHIPPED constants. v16.3: prestige collapsed to ONE income line at ×1.5/lv (owner call — "only the
+// cash thing, and gentler than ×2"). Planet pacing (W0/R) is FROZEN — the conquer bars players know
+// don't move; only the prestige economics (E/CR/CB) were re-swept so every gate + the ladder hold.
+// Winner: E 1.5 (+50%/lv — the owner's "gentler than ×2") with HALF-price base cost (C0 0.5) so run 1's
+// small bank still buys the +2-planet leap, while CR 1.5 keeps the late cost-per-planet-of-reach at ×2
+// (CR^(ln2/ln1.5) ≈ 2 = R), preserving campaign length and churn-resistance.
+const DEFAULT = { W0: 0.35, R: 2.0, CB: 1.7, E: 1.5, C0: 0.5, CR: 1.5 };
 
 if (process.argv.includes("--sweep")) {
-  console.log("SWEEP — 324 configs × gates\n");
   const winners = [];
-  for (const W0 of [0.25, 0.35, 0.5])
-    for (const R of [1.5, 1.65, 1.8, 2.0])
-      for (const CB of [1.6, 1.7, 1.8, 2.0])
-        for (const E of [1.5, 1.7, 2.0])
-          for (const CR of [1.8, 2.0, 2.5]) {
-            const P = { W0, R, CB, E, C0: 1, CR };
+  let total = 0;
+  for (const W0 of [0.35])
+    for (const R of [2.0])
+      for (const CB of [1.6, 1.7, 1.8])
+        for (const E of [1.35, 1.5])
+          for (const C0 of [0.5, 1])
+          for (const CR of [1.3, 1.35, 1.4, 1.45, 1.5]) {
+            total++;
+            const P = { W0, R, CB, E, C0, CR };
             const res = simulate(P, false);
             const f = gates(res, P);
             if (!f.length) {
               const asc = res.runs.length - 1;
-              // score: prefer ~9 ascensions, ~65 total hours, run1 wall P5
-              const score = Math.abs(asc - 9) + Math.abs(res.hours - 65) / 10 + Math.abs(res.runs[0].wall - 5);
+              // score: prefer ~9 ascensions, ~55 total hours, run1 wall P4-5
+              const score = Math.abs(asc - 9) + Math.abs(res.hours - 55) / 10 + Math.abs(res.runs[0].wall - 4.5);
               winners.push({ P, asc, hours: res.hours, wall1: res.runs[0].wall, cores: res.cores, score });
             }
           }
+  console.log("SWEEP — " + total + " configs × gates (W0/R frozen: planet pacing must not move)\n");
   winners.sort((a, b) => a.score - b.score);
-  console.log("passing configs:", winners.length, "/ 324\n");
+  console.log("passing configs:", winners.length, "/ " + total + "\n");
   for (const w of winners.slice(0, 12))
-    console.log(`W0=${w.P.W0} R=${w.P.R} CB=${w.P.CB} E=${w.P.E} CR=${w.P.CR}  → asc ${w.asc}, ${w.hours.toFixed(0)}h, run1 wall P${w.wall1}, cores ${w.cores}  (score ${w.score.toFixed(2)})`);
+    console.log(`W0=${w.P.W0} R=${w.P.R} CB=${w.P.CB} E=${w.P.E} C0=${w.P.C0} CR=${w.P.CR}  → asc ${w.asc}, ${w.hours.toFixed(0)}h, run1 wall P${w.wall1}, cores ${w.cores}  (score ${w.score.toFixed(2)})`);
   if (!winners.length) process.exit(1);
-  // robustness: best config under noise
-  const best = winners[0].P;
+  // robustness: noise-test the SHIPPED constants when they pass the gates (fall back to the top scorer)
+  const best = (winners.find(w => JSON.stringify(w.P) === JSON.stringify(DEFAULT)) || winners[0]).P;
   let pass = 0; const N = 40;
   for (let i = 0; i < N; i++) { const r = simulate(best, true); if (!gates(r, best, true).length) pass++; }
   console.log(`\nrobustness: best config passes ${pass}/${N} noisy trials (need ≥ ${Math.ceil(N * 0.9)})`);
@@ -121,25 +121,23 @@ if (process.argv.includes("--sweep")) {
 
 // ---- --policy: sweep player strategies on the SHIPPED constants — proves the optimum IS THE LADDER ----
 if (process.argv.includes("--policy")) {
-  const shares = [0.55, 0.7, 0.85, 1.0], walls = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5];
+  // one prestige line (v16.3) \u2014 the only strategy dimension left is WHEN you bail into ascension
+  const walls = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5];
   let best = { h: 1e9 };
-  console.log("policy sweep on shipped constants (bail \u00d7 engine-share \u2192 hours/runs/avg-depth):\n");
-  for (const w of walls) { let row = (w + "h").padEnd(6);
-    for (const sh of shares) {
-      global.WALL_OVERRIDE = w; global.SHARE_OVERRIDE = sh;
-      const r = simulate(DEFAULT, false);
-      const avg = r.done ? (r.runs.reduce((a, b) => a + Math.min(18, b.wall) - 1, 0) / r.runs.length) : 0;
-      row += (r.done ? r.hours.toFixed(1) + "h/" + r.runs.length + "r/d" + avg.toFixed(0) : "never").padStart(17);
-      if (r.done && r.hours < best.h) best = { h: r.hours, runs: r.runs.length, w, sh, avg };
-    }
-    console.log(row);
+  console.log("policy sweep on shipped constants (bail hour \u2192 total hours / runs / avg depth):\n");
+  for (const w of walls) {
+    global.WALL_OVERRIDE = w;
+    const r = simulate(DEFAULT, false);
+    const avg = r.done ? (r.runs.reduce((a, b) => a + Math.min(18, b.wall) - 1, 0) / r.runs.length) : 0;
+    console.log((w + "h").padEnd(7) + (r.done ? r.hours.toFixed(1) + "h / " + r.runs.length + " runs / avg depth " + avg.toFixed(1) : "never finishes"));
+    if (r.done && r.hours < best.h) best = { h: r.hours, runs: r.runs.length, w, avg };
   }
-  console.log("\nOPTIMAL:", best.h.toFixed(1) + "h over " + best.runs + " runs \u00b7 bail " + best.w + "h \u00b7 engine " + Math.round(best.sh * 100) + "% \u00b7 avg depth " + best.avg.toFixed(1) + " planets/run");
+  console.log("\nOPTIMAL:", best.h.toFixed(1) + "h over " + best.runs + " runs \u00b7 bail " + best.w + "h \u00b7 avg depth " + best.avg.toFixed(1) + " planets/run");
   // THE LADDER (v16.2) \u2014 the optimum must not just be deep ON AVERAGE, it must be SHAPED like a
   // ladder: hop at ~3 worlds on run 1, then every ascension carries you deeper, all the way to P18.
-  global.WALL_OVERRIDE = best.w; global.SHARE_OVERRIDE = best.sh;
+  global.WALL_OVERRIDE = best.w;
   const opt = simulate(DEFAULT, false);
-  delete global.WALL_OVERRIDE; delete global.SHARE_OVERRIDE;
+  delete global.WALL_OVERRIDE;
   const lad = opt.runs.map(r => Math.min(TOTAL, r.wall - 1));
   console.log("\nTHE LADDER (optimal route, conquests per run):\n  " + lad.map(d => "P" + d).join(" \u2192 "));
   const steps = lad.slice(1).map((d, i) => d - lad[i]);
@@ -177,13 +175,15 @@ if (process.argv.includes("--verify")) {
   ok("conquer curve geometric", Math.abs(SIM.conquerHours(7) / SIM.conquerHours(6) - DEFAULT.R) < 1e-9, "\u00d7" + (SIM.conquerHours(7) / SIM.conquerHours(6)));
   ok("coreVal(5)", SIM.coreVal(5) === Math.ceil(Math.pow(DEFAULT.CB, 4)), SIM.coreVal(5));
   const eng = SIM.ASC_BY.engine;
-  ok("engine \u00d72/lv @ 1.8^lv cost", eng.c0 === DEFAULT.C0 && Math.abs(eng.cr - DEFAULT.CR) < 1e-9, JSON.stringify({ c0: eng.c0, cr: eng.cr }));
-  // behavioural: buying an engine level doubles income-side numbers, never the conquer target
+  ok("engine cost curve matches", Math.abs(eng.c0 - DEFAULT.C0) < 1e-9 && Math.abs(eng.cr - DEFAULT.CR) < 1e-9, JSON.stringify({ c0: eng.c0, cr: eng.cr }));
+  // v16.3: prestige is ONE line \u2014 income only. The other six lines must be GONE.
+  ok("prestige = income ONLY", SIM.ASC_LINES.length === 1 && SIM.ASC_LINES[0].key === "engine", SIM.ASC_LINES.map(l => l.key).join(","));
+  // behavioural: buying an engine level multiplies income-side numbers by E, never the conquer target
   const S = A.S(), M0 = A.derived().incomeMul, T0 = SIM.conquerTarget(3), C0 = A.derived().capacity;
-  global.window.__IDS.META().asc.cores = 10; SIM.buyAsc("engine"); 
+  global.window.__IDS.META().asc.cores = 10; SIM.buyAsc("engine");
   const M1 = A.derived().incomeMul, T1 = SIM.conquerTarget(3), C1 = A.derived().capacity;
-  ok("engine doubles incomeMul", Math.abs(M1 / M0 - 2) < 1e-9, M0 + " \u2192 " + M1);
-  ok("capacity rides engine", Math.abs(C1 / C0 - 2) < 1e-6, "\u00d7" + (C1 / C0).toFixed(3));
+  ok("engine \u00d7" + DEFAULT.E + " incomeMul", Math.abs(M1 / M0 - DEFAULT.E) < 1e-9, M0 + " \u2192 " + M1);
+  ok("capacity rides engine", Math.abs(C1 / C0 - DEFAULT.E) < 1e-6, "\u00d7" + (C1 / C0).toFixed(3));
   ok("target does NOT ride it", T1 === T0, T0 + " \u2192 " + T1 + " (the whoosh)");
   // v16.2 ladder coach: the in-game hop hint must sit exactly on the --policy-proven optimal bail (1.5h)
   ok("hop hint = policy optimum", SIM.ASC_HOP_H === 1.5, SIM.ASC_HOP_H + "h (--policy's OPTIMAL bail)");
