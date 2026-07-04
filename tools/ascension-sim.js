@@ -119,7 +119,7 @@ if (process.argv.includes("--sweep")) {
   process.exit(pass >= N * 0.9 ? 0 : 1);
 }
 
-// ---- --policy: sweep player strategies on the SHIPPED constants — proves the optimum plays DEEP ----
+// ---- --policy: sweep player strategies on the SHIPPED constants — proves the optimum IS THE LADDER ----
 if (process.argv.includes("--policy")) {
   const shares = [0.55, 0.7, 0.85, 1.0], walls = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5];
   let best = { h: 1e9 };
@@ -134,11 +134,25 @@ if (process.argv.includes("--policy")) {
     }
     console.log(row);
   }
-  delete global.WALL_OVERRIDE; delete global.SHARE_OVERRIDE;
   console.log("\nOPTIMAL:", best.h.toFixed(1) + "h over " + best.runs + " runs \u00b7 bail " + best.w + "h \u00b7 engine " + Math.round(best.sh * 100) + "% \u00b7 avg depth " + best.avg.toFixed(1) + " planets/run");
+  // THE LADDER (v16.2) \u2014 the optimum must not just be deep ON AVERAGE, it must be SHAPED like a
+  // ladder: hop at ~3 worlds on run 1, then every ascension carries you deeper, all the way to P18.
+  global.WALL_OVERRIDE = best.w; global.SHARE_OVERRIDE = best.sh;
+  const opt = simulate(DEFAULT, false);
+  delete global.WALL_OVERRIDE; delete global.SHARE_OVERRIDE;
+  const lad = opt.runs.map(r => Math.min(TOTAL, r.wall - 1));
+  console.log("\nTHE LADDER (optimal route, conquests per run):\n  " + lad.map(d => "P" + d).join(" \u2192 "));
+  const steps = lad.slice(1).map((d, i) => d - lad[i]);
+  const ladFail = [];
+  if (lad[0] > 4) ladFail.push("L1 run 1 goes P" + lad[0] + " deep (want a ~P3 hop)");
+  if (lad.length < 2 || steps[0] < 2) ladFail.push("L2 the second run must leap \u2265 +2 worlds");
+  if (steps.some(s => s < 0)) ladFail.push("L3 the ladder collapses (a run went SHALLOWER)");
+  if (steps.filter(s => s >= 1).length < Math.ceil(steps.length * 0.8)) ladFail.push("L4 too flat (<80% of runs go deeper)");
+  if (lad[lad.length - 1] !== TOTAL) ladFail.push("L5 never reaches P" + TOTAL);
   const deepEnough = best.w >= 1.5 && best.avg >= 8;
-  console.log(deepEnough ? "PASS: the fastest route conquers real depth (no churn exploit)" : "FAIL: shallow churn is still optimal");
-  process.exit(deepEnough ? 0 : 1);
+  if (!deepEnough) ladFail.unshift("shallow churn is still optimal (bail " + best.w + "h / avg depth " + best.avg.toFixed(1) + ")");
+  console.log(ladFail.length ? "FAIL: " + ladFail.join(" | ") : "PASS: the fastest route IS the ladder \u2014 a ~P3 first hop, then deeper every ascension, no churn");
+  process.exit(ladFail.length ? 1 : 0);
 }
 
 // ---- --verify: load the SHIPPED game headless and assert it matches this sim's design contract ----
@@ -171,6 +185,13 @@ if (process.argv.includes("--verify")) {
   ok("engine doubles incomeMul", Math.abs(M1 / M0 - 2) < 1e-9, M0 + " \u2192 " + M1);
   ok("capacity rides engine", Math.abs(C1 / C0 - 2) < 1e-6, "\u00d7" + (C1 / C0).toFixed(3));
   ok("target does NOT ride it", T1 === T0, T0 + " \u2192 " + T1 + " (the whoosh)");
+  // v16.2 ladder coach: the in-game hop hint must sit exactly on the --policy-proven optimal bail (1.5h)
+  ok("hop hint = policy optimum", SIM.ASC_HOP_H === 1.5, SIM.ASC_HOP_H + "h (--policy's OPTIMAL bail)");
+  SIM.setCps(1000); SIM.setEarned(0);
+  const tgtW = SIM.conquerTarget(S.galaxy);
+  ok("wall ETA honest", Math.abs(SIM.wallEtaH() - tgtW / 1000 / 3600) < 1e-9, SIM.wallEtaH().toFixed(2) + "h = target/cps");
+  ok("no coaching before floor", SIM.wallAhead() === false, "silent until 3 conquests (the ascend floor)");
+  SIM.setCps(0); SIM.setEarned(0);
   ok("gems are gone", !/gemReward|META\.gems\s*=/.test(fs.readFileSync(path.join(__dirname, "..", "js", "game.js"), "utf8").replace(/d\.META\.gems|d\.META\.gemsEarned/g, "")), "only the migration reads remain");
   console.log("\n" + (bad ? "CONTRACT BROKEN: " + bad : "CONTRACT HOLDS: game matches the sim-locked design"));
   process.exit(bad ? 1 : 0);
