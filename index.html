@@ -2,10 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Idle Dot Shooter</title>
+<!-- Cross-platform install + update metadata (v16.6). The ?v= query on style.css / js/game.js is the
+     CACHE BUSTER: iOS Safari and Android Chrome hold cached assets for a long time, so every version
+     bump MUST bump these two queries too (see CONTRIBUTING.md) — that's what makes a push actually
+     reach phones instead of feeding them a stale game.js forever. -->
+<meta name="theme-color" content="#000000" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Dot Shooter" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
-<link rel="stylesheet" href="style.css" />
+<link rel="apple-touch-icon" href="assets/icon-180.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="stylesheet" href="style.css?v=16.6" />
 </head>
 <body>
 <div id="root">
@@ -242,6 +253,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js"></script>
+<script src="js/game.js?v=16.6"></script>
 </body>
 </html>

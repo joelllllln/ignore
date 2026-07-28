@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.5";   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v16.6";   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -1009,7 +1009,26 @@
   }
   let bgHideTs = 0;
   function onHidden() { if (!S || bgHideTs) return; bgHideTs = Date.now(); save(); }     // stamp + persist so a hard kill still credits via load()
-  function onVisible() { if (!bgHideTs) return; const e = (Date.now() - bgHideTs) / 1000; bgHideTs = 0; last = 0; applyAway(e); }   // last=0 → the first resumed frame's dt is clamped, not a giant jump
+  function onVisible() { if (!bgHideTs) return; const e = (Date.now() - bgHideTs) / 1000; bgHideTs = 0; last = 0; applyAway(e); checkForUpdate(); }   // last=0 → the first resumed frame's dt is clamped, not a giant jump; returning from background is also the perfect moment to look for a newer build
+  // ---- LIVE UPDATE DETECTOR (v16.6) — how a push gets FELT on every platform. Phones keep a tab (or
+  // installed PWA) alive for days; without this they'd run a stale build forever. We re-fetch index.html
+  // with cache:'no-store' (tiny — the game itself is NOT re-downloaded), read the ?v= cache-buster it
+  // points at, and if it's NEWER than the running build show a persistent TAP TO UPDATE pill; the reload
+  // then pulls the new ?v= URLs past every HTTP cache. On commit-pinned links (raw.githack/<sha>/) the
+  // fetched version always equals the running one, so the pill correctly never appears there.
+  let updLastCheck = 0, updOffered = false;
+  const verNum = v => { const m = /([0-9]+)\.([0-9]+)/.exec(v || ""); return m ? (+m[1]) * 1000 + (+m[2]) : 0; };
+  function checkForUpdate() {
+    const now = Date.now(); if (updOffered || now - updLastCheck < 10 * 60e3) return; updLastCheck = now;
+    if (location.protocol === "file:") return;   // opened from disk — nothing to poll
+    try { fetch("index.html", { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(html => {
+      const m = /js\/game\.js\?v=([0-9.]+)/.exec(html || ""); if (!m) return;
+      if (verNum(m[1]) > verNum(VERSION)) { updOffered = true;
+        let t = $("upd-toast"); if (!t) { t = document.createElement("button"); t.id = "upd-toast"; t.onclick = () => { save(); location.reload(); }; document.body.appendChild(t); }
+        t.textContent = "⬆ NEW VERSION v" + m[1] + " — TAP TO UPDATE"; t.classList.add("show"); }
+    }).catch(() => {}); } catch (e) {}
+  }
+  setTimeout(checkForUpdate, 5000);   // one early check after boot, then piggyback on every return-to-foreground
   document.addEventListener("visibilitychange", () => { if (document.hidden) onHidden(); else onVisible(); });   // mobile: fires on screen-lock & app-switch
   window.addEventListener("pagehide", onHidden); window.addEventListener("pageshow", onVisible);                 // iOS Safari bfcache / tab suspension
   document.addEventListener("freeze", onHidden); document.addEventListener("resume", onVisible);                 // Chrome Page Lifecycle (Android/TWA background freeze) — the OS can freeze the page without a visibilitychange

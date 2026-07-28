@@ -31,8 +31,14 @@ what's written here, **this file wins** — follow it.
    top of [`js/game.js`](js/game.js) on **every** change (e.g. `v1.0` → `v1.1`,
    then `v1.2`, …). It is shown in the **top-right corner in-game**, so the owner
    can confirm at a glance they're on the latest build. Never ship a change
-   without bumping it. `VERSION` is the single source of truth — the badge text
-   is set from it automatically; do not hardcode the number anywhere else.
+   without bumping it. `VERSION` drives the badge automatically; the **only**
+   other places the number appears are the two **cache-buster queries** below.
+   **In the same edit, bump the `?v=` query on BOTH asset tags in
+   [`index.html`](index.html)** (`style.css?v=X.Y` and `js/game.js?v=X.Y`) to
+   the same number. This is what makes a push actually reach iPhones/Android —
+   mobile browsers cache assets aggressively, and the in-game update pill
+   compares the running `VERSION` against the `?v=` it fetches from
+   `index.html`, so a mismatch between them breaks update detection.
 3. Sanity-check: `node --check js/game.js`, and the tools in `tools/` if
    balance/pacing is affected.
 4. Commit to `main` with a clear message.
