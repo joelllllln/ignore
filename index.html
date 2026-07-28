@@ -146,7 +146,6 @@
     <div class="card">
       <div class="card-head"><h2><i data-ico="gear"></i>Auto-Buy <span id="auto-planet" class="auto-planet"></span></h2><button class="x" id="auto-close">✕</button></div>
       <p class="muted" id="auto-sub"><b>Every planet, in one place.</b> Each has its own build order — tap a planet to expand it, <b>arm it with its power toggle</b>. Steps run sequentially; a planet gets <b>one slot per its number</b>. +50% tax.</p>
-      <button class="big" id="auto-toggle">AUTO-BUY: OFF</button>
       <div id="auto-lock" class="auto-lock"></div>
       <div id="auto-list" class="auto-list"></div>
       <p class="muted auto-hint">Add steps &amp; choose each target. Economy/Units use a count (−/＋); a <b>tree</b> step → <b>EDIT</b> to pick nodes on the tree — every tap is <b>saved instantly</b> (numbered in your buy order), hit <b>✓ DONE</b> to come back. The ▶ step finishes before the next starts. Runs while you're away — and it tells you loudly when the whole plan is <b>✓ COMPLETE</b>.</p>
@@ -172,6 +171,18 @@
       <p id="welcome-text" class="muted"></p>
       <div class="rb-gain" id="welcome-cash"></div>
       <button class="big" id="welcome-ok">COLLECT</button>
+    </div>
+  </div>
+
+  <!-- VICTORY — persistent celebration when the whole cluster is conquered -->
+  <div id="victory" class="modal">
+    <div class="card">
+      <div class="card-head"><h2>★ CLUSTER CONQUERED</h2></div>
+      <p class="vic-sub">All <b>18 worlds</b> are yours.</p>
+      <div id="victory-stats" class="vic-stats"></div>
+      <p class="muted">The cluster keeps earning for you forever — and Ascension still banks ◈ cores if you want to run it back even harder.</p>
+      <button class="big" id="victory-ok">KEEP PLAYING</button>
+      <button class="big alt" id="victory-ascend"><i data-ico="gem"></i>OPEN ASCENSION</button>
     </div>
   </div>
 
@@ -223,7 +234,7 @@
   <div id="menu" class="modal">
     <div class="card">
       <div class="card-head"><h2>Idle Dot Shooter</h2><button class="x" id="menu-close">✕</button></div>
-      <p class="muted">Auto-fire at the dots. Drone collects the cash. Buy upgrades across Defence, Drone &amp; Economy. Travel between planets across three solar systems for tougher dots and bigger payouts.</p>
+      <p class="muted">Auto-fire at the dots. Collectors gather the cash. Buy upgrades across Defence, Collectors &amp; Economy. Travel between planets across three solar systems for tougher dots and bigger payouts.</p>
       <button class="big" id="menu-resume">RESUME</button>
       <button class="big alt" id="menu-settings"><i data-ico="gear"></i>SETTINGS</button>
       <button class="big alt" id="menu-home"><i data-ico="home"></i>MAIN MENU</button>

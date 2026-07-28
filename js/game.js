@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.4";   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v16.5";   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -379,8 +379,8 @@
      natural currency scale (what a plain dot drops there), so EVERY cost is rebased to
      eco(g): a planet plays the same shape in bigger numbers. Conquer a planet -> it joins
      your BACKGROUND empire, earning its currency passively (online + offline) at the rate
-     you left it; revisit to upgrade it. The EXCHANGE converts any planet's currency into
-     the one you're spending now, so a fresh landing is a running start, never a grind. */
+     you left it; revisit to upgrade it. (Historical note: the per-planet EXCHANGE this block
+     once described is retired — one global currency since the v3 economy.) */
   // GLOBAL MONEY SCALE — the single root every cash number rides (eco(g) = CUR_BASE × diff(g), and the
   // starter purse, costs, dot drops, capacity and conquer targets all key off eco). Lower it and ALL money
   // scales down uniformly; because income AND costs ride it equally, pacing/conquer-times are unchanged.
@@ -402,10 +402,9 @@
   const diff = g => { g = Math.max(1, Math.min(g, TOTAL_PLANETS)); let v = 1; for (let k = 2; k <= g; k++) v *= (PLANET_LOCAL[planetIdx(k)] === 0 ? SYS_JUMP : WITHIN_STEP); return v; };
   const eco = g => CUR_BASE * diff(g);   // planet number-magnitude (single global currency; costs & drops BOTH ride this so it cancels — progression now is class unlocks, deeper trees & the idle empire)
   const startMul = g => 40 * pk().start; // fresh-landing starter purse (× eco(g)) — × the Head Start ascension line (pk() is 1 before first recompute)
-  // ONE global currency now — no per-planet money, no exchange. (kept as helpers so existing call-sites resolve.)
+  // ONE global currency now — no per-planet money, no exchange (v16.5: the exchange code itself is gone too).
   const curName = g => "Credits";
   const curSym  = g => "✦";
-  const curWorth = g => eco(g);
   // CONQUER-TIME CURVE (the ASCENSION WALL). Active hours per planet grow GEOMETRICALLY:
   // ~24 min on planet 1, ×1.65 every planet after (v16.4: softened from ×2 — a ×2 wall forces
   // ×2^17 income multipliers by P18 and ×millions once MORE SOLAR SYSTEMS land; ×1.65 keeps every
@@ -460,27 +459,8 @@
     for (const k in S.vault) { if (+k === S.galaxy) continue; const v = S.vault[k]; if (v && v.conquered && v.bgRate > 0) sum += v.bgRate; }
     return sum * (1 + EMPIRE_RAMP * conqueredCount()) * pk().empire;
   };
-  // EXCHANGE is BRUTAL — you really start fresh on each world (AdCap "moon" style). You keep only ~2% of
-  // value, EVERY pair's market spread is below 1 (so it's always a loss even at peak), far-behind worlds
-  // decay hard, and a tiny hard cap applies. The background empire is a faint leg-up, never a buy-past-it.
-  const EXCHANGE_KEEP = 0.02;
-  // ── FLOATING FX MARKET — every currency PAIR has a unique seeded base spread that ALSO drifts over real
-  // time (a live market you can time). The conversion stays value-anchored (worth ratio) + harsh keep +
-  // distance decay + a hard cap, so it can NEVER flood an economy or shortcut a conquest. ──
-  const fxHash = (a, b) => Math.imul(Math.min(a, b) * 131 + Math.max(a, b) * 977 + 17, 2654435761) >>> 0;
-  const fxBase = (a, b) => 0.28 + ((fxHash(a, b) >>> 9) & 1023) / 1023 * 0.4;                            // unique base spread per pair ~[0.28,0.68] — even ×1.3 peak drift stays <1 (ALWAYS a loss)
-  const fxDriftAt = (a, b, t) => { const h = fxHash(a, b), ph1 = ((h >>> 3) & 255) / 255 * TAU, ph2 = ((h >>> 13) & 255) / 255 * TAU, f1 = 0.02 + ((h >>> 21) & 15) / 15 * 0.04, f2 = 0.07 + ((h >>> 25) & 15) / 15 * 0.11; return 1 + 0.2 * Math.sin(t * f1 + ph1) + 0.1 * Math.sin(t * f2 + ph2); };
-  const fxMarketAt = (a, b, t) => fxBase(a, b) * fxDriftAt(a, b, t);                                    // the live "rate" the player sees, floats ~[0.45,2.1]
-  const fxMarket = (a, b) => fxMarketAt(a, b, Date.now() / 1000);
-  const fxRate = (fromG, toG) => (curWorth(fromG) / curWorth(toG)) * EXCHANGE_KEEP * Math.pow(0.5, Math.max(0, Math.abs(toG - fromG) - 1)) * fxMarket(fromG, toG);   // steep distance decay
-  // CUMULATIVE per-planet import cap: the live planet can only ever absorb IMPORT_CAP of foreign aid total.
-  // This is what makes partial/mass conversions un-exploitable — you can split a wallet into a hundred tiny
-  // converts but you still can't import more than the cap, so timing spikes only changes HOW MUCH SOURCE it
-  // costs you, never lets you exceed the budget. (Replaces the old per-call 1.5% cap, which splitting bypassed.)
-  const IMPORT_CAP = g => conquerTarget(g) * 0.03;                  // lifetime foreign-aid budget for planet g (≈3% of a conquest)
-  const importUsed = () => (S.imported && S.imported[S.galaxy]) || 0;
-  const importRoom = () => Math.max(0, IMPORT_CAP(S.galaxy) - importUsed());
-  const exchangeAmt = (fromG, cash) => { if (fromG === S.galaxy || !(cash > 0)) return 0; return Math.floor(Math.min(cash * fxRate(fromG, S.galaxy), importRoom())); };   // what `cash` of fromG converts to NOW, clamped to remaining import room
+  // (v16.5: the retired FX/exchange market — fxRate, IMPORT_CAP, doExchange, the whole floating-market
+  // sim and its UI — is fully deleted. One global currency; planet vaults keep only build + cash snapshots.)
   // per-class buy-cost factors (× eco(active) × 1.5^count) — keeps class differentiation but planet-local
   const UNIT_FACTOR = { turret: 10, mortar: 26, plasma: 70, laser: 150, railgun: 360, nova: 820, drone: 10, swarm: 26, collector: 70, magnet: 150, tractor: 320, singularity: 650, wormhole: 1150 };
   // Income now comes from THROUGHPUT — killing more, tougher, more-rewarding dots —
@@ -502,7 +482,7 @@
   function fresh() {
     const lv = {}; UPS.forEach(u => lv[u.id] = 0);
     const classNodes = {}; ALL_TYPES.forEach(t => classNodes[t] = {});
-    return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null, imported: {}, conquest: 1, victory: false, auto: defaultAuto() };
+    return { cash: Math.floor(eco(1) * startMul(1)), galaxy: 1, lv, classNodes, units: [newUnit("turret")], collectors: [{ type: "drone" }], totalRun: 0, peakGalaxy: 1, runSec: 0, vault: {}, travel: null, conquest: 1, victory: false, auto: defaultAuto() };
   }
   // trim a unit/collector list down to each type's max (enforces caps on load)
   function capList(list) { const c = {}, out = []; for (const u of list || []) { const t = u.type; if (!TY(t)) continue; const m = TY(t).max; c[t] = (c[t] || 0) + 1; if (c[t] <= m) out.push(u); } return out; }   // DROP unknown types (a renamed/removed class in an old save would otherwise crash on the first tick via DEF_TYPES[t].x)
@@ -520,7 +500,7 @@
   let dots = [], orbs = [], beams = [], shells = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
   let drawing = false, lastDraw = null, trail = [], selUnit = -1, selType = "turret";
   // ---- juice: particles, screen shake, flash, floating cash ----
-  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0, landT = 0, fxAcc = 0;
+  let parts = [], shake = 0, flash = 0, fxEarn = 0, fxEarnT = 0, fxEarnX = 0, fxEarnY = 0, veilT = 0, landT = 0;
   const VEIL_FADE = 0.6;   // seconds for the zoom-into-base white-wipe to fade back out after landing
   const LAND_DUR = 0.85;   // camera pull-back "you have arrived" settle after the warp lands
   const MAXP = 440;
@@ -553,7 +533,7 @@
   let autoExpanded = null;   // Set of planet indices currently expanded in the all-planets Auto-Buy overview
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", listRows = {}, tabBtns = {};
-  const BUY_AMTS = [1, 10, 100, "max"];               // bulk-buy multipliers (test mode) — cycled by the BUY ×N button
+  const BUY_AMTS = [1, 10, 100, "max"];               // bulk-buy multipliers — cycled by the BUY ×N button (v16.5: available to EVERYONE, not just test mode — each iteration re-checks cost/caps so it's exploit-free)
   let buyIdx = 0;                                      // index into BUY_AMTS
   const buyN = () => BUY_AMTS[buyIdx] === "max" ? 100000 : BUY_AMTS[buyIdx];   // "max" = buy until unaffordable/maxed
 
@@ -734,7 +714,6 @@
       }
     } catch (e) {}
     if (!S.vault) S.vault = {};
-    if (!S.imported) S.imported = {};
     try { const d2 = JSON.parse(localStorage.getItem(KEY));   // ability cooldowns survive a reload/app-kill: restore minus real seconds away (never an instant refresh)
       if (d2 && d2.abil) { const eAb = d2.ts ? Math.max(0, (Date.now() - d2.ts) / 1000) : 0;
         for (const k in abil) if (k in d2.abil) abil[k] = Math.max(0, (+d2.abil[k] || 0) - eAb); } } catch (e) {}
@@ -743,11 +722,13 @@
     recompute();
     if (offSmall > 0) S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + offSmall));   // short-session offline gain, now capacity-clamped
     if (off) {
+      const cash0 = S.cash;   // v16.5: track what ACTUALLY lands in the wallet so the popup can't over-promise
       if (off.pool != null) {   // simulate auto-buy spending the banked away-budget, then bank what's left (clamped)
         const r = autoBuyOffline(off.pool); recompute();
         off.autoBought = r.bought; off.spent = off.pool - r.leftover;
         S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + r.leftover)); delete off.pool;
       } else { S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + off.gain)); }
+      off.banked = Math.max(0, S.cash - cash0); off.cap = derived.capacity;
       S._welcome = off;
     }
   }
@@ -765,8 +746,28 @@
     requestAnimationFrame(step);
   }
   function showWelcome(w) {
-    $("welcome-text").textContent = "You kept earning for " + fmtTime(w.elapsed) + " at your last on-screen rate." + (w.autoBought ? "  Auto-Buy spent it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + " while you were away." : "");
-    countUpTo($("welcome-cash"), w.gain, curSym(S.galaxy) + " ", 800); $("welcome").classList.add("show");
+    // v16.5: the headline number is what you actually BANK — the old popup counted up the full earned total
+    // even when the capacity cap let almost none of it into the wallet, which read as a broken promise.
+    const banked = w.banked != null ? w.banked : w.gain, clamped = banked < w.gain - 1;
+    let txt = "You kept earning for " + fmtTime(w.elapsed) + " at your last on-screen rate — " + curSym(S.galaxy) + " " + fmt(w.gain) + " earned.";
+    if (w.autoBought) txt += "  Auto-Buy spent part of it on " + w.autoBought + " upgrade" + (w.autoBought === 1 ? "" : "s") + ".";
+    if (clamped) txt += "  Your wallet banked what fits under the " + curSym(S.galaxy) + " " + fmt(w.cap || derived.capacity) + " capacity cap — the FULL amount still fed this planet's conquer bar. Invest in Capacity to bank more.";
+    $("welcome-text").textContent = txt;
+    countUpTo($("welcome-cash"), banked, curSym(S.galaxy) + " ", 800); $("welcome").classList.add("show");
+  }
+  // VICTORY (v16.5): conquering the final world deserves a real screen, not a 2-second float text.
+  // Shown once when the last conquest lands (S.victory guards it); replayable from nowhere — it's a moment.
+  function showVictory() {
+    const el = $("victory"); if (!el) return;
+    const st = (META && META.stats) || {}, asc = (META && META.asc) || {};
+    const rows = [
+      ["TIME PLAYED", fmtTime(st.playSec | 0)],
+      ["ASCENSIONS", fmt(asc.runs | 0)],
+      ["DOTS POPPED", fmt(st.dotsPopped | 0)],
+      ["EARNED ALL-TIME", curSym(S.galaxy) + " " + fmt(Math.floor(META.totalEver || 0))],
+    ];
+    const vs = $("victory-stats"); if (vs) vs.innerHTML = rows.map(r => "<div class='vs-row'><span>" + r[0] + "</span><b>" + r[1] + "</b></div>").join("");
+    el.classList.add("show");
   }
   function showBossReward(name, amount, gem, node, escaped, dealtPct) {   // non-blocking end-of-boss recap (kill OR escape); auto-dismisses
     const el = $("boss-reward"); if (!el) return;
@@ -1001,7 +1002,7 @@
       S.totalRun += offTotal; META.totalEver += offTotal;
       const pmv = S.vault[S.galaxy] || (S.vault[S.galaxy] = { conquered: false, earned: 0, bgRate: 0 });
       if (!pmv.conquered) { pmv.earned = Math.min(conquerTarget(S.galaxy), (pmv.earned || 0) + offTotal); curEarned = pmv.earned; }   // advance the conquer bar; live loop will detect a finished conquest
-      if (e >= 60) { const r = autoBuyOffline(offTotal); recompute(); S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + r.leftover)); showWelcome({ gain: Math.floor(offTotal), elapsed: e, autoBought: r.bought }); }
+      if (e >= 60) { const cash0 = S.cash, r = autoBuyOffline(offTotal); recompute(); S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + r.leftover)); showWelcome({ gain: Math.floor(offTotal), elapsed: e, autoBought: r.bought, banked: Math.max(0, S.cash - cash0), cap: derived.capacity }); }
       else S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + offTotal));   // short blips: bank silently (capacity-clamped)
     }
     save(); recompute(); syncHUD();
@@ -1578,7 +1579,7 @@
     // conquest check — UNCONDITIONAL so ANY income source (active orbs OR idle empire) can complete it
     { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); const cg = coreVal(S.galaxy); recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + cg + " ◈ PENDING — Ascension charging (" + pendingCores() + " ready)"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); syncHUD();
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
-        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; floatTxt(W / 2, H / 2 - 80, "★ ALL " + TOTAL_PLANETS + " WORLDS CONQUERED ★"); floatTxt(W / 2, H / 2 - 56, "the cluster is yours"); flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); } } }
+        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); showVictory(); save(); } } }   // v16.5: a PERSISTENT victory screen — the old floating text faded in ~2s and the summit of ~55 active hours was missable by an alt-tab
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
@@ -2103,7 +2104,7 @@
     }
     return row;
   }
-  function openAuto(g) { ensureAuto(); if (!autoExpanded) autoExpanded = new Set(); autoExpanded.add(g || S.galaxy); const cfg = curAuto(); if (cfg.doneFx) { cfg.doneSeen = true; save(); } renderAuto(); $("auto-modal").classList.add("show"); }
+  function openAuto(g) { closeCards(); ensureAuto(); if (!autoExpanded) autoExpanded = new Set(); autoExpanded.add(g || S.galaxy); const cfg = curAuto(); if (cfg.doneFx) { cfg.doneSeen = true; save(); } renderAuto(); $("auto-modal").classList.add("show"); }
   // one collapsible panel for a planet in the all-planets overview
   function autoPlanetSection(g) {
     const peek = S.auto.planets[g], on = !!(peek && peek.on), qlen = peek && Array.isArray(peek.queue) ? peek.queue.length : 0;
@@ -2128,9 +2129,8 @@
   }
   function renderAuto() {
     ensureAuto();
-    const tog = $("auto-toggle"), lock = $("auto-lock"), list = $("auto-list"), ph = $("auto-planet"); if (!list) return;
+    const lock = $("auto-lock"), list = $("auto-list"), ph = $("auto-planet"); if (!list) return;
     if (!autoExpanded) autoExpanded = new Set([S.galaxy]);
-    if (tog) tog.style.display = "none";           // each planet has its own power toggle in its panel
     if (ph) ph.textContent = "· all " + TOTAL_PLANETS + " planets";
     if (lock) lock.textContent = "Tap a planet to expand its build order · arm it with its power toggle · slots = planet number · +50% tax.";
     list.innerHTML = "";
@@ -2424,11 +2424,15 @@
         // icon of what this node upgrades, centred in the node
         c.fillStyle = has ? "#000" : can ? "#fff" : "rgba(255,255,255,0.55)"; c.textAlign = "center"; c.textBaseline = "middle";
         c.font = "bold " + Math.round(rad * (n.kind === "minor" ? 1.1 : 0.95)) + "px serif"; c.fillText(nodeIcon(type, n), p.x, p.y + 1);
-        // every node is named (smaller for the small passives)
-        c.textAlign = "center"; c.textBaseline = "alphabetic";
-        c.fillStyle = has || can ? "#fff" : "rgba(255,255,255,0.5)";
-        c.font = Math.round(n.kind === "minor" ? clamp(p.u * 0.11, 8, 11) : clamp(p.u * 0.13, 9, 13)) + "px ui-monospace,monospace";
-        c.fillText(nodeLabel(type, n), p.x, p.y - rad - 5);
+        // every node is named (smaller for the small passives) — v16.5: labels FADE OUT below a zoom
+        // threshold instead of clamping up to 8px, which turned the whole zoomed-out tree into an
+        // unreadable label soup on phones. Zoom in and they resolve; the selected node always keeps its name.
+        { const fs = p.u * (n.kind === "minor" ? 0.11 : 0.13), la = n.id === this.sel ? 1 : clamp((fs - 5.2) / 2.4, 0, 1);
+          if (la > 0.02) {
+            c.textAlign = "center"; c.textBaseline = "alphabetic";
+            c.globalAlpha = la; c.fillStyle = has || can ? "#fff" : "rgba(255,255,255,0.5)";
+            c.font = Math.round(clamp(Math.max(fs, 8), 8, n.kind === "minor" ? 11 : 13)) + "px ui-monospace,monospace";
+            c.fillText(nodeLabel(type, n), p.x, p.y - rad - 5); c.globalAlpha = 1; } }
       }
       // allocation ripples — expanding, fading rings at freshly-bought nodes
       for (let i = this.fx.length - 1; i >= 0; i--) {
@@ -2588,7 +2592,7 @@
     const go = $("ascend-go"); if (go) go.onclick = ascend;
     body.querySelectorAll("button[data-asc]").forEach(b2 => b2.onclick = () => buyAsc(b2.getAttribute("data-asc")));
   }
-  function openAscend() { renderAscend(); $("ascend").classList.add("show"); }
+  function openAscend() { closeCards(); renderAscend(); $("ascend").classList.add("show"); }
   function buildMetrics() {
     const s = stat();
     const sec = (t, h) => `<div class="met-sec"><h3>${t}</h3>${h}</div>`;
@@ -2630,7 +2634,10 @@
   const GMap = {
     open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
     cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
-    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = 0.7; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
+    // v16.5: the resting zoom adapts to the screen — 0.7 framed the whole galaxy nicely on desktop but left
+    // a phone squinting at a thumbnail with the planet names colliding; small screens rest ~80% closer.
+    restZoom() { return Math.min(this.w || window.innerWidth, this.h || window.innerHeight) < 560 ? 1.25 : 0.7; },
+    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = this.restZoom(); this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); },
     ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, rotMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
@@ -2834,8 +2841,8 @@
       if (this.intro != null) {                              // FULL hyperspace arrival when the map opens
         this.intro += dt; const p = clamp(this.intro / this.introDur, 0, 1), q = (1 - p) * (1 - p);
         this._warp = 1.7 * q;                                 // stars streak fast, then decelerate to points
-        this.zoom = 0.7 + (this.iz0 - 0.7) * q;             // drop out: ease the zoom from close-in out to the resting (wider) galaxy view
-        if (p >= 1) { this.intro = null; this._warp = 0; this.zoom = 0.7; }
+        { const rz = this.restZoom(); this.zoom = rz + (this.iz0 - rz) * q; }             // drop out: ease the zoom from close-in out to the resting (screen-fitted) galaxy view
+        if (p >= 1) { this.intro = null; this._warp = 0; this.zoom = this.restZoom(); }
       }
       if (this.flight) {                                     // zoom-into-base animation overrides the camera
         const fl = this.flight; fl.t += dt; const p = clamp(fl.t / fl.dur, 0, 1), e = p * p * (3 - 2 * p), w = this.planetWorld(fl.g);
@@ -2968,6 +2975,7 @@
   function travelDur(a) {
     let d = 67;
     try { const pa = GMap.planetWorld(a), pb = GMap.planetWorld(a + 1); d = Math.hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z); } catch (e) {}
+    if (a === 1) return 300;   // v16.5: the FIRST hop is a 5-min teaser — it teaches the expedition mechanic right after the first conquest high without a ~33-min wall; every later journey keeps the real distance pace
     return Math.max(600, Math.round(d * TRAVEL_SEC_PER_UNIT));
   }
   function travel() {   // LAUNCH an expedition to the next planet: costs treasury + takes a real journey
@@ -2995,106 +3003,21 @@
   }
   // jump to ANY reached planet (revisit & upgrade your background empire, or test)
   function jumpTo(g) { g = clamp(Math.round(g), 1, Math.max(S.peakGalaxy, 1)); if (g === S.galaxy) return; snapshotActive(); flashAdd(0.5); ring(W / 2, H / 2, 10, Math.max(W, H), 0.5); activatePlanet(g); save(); }
-  // EXCHANGE: convert (part of) a background planet's currency into the one you're spending now.
-  // Room-aware: only consumes as much source as fits the remaining import budget, so converting on a
-  // spike just costs LESS source — you can never exceed IMPORT_CAP no matter how you slice it.
-  function doExchange(fromG, reqCash) {
-    const v = S.vault[fromG]; if (!v || fromG === S.galaxy) return 0;
-    const rate = fxRate(fromG, S.galaxy), room = importRoom();
-    if (!(rate > 0) || room <= 0) return 0;
-    const cash = Math.min(Math.floor(reqCash), Math.floor(v.cash || 0), Math.ceil(room / rate));
-    if (!(cash > 0)) return 0;
-    const got = Math.floor(Math.min(cash * rate, room)); if (got <= 0) return 0;
-    v.cash -= cash; S.cash += got;
-    (S.imported || (S.imported = {}))[S.galaxy] = importUsed() + got;
-    recompute(); syncHUD(); save(); return got;
-  }
-  function exchangeAll() {   // mass-convert every wallet's full balance (each respects the shared import room)
-    let total = 0; for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (v && v.conquered && v.cash > 0) total += doExchange(g, v.cash); }
-    return total;
-  }
-  const fxWallets = () => { const out = []; for (let g = 1; g <= S.peakGalaxy; g++) { if (g === S.galaxy) continue; const v = S.vault[g]; if (v && v.conquered) out.push(g); } return out; };
-  let fxPct = {};   // per-wallet convert fraction (0..1) chosen via slider
-  let fxOpen = null;   // which wallet (planet g) is expanded in the accordion
-  const FX_CHIPS = [["25%", 25], ["50%", 50], ["75%", 75], ["MAX", 100]];
-  function openExchange() {
-    const sym = curSym(S.galaxy);
-    if ($("fx-into")) $("fx-into").textContent = "→ " + sym + " " + curName(S.galaxy);
-    const wrap = $("fx-list"); if (!wrap) return; wrap.innerHTML = "";
-    const wallets = fxWallets();
-    if (!wallets.length) { wrap.innerHTML = "<p class='muted' style='padding:24px 18px;text-align:center'>No foreign wallets yet.<br>Conquer this world, travel onward, and each planet's idle currency pools into its own wallet here — ready to bankroll your next fresh start.</p>"; refreshExchange(); return; }
-    wallets.sort((a, b) => Math.floor((S.vault[b].cash) || 0) - Math.floor((S.vault[a].cash) || 0));   // funded wallets at top, empties drop to the bottom as a market-view list
-    if (fxOpen == null || !wallets.includes(fxOpen)) { const top = wallets.find(g => (S.vault[g].cash || 0) > 0); fxOpen = top == null ? null : top; }   // default-expand the richest wallet
-    for (const g of wallets) {
-      const bal = Math.floor((S.vault[g].cash) || 0), has = bal > 0, isOpen = g === fxOpen;
-      if (fxPct[g] == null) fxPct[g] = 1;
-      const el = document.createElement("div"); el.className = "fx-row" + (has ? "" : " locked") + (isOpen ? " open" : ""); el.dataset.fxg = g;
-      const chips = FX_CHIPS.map(([lab, p]) => `<button class="fx-chip" data-g="${g}" data-p="${p}">${lab}</button>`).join("");
-      // compact tappable header: symbol, name, balance, live rate, chevron (all 18 fit at a glance)
-      let html =
-        `<div class="fx-head-row" data-g="${g}"><span class="fx-sym">${curSym(g)}</span><span class="fx-name">${curName(g)}</span>` +
-        `<span class="fx-bal2 ${has ? "" : "fx-dim"}" data-g="${g}">${curSym(g)} ${fmt(bal)}</span>` +
-        `<span class="fx-rate" data-g="${g}"></span><span class="fx-chev">${has ? (isOpen ? "▾" : "▸") : ""}</span></div>`;
-      // expanded converter body only on the open, funded row
-      if (has && isOpen) html +=
-        `<div class="fx-body">` +
-          `<div class="fx-ctrl"><input type="range" class="fx-slider" min="1" max="100" value="${Math.round(fxPct[g]*100)}" data-g="${g}"><span class="fx-pct" data-g="${g}">${Math.round(fxPct[g]*100)}%</span></div>` +
-          `<div class="fx-chips">${chips}</div>` +
-          `<div class="fx-line"><span class="fx-k">Convert</span><span class="fx-v fx-send" data-g="${g}"></span></div>` +
-          `<div class="fx-line fx-rcv"><span class="fx-k">Receive</span><span class="fx-v fx-amt" data-g="${g}"></span></div>` +
-          `<button class="fx-go" data-g="${g}">CONVERT</button>` +
-        `</div>`;
-      el.innerHTML = html;
-      wrap.appendChild(el);
-      el.querySelector(".fx-head-row").onclick = () => { if (!has) return; fxOpen = (fxOpen === g ? null : g); openExchange(); };
-      if (has && isOpen) {
-        const sl = el.querySelector(".fx-slider"), pct = el.querySelector(".fx-pct");
-        const setPct = p => { fxPct[g] = clamp(p / 100, 0.01, 1); sl.value = Math.round(fxPct[g] * 100); pct.textContent = Math.round(fxPct[g] * 100) + "%"; refreshExchange(); };
-        sl.oninput = () => setPct(+sl.value);
-        el.querySelectorAll(".fx-chip").forEach(c => c.onclick = () => setPct(+c.dataset.p));
-        el.querySelector(".fx-go").onclick = () => { doExchange(g, Math.floor(bal * fxPct[g])); openExchange(); };
-      }
-    }
-    refreshExchange();
-  }
-  function refreshExchange() {   // live floating rates + payouts + budget meter while the FX page is open
-    const ex = $("fxpage"); if (!ex || !ex.classList.contains("show")) return;
-    const now = Date.now() / 1000, list = $("fx-list"), sym = curSym(S.galaxy);
-    // import-budget meter
-    const cap = IMPORT_CAP(S.galaxy), used = importUsed(), room = Math.max(0, cap - used), pctUsed = clamp(used / cap, 0, 1) * 100;
-    const meter = $("fx-budget");
-    if (meter) meter.innerHTML =
-      "<div class='fxb-top'><span class='fxb-title'>FOREIGN-AID BUDGET</span><span class='fxb-cap'>cap " + sym + " " + fmt(cap) + "</span></div>" +
-      "<div class='fxb-bar'><div class='fxb-fill' style='width:" + pctUsed.toFixed(1) + "%'></div></div>" +
-      "<div class='fxb-num'><span>used " + sym + " " + fmt(used) + "</span><span>" + sym + " " + fmt(room) + " left</span></div>" +
-      "<div class='fxb-note'>Rates are brutal — you keep ~2%, every spread is below 1, and " + curName(S.galaxy) + " can only ever absorb the cap above. Convert on a spike ↗.</div>";
-    if (!list) return;
-    list.querySelectorAll(".fx-rate").forEach(sp => { const g = +sp.dataset.g, m = fxMarketAt(g, S.galaxy, now), up = m >= fxMarketAt(g, S.galaxy, now - 1.5); sp.textContent = (up ? "↗ ×" : "↘ ×") + m.toFixed(2); sp.classList.toggle("dn", !up); });
-    list.querySelectorAll("[data-fxg]").forEach(row => {
-      const g = +row.dataset.fxg, v = S.vault[g], bal = Math.floor((v && v.cash) || 0), frac = fxPct[g] == null ? 1 : fxPct[g];
-      const send = Math.floor(bal * frac), conv = exchangeAmt(g, send);
-      const b2 = row.querySelector(".fx-bal2"); if (b2) b2.textContent = curSym(g) + " " + fmt(bal);
-      const se = row.querySelector(".fx-send"); if (se) se.textContent = curSym(g) + " " + fmt(send);
-      const amt = row.querySelector(".fx-amt"); if (amt) amt.textContent = sym + " " + fmt(conv);
-      const b = row.querySelector(".fx-go"); if (b) { b.disabled = conv <= 0; b.textContent = conv > 0 ? "CONVERT → " + sym + " " + fmt(conv) : (room <= 0 ? "BUDGET FULL" : "CONVERT"); }
-    });
-    // mass-convert footer
-    let massTotal = 0; for (const g of fxWallets()) { const v = S.vault[g]; if (v && v.cash > 0) massTotal += Math.min(Math.floor(v.cash) * fxRate(g, S.galaxy), room); }   // indicative (shared room means actual may differ slightly)
-    const mi = $("fx-massinfo"), mb = $("fx-massconvert");
-    if (mi) mi.textContent = room <= 0 ? "Import budget full." : "All wallets ≈ " + sym + " " + fmt(Math.floor(Math.min(massTotal, room)));
-    if (mb) mb.disabled = room <= 0 || !fxWallets().some(g => (S.vault[g].cash || 0) > 0);
-  }
   // CODES: "test" turns on FREE SANDBOX mode — everything is unlocked & free to
   // buy so you click and test whatever you want yourself (it does NOT hand you a
   // pre-built roster). Toggle off by entering the code again.
   function unlockAll() {
     S.free = !S.free;                                       // toggle free sandbox
     if (S.free) { S.peakGalaxy = TOTAL_PLANETS; S.cash = Math.max(S.cash, 1e12); }   // TEST MODE: all planets jumpable + a big cash float so the 1%-cost buys are trivially affordable
-    if ($("buymode")) { $("buymode").style.display = S.free ? "" : "none"; $("buymode").textContent = "BUY ×" + BUY_AMTS[buyIdx]; }   // bulk-buy control is a test-mode tool
+    syncBuyMode();   // (v16.5: bulk-buy shows for everyone now — just refresh its label)
     syncCollectors(); recompute(); renderList(); syncHUD(); save();
     return S.free;
   }
   /* ----------------------------- screens ------------------------- */
+  // v16.5: the card modals are mutually exclusive — opening one closes the others, so Settings can never
+  // sit half-visible behind Ascension (they used to stack, both interactive at once).
+  const CARD_MODALS = ["menu", "settings", "metrics", "ascend", "auto-modal", "how", "victory", "info-modal"];
+  function closeCards() { for (const id of CARD_MODALS) { const el = $(id); if (el) el.classList.remove("show"); } }
   function setScreen(s) {
     state = s;
     $("home").classList.toggle("show", s === "home");
@@ -3135,16 +3058,13 @@
 
   /* ----------------------------- wiring -------------------------- */
   for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); renderList(); }; }
-  const syncBuyMode = () => { const b = $("buymode"); if (!b || !S) return; b.style.display = S.free ? "" : "none"; b.textContent = "BUY ×" + BUY_AMTS[buyIdx]; };
+  const syncBuyMode = () => { const b = $("buymode"); if (!b || !S) return; b.style.display = ""; b.textContent = "BUY ×" + BUY_AMTS[buyIdx]; };   // v16.5: standard idle QoL for every player (was sandbox-only)
   if ($("buymode")) $("buymode").onclick = () => { buyIdx = (buyIdx + 1) % BUY_AMTS.length; syncBuyMode(); renderList(); };
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
   for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
   $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
   $("btn-travel").onclick = () => { if (S.travel) { speedTravel(); return; } travel(); };   // en route: pay to speed up (partial = cut part, full = arrive instantly). arrival is processed next update tick
-  const openFx = () => { if (!$("fxpage")) return; openExchange(); $("fxpage").classList.add("show"); };   // EXCHANGE retired — one global currency now; guarded so the removed buttons can't throw
-  if ($("btn-exchange")) $("btn-exchange").onclick = openFx;
   if ($("fx-close")) $("fx-close").onclick = () => $("fxpage").classList.remove("show");
-  if ($("fx-massconvert")) $("fx-massconvert").onclick = () => { exchangeAll(); openExchange(); };
   $("galaxy-open").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); syncAutoBtn(); }; $("gm-close").onclick = () => { $("galaxy-map").classList.remove("show"); GMap.hide(); };
   $("st-close").onclick = closeSkillTree; $("st-sell").onclick = sellOne;
   { const pd = $("st-pick-done"); if (pd) pd.onclick = () => { STree.pick = false; save(); closeSkillTree(); openAuto(S.galaxy); }; }   // ✓ DONE: back to the Auto-Buy panel with the order stored
@@ -3159,14 +3079,12 @@
   if ($("st-max")) $("st-max").onclick = () => { allocAll(STree.type); showNodeInfo(STree.selNode()); };
   $("gm-reset").onclick = () => GMap.reset(); $("st-reset").onclick = () => STree.reset();
   $("st-auto").onclick = () => { STree.pick = !STree.pick; };   // toggle node-picking for the bound Auto-Buy step
-  if ($("gm-exchange")) $("gm-exchange").onclick = openFx;
-  $("btn-metrics").onclick = () => { buildMetrics(); $("metrics").classList.add("show"); };
+  $("btn-metrics").onclick = () => { closeCards(); buildMetrics(); $("metrics").classList.add("show"); };
   $("metrics-close").onclick = $("metrics-back").onclick = () => $("metrics").classList.remove("show");
   $("btn-ascend").onclick = openAscend;
   $("ascend-close").onclick = $("ascend-back").onclick = () => $("ascend").classList.remove("show");
   $("btn-auto").onclick = $("gm-auto").onclick = () => openAuto(S.galaxy);   // dock / map-bar → the planet you're ON
   $("auto-close").onclick = $("auto-back").onclick = () => $("auto-modal").classList.remove("show");
-  $("auto-toggle").onclick = () => { const cfg = curAuto(); cfg.on = !cfg.on; autoAcc = 0; save(); renderAuto(); };   // (hidden in the all-planets overview; per-planet power toggles are used)
   $("dock-toggle").onclick = () => { const d = $("dock"); const min = d.classList.toggle("min"); $("dock-toggle").textContent = min ? "▴ Menu" : "▾ Minimise"; };
   // ── SETTINGS menu (data-driven; opts persist in META.opts) ──
   const OPT_DEFS = [
@@ -3213,8 +3131,8 @@
     sctrl.appendChild(bx); sctrl.appendChild(bi);
     srow.appendChild(slab); srow.appendChild(sctrl); box.appendChild(srow);
   }
-  function openSettings() { renderSettings(); $("settings").classList.add("show"); }
-  $("btn-menu").onclick = () => $("menu").classList.add("show");
+  function openSettings() { closeCards(); renderSettings(); $("settings").classList.add("show"); }
+  $("btn-menu").onclick = () => { closeCards(); $("menu").classList.add("show"); };
   $("menu-close").onclick = () => $("menu").classList.remove("show");
   $("menu-resume").onclick = () => $("menu").classList.remove("show");
   $("menu-home").onclick = () => { save(); $("menu").classList.remove("show"); setScreen("home"); };   // back to the home screen (progress saved)
@@ -3258,6 +3176,32 @@
   $("tut-skip").onclick = () => Tut.finish();
   $("set-tutorial").onclick = () => { $("settings").classList.remove("show"); if (state !== "play") { renderList(); setScreen("play"); } setTimeout(() => Tut.start(true), 350); };
   $("welcome-ok").onclick = () => $("welcome").classList.remove("show");
+  if ($("victory-ok")) $("victory-ok").onclick = () => $("victory").classList.remove("show");
+  if ($("victory-ascend")) $("victory-ascend").onclick = () => openAscend();   // openAscend's closeCards dismisses the victory card
+  // ---- KEYBOARD (v16.5): Esc closes the topmost overlay (or pauses), 1/2/3 fire abilities. Desktop only
+  // by nature — phones never see these events, so nothing mobile changes.
+  document.addEventListener("keydown", e => {
+    const tgt = e.target; if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA")) return;   // never steal keys from the CODES box
+    const vis = id => { const el = $(id); return !!el && el.classList.contains("show"); };
+    if (e.key === "Escape") {
+      if (vis("info-modal")) $("info-modal").classList.remove("show");
+      else if (vis("skilltree")) closeSkillTree();
+      else if (vis("galaxy-map")) { $("galaxy-map").classList.remove("show"); GMap.hide(); }
+      else if (vis("welcome")) $("welcome-ok").click();
+      else if (vis("auto-modal")) $("auto-modal").classList.remove("show");
+      else if (vis("how")) $("how").classList.remove("show");
+      else if (vis("settings")) $("settings").classList.remove("show");
+      else if (vis("metrics")) $("metrics").classList.remove("show");
+      else if (vis("ascend")) $("ascend").classList.remove("show");
+      else if (vis("victory")) $("victory").classList.remove("show");
+      else if (vis("menu")) $("menu").classList.remove("show");
+      else if (Wheel.state() === "done") Wheel.hide();
+      else if (state === "play") $("menu").classList.add("show");   // nothing open → Esc = pause
+      e.preventDefault();
+    } else if ((e.key === "1" || e.key === "2" || e.key === "3") && state === "play" && !document.querySelector(".modal.show")) {
+      useAbility(["frenzy", "dotrain", "blackhole"][+e.key - 1]);
+    }
+  });
   $("home-play").onclick = () => { renderList(); setScreen("play"); if (!META.tutorialDone) setTimeout(() => Tut.start(), 550); };   // first-run coach marks once the play UI is laid out
   $("home-galaxies").onclick = () => { $("galaxy-map").classList.add("show"); GMap.show(); };
   $("home-how").onclick = () => $("how").classList.add("show");
@@ -3292,12 +3236,27 @@
     if ($("skilltree").classList.contains("show")) STree.resize();
   }
   window.addEventListener("resize", resize);
-  let last = 0, saveAcc = 0;
-  function loop(now) { let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) { STree.render(dt); refreshTreeAfford(); const wt = $("sw-tot"), wr = $("sw-rate"); if (wt) wt.textContent = fmt(S.cash); if (wr) wr.textContent = "+" + fmt(Math.max(0, cps)) + "/s"; }   // live wallet in the tree: total climbs, plus $/s — and the node panel's ALLOCATE lights the moment you can afford it
-    if (veilT > 0) { veilT = Math.max(0, veilT - dt); setVeil(135 * (1 - veilT / VEIL_FADE)); }   // iris the black veil open over the base after landing
-    if (landT > 0) { landT = Math.max(0, landT - dt); camZoom += (camFit - camZoom) * Math.min(1, dt * 3.5); if (landT === 0) { camZoom = camFit; const root = $("root"); if (root) root.classList.remove("cinematic"); } }   // camera pulls back to the base, then letterbox retracts
-    fxAcc += dt; if (fxAcc > 0.2) { fxAcc = 0; refreshExchange(); }   // tick the live FX rates while the exchange is open
-    saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); } requestAnimationFrame(loop); }
+  let last = 0, saveAcc = 0, errAcc = 0, errShown = 0;
+  // A thrown exception anywhere in the frame must NEVER kill the game: before v16.5 an uncaught error here
+  // ended the rAF chain — everything (field, income, conquest, even autosave) froze silently until a reload.
+  // Now the frame body is guarded, rAF ALWAYS re-arms, and the player gets a brief toast instead of a dead screen.
+  function frameErr(e) {
+    errAcc++; if (errAcc <= 3 || errAcc % 300 === 0) console.error("[loop]", e);   // log the first few + a heartbeat, never spam every frame
+    const now2 = performance.now();
+    if (now2 - errShown > 4000) { errShown = now2;
+      let t = $("err-toast"); if (!t) { t = document.createElement("div"); t.id = "err-toast"; document.body.appendChild(t); }
+      t.textContent = "⚠ something glitched — recovered (progress is safe)"; t.classList.add("show");
+      clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 3200); }
+  }
+  function loop(now) {
+    try {
+      let dt = (now - last) / 1000 || 0; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); syncHUD(); if (GMap.open) GMap.render(dt); if ($("skilltree").classList.contains("show")) { STree.render(dt); refreshTreeAfford(); const wt = $("sw-tot"), wr = $("sw-rate"); if (wt) wt.textContent = fmt(S.cash); if (wr) wr.textContent = "+" + fmt(Math.max(0, cps)) + "/s"; }   // live wallet in the tree: total climbs, plus $/s — and the node panel's ALLOCATE lights the moment you can afford it
+      if (veilT > 0) { veilT = Math.max(0, veilT - dt); setVeil(135 * (1 - veilT / VEIL_FADE)); }   // iris the black veil open over the base after landing
+      if (landT > 0) { landT = Math.max(0, landT - dt); camZoom += (camFit - camZoom) * Math.min(1, dt * 3.5); if (landT === 0) { camZoom = camFit; const root = $("root"); if (root) root.classList.remove("cinematic"); } }   // camera pulls back to the base, then letterbox retracts
+      saveAcc += dt; if (saveAcc > 5) { saveAcc = 0; save(); }
+    } catch (e) { frameErr(e); }
+    requestAnimationFrame(loop);   // OUTSIDE the guard — the heartbeat survives anything a frame throws
+  }
 
   if ($("version")) $("version").textContent = VERSION;
   hydrateIcons(document);   // swap all static <i data-ico> placeholders for the bespoke SVG glyphs
@@ -3306,7 +3265,7 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, doExchange, exchangeAll, exchangeAmt, importRoom, importCap: () => IMPORT_CAP(S.galaxy), fxRate, buyAsc, openAscend, ascend, pendingCores, coreVal, ascLv, ASC_LINES, exportSave, importSave, Wheel };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, buyAsc, openAscend, ascend, pendingCores, coreVal, ascLv, ASC_LINES, exportSave, importSave, Wheel };
   // read-only scaling hooks for the headless pacing/scaling simulator (tools/playthrough-sim.js) — no game logic, just exposes the real curves so the sim can never diverge from the shipped game
   if (typeof window !== "undefined") window.__SIM = {
     TOTAL_PLANETS, CONQ_STEP, SYS_JUMP, WITHIN_STEP, CUR_BASE, TOUGH_POW, BUY_MUL,
