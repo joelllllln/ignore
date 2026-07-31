@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.6";   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v16.7";   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -614,7 +614,7 @@
     const am = $("ascend"); if (am) am.classList.remove("show");
     floatTxt(W / 2, H / 2 - 40, "\u25c8 ASCENSION " + META.asc.runs);
     floatTxt(W / 2, H / 2 - 16, "+" + pend + " \u25c8 banked \u00b7 the cluster resets \u00b7 you come back harder");
-    flashAdd(0.8); shakeAdd(8); vibe([60, 40, 120]); Audio_boss();
+    flashAdd(0.8); shakeAdd(8); vibe([60, 40, 120]); Audio_ascend();
   }
 
   function recompute() {
@@ -772,6 +772,7 @@
   function showBossReward(name, amount, gem, node, escaped, dealtPct) {   // non-blocking end-of-boss recap (kill OR escape); auto-dismisses
     const el = $("boss-reward"); if (!el) return;
     el.classList.toggle("escape", !!escaped);
+    if (escaped) Audio_escape();   // v16.7: the getaway gets its falling-minor shrug
     $("br-title").textContent = escaped ? "✕ " + name + " ESCAPED" : "▲ " + name + " DEFEATED";
     countUpTo($("br-cash"), amount, "+" + curSym(S.galaxy) + " ", 600);
     const bn = $("br-bonus"); if (bn) { bn.textContent = escaped
@@ -869,6 +870,7 @@
     function land() {
       state = "done"; doneT = 0;
       resultTxt = apply(segs[won]);
+      Audio_win(segs[won] && segs[won].kind === "jack");   // v16.7: the landing slam finally has a voice
       const rs = $("wh-result"); rs.textContent = resultTxt; rs.classList.remove("slam"); void rs.offsetWidth; rs.classList.add("slam");
       $("wh-hint").textContent = "TAP TO CLOSE";
       flashAdd(segs[won].kind === "jack" ? 0.55 : 0.3); shakeAdd(segs[won].kind === "jack" ? 7 : 3); vibe(segs[won].kind === "jack" ? [50, 40, 90] : [30, 20, 40]);
@@ -1394,6 +1396,7 @@
       const big = d.armored || (d.tier || 0) >= 3, cmax = big ? 1.6 : ((d.tier || 0) >= 1 || d.r > 12 ? 0.55 : 0.1);
       orbs.push({ x: d.x, y: d.y, value: d.value, t: 0, weight: d.weight || 1, consume: 0, consumeMax: cmax, r0: big ? 6.5 : ((d.tier || 0) >= 1 ? 4 : 2.6), big });
       const s = stat(); s.dotsPopped++; if (d.special) s.specials++; if (d.armored) s.armored = (s.armored || 0) + 1; if (src) s.kills[src] = (s.kills[src] || 0) + 1;
+      Audio_pop(big, d.tier);   // v16.7: the field speaks — throttled + ducked, see the sound layer
       const nb = Math.min(28, 6 + (d.tier || 0) * 4 + (d.armored ? 8 : 0));
       burst(d.x, d.y, nb, 90 + (d.tier || 0) * 24 + (d.armored ? 60 : 0), 2 + (d.tier || 0) * 0.3);
       ring(d.x, d.y, d.r, d.r + 18 + (d.tier || 0) * 8, 0.3); if (d.armored) shakeAdd(0.5);   // only armored elites nudge the screen — tier-4+ became common late game and pinned the shake
@@ -1409,7 +1412,7 @@
     }
   }
   function brushDmg() { let m = 5; for (const u of S.units) { const x = uDmg(u); if (x > m) m = x; } return m * 1.5 + 3; }
-  function brushAt(x, y) { const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) {
+  function brushAt(x, y) { Audio_zap(); const R = 30, dmg = brushDmg(); for (const d of dots) { if (d.dead) continue; const rr = R + d.r; if ((d.x - x) ** 2 + (d.y - y) ** 2 <= rr * rr && d.drawCd <= 0) {
     const dd = d.boss ? dmg * 2 : dmg;   // DOUBLE draw damage vs bosses — active drawing is what seals the boss kill
     hitDot(d, dd, "draw"); d.drawCd = 0.07;
     if (d.boss && !d.dead) {   // the finger must stay VISIBLE under constant turret fire: the generic hit-flash is
@@ -1432,7 +1435,7 @@
 
   function useAbility(k) {
     if (abil[k] > 0 || state !== "play") return;
-    abil[k] = ABIL_CD[k]; META.stats.abilities[k] = (META.stats.abilities[k] || 0) + 1; vibe(15);
+    abil[k] = ABIL_CD[k]; META.stats.abilities[k] = (META.stats.abilities[k] || 0) + 1; vibe(15); Audio_ability(k);
     if (k === "frenzy") { frenzyT = 6; shakeAdd(3.5); flashAdd(0.3); ring(W / 2, H / 2, 30, Math.max(W, H) * 0.55, 0.5); }
     else if (k === "dotrain") { const n = 30 + S.galaxy * 8, cap = galCap(S.galaxy); for (let i = 0; i < n && dots.length < cap; i++) spawnDot(Math.random() < 0.3); shakeAdd(4); ring(W / 2, 70, 20, W * 0.55, 0.5); }   // respect the field cap so the flood doesn't overwhelm collectors into net loss
     else if (k === "blackhole") { blackholeT = 5; shakeAdd(5); flashAdd(0.25); ring(W / 2, H / 2, Math.max(W, H) * 0.55, 40, 0.6); }
@@ -1581,7 +1584,7 @@
             nd.proc++;
             o.consume += dt * cIngest(nd.type); o.x += (nd.x - o.x) * 0.3; o.y += (nd.y - o.y) * 0.3; if (o.consumeMax > 0.8) nd.parking = true;   // only park for genuinely heavy loot (armored/boss), not tier-1 orbs
             if (Math.random() < (o.big ? 0.4 : 0.12)) spark(o.x, o.y);
-            if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) { burst(o.x, o.y, 8, 70, 2); nd.pop = 0.25; } orbs.splice(i, 1); }
+            if (o.consume >= o.consumeMax) { const got = Math.round(o.value * cYield(nd.type) * orbFresh(o)); earned += got; META.stats.collected[nd.type] = (META.stats.collected[nd.type] || 0) + got; fxEarn += got; fxEarnX = nd.x; fxEarnY = nd.y - 6; if (o.big) { burst(o.x, o.y, 8, 70, 2); nd.pop = 0.25; } Audio_collect(o.big); orbs.splice(i, 1); }
           } else {                                                 // all bays busy — orb queues at the maw; with too little Capacity a dense pile backs up and can expire
             o.x += (nd.x - o.x) * 0.1; o.y += (nd.y - o.y) * 0.1;
             if (o.t > ORB_LIFE) { META.stats.lost++; META.stats.lostCash += o.value; orbs.splice(i, 1); }
@@ -1596,9 +1599,9 @@
     { const bgSum = empireIdleRate(); if (bgSum > 0) { const add = bgSum * dt; S.cash = Math.max(S.cash, Math.min(derived.capacity, S.cash + add)); S.totalRun += add; META.totalEver += add;
         if (!planetMeta(S.galaxy).conquered) { const barCap = IDLE_FRAC * ACTIVE_REF * eco(S.galaxy) * (S.conquest || 1); curEarned += Math.min(bgSum, barCap) * dt; } } }   // treasury gets the FULL empire rate; the conquer BAR gets at most IDLE_FRAC of active income (P4 — idle never out-paces playing)
     // conquest check — UNCONDITIONAL so ANY income source (active orbs OR idle empire) can complete it
-    { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); const cg = coreVal(S.galaxy); recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + cg + " ◈ PENDING — Ascension charging (" + pendingCores() + " ready)"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); syncHUD();
+    { const pm = planetMeta(S.galaxy); if (!pm.conquered && curEarned >= conquerTarget(S.galaxy)) { pm.conquered = true; pm.bgRate = Math.max(pm.bgRate || 0, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)); const cg = coreVal(S.galaxy); recompute(); floatTxt(W / 2, H / 2 - 40, "✦ PLANET CONQUERED  ·  TRAVEL UNLOCKED"); floatTxt(W / 2, H / 2 - 16, "+" + cg + " ◈ PENDING — Ascension charging (" + pendingCores() + " ready)"); flashAdd(0.5); shakeAdd(4); vibe([40, 30, 90]); Audio_conquer(); syncHUD();
         let totConq = 0; for (const k in S.vault) if (S.vault[k] && S.vault[k].conquered) totConq++;   // capstone: every world in the cluster subdued
-        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); showVictory(); save(); } } }   // v16.5: a PERSISTENT victory screen — the old floating text faded in ~2s and the summit of ~55 active hours was missable by an alt-tab
+        if (totConq >= TOTAL_PLANETS && !S.victory) { S.victory = true; flashAdd(0.9); shakeAdd(9); ring(W / 2, H / 2, 14, Math.max(W, H), 0.8); burst(W / 2, H / 2, 60, 320, 3.2); Audio_victory(); showVictory(); save(); } } }   // v16.5: a PERSISTENT victory screen — the old floating text faded in ~2s and the summit of ~55 active hours was missable by an alt-tab
     fxEarnT += dt; if (fxEarn > 0 && fxEarnT > 0.22) { floatTxt(fxEarnX, fxEarnY - 14, "+" + curSym(S.galaxy) + fmt(fxEarn)); fxEarn = 0; fxEarnT = 0; }
     earnT += dt; if (earnT >= 1) { cps = cps * 0.6 + (earnAcc / earnT) * 0.4; earnAcc = 0; earnT = 0; }
     for (const tp of trail) tp.life -= dt; trail = trail.filter(tp => tp.life > 0);
@@ -1963,6 +1966,85 @@
     const o = a.createOscillator(); o.type = "square"; o.frequency.value = 2200 + Math.random() * 350;
     const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.03, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.028);
     o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + 0.032);
+  }
+  // ── FULL SOUND LAYER (v16.7) — the field finally speaks. All synthesized WebAudio (no assets, no deps),
+  // mixed QUIET and heavily THROTTLED: at 40 kills/sec a per-event sound would be white noise, so the field
+  // sounds share rate gates + an adaptive duck (the busier the second, the softer each hit). Everything
+  // respects the Sound toggle via opt("sound"). One-shot event sounds (conquest, ascension, victory,
+  // launch, wheel win) are allowed to be a moment — they're rare.
+  function sTone(f0, f1, dur, type, vol, delay) {   // one enveloped osc, optional pitch glide — the shared voice of the layer
+    const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime + (delay || 0);
+    const o = a.createOscillator(); o.type = type || "sine"; o.frequency.setValueAtTime(f0, t0);
+    if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
+    const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.012, dur * 0.25)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + dur + 0.03);
+  }
+  function sNoise(fc0, fc1, dur, vol, delay, type) {   // enveloped filtered noise — whooshes, cracks, rumbles
+    const a = Sfx.ac(); if (!a) return; const s = Sfx.noise(); if (!s) return; const t0 = a.currentTime + (delay || 0);
+    const f = a.createBiquadFilter(); f.type = type || "bandpass"; f.Q.value = 0.8; f.frequency.setValueAtTime(fc0, t0);
+    if (fc1 && fc1 !== fc0) f.frequency.exponentialRampToValueAtTime(Math.max(30, fc1), t0 + dur);
+    const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + dur * 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    s.connect(f).connect(g).connect(a.destination); s.start(t0); s.stop(t0 + dur + 0.05);
+  }
+  let sfxPopT = 0, sfxPopN = 0, sfxPopWin = 0, sfxColT = 0, sfxZapT = 0;   // field-sound rate gates + rolling busy counter
+  const sfxDuck = () => { const now = performance.now(); if (now - sfxPopWin > 1000) { sfxPopWin = now; sfxPopN = 0; } sfxPopN++; return 1 / Math.sqrt(1 + sfxPopN * 0.35); };   // the busier this second, the softer each hit
+  function Audio_pop(big, tier) {   // a dot dies — tiny pitched blip; armored/high-tier lands a deeper knock
+    if (!opt("sound")) return; const now = performance.now(); if (now - sfxPopT < 55) return; sfxPopT = now;
+    const d = sfxDuck();
+    if (big) { sTone(200 + Math.random() * 40, 60, 0.12, "sine", 0.10 * d); sNoise(2400, 500, 0.06, 0.03 * d); }
+    else sTone(520 + (tier | 0) * -40 + Math.random() * 160, 240, 0.07, "sine", 0.055 * d);
+  }
+  function Audio_collect(big) {   // a collector swallows loot — soft rising blip; heavy loot gulps lower
+    if (!opt("sound")) return; const now = performance.now(); if (now - sfxColT < 70) return; sfxColT = now;
+    const d = sfxDuck();
+    if (big) sTone(340, 620, 0.09, "triangle", 0.05 * d);
+    else sTone(880 + Math.random() * 220, 1500, 0.055, "sine", 0.035 * d);
+  }
+  function Audio_zap() {   // the player's draw sweep — a dry little zap under the finger
+    if (!opt("sound")) return; const now = performance.now(); if (now - sfxZapT < 65) return; sfxZapT = now;
+    sTone(190 + Math.random() * 50, 80, 0.05, "square", 0.028);
+  }
+  function Audio_ability(k) {   // each ability announces itself in its own voice
+    if (!opt("sound")) return;
+    if (k === "frenzy") { sTone(220, 880, 0.35, "sawtooth", 0.07); sTone(440, 1760, 0.35, "sine", 0.04, 0.04); }                    // rising overdrive
+    else if (k === "dotrain") { sNoise(3200, 260, 0.55, 0.16); sTone(980, 240, 0.4, "sine", 0.05, 0.1); }                          // the sky falls in
+    else if (k === "blackhole") { sTone(75, 28, 1.2, "sine", 0.28); sNoise(500, 60, 1.1, 0.10, 0, "lowpass"); }                    // hungry sub-bass drone
+  }
+  function Audio_conquer() {   // a world falls — bright major arpeggio, the run's best regular moment
+    if (!opt("sound")) return;
+    [[392, 0], [494, 0.09], [587, 0.18], [784, 0.3]].forEach(([f, d]) => sTone(f, f, 0.32, "triangle", 0.09, d));
+  }
+  function Audio_victory() {   // ALL 18 — the only fanfare in the game; it earns its length
+    if (!opt("sound")) return;
+    [[392, 0], [523, 0.14], [659, 0.28], [784, 0.42]].forEach(([f, d]) => sTone(f, f, 0.5, "triangle", 0.10, d));
+    [523, 659, 784, 1046].forEach(f => sTone(f, f, 1.5, "sine", 0.045, 0.62));   // sustained closing chord
+    sNoise(700, 4200, 0.7, 0.08, 0.55);                                          // shimmer up and out
+  }
+  function Audio_ascend() {   // the run collapses into the Engine — a riser, then a rebirth boom
+    if (!opt("sound")) return;
+    sNoise(220, 4000, 0.8, 0.16);                                                // charge-up sweep
+    sTone(160, 30, 0.9, "sine", 0.4, 0.75); sNoise(2600, 300, 0.25, 0.12, 0.75); // detonation + crack
+    sTone(523, 523, 0.7, "triangle", 0.05, 1.1); sTone(784, 784, 0.7, "triangle", 0.04, 1.2);   // two calm notes: you're back
+  }
+  function Audio_launch() {   // an expedition lifts off — rumble under a climbing engine
+    if (!opt("sound")) return;
+    sNoise(180, 90, 0.9, 0.18, 0, "lowpass");                                    // launch-pad rumble
+    sTone(80, 340, 0.85, "sawtooth", 0.05);                                      // engine climbing away
+  }
+  function Audio_win(jack) {   // the Bounty Wheel lands — a slam, bigger when it's the jackpot
+    if (!opt("sound")) return;
+    sNoise(1800, 400, 0.12, 0.14); sTone(523, 523, 0.22, "triangle", 0.1); sTone(784, 784, 0.3, "triangle", 0.09, 0.07);
+    if (jack) [[1046, 0.16], [1318, 0.26], [1568, 0.36]].forEach(([f, d]) => sTone(f, f, 0.35, "sine", 0.06, d));
+  }
+  function Audio_escape() {   // the boss got away — a falling minor shrug
+    if (!opt("sound")) return;
+    [[440, 0], [349, 0.12], [262, 0.26]].forEach(([f, d]) => sTone(f, f, 0.3, "triangle", 0.06, d));
+  }
+  function Audio_click() {   // UI tab/toggle tap — barely-there
+    if (!opt("sound")) return; sTone(1400 + Math.random() * 200, 1400, 0.025, "square", 0.018);
+  }
+  function Audio_err() {   // the loop recovered from an exception — a dry low buzz, as rare as the toast
+    if (!opt("sound")) return; try { sTone(110, 90, 0.22, "sawtooth", 0.05); } catch (e) {}
   }
 
   /* ----------------------- AUTO-BUY (idle automation) -----------------------
@@ -3008,7 +3090,7 @@
     S.cash -= cost;
     let fromW = null, toW = null; try { const w = GMap.planetWorld(g), w2 = GMap.planetWorld(g + 1); fromW = { x: w.x, y: w.y, z: w.z }; toW = { x: w2.x, y: w2.y, z: w2.z }; } catch (e) {}   // freeze BOTH endpoints at launch — the trajectory line is fixed in space and never drifts as the planets orbit
     S.travel = { from: g, to: g + 1, t: 0, dur: travelDur(g), fromW, toW, cost };   // store the launch cost — the same amount, paid again, finishes the journey instantly (partial payments cut it proportionally)
-    META.stats.travels++; flashAdd(0.35); shakeAdd(2); vibe(60); recompute(); syncHUD(); save();
+    META.stats.travels++; flashAdd(0.35); shakeAdd(2); vibe(60); Audio_launch(); recompute(); syncHUD(); save();
   }
   // PAY TO SPEED UP the journey: the full-journey "instant" price = the launch cost; from any point, finishing
   // the REMAINING trip costs that × (remaining ÷ total). You can pay a partial amount to cut just part of it.
@@ -3076,9 +3158,9 @@
   canvas.addEventListener("wheel", e => { if (state !== "play") return; e.preventDefault(); camZoom = clamp(camZoom * (1 - e.deltaY * 0.0012), camFit * ZOOM_OUT, 1.15); }, { passive: false });
 
   /* ----------------------------- wiring -------------------------- */
-  for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); renderList(); }; }
+  for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); Audio_click(); renderList(); }; }
   const syncBuyMode = () => { const b = $("buymode"); if (!b || !S) return; b.style.display = ""; b.textContent = "BUY ×" + BUY_AMTS[buyIdx]; };   // v16.5: standard idle QoL for every player (was sandbox-only)
-  if ($("buymode")) $("buymode").onclick = () => { buyIdx = (buyIdx + 1) % BUY_AMTS.length; syncBuyMode(); renderList(); };
+  if ($("buymode")) $("buymode").onclick = () => { buyIdx = (buyIdx + 1) % BUY_AMTS.length; Audio_click(); syncBuyMode(); renderList(); };
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
   for (const i of document.querySelectorAll(".ab-i")) i.onclick = e => { e.stopPropagation(); const k = i.dataset.info; showInfo({ frenzy: "Frenzy", dotrain: "Dot Rain", blackhole: "Black Hole" }[k], k); };
   $("info-close").onclick = $("info-back").onclick = () => $("info-modal").classList.remove("show");
@@ -3265,6 +3347,7 @@
     if (now2 - errShown > 4000) { errShown = now2;
       let t = $("err-toast"); if (!t) { t = document.createElement("div"); t.id = "err-toast"; document.body.appendChild(t); }
       t.textContent = "⚠ something glitched — recovered (progress is safe)"; t.classList.add("show");
+      try { Audio_err(); } catch (e2) {}
       clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 3200); }
   }
   function loop(now) {

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Idle Dot Shooter</title>
-<!-- Cross-platform install + update metadata (v16.6). The ?v= query on style.css / js/game.js is the
+<!-- Cross-platform install + update metadata. The ?v= query on style.css / js/game.js is the
      CACHE BUSTER: iOS Safari and Android Chrome hold cached assets for a long time, so every version
      bump MUST bump these two queries too (see CONTRIBUTING.md) — that's what makes a push actually
      reach phones instead of feeding them a stale game.js forever. -->
@@ -16,14 +16,14 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=16.6" />
+<link rel="stylesheet" href="style.css?v=16.7" />
 </head>
 <body>
 <div id="root">
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v16.4</div>
+  <div id="version" class="layer">v16.7</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -253,6 +253,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=16.6"></script>
+<script src="js/game.js?v=16.7"></script>
 </body>
 </html>
