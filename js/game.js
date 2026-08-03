@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.7";   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v16.8";   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
@@ -59,12 +59,30 @@
   const ZOOM_OUT = 0.55;      // how far PAST "fit the whole world" you can pull the camera back (pure view — lets you see the full field + spawns with margin, drones no longer hug the screen edge; does NOT change the playfield)
   // ── tiny synthesized SFX engine (no assets) — used for the cinematic warp-into-base jump ──
   const Sfx = {
-    ctx: null, nb: null,
+    ctx: null, nb: null, _busFor: null, _busIn: null, _echoIn: null,
     ac() { try { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === "suspended") this.ctx.resume(); } catch (e) { this.ctx = null; } return this.ctx; },
-    noise() { const a = this.ctx; if (!a) return null; if (!this.nb) { const n = a.sampleRate * 2, b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.nb = b; } const s = a.createBufferSource(); s.buffer = this.nb; s.loop = true; return s; },
-    swoosh(dur) { if (!opt("sound")) return; const a = this.ac(); if (!a) return; const t0 = a.currentTime, s = this.noise(); if (!s) return; const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.9; bp.frequency.setValueAtTime(2800, t0); bp.frequency.exponentialRampToValueAtTime(180, t0 + dur); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(bp).connect(g).connect(a.destination); s.start(t0); s.stop(t0 + dur + 0.05); },   // descending "drop out of hyperspace" whoosh
+    noise() { const a = this.ctx; if (!a) return null; if (!this.nb || this._nbFor !== a) { const n = a.sampleRate * 2, b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.nb = b; this._nbFor = a; } const s = a.createBufferSource(); s.buffer = this.nb; s.loop = true; return s; },
+    // MASTER BUS (v16.8): every sound routes master → gentle compressor → speakers. The compressor is the
+    // glue — twenty stacked pops duck each other musically instead of clipping into crunch. The echo return
+    // is a cheap feedback-delay "room": big one-shots (conquest, victory, ascension, wheel) send a little
+    // into it and get a tail, so they feel like events in a space instead of dry beeps.
+    out(a) {
+      if (this._busFor !== a) {
+        const comp = a.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 22; comp.ratio.value = 5; comp.attack.value = 0.003; comp.release.value = 0.24;
+        const master = a.createGain(); master.gain.value = 3.0;   // v16.8 mix calibration: individual voices are mixed conservative; the bus brings the whole layer up to a healthy level (big one-shots ≈ -8 dBFS peak) and the compressor catches the sum
+        const dly = a.createDelay(0.6); dly.delayTime.value = 0.16; const fb = a.createGain(); fb.gain.value = 0.32;
+        const lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
+        const wet = a.createGain(); wet.gain.value = 0.55;
+        dly.connect(lp); lp.connect(fb); fb.connect(dly);   // feedback loop, darkening each repeat
+        dly.connect(wet); wet.connect(master);
+        master.connect(comp); comp.connect(a.destination);
+        this._busFor = a; this._busIn = master; this._echoIn = dly;
+      } return this._busIn;
+    },
+    echo(a) { this.out(a); return this._echoIn; },
+    swoosh(dur) { if (!opt("sound")) return; const a = this.ac(); if (!a) return; const t0 = a.currentTime, s = this.noise(); if (!s) return; const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.9; bp.frequency.setValueAtTime(2800, t0); bp.frequency.exponentialRampToValueAtTime(180, t0 + dur); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(bp).connect(g).connect(this.out(a)); s.start(t0); s.stop(t0 + dur + 0.05); },   // descending "drop out of hyperspace" whoosh
     warp(dur) {
-      if (!opt("sound")) return; const a = this.ac(); if (!a) return; const t0 = a.currentTime, dest = a.destination;
+      if (!opt("sound")) return; const a = this.ac(); if (!a) return; const t0 = a.currentTime, dest = this.out(a);
       const tube = this.noise(); if (tube) { const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.3; bp.frequency.setValueAtTime(180, t0); bp.frequency.exponentialRampToValueAtTime(3200, t0 + dur * 0.82); const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.34, t0 + dur * 0.78); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.96); tube.connect(bp).connect(g).connect(dest); tube.start(t0); tube.stop(t0 + dur); }
       const o = a.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(55, t0); o.frequency.exponentialRampToValueAtTime(440, t0 + dur * 0.8); const og = a.createGain(); og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.11, t0 + dur * 0.75); og.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.9); o.connect(og).connect(dest); o.start(t0); o.stop(t0 + dur * 0.95);
       const tb = t0 + dur * 0.8;   // BOOM at the punch
@@ -859,6 +877,7 @@
     }
     function launch() {
       if (state !== "arm") return;
+      Audio_spinup();   // v16.8: the reel ripping into motion has a wind-up voice
       state = "spin"; t = 0; a0 = a; dur = rnd(3.9, 4.6);
       // land the winning slice centred under the pointer (± a little in-slice jitter), 5–6 turns out
       const span = TAU / segs.length, centre = (won + 0.5) * span;
@@ -1445,7 +1464,7 @@
   function update(dt) {
     if (S.travel) {   // an expedition is in transit — advance it and arrive (ticks on any screen)
       S.travel.t += dt;
-      if (S.travel.t >= S.travel.dur) { const to = S.travel.to; S.travel = null; snapshotActive(); flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); activatePlanet(to); save(); }
+      if (S.travel.t >= S.travel.dur) { const to = S.travel.to; S.travel = null; snapshotActive(); flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); Audio_land(); activatePlanet(to); save(); }
     }
     if (state !== "play") return;
     recompute();
@@ -1946,99 +1965,135 @@
     if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
     [[620, 0], [930, 0.05]].forEach(([f, d]) => { const o = a.createOscillator(); o.type = "triangle"; o.frequency.value = f;
       const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.1, t0 + d + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.085);
-      o.connect(g).connect(a.destination); o.start(t0 + d); o.stop(t0 + d + 0.1); });
+      o.connect(g).connect(Sfx.out(a)); o.start(t0 + d); o.stop(t0 + d + 0.1); });
   }
   function Audio_node() {   // a skill node locks in — quick rising arpeggio, a touch grander than a buy
     if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
     [[523, 0], [659, 0.055], [880, 0.11]].forEach(([f, d]) => { const o = a.createOscillator(); o.type = "triangle"; o.frequency.value = f;
       const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.11, t0 + d + 0.014); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.16);
-      o.connect(g).connect(a.destination); o.start(t0 + d); o.stop(t0 + d + 0.18); });
+      o.connect(g).connect(Sfx.out(a)); o.start(t0 + d); o.stop(t0 + d + 0.18); });
   }
-  function Audio_boss() {   // boss down — one low thump + a crack of noise (rare, earned)
+  function Audio_boss() {   // boss down — layered detonation: sub thump + body + crack, with a room tail (rare, earned)
     if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
     const o = a.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(150, t0); o.frequency.exponentialRampToValueAtTime(34, t0 + 0.45);
     const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
-    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + 0.52);
-    const nz = Sfx.noise(); if (nz) { const hp = a.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1800; const ng = a.createGain(); ng.gain.setValueAtTime(0.22, t0); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16); nz.connect(hp).connect(ng).connect(a.destination); nz.start(t0); nz.stop(t0 + 0.18); }
+    o.connect(g).connect(Sfx.out(a)); o.start(t0); o.stop(t0 + 0.52);
+    const nz = Sfx.noise(); if (nz) { const hp = a.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1800; const ng = a.createGain(); ng.gain.setValueAtTime(0.22, t0); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16); nz.connect(hp).connect(ng).connect(Sfx.out(a)); nz.start(t0); nz.stop(t0 + 0.18); }
+    sTone(55, 24, 0.7, "sine", 0.22, 0.02);                 // v16.8: sub layer under the thump — feel it in the chest
+    sNoise(700, 150, 0.5, 0.08, 0.05, "bandpass", 0.45);    // debris settling into the room
   }
   function Audio_tick() {   // the Bounty Wheel pointer clips a slice boundary — the quietest sound in the game
     if (!opt("sound")) return; const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime;
     const o = a.createOscillator(); o.type = "square"; o.frequency.value = 2200 + Math.random() * 350;
     const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.03, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.028);
-    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + 0.032);
+    o.connect(g).connect(Sfx.out(a)); o.start(t0); o.stop(t0 + 0.032);
   }
   // ── FULL SOUND LAYER (v16.7) — the field finally speaks. All synthesized WebAudio (no assets, no deps),
   // mixed QUIET and heavily THROTTLED: at 40 kills/sec a per-event sound would be white noise, so the field
   // sounds share rate gates + an adaptive duck (the busier the second, the softer each hit). Everything
   // respects the Sound toggle via opt("sound"). One-shot event sounds (conquest, ascension, victory,
   // launch, wheel win) are allowed to be a moment — they're rare.
-  function sTone(f0, f1, dur, type, vol, delay) {   // one enveloped osc, optional pitch glide — the shared voice of the layer
+  function sTone(f0, f1, dur, type, vol, delay, send) {   // one enveloped osc, optional pitch glide — the shared voice of the layer. `send` (0..1) leaks it into the echo return for a tail
     const a = Sfx.ac(); if (!a) return; const t0 = a.currentTime + (delay || 0);
     const o = a.createOscillator(); o.type = type || "sine"; o.frequency.setValueAtTime(f0, t0);
     if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
     const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.012, dur * 0.25)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + dur + 0.03);
+    o.connect(g); g.connect(Sfx.out(a));
+    if (send) { const sg = a.createGain(); sg.gain.value = send; g.connect(sg); sg.connect(Sfx.echo(a)); }
+    o.start(t0); o.stop(t0 + dur + 0.03);
   }
-  function sNoise(fc0, fc1, dur, vol, delay, type) {   // enveloped filtered noise — whooshes, cracks, rumbles
+  function sNoise(fc0, fc1, dur, vol, delay, type, send) {   // enveloped filtered noise — whooshes, cracks, rumbles; `send` echoes it
     const a = Sfx.ac(); if (!a) return; const s = Sfx.noise(); if (!s) return; const t0 = a.currentTime + (delay || 0);
     const f = a.createBiquadFilter(); f.type = type || "bandpass"; f.Q.value = 0.8; f.frequency.setValueAtTime(fc0, t0);
     if (fc1 && fc1 !== fc0) f.frequency.exponentialRampToValueAtTime(Math.max(30, fc1), t0 + dur);
     const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + dur * 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    s.connect(f).connect(g).connect(a.destination); s.start(t0); s.stop(t0 + dur + 0.05);
+    s.connect(f); f.connect(g); g.connect(Sfx.out(a));
+    if (send) { const sg = a.createGain(); sg.gain.value = send; g.connect(sg); sg.connect(Sfx.echo(a)); }
+    s.start(t0); s.stop(t0 + dur + 0.05);
   }
   let sfxPopT = 0, sfxPopN = 0, sfxPopWin = 0, sfxColT = 0, sfxZapT = 0;   // field-sound rate gates + rolling busy counter
   const sfxDuck = () => { const now = performance.now(); if (now - sfxPopWin > 1000) { sfxPopWin = now; sfxPopN = 0; } sfxPopN++; return 1 / Math.sqrt(1 + sfxPopN * 0.35); };   // the busier this second, the softer each hit
-  function Audio_pop(big, tier) {   // a dot dies — tiny pitched blip; armored/high-tier lands a deeper knock
+  // KILL-COMBO PITCH LADDER (v16.8) — the Peggle trick: consecutive kills walk UP a pentatonic scale
+  // (octave up each lap, capped two octaves). A hot streak literally plays a rising melody; go quiet for
+  // ~1.2s and it resets to the root. Pentatonic = every note is consonant with every other, so even
+  // random-throttled kills can't play a sour interval.
+  const PENTA = [523.25, 587.33, 659.25, 783.99, 880.0];
+  let comboN = 0, comboLast = 0;
+  function Audio_pop(big, tier) {   // a dot dies — pitched pop that climbs the combo ladder; armored/high-tier lands a deeper knock
     if (!opt("sound")) return; const now = performance.now(); if (now - sfxPopT < 55) return; sfxPopT = now;
+    comboN = now - comboLast < 1200 ? Math.min(comboN + 1, 14) : 0; comboLast = now;
     const d = sfxDuck();
-    if (big) { sTone(200 + Math.random() * 40, 60, 0.12, "sine", 0.10 * d); sNoise(2400, 500, 0.06, 0.03 * d); }
-    else sTone(520 + (tier | 0) * -40 + Math.random() * 160, 240, 0.07, "sine", 0.055 * d);
+    if (big) { sTone(190 + Math.random() * 40, 55, 0.14, "sine", 0.12 * d, 0, 0.15); sNoise(2600, 480, 0.07, 0.045 * d); }   // meaty knock + crack, touch of room
+    else { const f = PENTA[comboN % 5] * Math.pow(2, Math.min(2, (comboN / 5) | 0));
+      sTone(f, f * 0.94, 0.07, "sine", 0.055 * d);
+      sNoise(5200, 2600, 0.018, 0.02 * d); }   // tiny click transient on top — reads as a "pop", not a beep
   }
-  function Audio_collect(big) {   // a collector swallows loot — soft rising blip; heavy loot gulps lower
+  function Audio_collect(big) {   // a collector swallows loot — pentatonic blip in a high register; heavy loot gulps lower
     if (!opt("sound")) return; const now = performance.now(); if (now - sfxColT < 70) return; sfxColT = now;
     const d = sfxDuck();
-    if (big) sTone(340, 620, 0.09, "triangle", 0.05 * d);
-    else sTone(880 + Math.random() * 220, 1500, 0.055, "sine", 0.035 * d);
+    if (big) { sTone(330, 660, 0.11, "triangle", 0.06 * d); sTone(660, 990, 0.07, "sine", 0.03 * d, 0.05); }   // two-stage gulp
+    else { const f = PENTA[(Math.random() * 5) | 0] * 2; sTone(f, f * 1.5, 0.05, "sine", 0.035 * d); }
   }
   function Audio_zap() {   // the player's draw sweep — a dry little zap under the finger
     if (!opt("sound")) return; const now = performance.now(); if (now - sfxZapT < 65) return; sfxZapT = now;
     sTone(190 + Math.random() * 50, 80, 0.05, "square", 0.028);
   }
-  function Audio_ability(k) {   // each ability announces itself in its own voice
+  function Audio_ability(k) {   // each ability announces itself in its own voice, sized to its duration
     if (!opt("sound")) return;
-    if (k === "frenzy") { sTone(220, 880, 0.35, "sawtooth", 0.07); sTone(440, 1760, 0.35, "sine", 0.04, 0.04); }                    // rising overdrive
-    else if (k === "dotrain") { sNoise(3200, 260, 0.55, 0.16); sTone(980, 240, 0.4, "sine", 0.05, 0.1); }                          // the sky falls in
-    else if (k === "blackhole") { sTone(75, 28, 1.2, "sine", 0.28); sNoise(500, 60, 1.1, 0.10, 0, "lowpass"); }                    // hungry sub-bass drone
+    if (k === "frenzy") {   // 6s of overdrive: rising rip, then sparse high sparkles across the window
+      sTone(220, 880, 0.35, "sawtooth", 0.07, 0, 0.2); sTone(440, 1760, 0.35, "sine", 0.04, 0.04);
+      for (let i = 0; i < 5; i++) sTone(PENTA[(Math.random() * 5) | 0] * 2, 0, 0.09, "sine", 0.025, 0.8 + i * 1.05, 0.3);
+    } else if (k === "dotrain") {   // the sky falls in — big whoosh + a patter of arrival plinks
+      sNoise(3200, 260, 0.55, 0.16, 0, "bandpass", 0.25); sTone(980, 240, 0.4, "sine", 0.05, 0.1);
+      for (let i = 0; i < 6; i++) sTone(1200 + Math.random() * 900, 500, 0.05, "sine", 0.03, 0.35 + i * 0.09);
+    } else if (k === "blackhole") {   // 5s hungry sub-bass drone — lives exactly as long as the pull does
+      sTone(72, 30, 5, "sine", 0.18); sTone(108, 45, 5, "sine", 0.07);
+      sNoise(420, 55, 4.6, 0.09, 0, "lowpass");
+      sNoise(60, 900, 0.5, 0.1, 4.5, "bandpass", 0.4);   // the swallow — everything rushes back out at the end
+    }
   }
-  function Audio_conquer() {   // a world falls — bright major arpeggio, the run's best regular moment
+  function Audio_conquer() {   // a world falls — bright major arpeggio with a room tail, the run's best regular moment
     if (!opt("sound")) return;
-    [[392, 0], [494, 0.09], [587, 0.18], [784, 0.3]].forEach(([f, d]) => sTone(f, f, 0.32, "triangle", 0.09, d));
+    sNoise(900, 3800, 0.3, 0.05);   // intro sparkle
+    [[392, 0], [494, 0.09], [587, 0.18], [784, 0.3]].forEach(([f, d]) => sTone(f, f, 0.34, "triangle", 0.09, d, 0.35));
+    sTone(1568, 1568, 0.5, "sine", 0.035, 0.42, 0.5);   // high shimmer cap
   }
-  function Audio_victory() {   // ALL 18 — the only fanfare in the game; it earns its length
+  function Audio_victory() {   // ALL 18 — the only fanfare in the game; it earns its length and its echo
     if (!opt("sound")) return;
-    [[392, 0], [523, 0.14], [659, 0.28], [784, 0.42]].forEach(([f, d]) => sTone(f, f, 0.5, "triangle", 0.10, d));
-    [523, 659, 784, 1046].forEach(f => sTone(f, f, 1.5, "sine", 0.045, 0.62));   // sustained closing chord
-    sNoise(700, 4200, 0.7, 0.08, 0.55);                                          // shimmer up and out
+    [[392, 0], [523, 0.14], [659, 0.28], [784, 0.42]].forEach(([f, d]) => sTone(f, f, 0.5, "triangle", 0.10, d, 0.4));
+    [523, 659, 784, 1046].forEach(f => sTone(f, f, 1.6, "sine", 0.05, 0.62, 0.5));   // sustained closing chord, echoing out
+    sNoise(700, 4200, 0.8, 0.08, 0.55, "bandpass", 0.4);                              // shimmer up and out
+    sTone(98, 98, 1.6, "sine", 0.1, 0.62);                                            // low root under the chord — weight
   }
-  function Audio_ascend() {   // the run collapses into the Engine — a riser, then a rebirth boom
+  function Audio_ascend() {   // the run collapses into the Engine — a riser, then a rebirth boom with a tail
     if (!opt("sound")) return;
-    sNoise(220, 4000, 0.8, 0.16);                                                // charge-up sweep
-    sTone(160, 30, 0.9, "sine", 0.4, 0.75); sNoise(2600, 300, 0.25, 0.12, 0.75); // detonation + crack
-    sTone(523, 523, 0.7, "triangle", 0.05, 1.1); sTone(784, 784, 0.7, "triangle", 0.04, 1.2);   // two calm notes: you're back
+    sNoise(220, 4000, 0.8, 0.16, 0, "bandpass", 0.3);                                // charge-up sweep
+    sTone(160, 30, 0.9, "sine", 0.3, 0.75, 0.3); sNoise(2600, 300, 0.25, 0.12, 0.75, "bandpass", 0.4); // detonation + crack
+    sTone(523, 523, 0.7, "triangle", 0.05, 1.15, 0.5); sTone(784, 784, 0.7, "triangle", 0.04, 1.28, 0.5);   // two calm echoing notes: you're back
   }
-  function Audio_launch() {   // an expedition lifts off — rumble under a climbing engine
+  function Audio_launch() {   // an expedition lifts off — rumble under a climbing engine, trailing away
     if (!opt("sound")) return;
     sNoise(180, 90, 0.9, 0.18, 0, "lowpass");                                    // launch-pad rumble
-    sTone(80, 340, 0.85, "sawtooth", 0.05);                                      // engine climbing away
+    sTone(80, 340, 0.85, "sawtooth", 0.05, 0, 0.3);                              // engine climbing away into the room
+    sNoise(1200, 2800, 0.4, 0.04, 0.5, "bandpass", 0.5);                         // thinning exhaust hiss
   }
-  function Audio_win(jack) {   // the Bounty Wheel lands — a slam, bigger when it's the jackpot
+  function Audio_land() {   // the expedition arrives — impact thump + settling dust (the launch's bookend)
     if (!opt("sound")) return;
-    sNoise(1800, 400, 0.12, 0.14); sTone(523, 523, 0.22, "triangle", 0.1); sTone(784, 784, 0.3, "triangle", 0.09, 0.07);
-    if (jack) [[1046, 0.16], [1318, 0.26], [1568, 0.36]].forEach(([f, d]) => sTone(f, f, 0.35, "sine", 0.06, d));
+    sTone(150, 32, 0.5, "sine", 0.3, 0, 0.2); sNoise(2200, 400, 0.18, 0.1);
+    sTone(392, 523, 0.25, "triangle", 0.05, 0.3, 0.4);   // a small "we made it" lift
   }
-  function Audio_escape() {   // the boss got away — a falling minor shrug
+  function Audio_spinup() {   // the Bounty Wheel rips into motion — rising mechanical wind-up
     if (!opt("sound")) return;
-    [[440, 0], [349, 0.12], [262, 0.26]].forEach(([f, d]) => sTone(f, f, 0.3, "triangle", 0.06, d));
+    sNoise(300, 2600, 0.55, 0.12); sTone(90, 260, 0.55, "sawtooth", 0.04);
+  }
+  function Audio_win(jack) {   // the Bounty Wheel lands — a slam with a room tail, and a rising run on jackpot
+    if (!opt("sound")) return;
+    sNoise(1800, 400, 0.12, 0.14); sTone(523, 523, 0.24, "triangle", 0.1, 0, 0.35); sTone(784, 784, 0.32, "triangle", 0.09, 0.07, 0.35);
+    if (jack) { [[1046, 0.16], [1318, 0.26], [1568, 0.36], [2093, 0.46]].forEach(([f, d]) => sTone(f, f, 0.35, "sine", 0.06, d, 0.5)); sTone(131, 131, 0.8, "sine", 0.12, 0.16); }   // jackpot: run climbs an extra octave over a bass root
+  }
+  function Audio_escape() {   // the boss got away — a falling minor shrug, trailing off in the room
+    if (!opt("sound")) return;
+    [[440, 0], [349, 0.12], [262, 0.26]].forEach(([f, d]) => sTone(f, f, 0.3, "triangle", 0.06, d, 0.4));
   }
   function Audio_click() {   // UI tab/toggle tap — barely-there
     if (!opt("sound")) return; sTone(1400 + Math.random() * 200, 1400, 0.025, "square", 0.018);
@@ -3367,7 +3422,7 @@
   window.addEventListener("beforeunload", save);
   requestAnimationFrame(loop);
 
-  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, buyAsc, openAscend, ascend, pendingCores, coreVal, ascLv, ASC_LINES, exportSave, importSave, Wheel };
+  if (typeof window !== "undefined") window.__IDS = { S: () => S, META: () => META, derived: () => derived, dots: () => dots, orbs: () => orbs, parts: () => parts, shake: () => shake, drones: () => drones, units: () => S.units, collectors: () => S.collectors, uDmg, uRate, cSpeed, cReach, cPull, cSuction: cReach, cCollect: cReach, cYield, brushAt, collectAt, useAbility, travel, fmt, buyUnit, buyUp: id => buyUpgrade(UP[id]), upCost: id => upCost(UP[id]), buildTree, allocNode, nodeAllocatable, nodeAllocated, nodeLabel, classStats: t => classStats(t), unitPos, openSkillTree, showNodeInfo, showInfo, sellOne, showGalaxyInfo, recompute, setScreen, abil: () => abil, travelCost, galSpawnMul, galCap, state: () => state, GMap, STree, isCol, buyAsc, openAscend, ascend, pendingCores, coreVal, ascLv, ASC_LINES, exportSave, importSave, Wheel, Sfx, sfx: { pop: Audio_pop, collect: Audio_collect, zap: Audio_zap, ability: Audio_ability, conquer: Audio_conquer, victory: Audio_victory, ascend: Audio_ascend, launch: Audio_launch, land: Audio_land, spinup: Audio_spinup, win: Audio_win, escape: Audio_escape, click: Audio_click, err: Audio_err, buy: Audio_buy, node: Audio_node, boss: Audio_boss, tick: Audio_tick } };   // Sfx + the whole sound layer exported for the offline audio-render harness (tools/ + tuning sessions)
   // read-only scaling hooks for the headless pacing/scaling simulator (tools/playthrough-sim.js) — no game logic, just exposes the real curves so the sim can never diverge from the shipped game
   if (typeof window !== "undefined") window.__SIM = {
     TOTAL_PLANETS, CONQ_STEP, SYS_JUMP, WITHIN_STEP, CUR_BASE, TOUGH_POW, BUY_MUL,
