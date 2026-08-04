@@ -29,10 +29,14 @@ const { chromium } = requirePlaywright();
     const out = { rows: [], checks: [], TOTAL: SIM.TOTAL_PLANETS };
 
     // helper: build a "mature" fleet for planet g and return real total DPS
-    const VALUE_LV = 18, SPAWN_LV = 14;   // a committed-but-not-maxed economy investment
+    const VALUE_LV = 18, SPAWN_LV = 14;   // a committed-but-not-maxed economy investment (EFFECTIVE levels)
     function buildAndDPS(g, unlockedDef) {
       S.galaxy = g; S.peakGalaxy = Math.max(S.peakGalaxy, g);
-      S.lv.value = VALUE_LV; S.lv.spawnRate = SPAWN_LV; S.lv.capacity = 40; S.lv.luck = 10;
+      // v17.2: eco levels re-baseline per frontier (ECO_BASE·(g−1) is the planet's "zero") — set ABSOLUTE
+      // levels so the EFFECTIVE level is the committed investment this sim has always modeled
+      S.lv.value = VALUE_LV + (SIM.ECO_BASE ? SIM.ECO_BASE.value : 16) * (g - 1);
+      S.lv.spawnRate = SPAWN_LV + (SIM.ECO_BASE ? SIM.ECO_BASE.spawnRate : 12) * (g - 1);
+      S.lv.capacity = 40; S.lv.luck = 10;
       // own max of every unlocked defender + collector class
       S.units = []; S.collectors = [];
       for (const t of SIM.DEF_ORDER) if (SIM.DEF_TYPES[t].gal <= g) for (let i = 0; i < SIM.DEF_TYPES[t].max; i++) S.units.push({ type: t, cd: 0 });
@@ -120,11 +124,14 @@ const { chromium } = requirePlaywright();
     // designed in ACTIVE hours (see SYS_ACTIVE_HOURS), and skilled active play banks ~ACTIVE_MAX× passive,
     // so the player-facing conquer time is conquerSec / ACTIVE_MAX. A "wall" = a planet that balloons far
     // past the intended band; the ceiling below has wide headroom over the 12–24h design (catches runaway).
-    const ACTIVE_MAX = 8.6;
-    const conquerTimes = out.rows.map(r => r.conquerSec / ACTIVE_MAX);   // active-equivalent seconds
-    const noWall = conquerTimes.every(s => s < 2 * 86400);   // no planet should exceed ~2 days of ACTIVE play
     const finalConquest = Math.pow(SIM.CONQ_STEP, SIM.TOTAL_PLANETS - 1);
-    out.summary = { allUnlockOk, ecoMono, tgtMono, allAfford, noWall, finalConquest: finalConquest.toExponential(2), cumDays: (cumSec / 86400).toFixed(1) };
+    // NOTE (v17.2 audit): the old "no walls <2 days" and "travel affordable from one conquest" gates were
+    // pre-ASCENSION relics — the v16 ladder deliberately makes deep planets take hundreds of single-run
+    // active hours (that IS the wall you ascend over), and travel is banked across a stay, not one bar.
+    // Pacing truth lives in tools/onearmy-sim.js (real spend policy, Engine ×1/×16/×256 regimes) and
+    // tools/ascension-sim.js. This sim keeps what it is still authoritative for: unlock gating + monotone
+    // scaling invariants; the per-planet table below is informational.
+    out.summary = { allUnlockOk, ecoMono, tgtMono, finalConquest: finalConquest.toExponential(2), cumDays: (cumSec / 86400).toFixed(1) };
     return out;
   });
 
@@ -144,8 +151,7 @@ const { chromium } = requirePlaywright();
   console.log(`  all class unlocks gate correctly:        ${s.allUnlockOk ? 'PASS' : 'FAIL'}`);
   console.log(`  eco(g) strictly climbs:                  ${s.ecoMono ? 'PASS' : 'FAIL'}`);
   console.log(`  conquerTarget(g) strictly climbs:        ${s.tgtMono ? 'PASS' : 'FAIL'}`);
-  console.log(`  travel always affordable from a run:     ${s.allAfford ? 'PASS' : 'FAIL'}`);
-  console.log(`  no planet walls (>2 days active-equiv):  ${s.noWall ? 'PASS' : 'FAIL'}`);
+  console.log('  (pacing gates retired — see onearmy-sim.js / ascension-sim.js, the ladder-era authorities)');
   console.log(`  final Conquest multiplier ×${s.finalConquest}  (=CONQ_STEP^17 — 1.0 since the multiplier was retired)`);
   console.log(`  est. total active time to finish: ~${s.cumDays} days`);
   console.log('\n' + (errs.length ? 'ERRORS: ' + errs.join(' | ') : 'NO CONSOLE/PAGE ERRORS'));
