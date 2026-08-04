@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v17.1";   // v17.1 = ERA WEAPONS + WORLD IDENTITY: new classes land punching at their era's weight (base dmg ×enemyHpMul of their home planet, tree nodes priced ×ERA to match — no more wet-noodle Railguns), arriving anywhere fires the FULL landing cinematic (letterbox, veil, camera slam, title card), every planet gets a seeded grayscale field backdrop (stars/nebulae/signature-polygon watermark) and mints its own LOCAL TENDER (name+symbol re-denominate per world; value identical — the one-economy stays sim-locked)   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v17.2";   // v17.2 = PLANET-RELATIVE ECONOMY (owner call): Value & Spawn Rate levels PERSIST but each new frontier raises the baseline "zero" — your carried lv-50 Spawn acts like an early level on the new world and you climb again (costs rebase on the same effective level, so every planet gets its full affordable eco-tab arc back; menace re-baselines with it — worlds start calm and grow monstrous). Capacity & Luck stay absolute. Currency reverted to ONE uniform ✦ Credit everywhere (the economy itself resets per planet now). Scaling re-proven: onearmy-sim ALL GATES PASS (P18 lands ×1.02 of designed — dead on curve), full sim suite green   // v17.1 = ERA WEAPONS + WORLD IDENTITY: new classes land punching at their era's weight (base dmg ×enemyHpMul of their home planet, tree nodes priced ×ERA to match — no more wet-noodle Railguns), arriving anywhere fires the FULL landing cinematic (letterbox, veil, camera slam, title card), every planet gets a seeded grayscale field backdrop (stars/nebulae/signature-polygon watermark) and mints its own LOCAL TENDER (name+symbol re-denominate per world; value identical — the one-economy stays sim-locked)   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   // v16.9 AMBIENT HINTS — the "what next?" layer. The game never tells you what to do; instead the thing
@@ -382,7 +382,15 @@
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const UP_DISC = { value: 0.9, spawnRate: 0.9 };   // Value & Spawn Rate are a permanent 10% cheaper than the rest
-  const upCost = u => Math.ceil(ecoCost() * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost * (UP_DISC[u.id] || 1) * TEST_MUL());   // frontier-priced; levels PERSIST across planets now (v17) — each new world affords the next few, a slow lifelong arc: ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
+  // v17.2 PLANET-RELATIVE ECONOMY (owner call): Value & Spawn Rate LEVELS persist with the army, but each
+  // new frontier raises the BASELINE that "level zero" means — your carried level-50 Spawn behaves like an
+  // early level on the new world ("the economy scales down to the planet") and you climb again from there.
+  // COSTS rebase on the same effective level, so every planet gets its full, affordable eco-tab arc back.
+  // Capacity & Luck stay ABSOLUTE — ceiling infrastructure persists outright (a re-baselined Capacity would
+  // drop the cash ceiling below your wallet on every landing and dead-zone all banking).
+  const ECO_BASE = { value: 16, spawnRate: 12 };   // designed baseline growth per frontier planet — sim-checked by tools/onearmy-sim.js
+  const ecoLv = id => { const b = ECO_BASE[id]; if (!b) return S.lv[id] || 0; return Math.max(0, (S.lv[id] || 0) - b * (Math.max(1, S.peakGalaxy || 1) - 1)); };
+  const upCost = u => Math.ceil(ecoCost() * 2 * BUY_MUL * Math.pow(u.mul, ecoLv(u.id)) * pk().cost * (UP_DISC[u.id] || 1) * TEST_MUL());   // frontier-priced on the EFFECTIVE level — each planet's eco arc restarts affordable ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
 
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
@@ -441,13 +449,10 @@
   const eco = g => CUR_BASE * diff(g);   // planet number-magnitude (single global currency; costs & drops BOTH ride this so it cancels — progression now is class unlocks, deeper trees & the idle empire)
   const startMul = g => 40 * pk().start; // fresh-landing starter purse (× eco(g)) — × the Head Start ascension line (pk() is 1 before first recompute)
   // ONE global currency now — no per-planet money, no exchange (v16.5: the exchange code itself is gone too).
-  // v17.1: every planet mints its own TENDER — same underlying value (the economy stays ONE global
-  // number, sim-locked), but the name & symbol re-denominate per world, so each landing feels like a
-  // new economy without touching a single balance curve.
-  const CUR_NAMES = ["Credits", "Embers", "Cinders", "Hearthmarks", "Azurite", "Verdite", "Cobalt Chips", "Gale Notes", "Halcyons", "Storm Shards", "Umbrite", "Frost Bits", "Onyx Marks", "Wraith Coin", "Pyre Marks", "Abyssals", "Maw Teeth", "Nullions"];
-  const CUR_SYMS  = ["✦", "❖", "✴", "✹", "❂", "✻", "❁", "❃", "✵", "❄", "❉", "❊", "✸", "❇", "✶", "✳", "✷", "❈"];
-  const curName = g => CUR_NAMES[planetIdx(g)] || "Credits";
-  const curSym  = g => CUR_SYMS[planetIdx(g)] || "✦";
+  // ONE currency everywhere (v17.2, owner call — reverting v17.1's per-planet tender): the ECONOMY itself
+  // now re-baselines per planet (Value/Spawn effective levels), so the money stays a single uniform Credit.
+  const curName = g => "Credits";
+  const curSym  = g => "✦";
   // CONQUER-TIME CURVE (the ASCENSION WALL). Active hours per planet grow GEOMETRICALLY:
   // ~24 min on planet 1, ×1.65 every planet after (v16.4: softened from ×2 — a ×2 wall forces
   // ×2^17 income multipliers by P18 and ×millions once MORE SOLAR SYSTEMS land; ×1.65 keeps every
@@ -666,12 +671,12 @@
     S.conquest = Math.pow(CONQ_STEP, conqN);           // derived from the count (drift-proof). CONQ_STEP=1.0 → always ×1, INERT — the multiplier is one constant away if ever wanted
     derived.incomeMul = S.conquest * pk().income;      // ← THE WHOOSH (v16.0): the Ascension Engine multiplies every dot/boss/salvage payout, and conquer TARGETS never ride incomeMul — so each ascension melts the early planets
     derived.capacity = eco(S.galaxy) * 220 * Math.pow(1.60, L.capacity) * (derived.incomeMul || 1);   // cash ceiling rides the SAME income multiplier as the payouts (engine incl.) so it never lags your income
-    derived.valueMul = (1 + 0.08 * L.value) * pk().value;          // FLAT +8% cash per level (additive — no compounding/runaway); also drives dot "menace". × small permanent Ascension value perk.
+    derived.valueMul = (1 + 0.08 * ecoLv("value")) * pk().value;          // FLAT +8% cash per EFFECTIVE level (v17.2: re-baselined per frontier); also drives dot "menace". × small permanent Ascension value perk.
     // Spawn Rate: each level wants +2 dots/sec. Past the soft knee the screen can't hold every extra
     // body — instead of wasting the upgrade, the surplus "spills over" into MENACE: every dot spawns
     // tougher & (via TOUGH_POW) worth disproportionately MORE than the skipped spawn would have paid.
     // So Spawn Rate keeps paying off at every level, exactly like Value never caps out.
-    const rawSpawn = (0.9 + 2.0 * L.spawnRate) * pk().spawn;
+    const rawSpawn = (0.9 + 2.0 * ecoLv("spawnRate")) * pk().spawn;   // v17.2: effective level — each world's flow starts calm and escalates as you invest
     derived.spawnPerSec = rawSpawn;                                           // FULL benefit — the field cap limits count, so if you kill fast you just get flooded with more dots
     if (derived.spawnMenace == null) derived.spawnMenace = 1;                 // live value, updated each frame from real field fullness in the spawn loop
     derived.luck = Math.min(0.6, 0.003 * L.luck + pk().luck);    // +0.3% chance of a rare 9× SPECIAL dot per Luck level (buffed from 0.1% — was a trap stat vs Value) + Ascension Fortune perk
@@ -1268,7 +1273,7 @@
   }
   function spawnDot(special) {
     const g = S.galaxy, vscale = Math.pow(derived.valueMul, 1.3), base = 18 * enemyHpMul(g) * vscale, avg = base * 1.3;   // HP scales SUPER-linearly with Value — Value genuinely & heavily toughens enemies; cash is unaffected (it keys off hp/avg, where base cancels)
-    const men = clamp(S.lv.value / 28, 0, 3.5);   // "menace": Value drives how tough/common the hard dots are — steeper & high cap so the strongest become real multi-second tanks (test mode uses real menace too, so between-planet testing is representative)
+    const men = clamp(ecoLv("value") / 28, 0, 3.5);   // v17.2: menace re-baselines with the economy — every planet starts readable and grows monstrous as you push Value   // "menace": Value drives how tough/common the hard dots are — steeper & high cap so the strongest become real multi-second tanks (test mode uses real menace too, so between-planet testing is representative)
     const men01 = Math.min(1, men);               // 0..1 gate — keeps dots BASIC until Value is invested
     let roll = rnd(0.7, 1.0 + men * 5.0), armored = false, kind = "normal", cfg = null, mv = 20;
     // difficulty & craziness are bought with VALUE: at Value 0 every dot is the
@@ -1950,8 +1955,8 @@
         if (row.newc) row.newc.style.display = !locked && n === 0 && d.gal === S.peakGalaxy && S.peakGalaxy > 1 ? "inline-block" : "none";   // this class JUST unlocked on this world and you own none — the unlock moment announces itself (explicit inline-block: the stylesheet base is display:none, so "" would fall back to hidden)
         if (row.up) row.up.classList.toggle("afford", !locked && n > 0 && hintTreeAff[id] != null && S.cash >= hintTreeAff[id]);   // a tree node is waiting and you can afford it — the tree pulls you in
       } else {
-        const u = UP[id], lvl = S.lv[id], maxed = u.max != null && lvl >= u.max;
-        row.lv.textContent = "Lv " + lvl; row.desc.textContent = u.desc(lvl);
+        const u = UP[id], lvl = S.lv[id], eff = ecoLv(id), maxed = u.max != null && lvl >= u.max;
+        row.lv.textContent = "Lv " + eff + (ECO_BASE[id] && lvl > eff ? " · \u03a3" + lvl : "");   // v17.2: the level that ACTS here, plus your lifetime total row.desc.textContent = u.desc(lvl);
         if (maxed) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.el.classList.add("maxed"); row.buy.classList.remove("afford"); }
         else { const c = upCost(u); row.buy.textContent = curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); row.el.classList.remove("maxed"); }
       }
@@ -3096,8 +3101,7 @@
           shakeAdd(9); flashAdd(0.4); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);   // landing impact
           const lt = $("land-title"); if (lt) { const wall = PLANET_LOCAL[planetIdx(gg)] === 0 && gg > 1;   // first world of a NEW solar system = the difficulty wall
             lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg)
-              + "<span class='lt-sub'>local tender: " + curSym(gg) + " " + curName(gg).toUpperCase()
-              + (wall ? "<br>▲ NEW FRONTIER — far tougher dots. Dig into deeper tree rings and the new class." : "") + "</span>";
+              + "<span class='lt-sub'>" + (wall ? "▲ NEW FRONTIER — far tougher dots. Dig into deeper tree rings and the new class." : "") + "</span>";
             if (wall) { shakeAdd(6); flashAdd(0.25); }
             lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
         }
@@ -3204,8 +3208,7 @@
     shakeAdd(9); flashAdd(0.45); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);
     const lt = $("land-title"); if (lt) { const wall = PLANET_LOCAL[planetIdx(g)] === 0 && g > 1;
       lt.innerHTML = galName(g).toUpperCase() + "  ·  " + sysName(g)
-        + "<span class='lt-sub'>local tender: " + curSym(g) + " " + curName(g).toUpperCase()
-        + (wall ? "<br>▲ NEW FRONTIER — far tougher dots. Dig into deeper tree rings and the new class." : "") + "</span>";
+        + "<span class='lt-sub'>" + (wall ? "▲ NEW FRONTIER — far tougher dots. Dig into deeper tree rings and the new class." : "the economy re-baselines — build it up all over again, stronger") + "</span>";
       lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
   }
   function activatePlanet(g) {   // point the ONE ARMY at planet g — fleet, trees, levels and cash all arrive with you
@@ -3526,7 +3529,7 @@
     setEarned: v => { curEarned = +v || 0; },     // test hook: drive the conquer bar so the wall coach can be audited (v16.2)
     spawnBoss, grantTreeNodes, dots: () => dots,
     ASC_LINES, ASC_BY, coreVal, pendingCores, perkAgg, ascLv, buyAsc, ascend, ascCost, CORE_A, CORE_B, ASC_W0, ASC_R,
-    ASC_HOP_H, wallEtaH, wallAhead, ascPreview,   // the ladder coach (v16.2): hop-point contract audited by ascension-sim --verify
+    ASC_HOP_H, wallEtaH, wallAhead, ascPreview, ecoLv, ECO_BASE,   // the ladder coach (v16.2): hop-point contract audited by ascension-sim --verify
     baseTarget, conquerHours, IDLE_FRAC, ACTIVE_REF, IDLE_PAYBACK_H, EMPIRE_RAMP,
     Wheel, nodeCandidates,                        // Bounty Wheel test hooks (v15.0): build/apply/segs/state
     RACES, raceNiche, NICHE_HINT,

@@ -48,10 +48,10 @@ const { chromium } = requirePlaywright();
     const dpsNow = () => { D.recompute(); let d = 0; for (const u of S.units) d += D.uDmg(u) * SIM.DEF_TYPES[u.type].rate * D.derived().cls[u.type].rate; return d; };
     // income model (same shape playthrough-sim used, from real curves)
     function incomePerSec(g, engineMult) {
-      const vLv = S.lv.value || 0, vMul = SIM.valueMul(vLv);
+      const vMul = SIM.valueMul(SIM.ecoLv('value'));               // v17.2: EFFECTIVE levels — the economy re-baselines per frontier
       const avgHP = 18 * SIM.enemyHpMul(g) * Math.pow(vMul, 1.3) * 1.3;
       const avgVal = SIM.eco(g) * vMul * (engineMult || 1);
-      const spawn = 0.9 + 2.0 * (S.lv.spawnRate || 0);
+      const spawn = 0.9 + 2.0 * SIM.ecoLv('spawnRate');
       const kills = Math.min(dpsNow() / avgHP, spawn * 1.2);
       return kills * avgVal;
     }
@@ -109,7 +109,7 @@ const { chromium } = requirePlaywright();
         spendAll();
         empire += incomePerSec(g, engineMult) * 0.4 * 0.15;                      // BG_EFF tribute fraction
         const activeH = secs / 3600 / ACTIVE_MAX;
-        rows.push({ g, activeH, designedH: 0.4 * Math.pow(1.65, g - 1) / (engineMult || 1) + 0.05 + 0.2 / Math.sqrt(engineMult || 1), dps: dpsNow(), value: S.lv.value, spawn: S.lv.spawnRate, units: S.units.length, cols: S.collectors.length, nodes: (() => { let n = 0; for (const t in S.classNodes) n += Object.keys(S.classNodes[t]).length; return n; })() });
+        rows.push({ g, activeH, designedH: 0.4 * Math.pow(1.65, g - 1) / (engineMult || 1) + 0.05 + 0.2 / Math.sqrt(engineMult || 1), dps: dpsNow(), value: S.lv.value, eff: SIM.ecoLv('value'), spawn: S.lv.spawnRate, units: S.units.length, cols: S.collectors.length, nodes: (() => { let n = 0; for (const t in S.classNodes) n += Object.keys(S.classNodes[t]).length; return n; })() });
       }
       return { rows };
     }
@@ -130,11 +130,11 @@ const { chromium } = requirePlaywright();
   console.log('ONE-ARMY CAMPAIGN — persistent fleet vs designed conquer curve (active-equivalent hours)');
   for (const reg of (r.regimes || [])) {
     console.log(`\n== ENGINE ×${reg.M} (planets 1–${reg.maxP}) ==`);
-    console.log(' g   measured   designed   ratio   dps        valueLv spawnLv units cols nodes');
+    console.log(' g   measured   designed   ratio   dps        valueLv effV spawnLv units cols nodes');
     const ratios = [];
     for (const x of reg.rows) {
       const ratio = x.activeH / x.designedH; ratios.push(ratio);
-      console.log(String(x.g).padStart(2), (x.activeH.toFixed(2) + 'h').padStart(9), (x.designedH.toFixed(2) + 'h').padStart(10), ('×' + ratio.toFixed(2)).padStart(7), x.dps.toExponential(2).padStart(10), String(x.value).padStart(7), String(x.spawn).padStart(7), String(x.units).padStart(5), String(x.cols).padStart(4), String(x.nodes).padStart(5));
+      console.log(String(x.g).padStart(2), (x.activeH.toFixed(2) + 'h').padStart(9), (x.designedH.toFixed(2) + 'h').padStart(10), ('×' + ratio.toFixed(2)).padStart(7), x.dps.toExponential(2).padStart(10), String(x.value).padStart(7), String(x.eff == null ? '-' : x.eff).padStart(4), String(x.spawn).padStart(7), String(x.units).padStart(5), String(x.cols).padStart(4), String(x.nodes).padStart(5));
     }
     if (reg.dead) fails.push(`O4 [M×${reg.M}] planet ${reg.dead} unconquerable`);
     if (!ratios.length) continue;

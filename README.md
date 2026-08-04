@@ -255,7 +255,7 @@ Each runs on a cooldown — save them for dense or high-value screens.
 
 ### Planet Layers — Travel = Progress
 
-There is **one global economy** — shown in each planet's **local tender** (Vesta Credits, Ember Embers, Azure Azurite… the symbol and name re-denominate per world; the value is identical everywhere, so no exchange, no math) — and since
+There is **one currency** (✦ Credits, everywhere) and **one army** — but the ECONOMY re-baselines per planet: your Value/Spawn levels persist, yet each new frontier raises what "level zero" means, so a carried level-50 Spawn behaves like an early level on the new world and you build the economy up all over again (costs rebase with it, so every planet has a full, affordable eco arc). Since
 v17, **ONE ARMY**: your fleet, skill trees, upgrade levels and cash all **travel
 with you**. Nothing restarts when you land on a new world; planets are an
 escalating difficulty ladder for one continuously-growing force, and your
