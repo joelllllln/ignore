@@ -505,3 +505,17 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
   font:800 9px var(--mono);letter-spacing:1px;vertical-align:2px}                              /* freshly unlocked class */
 #ui-cap.full{color:#ffb35c;text-shadow:0 0 6px rgba(255,164,72,.5);font-weight:700}            /* the cap you're pinned against */
 .ab.oppo{border-color:rgba(255,255,255,.7);box-shadow:0 0 11px rgba(255,255,255,.3)}           /* ready + target-rich field = now */
+
+/* LOUDER HINTS (v16.10) — count badges, travel bounce, transition pops, idle nudge */
+.t-badge{display:none;position:absolute;top:-6px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+  background:#fff;color:#000;font:800 10px var(--mono);line-height:17px;text-align:center;
+  box-shadow:0 0 8px rgba(255,255,255,.55),0 1px 4px rgba(0,0,0,.6)}
+.t-badge.on{display:block;animation:badgein .25s cubic-bezier(.2,1.6,.4,1)}
+.t-badge.warn{background:#ffb35c;box-shadow:0 0 9px rgba(255,164,72,.85),0 1px 4px rgba(0,0,0,.6)}
+@keyframes badgein{0%{transform:scale(.4)}100%{transform:scale(1)}}
+.act.travel.go{animation:travelgo 1.15s ease-in-out infinite}
+@keyframes travelgo{0%,100%{transform:translateY(0);box-shadow:0 0 10px rgba(255,255,255,.35)}50%{transform:translateY(-2.5px);box-shadow:0 0 20px rgba(255,255,255,.75)}}
+.attn{animation:attnpop .8s cubic-bezier(.2,1.5,.35,1) !important}
+@keyframes attnpop{0%{transform:scale(1)}30%{transform:scale(1.16);box-shadow:0 0 26px rgba(255,255,255,.95)}100%{transform:scale(1)}}
+.nudge{animation:nudgebounce .7s cubic-bezier(.3,1.6,.4,1)}
+@keyframes nudgebounce{0%,100%{transform:translateY(0)}25%{transform:translateY(-5px) scale(1.06)}55%{transform:translateY(1.5px)}}

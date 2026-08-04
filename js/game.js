@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.9";   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v16.10";   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   // v16.9 AMBIENT HINTS — the "what next?" layer. The game never tells you what to do; instead the thing
@@ -57,6 +57,12 @@
   // ECONOMY burns amber while the wallet is pinned at its Capacity cap, and ready abilities glow when the
   // field is target-rich. Signals stay SCARCE: whispers for options, amber only for problems.
   let hintLast = 0, hintTreeAff = {}, hintLostPrev = -1, hintLeakUntil = 0;
+  // v16.10 — LOUDER "what next" (owner: "keep making it more obvious"): tab dots become COUNT badges
+  // (how many affordable things wait inside; "!" amber when something's wrong), the travel button BOUNCES
+  // the moment a launch is actually payable, the two macro transitions (launchable / wall) fire a one-shot
+  // attention pop, and after ~10s of not buying anything while something is affordable the cheapest visible
+  // buy button gives a little bounce — a wordless "psst, over here".
+  let lastBuyT = 0, lastNudgeT = 0, prevTravelGo = false, prevWall = false;
   let hudConqG = 0, hudConqQ = -1;     // conquer-bar quarter milestones (per planet)
   let hudGemLast = 0;                  // pending-◈ chip pop on increase (name is a v15 relic)
   let W = 0, H = 0, DPR = 1, SW = 0, SH = 0, camZoom = 0, camFit = 0;   // W/H = WORLD (bigger than screen); SW/SH = screen; camZoom = world→screen scale (center-locked)
@@ -1920,18 +1926,37 @@
         if (hintLostPrev >= 0 && lost > hintLostPrev) hintLeakUntil = nowH + 6000;
         hintLostPrev = lost;
       } }
-    // tab badges — white dot: something in there is affordable (incl. tree nodes); AMBER dot: something in there is wrong
-    const aff = { def: false, drone: false, eco: false };
-    for (const t of DEF_ORDER) if ((S.free || S.galaxy >= DEF_TYPES[t].gal) && S.cash >= unitBuyCost(t)) aff.def = true;
-    for (const t of COL_ORDER) if ((S.free || S.galaxy >= COL_TYPES[t].gal) && S.cash >= unitBuyCost(t)) aff.drone = true;
-    for (const t of DEF_ORDER) if (hintTreeAff[t] != null && S.cash >= hintTreeAff[t]) aff.def = true;
-    for (const t of COL_ORDER) if (hintTreeAff[t] != null && S.cash >= hintTreeAff[t]) aff.drone = true;
-    for (const u of UPS) { if (aff[u.tab]) continue; if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab] = true; }
-    for (const k in tabBtns) tabBtns[k].classList.toggle("has-buy", !!aff[k]);
-    const capped = S.cash >= derived.capacity * 0.999;
-    if (tabBtns.drone) tabBtns.drone.classList.toggle("alert", performance.now() < hintLeakUntil);   // loot is expiring → the fix lives in COLLECTORS
-    if (tabBtns.eco) tabBtns.eco.classList.toggle("alert", capped);                                   // wallet pinned at the cap → the fix (Capacity) lives in ECONOMY
+    // tab COUNT badges (v16.10) — the number of affordable things waiting inside each tab (units + upgrades
+    // + one per class with an affordable tree node); "!" on amber when something in there is WRONG.
+    const aff = { def: 0, drone: 0, eco: 0 };
+    for (const t of DEF_ORDER) if ((S.free || S.galaxy >= DEF_TYPES[t].gal) && countType(t) < DEF_TYPES[t].max && S.cash >= unitBuyCost(t)) aff.def++;
+    for (const t of COL_ORDER) if ((S.free || S.galaxy >= COL_TYPES[t].gal) && countType(t) < COL_TYPES[t].max && S.cash >= unitBuyCost(t)) aff.drone++;
+    for (const t of DEF_ORDER) if (hintTreeAff[t] != null && S.cash >= hintTreeAff[t]) aff.def++;
+    for (const t of COL_ORDER) if (hintTreeAff[t] != null && S.cash >= hintTreeAff[t]) aff.drone++;
+    for (const u of UPS) { if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab]++; }
+    const capped = S.cash >= derived.capacity * 0.999, leak = performance.now() < hintLeakUntil;
+    for (const k in tabBtns) { const b = tabBtns[k], warn = k === "drone" ? leak : k === "eco" ? capped : false, n = aff[k];
+      b.classList.remove("has-buy");   // the count badge fully replaces the legacy dot
+      if (b._badge) { const txt = warn ? "!" : n > 9 ? "9+" : String(n);
+        if (b._badge.textContent !== txt) b._badge.textContent = txt;
+        b._badge.classList.toggle("on", warn || n > 0); b._badge.classList.toggle("warn", warn); } }
     { const ce = $("ui-cap"); if (ce) ce.classList.toggle("full", capped); }                          // the cap line itself goes amber — the number you're pinned against
+    // macro-transition attention pops + travel bounce (v16.10)
+    { const bt = $("btn-travel"), go = bt && bt.classList.contains("ready") && !bt.disabled && !S.travel;
+      if (bt) { bt.classList.toggle("go", go);
+        if (go && !prevTravelGo) { bt.classList.remove("attn"); void bt.offsetWidth; bt.classList.add("attn"); } }   // the launch just became payable — one loud pop
+      prevTravelGo = !!go;
+      const ab2 = $("btn-ascend"), wl2 = ab2 && ab2.classList.contains("wall");
+      if (ab2 && wl2 && !prevWall) { ab2.classList.remove("attn"); void ab2.offsetWidth; ab2.classList.add("attn"); }   // the wall just arrived — pop the amber
+      prevWall = !!wl2; }
+    // idle nudge (v16.10): bought nothing for 10s while something on-screen is affordable → the cheapest
+    // affordable buy button bounces once. Repeats no faster than every 6s; any purchase resets the clock.
+    { const nowN = performance.now();
+      if (state === "play" && nowN - lastBuyT > 10000 && nowN - lastNudgeT > 6000) {
+        let best = null, bc = Infinity;
+        for (const id in listRows) { const row = listRows[id]; if (!row.buy || row.buy.disabled || !row.buy.classList.contains("afford")) continue;
+          const c2 = row.kind === "unit" ? unitBuyCost(id) : upCost(UP[id]); if (c2 < bc) { bc = c2; best = row.buy; } }
+        if (best) { lastNudgeT = nowN; best.classList.remove("nudge"); void best.offsetWidth; best.classList.add("nudge"); } } }
   }
 
   function renderList() {
@@ -1970,6 +1995,7 @@
       S.cash -= c; list.push(isCol(type) ? { type } : newUnit(type)); bought++;
     }
     if (!bought) return;
+    lastBuyT = performance.now();   // v16.10: purchases quiet the idle nudge
     if (isCol(type)) syncCollectors();
     // deploy pop — a small burst + ring where the new unit racks in, so a purchase lands ON the field, not just in the list
     if (!isCol(type)) { const i = S.units.length - 1, p = unitPos(i, S.units.length); burst(p.x, p.y, 10, 130, 1.6); ring(p.x, p.y, 6, 44, 0.4); }
@@ -1984,6 +2010,7 @@
       S.cash -= c; S.lv[u.id]++; bought++;
     }
     if (!bought) return;
+    lastBuyT = performance.now();   // v16.10: purchases quiet the idle nudge
     Audio_buy(); recompute(); syncHUD(); save();
   }
   // ── tiny synthesized UI sounds (no assets, all gated by the sound setting). Kept SOFT and short —
@@ -2497,6 +2524,7 @@
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true;
+    lastBuyT = performance.now();   // v16.10: allocations quiet the idle nudge too
     Audio_node(); STree.pulse(n);   // lock-in chime + a ripple on the web at the node (manual path only — auto-buy allocates via its own closure)
     recompute(); syncHUD(); save();
   }
@@ -3241,7 +3269,7 @@
   canvas.addEventListener("wheel", e => { if (state !== "play") return; e.preventDefault(); camZoom = clamp(camZoom * (1 - e.deltaY * 0.0012), camFit * ZOOM_OUT, 1.15); }, { passive: false });
 
   /* ----------------------------- wiring -------------------------- */
-  for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); Audio_click(); renderList(); }; }
+  for (const t of document.querySelectorAll(".tab[data-tab]")) { tabBtns[t.dataset.tab] = t; const bd = document.createElement("span"); bd.className = "t-badge"; t.appendChild(bd); t._badge = bd; t.onclick = () => { activeTab = t.dataset.tab; for (const k in tabBtns) tabBtns[k].classList.toggle("sel", tabBtns[k] === t); Audio_click(); renderList(); }; }
   const syncBuyMode = () => { const b = $("buymode"); if (!b || !S) return; b.style.display = ""; b.textContent = "BUY ×" + BUY_AMTS[buyIdx]; };   // v16.5: standard idle QoL for every player (was sandbox-only)
   if ($("buymode")) $("buymode").onclick = () => { buyIdx = (buyIdx + 1) % BUY_AMTS.length; Audio_click(); syncBuyMode(); renderList(); };
   $("ab-frenzy").onclick = () => useAbility("frenzy"); $("ab-dotrain").onclick = () => useAbility("dotrain"); $("ab-blackhole").onclick = () => useAbility("blackhole");
