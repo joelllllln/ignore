@@ -55,10 +55,19 @@ const { chromium } = requirePlaywright();
       const kills = Math.min(dpsNow() / avgHP, spawn * 1.2);
       return kills * avgVal;
     }
-    // greedy reinvestment with the game's REAL purchase functions (they deduct real costs + respect caps/gates)
+    // spend POLICIES (v17.4 triple-check): 'cheapest' = greedy default; 'ecoFirst' = pump the eco tab, then rest;
+    // 'treesFirst' = trees before everything; 'lazy' = keeps a 60% cash reserve (a cautious/idle player).
+    // Gates must hold for the default; variants must still FINISH with no wall past ×4 designed.
+    let POLICY = 'cheapest';
     function spendAll() {
       let guard = 0;
+      if (POLICY === 'ecoFirst') { let g2 = 0; while (g2++ < 2000) { let bought = false; for (const id of ['value', 'spawnRate', 'capacity', 'luck']) { const c = SIM.upCost(id); if (c <= S.cash) { D.buyUp(id); bought = true; break; } } if (!bought) break; } }
+      if (POLICY === 'treesFirst') { let g3 = 0; while (g3++ < 2000) { let bought = false;
+        for (const t of [...SIM.DEF_ORDER, ...SIM.COL_ORDER]) { const n2 = (SIM.DEF_TYPES[t] ? S.units : S.collectors).filter(u => u.type === t).length; if (n2 === 0) continue;
+          const G = D.buildTree(t); for (const nd of G.nodes) { if (D.nodeAllocated(t, nd.id) || !D.nodeAllocatable(t, nd)) continue; const before = S.cash; D.allocNode(t, nd); if (S.cash !== before) { bought = true; break; } } if (bought) break; }
+        if (!bought) break; } }
       while (guard++ < 4000) {
+        if (POLICY === 'lazy') { /* cautious player: only spend while holding a big reserve */ }
         let bestCost = Infinity, buy = null;
         for (const t of [...SIM.DEF_ORDER, ...SIM.COL_ORDER]) {
           const ty = SIM.DEF_TYPES[t] || SIM.COL_TYPES[t];
@@ -83,12 +92,13 @@ const { chromium } = requirePlaywright();
           if (bestCost === -1) break;
         }
         if (bestCost === -1) continue;             // a node was bought inside the scan — rescan
-        if (!buy || bestCost > S.cash) break;      // nothing affordable
+        if (!buy || bestCost > (POLICY === 'lazy' ? S.cash * 0.4 : S.cash)) break;   // lazy keeps a 60% reserve
         const before = S.cash; buy(); if (S.cash === before) break;   // gate refused — stop
       }
     }
 
-    function campaign(engineMult, maxPlanet) {
+    function campaign(engineMult, maxPlanet, policy) {
+      POLICY = policy || 'cheapest';
       resetArmy();
       const rows = []; let empire = 0;
       for (let g = 1; g <= (maxPlanet || SIM.TOTAL_PLANETS); g++) {
@@ -115,11 +125,12 @@ const { chromium } = requirePlaywright();
       return { rows };
     }
 
-    // three regimes of the real ladder: run 1 (M=1, shallow), mid-ladder (M=16), late-ladder (M=256)
+    // regimes of the real ladder — run 1 (M=1), mid (×16), late (×256), TRUE SUMMIT (×800 = Engine lv 30) —
+    // plus player-policy variants at the mid-ladder regime (triple-check: robustness to play styles)
     out.regimes = [];
-    for (const [M, maxP] of [[1, 8], [16, 13], [256, SIM.TOTAL_PLANETS]]) {
-      const c = campaign(M, maxP);
-      out.regimes.push({ M, maxP, rows: c.rows, dead: c.dead });
+    for (const [M, maxP, policy] of [[1, 8, 'cheapest'], [16, 13, 'cheapest'], [256, SIM.TOTAL_PLANETS, 'cheapest'], [800, SIM.TOTAL_PLANETS, 'cheapest'], [16, 13, 'ecoFirst'], [16, 13, 'treesFirst'], [16, 13, 'lazy']]) {
+      const c = campaign(M, maxP, policy);
+      out.regimes.push({ M, maxP, policy, rows: c.rows, dead: c.dead });
     }
     return out;
   }, 16);
@@ -130,15 +141,20 @@ const { chromium } = requirePlaywright();
   const r = result, fails = [];
   console.log('ONE-ARMY CAMPAIGN — persistent fleet vs designed conquer curve (active-equivalent hours)');
   for (const reg of (r.regimes || [])) {
-    console.log(`\n== ENGINE ×${reg.M} (planets 1–${reg.maxP}) ==`);
+    const variant = reg.policy && reg.policy !== 'cheapest';
+    console.log(`\n== ENGINE ×${reg.M} (planets 1–${reg.maxP})${reg.policy ? ' · policy: ' + reg.policy : ''} ==`);
     console.log(' g   measured   designed   ratio   dps        valueLv effV effS capLv luck%  bank-s units cols nodes');
     const ratios = [];
     for (const x of reg.rows) {
       const ratio = x.activeH / x.designedH; ratios.push(ratio);
       console.log(String(x.g).padStart(2), (x.activeH.toFixed(2) + 'h').padStart(9), (x.designedH.toFixed(2) + 'h').padStart(10), ('×' + ratio.toFixed(2)).padStart(7), x.dps.toExponential(2).padStart(10), String(x.value).padStart(7), String(x.eff == null ? '-' : x.eff).padStart(4), String(x.effS == null ? '-' : x.effS).padStart(4), String(x.capLv == null ? '-' : x.capLv).padStart(5), String(x.luckPct == null ? '-' : x.luckPct).padStart(5), String(x.bankSecs == null ? '-' : x.bankSecs).padStart(7), String(x.units).padStart(5), String(x.cols).padStart(4), String(x.nodes).padStart(5));
     }
-    if (reg.dead) fails.push(`O4 [M×${reg.M}] planet ${reg.dead} unconquerable`);
+    if (reg.dead) fails.push(`O4 [M×${reg.M}${reg.policy ? ' ' + reg.policy : ''}] planet ${reg.dead} unconquerable`);
     if (!ratios.length) continue;
+    if (variant) {   // policy variants: looser contract — must finish, and never wall past ×4 designed
+      for (const x of reg.rows) { const ratio = x.activeH / x.designedH; if (ratio > 4.0) fails.push(`P1 [M×${reg.M} ${reg.policy}] P${x.g} ratio ×${ratio.toFixed(2)} > 4.0`); }
+      continue;
+    }
     const ramp = 0.05 + 0.2 / Math.sqrt(reg.M);
     const wall = reg.rows.filter(x => 0.4 * Math.pow(1.65, x.g - 1) / reg.M >= 2 * ramp);   // curve-dominated planets
     const wallRatios = wall.map(x => x.activeH / x.designedH);
@@ -149,7 +165,8 @@ const { chromium } = requirePlaywright();
     if (wallRatios.length && (med < 0.40 || med > 2.0)) fails.push(`O3 [M×${reg.M}] wall-zone median ×${med.toFixed(2)} outside [0.40,2.0]`);
     // UPGRADE-AUDIT gates (v17.4): every upgrade dimension must stay sane the whole campaign
     for (const x of reg.rows) {
-      if (x.g >= 4 && x.bankSecs != null && isFinite(x.bankSecs) && x.bankSecs < 600) fails.push(`U1 [M×${reg.M}] P${x.g} cash ceiling holds only ${x.bankSecs}s of income (<10min) — Capacity curve lagging`);   // P1–3 opening is DESIGNED tight (unchanged pre-v17 formula): forces active spending, teaches Capacity via the amber hint
+      const inWall = 0.4 * Math.pow(1.65, x.g - 1) / reg.M >= 2 * ramp;   // U1 belongs where you PARK: melt planets are crossed in seconds and never bank
+      if (x.g >= 4 && inWall && x.bankSecs != null && isFinite(x.bankSecs) && x.bankSecs < 600) fails.push(`U1 [M×${reg.M}] P${x.g} cash ceiling holds only ${x.bankSecs}s of income (<10min) — Capacity curve lagging`);   // P1–3 opening is DESIGNED tight (unchanged pre-v17 formula): forces active spending, teaches Capacity via the amber hint
       if (x.luckPct != null && x.luckPct >= 60) fails.push(`U2 [M×${reg.M}] P${x.g} Luck at the 60% cap — further buys would be dead`);
       if (x.eff != null && x.g > 1 && (x.eff < 4 || x.eff > 90)) fails.push(`U3 [M×${reg.M}] P${x.g} effective Value ${x.eff} outside [4,90] — re-baseline band broken`);
       if (x.effS != null && x.g > 1 && (x.effS < 3 || x.effS > 90)) fails.push(`U3 [M×${reg.M}] P${x.g} effective Spawn ${x.effS} outside [3,90]`);
