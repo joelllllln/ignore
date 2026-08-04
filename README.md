@@ -255,14 +255,17 @@ Each runs on a cooldown — save them for dense or high-value screens.
 
 ### Planet Layers — Travel = Progress
 
-There is **one global currency** (no per-planet money, no exchange). What carries
-across planets is **not** your wealth and **not** a permanent multiplier — it's
-your **unlocked arsenal** (classes stay unlocked forever — your knowledge carries,
-your build doesn't) and your growing **idle empire** (every planet you hold keeps
-earning for you). The loop:
+There is **one global currency** (no per-planet money, no exchange) — and since
+v17, **ONE ARMY**: your fleet, skill trees, upgrade levels and cash all **travel
+with you**. Nothing restarts when you land on a new world; planets are an
+escalating difficulty ladder for one continuously-growing force, and your
+**idle empire** (every planet you hold keeps paying tribute) grows behind you.
+**Ascension is the game's only reset** — that's what gives it weight. The loop:
 
-- **Land & build from scratch** with a little starter cash, using everything
-  you've *unlocked* so far.
+- **Land with your army** — the new world's dots are tougher *and* richer;
+  freshly unlocked classes and deeper tree rings are the natural next buys
+  (every price rides your FRONTIER planet's economy, so revisiting an early
+  world never discounts anything).
 - **Earn** by killing the planet's native race until you fill the **conquer**
   bar — that unlocks **Travel**. A planet is a deliberate **hours-long campaign**;
   active play — drawing to brush dots, abilities, and fat Value/Spawn upgrades —
@@ -303,26 +306,19 @@ earning for you). The loop:
   so you never hand-manage all 18. **This idle empire is your cross-planet
   progression** — the more worlds you hold, the faster every world goes.
 - **⚙ Auto-Buy** turns idle income into real build progress (otherwise it just caps
-  at your cash ceiling). It's a **sequential build order** you program **per planet**
-  (each world is a fresh rebuild, so each has its own queue), steeply taxed so it
-  never out-classes hands-on play. **Tap any planet on the star map → ⚙ Auto-Buy** to
-  program it; a planet gets **one slot per its number** (planet 1 → 1 step, planet 2 →
-  2, …). Each **step** is one of: an Economy upgrade
-  or Unit bought **N times** (a count), or a **skill tree** step where you **hand-pick
-  the exact nodes** you want on one class (open it, **EDIT ⚙**, tap nodes — picking a
-  deep node auto-marks its path so it's reachable; the whole selection is **one slot**).
-  The queue runs **strictly in order** — step 1 finishes before step 2 starts — and
-  deeper planets give more slots, so they support longer build orders. Every auto-buy
-  costs **+50% over manual**. Runs live **and simulates while you're away** (you come
-  back to a built-up planet) and gets faster the more planets you hold. The **⚙ AUTO**
-  button (dock or star-map bar) opens an **all-18-planets overview** — every planet is a
-  collapsible panel with its own **⏻ arm toggle**; tap one to expand and edit its full
-  build order inline. (Each planet's star-map info also has its own ⏻ ON/OFF + Edit ▸.)
+  at your cash ceiling). Since v17 it's **ONE global build order** — one army, one
+  plan (the old 18 per-planet queues are gone). Each **step** is one of: an Economy
+  upgrade or Unit bought **N times** (a count), or a **skill tree** step where you
+  **hand-pick the exact nodes** you want on one class (open it, **EDIT ⚙**, tap
+  nodes — picking a deep node auto-marks its path so it's reachable). The queue runs
+  **strictly in order** — step 1 finishes before step 2 starts. Every auto-buy costs
+  **+50% over manual**, so it never out-classes hands-on play. Runs live **and
+  simulates while you're away**, and gets faster the more planets you hold.
 
-Your idle empire is **not spendable cash** — you still land on each new world at
-~zero and have to play, so it can never *instant-max* a fresh planet. It just
-earns alongside you (and while you're away), and it lets you flatten every world
-you've already beaten.
+Your idle empire is **not spendable at once** — tribute streams in per second
+(capacity-clamped), so it can never *instant-max* your next purchase. It earns
+alongside you (and while you're away), and it feeds the conquer bar of whatever
+world your army is parked on.
 
 **Difficulty is shaped by the conquer-time curve.** Within a solar system each
 successive planet's conquer bar eases down (≈24h→12h), so you **steamroll** and

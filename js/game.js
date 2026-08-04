@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v16.10";   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v17.0";   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   // v16.9 AMBIENT HINTS — the "what next?" layer. The game never tells you what to do; instead the thing
@@ -162,7 +162,8 @@
   const UNIT_FRAC = [0.10, 0.15, 0.30, 0.45, 0.60];
   const BUY_MUL = 5;   // global ~5× slowdown on buying units/upgrades/nodes — army-building is a long arc, not a 40-min sprint
   const TEST_MUL = () => S.free ? 0.01 : 1;   // TEST MODE is no longer "free" — everything costs 1% of normal (so the economy still runs, just 100× faster, and between-planet flow behaves)
-  const unitBuyCost = type => Math.ceil(eco(S.galaxy) * (UNIT_FACTOR[type] || 40) * BUY_MUL * Math.pow(1.5, countType(type)) * pk().cost * TEST_MUL());   // planet-local, geometric in count — ~5× the old cost, so the LAST unit lands only when you're in the billions; × Ascension cost-reduction perk
+  const ecoCost = () => eco(Math.max(S.galaxy, S.peakGalaxy || 1));   // v17 ONE ARMY: every price rides the FRONTIER planet's economy — revisiting an early world never discounts purchases (one fleet, one economy, no farm-backwards exploit)
+  const unitBuyCost = type => Math.ceil(ecoCost() * (UNIT_FACTOR[type] || 40) * BUY_MUL * Math.pow(1.5, countType(type)) * pk().cost * TEST_MUL());   // frontier-priced, geometric in count — ~5× the old cost, so the LAST unit lands only when you're in the billions; × Ascension cost-reduction perk
   // ---- class skill tree: an interconnected node MAP. Each class allocates
   // nodes outward from a start node; a node can only be taken once a CONNECTED
   // node is already allocated. Aggregated bonuses live in derived.cls[type].
@@ -374,7 +375,7 @@
   ];
   const UP = {}; UPS.forEach(u => UP[u.id] = u);
   const UP_DISC = { value: 0.9, spawnRate: 0.9 };   // Value & Spawn Rate are a permanent 10% cheaper than the rest
-  const upCost = u => Math.ceil(eco(S.galaxy) * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost * (UP_DISC[u.id] || 1) * TEST_MUL());   // planet-local: ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
+  const upCost = u => Math.ceil(ecoCost() * 2 * BUY_MUL * Math.pow(u.mul, S.lv[u.id] || 0) * pk().cost * (UP_DISC[u.id] || 1) * TEST_MUL());   // frontier-priced; levels PERSIST across planets now (v17) — each new world affords the next few, a slow lifelong arc: ~5× slower than before, grows by mul; × Ascension cost-reduction perk; × per-upgrade discount
 
   // Travel is a hard, escalating wall tuned to the (deliberately slow) income ramp:
   // ~1 day to set up + bank the first jump, ramping gently (≈×3.2/planet) to a few
@@ -456,7 +457,7 @@
   // extra DPS from class unlocks + deeper trees does NOT compound income across planets — income tracks
   // eco·Conquest, which already rides eco(g)·conquest in the target and cancels. A BUILD>1 here inflated the
   // target ~×2.15/planet with no matching income, which is what made late conquer-times balloon to years.
-  const BUILD = 1.0;         // per-planet income compounding beyond eco·Conquest — measured ≈1 (spawn-capped), so no extra inflation
+  const BUILD = 1.13;        // v17 ONE ARMY: the persistent fleet's income compounds ~×1.13/planet beyond eco (accumulated trees + Value/Spawn levels never reset now) — measured by tools/onearmy-sim.js across Engine ×1/×16/×256 regimes; targets ride it so conquer TIMES stay on the designed 0.4·1.65^(g−1) curve (was 1.0 under fresh-start-per-planet, spawn-capped)
   const EMPIRE_W = 0.8;      // how strongly the live idle empire inflates the target (keeps idle from trivialising a conquest)
   const buildPow = g => Math.pow(BUILD, Math.max(0, (g | 0) - 1));
   const baseTarget = g => conquerHours(g) * 3600 * ACTIVE_REF * buildPow(g) * eco(g) * (S.conquest || 1);   // income-model part (no empire) — also drives idle bgRate, so the empire never feeds back on itself
@@ -560,7 +561,6 @@
   }
   let abil = { frenzy: 0, dotrain: 0, blackhole: 0 }, frenzyT = 0, blackholeT = 0;
   let autoAcc = 0;   // fractional auto-buy budget carried between frames
-  let autoExpanded = null;   // Set of planet indices currently expanded in the all-planets Auto-Buy overview
   const ABIL_CD = { frenzy: 45, dotrain: 40, blackhole: 60 };
   let activeTab = "def", listRows = {}, tabBtns = {};
   const BUY_AMTS = [1, 10, 100, "max"];               // bulk-buy multipliers — cycled by the BUY ×N button (v16.5: available to EVERYONE, not just test mode — each iteration re-checks cost/caps so it's exploit-free)
@@ -729,6 +729,10 @@
             if (back > 0) META.asc.cores += back;
             META.asc.lv = {}; META.asc.v = 3;
           } }
+        // v17 ONE-ARMY MIGRATION — planet vaults now hold campaign metadata ONLY (conquered/earned/bgRate).
+        // The build you were actively playing becomes THE army and travels from here on; stored per-planet
+        // builds (and their pocket banks) are retired — the strongest live build wins.
+        if (S && S.vault) for (const k in S.vault) { const v2 = S.vault[k]; if (v2 && (v2.units || v2.lv || v2.classNodes || v2.cash != null)) S.vault[k] = { conquered: !!v2.conquered, earned: +v2.earned || 0, bgRate: +v2.bgRate || 0 }; }
         if (d.ts) { const e = clamp((Date.now() - d.ts) / 1000, 0, AWAY_CAP_H * 3600);
           // away earnings = the on-screen $/s you were passively earning (your collector income + empire) × seconds away
           const rate = (d.cps > 0 ? d.cps : 0) + (S.vault ? empireIdleRate() : 0), offTotal = rate > 0 ? Math.floor(rate * e) : 0;
@@ -1899,12 +1903,12 @@
     for (const id in listRows) {
       const row = listRows[id];
       if (row.kind === "unit") {
-        const d = TY(id), locked = !S.free && S.galaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;   // gated by the CURRENT planet (era-appropriate), not your furthest — no retro-gearing old worlds
+        const d = TY(id), locked = !S.free && S.peakGalaxy < d.gal, c = unitBuyCost(id), n = countType(id), full = n >= d.max;   // v17: gated by your FRONTIER — reached it once, unlocked forever
         row.desc.textContent = n + "/" + d.max + (locked ? "" : " · " + d.name);
         if (locked) { row.buy.innerHTML = iconMarkup("lock") + "from P" + d.gal; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.remove("maxed"); }
         else if (full) { row.buy.textContent = "MAX"; row.buy.disabled = true; row.buy.classList.remove("afford"); row.el.classList.add("maxed"); }
         else { row.buy.textContent = curSym(S.galaxy) + " " + fmt(c); row.buy.disabled = S.cash < c; row.buy.classList.toggle("afford", S.cash >= c); row.el.classList.remove("maxed"); }
-        if (row.newc) row.newc.style.display = !locked && n === 0 && d.gal === S.galaxy && S.galaxy > 1 ? "inline-block" : "none";   // this class JUST unlocked on this world and you own none — the unlock moment announces itself (explicit inline-block: the stylesheet base is display:none, so "" would fall back to hidden)
+        if (row.newc) row.newc.style.display = !locked && n === 0 && d.gal === S.peakGalaxy && S.peakGalaxy > 1 ? "inline-block" : "none";   // this class JUST unlocked on this world and you own none — the unlock moment announces itself (explicit inline-block: the stylesheet base is display:none, so "" would fall back to hidden)
         if (row.up) row.up.classList.toggle("afford", !locked && n > 0 && hintTreeAff[id] != null && S.cash >= hintTreeAff[id]);   // a tree node is waiting and you can afford it — the tree pulls you in
       } else {
         const u = UP[id], lvl = S.lv[id], maxed = u.max != null && lvl >= u.max;
@@ -1917,7 +1921,7 @@
     { const nowH = performance.now();
       if (nowH - hintLast > 900) { hintLast = nowH;
         hintTreeAff = {};
-        for (const t of [...DEF_ORDER, ...COL_ORDER]) if (countType(t) > 0 && (S.free || S.galaxy >= TY(t).gal)) {
+        for (const t of [...DEF_ORDER, ...COL_ORDER]) if (countType(t) > 0 && (S.free || S.peakGalaxy >= TY(t).gal)) {
           let best = Infinity; const G = buildTree(t);
           for (const nd of G.nodes) if (!nodeAllocated(t, nd.id) && nodeAllocatable(t, nd)) { const cc = nodeCost(t, nd); if (cc < best) best = cc; }
           if (isFinite(best)) hintTreeAff[t] = best;
@@ -1929,8 +1933,8 @@
     // tab COUNT badges (v16.10) — the number of affordable things waiting inside each tab (units + upgrades
     // + one per class with an affordable tree node); "!" on amber when something in there is WRONG.
     const aff = { def: 0, drone: 0, eco: 0 };
-    for (const t of DEF_ORDER) if ((S.free || S.galaxy >= DEF_TYPES[t].gal) && countType(t) < DEF_TYPES[t].max && S.cash >= unitBuyCost(t)) aff.def++;
-    for (const t of COL_ORDER) if ((S.free || S.galaxy >= COL_TYPES[t].gal) && countType(t) < COL_TYPES[t].max && S.cash >= unitBuyCost(t)) aff.drone++;
+    for (const t of DEF_ORDER) if ((S.free || S.peakGalaxy >= DEF_TYPES[t].gal) && countType(t) < DEF_TYPES[t].max && S.cash >= unitBuyCost(t)) aff.def++;
+    for (const t of COL_ORDER) if ((S.free || S.peakGalaxy >= COL_TYPES[t].gal) && countType(t) < COL_TYPES[t].max && S.cash >= unitBuyCost(t)) aff.drone++;
     for (const t of DEF_ORDER) if (hintTreeAff[t] != null && S.cash >= hintTreeAff[t]) aff.def++;
     for (const t of COL_ORDER) if (hintTreeAff[t] != null && S.cash >= hintTreeAff[t]) aff.drone++;
     for (const u of UPS) { if (u.max != null && S.lv[u.id] >= u.max) continue; if (S.cash >= upCost(u)) aff[u.tab]++; }
@@ -1987,7 +1991,7 @@
   }
   function buyUnit(type) {
     const list = classList(type);
-    if (!S.free && S.galaxy < TY(type).gal) return;   // available only on its planet and ONWARD — never retroactively on earlier worlds (so revisits keep their era kit, no back-gearing chore); free mode ignores it
+    if (!S.free && S.peakGalaxy < TY(type).gal) return;   // v17 ONE ARMY: unlocks ride your FRONTIER — reach the class's planet once and it's buyable forever, wherever you're parked
     let bought = 0;
     for (let i = 0; i < buyN(); i++) {
       if (countType(type) >= TY(type).max) break;
@@ -2167,14 +2171,19 @@
   const ECO_KEYS = ["value", "spawnRate", "capacity", "luck"];
   const ECO_LABEL = { value: "Value", spawnRate: "Spawn Rate", capacity: "Capacity", luck: "Luck" };
   const isTreeStep = s => s && typeof s.target === "string" && s.target.slice(0, 5) === "tree:";
-  const defaultAuto = () => ({ v: 5, planets: {} });   // PER-PLANET configs: planets[g] = { on, queue:[step] }. Each planet is a fresh build, so it has its own build order.
+  const defaultAuto = () => ({ v: 6, on: false, queue: [] });   // v17 ONE ARMY: one global build order — the army persists across planets, so there is exactly ONE plan (was v5: a separate queue per planet, 18 lists to babysit)
   function ensureAuto() {
-    if (!S.auto || typeof S.auto !== "object" || S.auto.v !== 5) S.auto = defaultAuto();   // (re)build to the per-planet model
-    if (!S.auto.planets || typeof S.auto.planets !== "object") S.auto.planets = {};
+    if (!S.auto || typeof S.auto !== "object") { S.auto = defaultAuto(); return; }
+    if (S.auto.v === 5 && S.auto.planets) {   // MIGRATE v5 per-planet queues → one global queue, planet order preserved (P1's steps first)
+      const merged = defaultAuto(); merged.on = Object.values(S.auto.planets).some(p => p && p.on);
+      for (let g = 1; g <= TOTAL_PLANETS; g++) { const p = S.auto.planets[g]; if (p && Array.isArray(p.queue)) merged.queue.push(...p.queue); }
+      S.auto = merged;
+    }
+    if (S.auto.v !== 6) S.auto = defaultAuto();
+    if (!Array.isArray(S.auto.queue)) S.auto.queue = [];
   }
-  function autoCfg(g) {   // the auto-buy config for a planet (created + normalised on demand)
-    ensureAuto(); const k = g || S.galaxy; const p = S.auto.planets[k] || (S.auto.planets[k] = { on: false, queue: [] });
-    if (!Array.isArray(p.queue)) p.queue = [];
+  function autoCfg() {   // THE global auto-buy config (normalised in place)
+    ensureAuto(); const p = S.auto;
     // normalise IN PLACE — the live planet's cfg is re-fetched every frame by the auto-buy tick, so we must
     // NOT swap p.queue for a new array (that would orphan the reference captured by the Add-step / ± / ✕ UI
     // handlers, silently dropping their edits). Mutate the existing array instead.
@@ -2187,10 +2196,9 @@
     if ((p.doneFx || p.doneSeen) && p.queue.some(stepPending)) { p.doneFx = false; p.doneSeen = false; }   // new work → the ✓ state retires itself
     return p;
   }
-  const curAuto = () => autoCfg(S.galaxy);   // the config that actually RUNS (your active planet)
-  const autoIsOn = g => !!(S.auto && S.auto.planets && S.auto.planets[g] && S.auto.planets[g].on);   // peek a planet's on-state without creating its config
-  const autoUnlocked = () => true;                                       // available from planet 1 (with a single slot)
-  const autoSlots = g => Math.max(1, Math.min(g || S.galaxy, TOTAL_PLANETS));   // a planet gets one sequential slot per its number (planet 1 → 1, planet 2 → 2, …)
+  const curAuto = () => autoCfg();   // one army, one plan
+  const autoUnlocked = () => true;
+  const autoSlots = () => 30;        // one generous global list (was: one slot per planet number)
   const autoRate = () => Math.min(80, 5 + 4 * conqueredCount());         // purchases/sec — empire snowball makes it faster
   const autoTax = c => Math.ceil(c * AUTO_TAX);
   const treeNodesPending = s => { if (!isTreeStep(s)) return 0; const t = s.target.slice(5), sel = s.nodes || {}; let n = 0; for (const id in sel) if (sel[id] && !nodeAllocated(t, id)) n++; return n; };
@@ -2202,13 +2210,13 @@
   // work appears). doneSeen stops the badge pulsing once the player has opened the panel.
   function autoDoneFx() {
     floatTxt(W / 2, H * 0.3, "✓ AUTO-BUY PLAN COMPLETE");
-    floatTxt(W / 2, H * 0.3 + 22, "Planet " + S.galaxy + " build order finished — add more steps");
+    floatTxt(W / 2, H * 0.3 + 22, "your build order is finished — add more steps");
     flashAdd(0.35); shakeAdd(2); vibe([30, 30, 60]); Audio_node(); syncAutoBtn();
   }
   // next eco/unit purchase: { cost (taxed), buy() } or null
   function autoTargetNext(target) {
     if (ECO_KEYS.includes(target)) { const u = UP[target]; if (u.max != null && (S.lv[target] || 0) >= u.max) return null; return { cost: autoTax(upCost(u)), buy() { S.lv[target] = (S.lv[target] || 0) + 1; } }; }
-    const t = target; if (!TY(t)) return null; if (!S.free && S.galaxy < TY(t).gal) return null; if (countType(t) >= TY(t).max) return null;
+    const t = target; if (!TY(t)) return null; if (!S.free && S.peakGalaxy < TY(t).gal) return null; if (countType(t) >= TY(t).max) return null;
     return { cost: autoTax(unitBuyCost(t)), buy() { classList(t).push(isCol(t) ? { type: t } : newUnit(t)); if (isCol(t)) syncCollectors(); } };
   }
   // a step's next purchase: tree → cheapest still-allocatable PICKED node; eco/unit → next buy while count remains. null = step done/blocked.
@@ -2232,7 +2240,7 @@
   }
   // first runnable step of the ACTIVE planet: earlier steps must finish before later ones run
   function autoActive() {
-    const q = curAuto().queue, slots = autoSlots(S.galaxy);
+    const q = curAuto().queue, slots = autoSlots();
     for (let i = 0; i < q.length && i < slots; i++) { const nx = stepNext(q[i]); if (nx) return { step: q[i], next: nx, idx: i }; }
     return null;
   }
@@ -2275,8 +2283,8 @@
   function autoTargetOptions(g) {
     const gg = g || S.galaxy, o = [];
     for (const id of ECO_KEYS) o.push({ value: id, label: ECO_LABEL[id], group: "Economy" });
-    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || gg >= TY(t).gal) o.push({ value: t, label: TY(t).name, group: "Units" });
-    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || gg >= TY(t).gal) o.push({ value: "tree:" + t, label: TY(t).name + " tree", group: "Trees" });
+    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || S.peakGalaxy >= TY(t).gal) o.push({ value: t, label: TY(t).name, group: "Units" });
+    for (const t of [...DEF_ORDER, ...COL_ORDER]) if (S.free || S.peakGalaxy >= TY(t).gal) o.push({ value: "tree:" + t, label: TY(t).name + " tree", group: "Trees" });
     return o;
   }
   // when the dropdown target changes, switch the step between count-shape and tree-shape
@@ -2315,37 +2323,17 @@
     }
     return row;
   }
-  function openAuto(g) { closeCards(); ensureAuto(); if (!autoExpanded) autoExpanded = new Set(); autoExpanded.add(g || S.galaxy); const cfg = curAuto(); if (cfg.doneFx) { cfg.doneSeen = true; save(); } renderAuto(); $("auto-modal").classList.add("show"); }
-  // one collapsible panel for a planet in the all-planets overview
-  function autoPlanetSection(g) {
-    const peek = S.auto.planets[g], on = !!(peek && peek.on), qlen = peek && Array.isArray(peek.queue) ? peek.queue.length : 0;
-    const slots = autoSlots(g), live = g === S.galaxy, exp = autoExpanded.has(g);
-    const done = !!(peek && peek.doneFx);
-    const wrap = document.createElement("div"); wrap.className = "auto-sec" + (exp ? " exp" : "") + (on ? " on" : "") + (done ? " done" : "");
-    const head = document.createElement("div"); head.className = "auto-sec-head";
-    head.innerHTML = '<button class="asx-pow' + (on ? " on" : "") + '">' + iconMarkup("power") + '</button>'
-      + '<div class="asx-main"><div class="asx-name">' + (exp ? "▾ " : "▸ ") + "Planet " + g + " · " + galName(g) + (live ? ' <span class="asx-here">• here</span>' : '') + '</div>'
-      + '<div class="asx-sub">' + (done ? "✓ PLAN COMPLETE — add more steps" : (on ? "ON" : "off") + " · " + Math.min(qlen, slots) + "/" + slots + " step" + (slots > 1 ? "s" : "")) + '</div></div>';
-    head.querySelector(".asx-pow").onclick = e => { e.stopPropagation(); const cfg = autoCfg(g); cfg.on = !cfg.on; if (live) autoAcc = 0; save(); syncAutoBtn(); renderAuto(); };
-    head.querySelector(".asx-main").onclick = () => { if (autoExpanded.has(g)) autoExpanded.delete(g); else autoExpanded.add(g); renderAuto(); };
-    wrap.appendChild(head);
-    if (exp) {
-      const body = document.createElement("div"); body.className = "auto-sec-body";
-      const cfg = autoCfg(g), q = cfg.queue, opts = autoTargetOptions(g), act = live ? autoActive() : null;
-      q.slice(0, slots).forEach((s, i) => body.appendChild(autoStepRow(s, i, opts, !!act && act.idx === i, q)));
-      if (q.length < slots) { const add = document.createElement("button"); add.className = "auto-add"; add.textContent = "＋ Add step  (" + (q.length + 1) + "/" + slots + ")"; add.onclick = () => { q.push({ target: opts[0] ? opts[0].value : "value", count: 10 }); save(); renderAuto(); }; body.appendChild(add); }
-      wrap.appendChild(body);
-    }
-    return wrap;
-  }
-  function renderAuto() {
+  function openAuto() { closeCards(); ensureAuto(); const cfg = curAuto(); if (cfg.doneFx) { cfg.doneSeen = true; save(); } renderAuto(); $("auto-modal").classList.add("show"); }
+  function renderAuto() {   // v17 ONE ARMY: one plan, one panel — the 18 per-planet sections are gone
     ensureAuto();
-    const lock = $("auto-lock"), list = $("auto-list"), ph = $("auto-planet"); if (!list) return;
-    if (!autoExpanded) autoExpanded = new Set([S.galaxy]);
-    if (ph) ph.textContent = "· all " + TOTAL_PLANETS + " planets";
-    if (lock) lock.textContent = "Tap a planet to expand its build order · arm it with its power toggle · slots = planet number · +50% tax.";
+    const lock = $("auto-lock"), list = $("auto-list"), ph = $("auto-planet"), tog = $("auto-toggle"); if (!list) return;
+    const cfg = curAuto(), q = cfg.queue, slots = autoSlots(), opts = autoTargetOptions(), act = cfg.on ? autoActive() : null;
+    if (ph) ph.textContent = "· one army, one plan";
+    if (tog) { tog.textContent = cfg.doneFx ? "✓ PLAN COMPLETE — AUTO-BUY " + (cfg.on ? "ON" : "OFF") : "AUTO-BUY: " + (cfg.on ? "ON" : "OFF"); tog.classList.toggle("on", !!cfg.on); tog.onclick = () => { cfg.on = !cfg.on; autoAcc = 0; save(); syncAutoBtn(); renderAuto(); }; }
+    if (lock) lock.textContent = "Steps run top to bottom, planet after planet — your army carries everything forward. +50% tax.";
     list.innerHTML = "";
-    for (let g = 1; g <= TOTAL_PLANETS; g++) list.appendChild(autoPlanetSection(g));
+    q.slice(0, slots).forEach((s, i) => list.appendChild(autoStepRow(s, i, opts, !!act && act.idx === i, q)));
+    if (q.length < slots) { const add = document.createElement("button"); add.className = "auto-add"; add.textContent = "＋ Add step  (" + (q.length + 1) + "/" + slots + ")"; add.onclick = () => { q.push({ target: opts[0] ? opts[0].value : "value", count: 10 }); save(); renderAuto(); }; list.appendChild(add); }
     syncAutoBtn();
   }
 
@@ -2520,7 +2508,7 @@
   }
   function nodeCost(type, n) { const k = n.kind === "key" ? KEY_MUL : n.kind === "major" ? MAJOR_MUL : 1;
     const td = treeDepths(type), depth = td.d[n.id] || 1;
-    return Math.ceil(eco(S.galaxy) * 6.0 * BUY_MUL * Math.pow(TREE_SPAN, depth / td.max) * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }
+    return Math.ceil(ecoCost() * 6.0 * BUY_MUL * Math.pow(TREE_SPAN, depth / td.max) * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }   // v17: frontier-priced — outer rings become each new planet's natural purchases
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true;
@@ -2718,27 +2706,23 @@
           : "<span class='gi-tag'>" + iconMarkup("lock") + "Conquer " + galName(S.galaxy) + " first</span>")
       : "<span class='gi-tag'>" + iconMarkup("lock") + "Conquer earlier worlds first</span>";
     const localN = PLANET_LOCAL[planetIdx(g)] + 1, sysSize = SYSTEMS[PLANET_SYS[planetIdx(g)]].planets, race = raceAt(g), pv = S.vault[g];
-    // per-planet progression: currency bank, idle rate, build, conquer status
-    const bank = current ? S.cash : (pv ? pv.cash || 0 : 0);
-    const nDef = current ? S.units.length : (pv && pv.units ? pv.units.length : 0);
-    const nCol = current ? S.collectors.length : (pv && pv.collectors ? pv.collectors.length : 0);
-    const nNodes = (() => { const cn = current ? S.classNodes : (pv ? pv.classNodes : null); let n = 0; if (cn) for (const k in cn) n += Object.keys(cn[k] || {}).length; return n; })();
+    // per-planet campaign status (v17 ONE ARMY: no per-planet banks or builds — the army is global)
+    const idleRate = pv && pv.conquered ? (pv.bgRate || 0) : 0;
     const prog = current ? (planetMeta(g).conquered ? "✓ conquered  ·  earning idle" : Math.floor(clamp(curEarned / conquerTarget(g), 0, 1) * 100) + "% to conquer  ·  unlocks Travel + idle income")
-      : (pv && pv.conquered ? "✓ conquered" : (reached ? "visited — not conquered" : "unexplored"));
+      : (pv && pv.conquered ? "✓ conquered  ·  tribute +" + curSym(g) + " " + fmt(idleRate) + "/s" : (reached ? "visited — not conquered" : "unexplored"));
     const stats = "<div class='gi-unlock'>" + curSym(g) + " <b>" + curName(g) + "</b>" +
       (pv && pv.conquered ? " · <b>+" + fmt(pv.bgRate || 0) + "/s</b> idle" : "") +
-      (nDef + nCol > 0 ? " · build " + nDef + " def · " + nCol + " col · " + nNodes + " nodes" : "") +
       "<br>" + prog + "</div>";
     $("gm-info").innerHTML = "<div class='gi-name'>" + galName(g) + "</div>" +
       "<div class='gi-desc'>" + sysName(g) + " system · planet " + localN + "/" + sysSize + " · world " + g + "/" + TOTAL_PLANETS + "<br>" + galDesc(g) + "</div>" +
       stats +
       "<div class='gi-unlock'>" + iconMarkup("alien") + "Native race: <b>" + race.name + "</b> — " + RACE_FX[race.key] + "<br><span class='gi-counter'>↳ " + NICHE_HINT[race.niche || "balanced"] + "</span></div>" +
       (weps.length ? "<div class='gi-unlock'>Unlocks: " + weps.join(", ") + "</div>" : "") + "<div class='gi-act'>" + action
-      + "<button id='gi-autotog' class='gi-auto" + (autoIsOn(g) ? " on" : "") + "'>" + iconMarkup("gear") + "Auto " + (autoIsOn(g) ? "ON" : "OFF") + "</button>"
+      + "<button id='gi-autotog' class='gi-auto" + (curAuto().on ? " on" : "") + "'>" + iconMarkup("gear") + "Auto " + (curAuto().on ? "ON" : "OFF") + "</button>"
       + "<button id='gi-auto' class='gi-auto'>Edit ▸</button></div>";
     $("gm-info").classList.add("show");
-    const at = $("gi-autotog"); if (at) at.onclick = () => { const c = autoCfg(g); c.on = !c.on; autoAcc = 0; save(); syncAutoBtn(); showGalaxyInfo(g); };   // toggle THIS planet's auto-buy on/off
-    const ab = $("gi-auto"); if (ab) ab.onclick = () => { $("gm-info").classList.remove("show"); openAuto(g); };   // configure THIS planet's auto-buy build order
+    const at = $("gi-autotog"); if (at) at.onclick = () => { const c = curAuto(); c.on = !c.on; autoAcc = 0; save(); syncAutoBtn(); showGalaxyInfo(g); };   // v17: ONE global auto-buy toggle
+    const ab = $("gi-auto"); if (ab) ab.onclick = () => { $("gm-info").classList.remove("show"); openAuto(); };   // open THE build order
     const t = $("gi-travel"); if (t) t.onclick = () => { if (S.travel) { speedTravel(); showGalaxyInfo(g); } else { travel(); $("gm-info").classList.remove("show"); } };   // en route → pay to speed up (re-render to update cost/time); otherwise → launch
     const j = $("gi-jump"); if (j) j.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { jumpTo(g); $("galaxy-map").classList.remove("show"); GMap.hide(); }); };
     const vc = $("gi-visit"); if (vc) vc.onclick = () => { $("gm-info").classList.remove("show"); GMap.flyInto(g, () => { $("galaxy-map").classList.remove("show"); GMap.hide(); }); };   // already here → just dive to the base
@@ -3072,7 +3056,7 @@
           veilT = VEIL_FADE; landT = LAND_DUR; camZoom = camFit * 2.3;                    // arrive zoomed on the base, then pull back
           shakeAdd(9); flashAdd(0.4); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);   // landing impact
           const lt = $("land-title"); if (lt) { const wall = PLANET_LOCAL[planetIdx(gg)] === 0 && gg > 1;   // first world of a NEW solar system = the difficulty wall
-            lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg) + (wall ? "<span class='lt-sub'>▲ NEW FRONTIER — the dots here are far tougher. Rebuild and earn your footing.</span>" : "");
+            lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg) + (wall ? "<span class='lt-sub'>▲ NEW FRONTIER — the dots here are far tougher. Your army arrives with you: dig into deeper tree rings and new classes to earn your footing.</span>" : "");
             if (wall) { shakeAdd(6); flashAdd(0.25); }
             lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
         }
@@ -3162,20 +3146,17 @@
       if (best.sun != null) { this.focusSystem(best.sun); this.sel = null; $("gm-info").classList.remove("show"); }   // tap a sun -> recenter on its system
       else { this.sel = best.g; showGalaxyInfo(best.g); } },
   };
-  // ---- PLANET LAYERS: each planet is its own run; vault holds conquered planets' builds + idle rate ----
+  // ---- PLANET LAYERS (v17 ONE ARMY): the vault holds each planet's CAMPAIGN metadata only — conquered
+  // flag, conquer-bar progress, and its idle tribute rate. The fleet, trees, upgrade levels and cash are
+  // ONE global army that travels with you; nothing is rebuilt, nothing is stored per planet. Ascension is
+  // the game's only reset — which is the whole point of it.
   function planetMeta(g) { return S.vault[g] || (S.vault[g] = { conquered: false, earned: 0, bgRate: 0 }); }
-  function freshPlanetBuild() { const lv = {}; UPS.forEach(u => lv[u.id] = 0); const cn = {}; ALL_TYPES.forEach(t => cn[t] = {}); return { cash: 0, units: [newUnit("turret")], collectors: [{ type: "drone" }], lv, classNodes: cn }; }
-  function snapshotActive() {   // write the live build back into the vault, lock in the best idle rate
+  function snapshotActive() {   // record the departing planet's conquest metadata; the army comes along
     const v = planetMeta(S.galaxy);
-    v.cash = S.cash; v.units = S.units; v.collectors = S.collectors; v.lv = S.lv; v.classNodes = S.classNodes;
     v.earned = curEarned; v.bgRate = Math.max(v.bgRate || 0, Math.min(cps * BG_EFF, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)));   // m7 fix: the live-cps idle estimate is CLAMPED to the designed conquer-set rate, so an over-built planet can't permanently inflate its empire idle above the curve
   }
-  function activatePlanet(g) {   // make planet g the live playfield (restore its build, or fresh-start it)
-    const v = planetMeta(g), fresh = !(v && v.units), b = fresh ? freshPlanetBuild() : v;
-    S.cash = fresh ? Math.floor(eco(g) * startMul(g)) : (b.cash || 0);   // a fresh landing comes with starter supplies so you build immediately
-    S.units = (b.units && b.units.length) ? b.units : [newUnit("turret")];
-    S.collectors = (b.collectors && b.collectors.length) ? b.collectors : [{ type: "drone" }];
-    S.lv = b.lv || freshPlanetBuild().lv; S.classNodes = b.classNodes || freshPlanetBuild().classNodes;
+  function activatePlanet(g) {   // point the ONE ARMY at planet g — fleet, trees, levels and cash all arrive with you
+    const v = planetMeta(g);
     S.galaxy = g; if (g > S.peakGalaxy) S.peakGalaxy = g; curEarned = v.earned || 0;
     dots = []; orbs = []; beams = []; shells = []; parts = []; selUnit = -1;
     syncCollectors(); recompute(); renderList(); syncHUD(); GMap.reset && 0;
@@ -3362,8 +3343,8 @@
     { sel: '#tabs [data-tab="drone"]', t: "Collectors", x: "Killed dots drop <b>cash orbs</b> — collectors gather them. Buy & upgrade them in the <b>COLLECTORS</b> tab, or your loot expires uncollected." },
     { sel: '#tabs [data-tab="eco"]', t: "Economy", x: "The <b>ECONOMY</b> tab boosts cash value, spawn rate, your cash ceiling, and luck — the backbone of your income." },
     { sel: "#abilities", t: "Abilities", x: "Tap an ability for a burst: <b>Frenzy</b> (fire rate), <b>Dot Rain</b> (flood the field), or <b>Black Hole</b> (vacuum). They run on cooldowns." },
-    { sel: "#galaxy-open", t: "Conquer & travel", x: "Fill <b>this bar</b> to conquer the planet and unlock <b>Travel</b>. Tap the bar for the <b>star map</b> — three solar systems, and every planet's native race has a <b>weakness</b> shown there." },
-    { sel: "#btn-ascend", t: "Ascension", x: "This counter is your <b>pending ◈ cores</b> — every conquered planet charges it (deeper worlds pay exponentially more). When the next conquer bar becomes a <b>WALL</b>, ascend: the run resets, the cores bank, and permanent lines like the <b>Engine (×2 ALL income per level)</b> make the next run melt everything you just fought through." },
+    { sel: "#galaxy-open", t: "Conquer & travel", x: "Fill <b>this bar</b> to conquer the planet and unlock <b>Travel</b> — and your whole army travels WITH you; nothing restarts. Tap the bar for the <b>star map</b> — three solar systems, and every planet's native race has a <b>weakness</b> shown there." },
+    { sel: "#btn-ascend", t: "Ascension", x: "This counter is your <b>pending ◈ cores</b> — every conquered planet charges it (deeper worlds pay exponentially more). When the next conquer bar becomes a <b>WALL</b>, ascend: the run resets, the cores bank, and the permanent <b>Engine (+25% ALL income per level)</b> makes the next campaign melt everything you just fought through. Ascension is the game's ONE reset — everything else you build is yours for the whole run." },
     { t: "Go conquer", x: "That's the loop: <b>kill dots → gather cash → upgrade → fill the bar → travel</b>. Take all 18 worlds. Good luck, commander!" },
   ];
   const Tut = {
