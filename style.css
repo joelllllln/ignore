@@ -519,3 +519,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 @keyframes attnpop{0%{transform:scale(1)}30%{transform:scale(1.16);box-shadow:0 0 26px rgba(255,255,255,.95)}100%{transform:scale(1)}}
 .nudge{animation:nudgebounce .7s cubic-bezier(.3,1.6,.4,1)}
 @keyframes nudgebounce{0%,100%{transform:translateY(0)}25%{transform:translateY(-5px) scale(1.06)}55%{transform:translateY(1.5px)}}
+
+/* UPDATE NOW (v17.3) — the Settings one-tap updater */
+.seg-btn.upd-now{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none;font-weight:800;letter-spacing:.4px;min-width:150px}
+.seg-btn.upd-now:disabled{opacity:.75}
