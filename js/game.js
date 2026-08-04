@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v17.0";   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v17.1";   // v17.1 = ERA WEAPONS + WORLD IDENTITY: new classes land punching at their era's weight (base dmg ×enemyHpMul of their home planet, tree nodes priced ×ERA to match — no more wet-noodle Railguns), arriving anywhere fires the FULL landing cinematic (letterbox, veil, camera slam, title card), every planet gets a seeded grayscale field backdrop (stars/nebulae/signature-polygon watermark) and mints its own LOCAL TENDER (name+symbol re-denominate per world; value identical — the one-economy stays sim-locked)   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   // v16.9 AMBIENT HINTS — the "what next?" layer. The game never tells you what to do; instead the thing
@@ -238,7 +238,14 @@
   const uMulti = u => cls(u.type).multi || 0;
   const uInt = u => cls(u.type).int || 0;   // intelligence: 0 = dumb, ~1 = perfect overkill-avoidance & coordination
   const cls = type => (derived.cls && derived.cls[type]) || ZERO;
-  const uDmg = u => DEF_TYPES[u.type].dmg * cls(u.type).dmg * pk().dmg;   // × permanent Ascension damage perk
+  // v17.1 ERA SCALING — under ONE ARMY a class bought at its unlock planet arrives with an EMPTY tree
+  // into dots whose HP has grown diff(g)^0.4 since P1; without this a shiny new Railgun plinked like a
+  // wet noodle next to your veteran turrets. Each defender's BASE damage now rides the exact HP scale of
+  // its HOME planet (ERA = enemyHpMul(gal)) — a naked new weapon lands punching at its era's weight. Its
+  // tree nodes are priced ×ERA to match (same philosophy as DEF_SCALE: stronger nodes cost proportionally),
+  // so classes stay sidegrades per credit spent. Collectors are pure logistics — no era scaling needed.
+  const ERA = type => isCol(type) ? 1 : Math.pow(diff(TY(type).gal || 1), 0.4);
+  const uDmg = u => DEF_TYPES[u.type].dmg * ERA(u.type) * cls(u.type).dmg * pk().dmg;   // × era weight × permanent Ascension damage perk
   const uRate = u => { const r = DEF_TYPES[u.type].rate * cls(u.type).rate * pk().rate * (frenzyT > 0 ? 5 : 1); return u.type === "mortar" ? Math.min(2, r) : r; };   // Frenzy = 5× fire rate; × Ascension rate perk; mortar HARD-CAPPED at 2/s (every 0.5s) even after perks — heavy arcing bombs, never a machine gun
   const uRange = u => DEF_TYPES[u.type].range + cls(u.type).range + pk().range;
   const uCrit = u => Math.min(0.85, cls(u.type).crit + pk().crit);   // + permanent Ascension crit perk (still hard-capped at 0.85; excess → crit damage via uCritMul)
@@ -434,8 +441,13 @@
   const eco = g => CUR_BASE * diff(g);   // planet number-magnitude (single global currency; costs & drops BOTH ride this so it cancels — progression now is class unlocks, deeper trees & the idle empire)
   const startMul = g => 40 * pk().start; // fresh-landing starter purse (× eco(g)) — × the Head Start ascension line (pk() is 1 before first recompute)
   // ONE global currency now — no per-planet money, no exchange (v16.5: the exchange code itself is gone too).
-  const curName = g => "Credits";
-  const curSym  = g => "✦";
+  // v17.1: every planet mints its own TENDER — same underlying value (the economy stays ONE global
+  // number, sim-locked), but the name & symbol re-denominate per world, so each landing feels like a
+  // new economy without touching a single balance curve.
+  const CUR_NAMES = ["Credits", "Embers", "Cinders", "Hearthmarks", "Azurite", "Verdite", "Cobalt Chips", "Gale Notes", "Halcyons", "Storm Shards", "Umbrite", "Frost Bits", "Onyx Marks", "Wraith Coin", "Pyre Marks", "Abyssals", "Maw Teeth", "Nullions"];
+  const CUR_SYMS  = ["✦", "❖", "✴", "✹", "❂", "✻", "❁", "❃", "✵", "❄", "❉", "❊", "✸", "❇", "✶", "✳", "✷", "❈"];
+  const curName = g => CUR_NAMES[planetIdx(g)] || "Credits";
+  const curSym  = g => CUR_SYMS[planetIdx(g)] || "✦";
   // CONQUER-TIME CURVE (the ASCENSION WALL). Active hours per planet grow GEOMETRICALLY:
   // ~24 min on planet 1, ×1.65 every planet after (v16.4: softened from ×2 — a ×2 wall forces
   // ×2^17 income multipliers by P18 and ×millions once MORE SOLAR SYSTEMS land; ×1.65 keeps every
@@ -1480,7 +1492,7 @@
   function update(dt) {
     if (S.travel) {   // an expedition is in transit — advance it and arrive (ticks on any screen)
       S.travel.t += dt;
-      if (S.travel.t >= S.travel.dur) { const to = S.travel.to; S.travel = null; snapshotActive(); flashAdd(0.7); shakeAdd(6); ring(W / 2, H / 2, 10, Math.max(W, H), 0.6); Audio_land(); activatePlanet(to); save(); }
+      if (S.travel.t >= S.travel.dur) { const to = S.travel.to; S.travel = null; snapshotActive(); activatePlanet(to); arrivalCinematic(to); Audio_land(); Sfx.swoosh(0.9); save(); }   // v17.1: landing from an expedition is now the FULL cinematic, not a flash
     }
     if (state !== "play") return;
     recompute();
@@ -1684,11 +1696,38 @@
     v.style.background = "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) " + r.toFixed(1) + "%, #000 " + (r + 8).toFixed(1) + "%)";
   }
   /* ----------------------------- render -------------------------- */
+  // v17.1 PLANET BACKDROP — every world gets a seeded grayscale identity (star density, faint nebulae,
+  // a huge ultra-faint watermark of the planet's signature polygon) so a landing LOOKS like a new place
+  // at a glance, without breaking the monochrome art or field readability. Rebuilt on planet change/resize.
+  let bgCv = null, bgFor = 0, bgW = 0, bgH = 0;
+  function buildBackdrop() {
+    const w = Math.max(64, SW | 0), h = Math.max(64, SH | 0);
+    if (!bgCv) bgCv = document.createElement("canvas");
+    bgCv.width = w; bgCv.height = h; bgFor = S.galaxy; bgW = w; bgH = h;
+    const c = bgCv.getContext("2d"), seed = Math.imul(S.galaxy * 2654435761 + 13, 40503) >>> 0;
+    const rnd2 = k => { const x = Math.imul(seed + k * 374761393, 668265263) >>> 0; return (x >>> 8) / 16777216; };
+    const base = 6 + Math.floor(rnd2(1) * 5);
+    const g2 = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
+    g2.addColorStop(0, "hsl(0,0%," + (base + 3) + "%)"); g2.addColorStop(1, "#000");
+    c.fillStyle = g2; c.fillRect(0, 0, w, h);
+    const stars = 60 + Math.floor(rnd2(2) * 90);                               // star density is part of the world's fingerprint
+    c.fillStyle = "#fff";
+    for (let i = 0; i < stars; i++) { c.globalAlpha = 0.03 + rnd2(i * 3 + 3) * 0.10; c.beginPath(); c.arc(rnd2(i * 3 + 5) * w, rnd2(i * 7 + 6) * h, 0.5 + rnd2(i * 3 + 4) * 1.4, 0, TAU); c.fill(); }
+    for (let i = 0; i < 3; i++) {                                              // faint nebula blobs, seeded positions
+      const bx = rnd2(20 + i) * w, by = rnd2(30 + i) * h, br = (0.25 + rnd2(40 + i) * 0.3) * Math.max(w, h);
+      const ng = c.createRadialGradient(bx, by, 0, bx, by, br); const lum = 10 + Math.floor(rnd2(50 + i) * 8);
+      ng.addColorStop(0, "hsla(0,0%," + lum + "%,0.10)"); ng.addColorStop(1, "hsla(0,0%,0%,0)");
+      c.fillStyle = ng; c.beginPath(); c.arc(bx, by, br, 0, TAU); c.fill(); }
+    const sides = 3 + ((S.galaxy - 1) % 7), R = Math.min(w, h) * 0.42, rot = rnd2(60) * 0.8;   // the planet's signature polygon, as a huge watermark
+    c.globalAlpha = 0.05; c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.beginPath();
+    for (let i = 0; i <= sides; i++) { const a = -Math.PI / 2 + i / sides * TAU + rot; const x2 = w / 2 + Math.cos(a) * R, y2 = h / 2 + Math.sin(a) * R; i ? c.lineTo(x2, y2) : c.moveTo(x2, y2); } c.stroke();
+    c.globalAlpha = 0.035; c.beginPath(); c.arc(w / 2, h / 2, R * 0.72, 0, TAU); c.stroke();
+    c.globalAlpha = 1;
+  }
   function render() {
     ctx.clearRect(0, 0, SW, SH);
-    const g = ctx.createRadialGradient(SW / 2, SH / 2, 0, SW / 2, SH / 2, Math.max(SW, SH) * 0.7);
-    g.addColorStop(0, `hsl(0,0%,${7 + ((S.galaxy - 1) % 6) * 2}%)`); g.addColorStop(1, "#000");
-    ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH);
+    if (!bgCv || bgFor !== S.galaxy || bgW !== Math.max(64, SW | 0) || bgH !== Math.max(64, SH | 0)) buildBackdrop();
+    ctx.drawImage(bgCv, 0, 0);
     ctx.save();
     ctx.translate(SW / 2, SH / 2);                                  // center-locked world camera
     if (shake > 0.2 && opt("shake")) ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
@@ -2508,7 +2547,7 @@
   }
   function nodeCost(type, n) { const k = n.kind === "key" ? KEY_MUL : n.kind === "major" ? MAJOR_MUL : 1;
     const td = treeDepths(type), depth = td.d[n.id] || 1;
-    return Math.ceil(ecoCost() * 6.0 * BUY_MUL * Math.pow(TREE_SPAN, depth / td.max) * k * (DEF_SCALE[type] || 1) * pk().cost * TEST_MUL()); }   // v17: frontier-priced — outer rings become each new planet's natural purchases
+    return Math.ceil(ecoCost() * 6.0 * BUY_MUL * Math.pow(TREE_SPAN, depth / td.max) * k * (DEF_SCALE[type] || 1) * ERA(type) * pk().cost * TEST_MUL()); }   // v17: frontier-priced — outer rings become each new planet's natural purchases; ×ERA so era-weighted classes pay era prices
   function allocNode(type, n) {
     if (!n || !nodeAllocatable(type, n)) return; const c = nodeCost(type, n); if (S.cash < c) return;
     S.cash -= c; (S.classNodes[type] || (S.classNodes[type] = {}))[n.id] = true;
@@ -3056,7 +3095,9 @@
           veilT = VEIL_FADE; landT = LAND_DUR; camZoom = camFit * 2.3;                    // arrive zoomed on the base, then pull back
           shakeAdd(9); flashAdd(0.4); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);   // landing impact
           const lt = $("land-title"); if (lt) { const wall = PLANET_LOCAL[planetIdx(gg)] === 0 && gg > 1;   // first world of a NEW solar system = the difficulty wall
-            lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg) + (wall ? "<span class='lt-sub'>▲ NEW FRONTIER — the dots here are far tougher. Your army arrives with you: dig into deeper tree rings and new classes to earn your footing.</span>" : "");
+            lt.innerHTML = galName(gg).toUpperCase() + "  ·  " + sysName(gg)
+              + "<span class='lt-sub'>local tender: " + curSym(gg) + " " + curName(gg).toUpperCase()
+              + (wall ? "<br>▲ NEW FRONTIER — far tougher dots. Dig into deeper tree rings and the new class." : "") + "</span>";
             if (wall) { shakeAdd(6); flashAdd(0.25); }
             lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
         }
@@ -3154,6 +3195,18 @@
   function snapshotActive() {   // record the departing planet's conquest metadata; the army comes along
     const v = planetMeta(S.galaxy);
     v.earned = curEarned; v.bgRate = Math.max(v.bgRate || 0, Math.min(cps * BG_EFF, baseTarget(S.galaxy) / (IDLE_PAYBACK_H * 3600)));   // m7 fix: the live-cps idle estimate is CLAMPED to the designed conquer-set rate, so an over-built planet can't permanently inflate its empire idle above the curve
+  }
+  function arrivalCinematic(g) {   // v17.1: ARRIVING IS AN EVENT — letterbox bars, white veil iris, camera slam +
+    // pull-back, double shockwave, and a title card naming the world, its system and its LOCAL TENDER.
+    // Both arrival paths (expedition completing, map dive) speak with this one voice.
+    const root = $("root"); if (root) root.classList.add("cinematic");
+    veilT = VEIL_FADE; landT = LAND_DUR; camZoom = camFit * 2.3;
+    shakeAdd(9); flashAdd(0.45); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.6, 0.6); ring(W / 2, H / 2, 14, Math.max(W, H) * 0.34, 0.4); burst(W / 2, H / 2, 34, 240, 2.8);
+    const lt = $("land-title"); if (lt) { const wall = PLANET_LOCAL[planetIdx(g)] === 0 && g > 1;
+      lt.innerHTML = galName(g).toUpperCase() + "  ·  " + sysName(g)
+        + "<span class='lt-sub'>local tender: " + curSym(g) + " " + curName(g).toUpperCase()
+        + (wall ? "<br>▲ NEW FRONTIER — far tougher dots. Dig into deeper tree rings and the new class." : "") + "</span>";
+      lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
   }
   function activatePlanet(g) {   // point the ONE ARMY at planet g — fleet, trees, levels and cash all arrive with you
     const v = planetMeta(g);
