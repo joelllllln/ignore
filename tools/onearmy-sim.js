@@ -109,7 +109,8 @@ const { chromium } = requirePlaywright();
         spendAll();
         empire += incomePerSec(g, engineMult) * 0.4 * 0.15;                      // BG_EFF tribute fraction
         const activeH = secs / 3600 / ACTIVE_MAX;
-        rows.push({ g, activeH, designedH: 0.4 * Math.pow(1.65, g - 1) / (engineMult || 1) + 0.05 + 0.2 / Math.sqrt(engineMult || 1), dps: dpsNow(), value: S.lv.value, eff: SIM.ecoLv('value'), spawn: S.lv.spawnRate, units: S.units.length, cols: S.collectors.length, nodes: (() => { let n = 0; for (const t in S.classNodes) n += Object.keys(S.classNodes[t]).length; return n; })() });
+        const inc1 = incomePerSec(g, 1);   // engine-free income — capacity also excludes the engine here, so the ratio is regime-invariant
+        rows.push({ g, activeH, designedH: 0.4 * Math.pow(1.65, g - 1) / (engineMult || 1) + 0.05 + 0.2 / Math.sqrt(engineMult || 1), dps: dpsNow(), value: S.lv.value, eff: SIM.ecoLv('value'), spawn: S.lv.spawnRate, effS: SIM.ecoLv('spawnRate'), capLv: S.lv.capacity, luckLv: S.lv.luck, luckPct: Math.round(D.derived().luck * 1000) / 10, bankSecs: inc1 > 0 ? Math.round(D.derived().capacity / inc1) : Infinity, units: S.units.length, cols: S.collectors.length, nodes: (() => { let n = 0; for (const t in S.classNodes) n += Object.keys(S.classNodes[t]).length; return n; })() });
       }
       return { rows };
     }
@@ -130,11 +131,11 @@ const { chromium } = requirePlaywright();
   console.log('ONE-ARMY CAMPAIGN — persistent fleet vs designed conquer curve (active-equivalent hours)');
   for (const reg of (r.regimes || [])) {
     console.log(`\n== ENGINE ×${reg.M} (planets 1–${reg.maxP}) ==`);
-    console.log(' g   measured   designed   ratio   dps        valueLv effV spawnLv units cols nodes');
+    console.log(' g   measured   designed   ratio   dps        valueLv effV effS capLv luck%  bank-s units cols nodes');
     const ratios = [];
     for (const x of reg.rows) {
       const ratio = x.activeH / x.designedH; ratios.push(ratio);
-      console.log(String(x.g).padStart(2), (x.activeH.toFixed(2) + 'h').padStart(9), (x.designedH.toFixed(2) + 'h').padStart(10), ('×' + ratio.toFixed(2)).padStart(7), x.dps.toExponential(2).padStart(10), String(x.value).padStart(7), String(x.eff == null ? '-' : x.eff).padStart(4), String(x.spawn).padStart(7), String(x.units).padStart(5), String(x.cols).padStart(4), String(x.nodes).padStart(5));
+      console.log(String(x.g).padStart(2), (x.activeH.toFixed(2) + 'h').padStart(9), (x.designedH.toFixed(2) + 'h').padStart(10), ('×' + ratio.toFixed(2)).padStart(7), x.dps.toExponential(2).padStart(10), String(x.value).padStart(7), String(x.eff == null ? '-' : x.eff).padStart(4), String(x.effS == null ? '-' : x.effS).padStart(4), String(x.capLv == null ? '-' : x.capLv).padStart(5), String(x.luckPct == null ? '-' : x.luckPct).padStart(5), String(x.bankSecs == null ? '-' : x.bankSecs).padStart(7), String(x.units).padStart(5), String(x.cols).padStart(4), String(x.nodes).padStart(5));
     }
     if (reg.dead) fails.push(`O4 [M×${reg.M}] planet ${reg.dead} unconquerable`);
     if (!ratios.length) continue;
@@ -146,6 +147,13 @@ const { chromium } = requirePlaywright();
     for (const x of reg.rows) { const ratio = x.activeH / x.designedH; if (ratio > 3.0) fails.push(`O1 [M×${reg.M}] P${x.g} ratio ×${ratio.toFixed(2)} > 3.0 (surprise wall)`); }
     for (let i = 1; i < wall.length; i++) if (wall[i].activeH <= wall[i - 1].activeH) fails.push(`O2 [M×${reg.M}] wall-zone curve collapsed at P${wall[i].g}`);
     if (wallRatios.length && (med < 0.40 || med > 2.0)) fails.push(`O3 [M×${reg.M}] wall-zone median ×${med.toFixed(2)} outside [0.40,2.0]`);
+    // UPGRADE-AUDIT gates (v17.4): every upgrade dimension must stay sane the whole campaign
+    for (const x of reg.rows) {
+      if (x.g >= 4 && x.bankSecs != null && isFinite(x.bankSecs) && x.bankSecs < 600) fails.push(`U1 [M×${reg.M}] P${x.g} cash ceiling holds only ${x.bankSecs}s of income (<10min) — Capacity curve lagging`);   // P1–3 opening is DESIGNED tight (unchanged pre-v17 formula): forces active spending, teaches Capacity via the amber hint
+      if (x.luckPct != null && x.luckPct >= 60) fails.push(`U2 [M×${reg.M}] P${x.g} Luck at the 60% cap — further buys would be dead`);
+      if (x.eff != null && x.g > 1 && (x.eff < 4 || x.eff > 90)) fails.push(`U3 [M×${reg.M}] P${x.g} effective Value ${x.eff} outside [4,90] — re-baseline band broken`);
+      if (x.effS != null && x.g > 1 && (x.effS < 3 || x.effS > 90)) fails.push(`U3 [M×${reg.M}] P${x.g} effective Spawn ${x.effS} outside [3,90]`);
+    }
   }
   console.log('\n' + (errs.length ? 'PAGE ERRORS: ' + errs.join(' | ') : 'no page errors'));
   console.log(fails.length ? '\nFAIL:\n  ' + fails.join('\n  ') : '\nALL ONE-ARMY GATES PASS');
