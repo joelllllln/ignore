@@ -108,7 +108,7 @@ const { chromium } = requirePlaywright();
         while (earned < tgt && guard++ < 30000) {
           const inc = incomePerSec(g, engineMult) + empire;
           if (inc <= 0) return { rows, dead: g };
-          S.cpsS = Math.max(S.cpsS || 0, inc);   // v17.19/20: unit+travel prices anchor to live income, RATCHETED like the game (rise-only per run) — feed the sim's modeled income into the same anchor so purchases are priced honestly
+          S.cpsS = Math.max(S.cpsS || 0, inc / (engineMult || 1));   // v17.19/25: prices anchor to FARMED income (live ÷ Engine), ratcheted rise-only — the sim's page has ascLv 0 so pk().income=1, hence the division is applied here to match the shipped semantics
           spendAll();
           const remain = tgt - earned;
           // log-scaled integration: fine steps through the exponential ramp, coarser as elapsed grows —
