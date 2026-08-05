@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v17.7";   // v17.7 = MIND QUANTA + TREE DECLUTTER (owner calls): every ◈ Mind slot is a flat +10% and each defender tree carries EXACTLY ten of them (closest-to-start kept, surplus deep Mind converts to Crit) — a countable ten-step 0→100% climb; and buildTree now runs a deterministic pairwise relaxation so no two nodes overlap (neighbouring wings/sub-arms used to land discs on top of each other — you literally couldn't see some upgrades)   // v17.6 = FIRE DISCIPLINE (owner call: "the game should naturally make more mistakes so Mind becomes more useful"): (1) dumbness is now continuous & real — each volley a unit reads the field with probability = ◈ Mind, otherwise it sprays nearest-first like every dumb neighbour; reading earns doomed-target skipping, value triage (>40%) and AoE cluster-seeking (>50%); (2) killing blows landing with ≥3× needed force VAPORIZE up to 30% of the loot and Mind is the fire-control stat that keeps it — the honest income channel that works in every regime (dots never escape, so pure target choice can't move melt-regime income); (3) fixed the coordination bookkeeping: `covered` used to count already-landed damage (instant beams marked resolved hits), making smart units skip wounded-but-alive dots — now only genuinely in-flight mortar shells claim targets (re-marked each frame). Proven by tools/mind-sim.js (seeded A/B on the real loop, killed-value metric)   // v17.5 = MIND VALIDATION: __SIM.step exports the real update loop for simulated-time A/B field experiments; tools/mind-sim.js runs every defender class with Mind 0% vs maxed on its home planet and measures ACTUAL kills + income deltas (behavioral stats can't be proven by formula sims)   // v17.4 = UPGRADE-SCALING AUDIT: onearmy-sim now gates every upgrade dimension per planet (Capacity bankable-time, Luck vs its 60% cap, Value/Spawn effective bands) across all three Engine regimes; fixed the one real finding — the cash ceiling now rides the FRONTIER economy, so visiting an old world can no longer crash the ceiling below your wallet and freeze banking. Luck confirmed capped, Capacity effect (×1.60/lv) confirmed outpacing its cost (×1.55/lv), P1–3 tight ceiling confirmed as the designed opening   // v17.3 = UPDATE NOW button in Settings (owner ask): one tap force-checks the server (bypasses the 10-min auto-throttle) and reloads into the newest build — or says ✓ UP TO DATE / OFFLINE BUILD honestly. The automatic update pill is unchanged   // v17.2 = PLANET-RELATIVE ECONOMY (owner call): Value & Spawn Rate levels PERSIST but each new frontier raises the baseline "zero" — your carried lv-50 Spawn acts like an early level on the new world and you climb again (costs rebase on the same effective level, so every planet gets its full affordable eco-tab arc back; menace re-baselines with it — worlds start calm and grow monstrous). Capacity & Luck stay absolute. Currency reverted to ONE uniform ✦ Credit everywhere (the economy itself resets per planet now). Scaling re-proven: onearmy-sim ALL GATES PASS (P18 lands ×1.02 of designed — dead on curve), full sim suite green   // v17.1 = ERA WEAPONS + WORLD IDENTITY: new classes land punching at their era's weight (base dmg ×enemyHpMul of their home planet, tree nodes priced ×ERA to match — no more wet-noodle Railguns), arriving anywhere fires the FULL landing cinematic (letterbox, veil, camera slam, title card), every planet gets a seeded grayscale field backdrop (stars/nebulae/signature-polygon watermark) and mints its own LOCAL TENDER (name+symbol re-denominate per world; value identical — the one-economy stays sim-locked)   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v17.8";   // v17.8 = SPAWN-RIM ENVIRONMENT (owner call): the dead band between the spawn line and the true map edge is now dressed per planet — 18 unique seeded minimalist line-art motifs (craters, cinder cones, slag fissures, bloat pods, tidal pools, trees, sentinel pylons, wind reeds, mirage arches, storm rods, shadow rifts, ice shards, broken monoliths, wisp markers, ash pyres, void wells, burrow maws, null gates), each themed to the planet's native race & boss; dots now SPAWN out of the features (spawn points snap to rim anchors with jitter), and a faint border marks the world's real edge   // v17.7 = MIND QUANTA + TREE DECLUTTER (owner calls): every ◈ Mind slot is a flat +10% and each defender tree carries EXACTLY ten of them (closest-to-start kept, surplus deep Mind converts to Crit) — a countable ten-step 0→100% climb; and buildTree now runs a deterministic pairwise relaxation so no two nodes overlap (neighbouring wings/sub-arms used to land discs on top of each other — you literally couldn't see some upgrades)   // v17.6 = FIRE DISCIPLINE (owner call: "the game should naturally make more mistakes so Mind becomes more useful"): (1) dumbness is now continuous & real — each volley a unit reads the field with probability = ◈ Mind, otherwise it sprays nearest-first like every dumb neighbour; reading earns doomed-target skipping, value triage (>40%) and AoE cluster-seeking (>50%); (2) killing blows landing with ≥3× needed force VAPORIZE up to 30% of the loot and Mind is the fire-control stat that keeps it — the honest income channel that works in every regime (dots never escape, so pure target choice can't move melt-regime income); (3) fixed the coordination bookkeeping: `covered` used to count already-landed damage (instant beams marked resolved hits), making smart units skip wounded-but-alive dots — now only genuinely in-flight mortar shells claim targets (re-marked each frame). Proven by tools/mind-sim.js (seeded A/B on the real loop, killed-value metric)   // v17.5 = MIND VALIDATION: __SIM.step exports the real update loop for simulated-time A/B field experiments; tools/mind-sim.js runs every defender class with Mind 0% vs maxed on its home planet and measures ACTUAL kills + income deltas (behavioral stats can't be proven by formula sims)   // v17.4 = UPGRADE-SCALING AUDIT: onearmy-sim now gates every upgrade dimension per planet (Capacity bankable-time, Luck vs its 60% cap, Value/Spawn effective bands) across all three Engine regimes; fixed the one real finding — the cash ceiling now rides the FRONTIER economy, so visiting an old world can no longer crash the ceiling below your wallet and freeze banking. Luck confirmed capped, Capacity effect (×1.60/lv) confirmed outpacing its cost (×1.55/lv), P1–3 tight ceiling confirmed as the designed opening   // v17.3 = UPDATE NOW button in Settings (owner ask): one tap force-checks the server (bypasses the 10-min auto-throttle) and reloads into the newest build — or says ✓ UP TO DATE / OFFLINE BUILD honestly. The automatic update pill is unchanged   // v17.2 = PLANET-RELATIVE ECONOMY (owner call): Value & Spawn Rate levels PERSIST but each new frontier raises the baseline "zero" — your carried lv-50 Spawn acts like an early level on the new world and you climb again (costs rebase on the same effective level, so every planet gets its full affordable eco-tab arc back; menace re-baselines with it — worlds start calm and grow monstrous). Capacity & Luck stay absolute. Currency reverted to ONE uniform ✦ Credit everywhere (the economy itself resets per planet now). Scaling re-proven: onearmy-sim ALL GATES PASS (P18 lands ×1.02 of designed — dead on curve), full sim suite green   // v17.1 = ERA WEAPONS + WORLD IDENTITY: new classes land punching at their era's weight (base dmg ×enemyHpMul of their home planet, tree nodes priced ×ERA to match — no more wet-noodle Railguns), arriving anywhere fires the FULL landing cinematic (letterbox, veil, camera slam, title card), every planet gets a seeded grayscale field backdrop (stars/nebulae/signature-polygon watermark) and mints its own LOCAL TENDER (name+symbol re-denominate per world; value identical — the one-economy stays sim-locked)   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   // v16.9 AMBIENT HINTS — the "what next?" layer. The game never tells you what to do; instead the thing
@@ -1290,12 +1290,16 @@
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" || kind === "flock" ? 6 : 7, armored ? 40 : 24);
     // visual tier: the tougher the dot, the more elaborate (spikes/rings)
     const tier = roll < 1.0 ? 0 : roll < 1.5 ? 1 : roll < 2.2 ? 2 : roll < 4 ? 3 : roll < 6 ? 4 : roll < 9 ? 5 : 6;
-    // WAVE STYLE: enter from a random point on the perimeter and drift slowly toward the centre
+    // WAVE STYLE: enter from the perimeter and drift toward the centre. v17.8: spawns SNAP (with
+    // jitter) to this planet's rim features, so dots visibly crawl out of the craters / trees /
+    // rifts that dress the world's edge — the terrain is where the fauna actually comes from.
+    ensureEnv();
     let ex, ey; const edge = Math.floor(Math.random() * 4), j = () => rnd(0, 26);
-    if (edge === 0) { ex = rnd(34, W - 34); ey = 44 + j(); }              // top
-    else if (edge === 1) { ex = rnd(34, W - 34); ey = H - 140 - j(); }    // bottom (above the dock)
-    else if (edge === 2) { ex = 34 + j(); ey = rnd(64, H - 150); }        // left
-    else { ex = W - 34 - j(); ey = rnd(64, H - 150); }                    // right
+    const eas = envAnchors.filter(a => a.edge === edge), an = eas.length ? eas[Math.floor(Math.random() * eas.length)] : null;
+    if (edge === 0) { ex = an ? clamp(an.x + rnd(-28, 28), 34, W - 34) : rnd(34, W - 34); ey = 44 + j(); }              // top
+    else if (edge === 1) { ex = an ? clamp(an.x + rnd(-28, 28), 34, W - 34) : rnd(34, W - 34); ey = H - 140 - j(); }    // bottom (above the dock)
+    else if (edge === 2) { ex = 34 + j(); ey = an ? clamp(an.y + rnd(-28, 28), 64, H - 150) : rnd(64, H - 150); }       // left
+    else { ex = W - 34 - j(); ey = an ? clamp(an.y + rnd(-28, 28), 64, H - 150) : rnd(64, H - 150); }                   // right
     const ia = Math.atan2(H / 2 - ey, W / 2 - ex) + rnd(-0.55, 0.55), isp = mv * rnd(0.55, 1.0);
     const d = { x: ex, y: ey, vx: Math.cos(ia) * isp, vy: Math.sin(ia) * isp, spd: mv,
       hp, maxHp: hp, value: val, value0: val, r, r0: r, tier, pg: g, menace: roll, spin: Math.random() * TAU, special, armored, kind, weight: armored ? 2.6 : 1, hit: 0, drawCd: 0, refl: 0, born: 0,
@@ -1731,6 +1735,151 @@
     v.style.background = "radial-gradient(circle at 50% 50%, rgba(0,0,0,0) " + r.toFixed(1) + "%, #000 " + (r + 8).toFixed(1) + "%)";
   }
   /* ----------------------------- render -------------------------- */
+  /* v17.8 SPAWN-RIM ENVIRONMENT (owner call: "zoom out and there's dead space between where dots
+     spawn and the real map edge — add unique minimalist environment bits per planet"). Every world
+     dresses its perimeter band with its OWN seeded line-art motif — craters, trees, ice shards,
+     void wells… one per planet, themed to its native race & boss — and dots now EMERGE from the
+     features: spawn points snap (with jitter) to the nearest rim anchor, so the world's fauna
+     visibly crawls out of its world's terrain. Monochrome, faint, and behind the field. */
+  let envFor = 0, envW = 0, envH = 0, envAnchors = [];
+  function ensureEnv() {
+    if (envFor === S.galaxy && envW === W && envH === H && envAnchors.length) return;
+    envFor = S.galaxy; envW = W; envH = H; envAnchors = [];
+    const seed = Math.imul(S.galaxy * 92821 + 7, 268435459) >>> 0; let k = 1;
+    const er = () => { const x = Math.imul(seed + (k++) * 374761393, 668265263) >>> 0; return (x >>> 8) / 16777216; };
+    const put = (edge, t) => {
+      const m = 10 + er() * 18;                                  // how deep in the border band the feature sits
+      let x, y;
+      if (edge === 0) { x = 50 + t * (W - 100); y = m; }
+      else if (edge === 1) { x = 50 + t * (W - 100); y = H - 62 - m; }   // dots stop at H-140 (above the HUD) — keep the terrain near enough that they read as emerging from it
+      else if (edge === 2) { x = m; y = 70 + t * (H - 230); }
+      else { x = W - m; y = 70 + t * (H - 230); }
+      envAnchors.push({ x, y, edge, s: 1.7 + er() * 1.2, v: er(), p: er() * TAU });   // big enough to read even fully zoomed out (motif base sizes are ~10-17px × this)
+    };
+    const nx = Math.max(4, Math.round(W / 240)), ny = Math.max(3, Math.round(H / 260));
+    for (let i = 0; i < nx; i++) { put(0, (i + 0.2 + er() * 0.6) / nx); put(1, (i + 0.2 + er() * 0.6) / nx); }
+    for (let i = 0; i < ny; i++) { put(2, (i + 0.2 + er() * 0.6) / ny); put(3, (i + 0.2 + er() * 0.6) / ny); }
+  }
+  // Each motif draws in a LOCAL frame: origin at the anchor, growing along local -y, which ENV_ROT
+  // turns to point INTO the field — trees at the top hang toward the fight, shards on a side lean in.
+  // c = ctx, s = size scale, v = per-anchor variant 0..1, ph = per-anchor phase, t = slow shared clock.
+  const ENV_DRAW = [null,
+    (c, s, v, ph, t) => {   // P1 Vesta — MOON CRATERS: rim circle, inner shadow crescent, ejecta pebbles
+      const r = (9 + v * 7) * s;
+      c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke();
+      c.beginPath(); c.arc(r * 0.18, r * 0.18, r * 0.62, 0.6, 2.9); c.stroke();
+      c.beginPath(); c.arc(r * 1.5, r * 0.5, 1.4 * s, 0, TAU); c.fill();
+      c.beginPath(); c.arc(-r * 1.3, r * 0.9, 1.1 * s, 0, TAU); c.fill(); },
+    (c, s, v, ph, t) => {   // P2 Ember — CINDER CONES: vent triangle + sparks drifting into the field
+      const w2 = 9 * s, h2 = 12 * s;
+      c.beginPath(); c.moveTo(-w2, 0); c.lineTo(0, h2 * 0.2); c.lineTo(w2, 0); c.lineTo(w2 * 0.45, -h2); c.lineTo(-w2 * 0.45, -h2); c.closePath(); c.stroke();
+      c.beginPath(); c.ellipse(0, -h2, w2 * 0.45, 2.2 * s, 0, 0, TAU); c.stroke();
+      for (let i = 0; i < 3; i++) { const kk = ((t * 0.25 + ph + i * 0.33) % 1); c.globalAlpha *= (1 - kk);
+        c.beginPath(); c.arc(Math.sin(ph + i * 2.1 + kk * 3) * 4 * s, -h2 - kk * 16 * s, 1.2 * s, 0, TAU); c.fill(); c.globalAlpha /= (1 - kk); } },
+    (c, s, v, ph) => {      // P3 Cinder — SLAG FISSURES: jagged glowing crack the brood crawls out of
+      c.beginPath(); c.moveTo(-14 * s, -2 * s);
+      c.lineTo(-7 * s, 2 * s); c.lineTo(-2 * s, -3 * s); c.lineTo(4 * s, 3 * s); c.lineTo(9 * s, -1 * s); c.lineTo(15 * s, 2 * s); c.stroke();
+      c.beginPath(); c.moveTo(-2 * s, -3 * s); c.lineTo(-4 * s, -9 * s); c.stroke();
+      c.beginPath(); c.moveTo(4 * s, 3 * s); c.lineTo(7 * s, 8 * s); c.stroke(); },
+    (c, s, v, ph) => {      // P4 Hearth — BLOAT PODS: bulbous growths, one about to burst
+      const r = 7 * s;
+      c.beginPath(); c.arc(0, 2 * s, r, 0, TAU); c.stroke();
+      c.beginPath(); c.arc(r * 1.4, 0, r * 0.62, 0, TAU); c.stroke();
+      c.beginPath(); c.arc(-r * 1.2, r * 0.4, r * 0.45, 0, TAU); c.stroke();
+      c.beginPath(); c.arc(0, 2 * s, r * 0.35, 0, TAU); c.fill(); },
+    (c, s, v, ph, t) => {   // P5 Azure — TIDAL POOLS: dark pool, ripple rings breathing
+      const rx = 13 * s, ry = 6 * s, k = 0.5 + 0.5 * Math.sin(t * 0.8 + ph);
+      c.save(); c.globalAlpha *= 1.6; c.fillStyle = "#000"; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.fill(); c.restore();
+      c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.stroke();
+      c.globalAlpha *= (1 - k * 0.6); c.beginPath(); c.ellipse(0, 0, rx * (0.45 + k * 0.4), ry * (0.45 + k * 0.4), 0, 0, TAU); c.stroke(); c.globalAlpha /= (1 - k * 0.6); },
+    (c, s, v, ph) => {      // P6 Verdant — TREES: trunk + stacked canopy triangles (the classic)
+      const h2 = 16 * s, w2 = 8 * s;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -h2 * 0.3); c.stroke();
+      for (let i = 0; i < 3; i++) { const yy = -h2 * (0.3 + i * 0.23), ww = w2 * (1 - i * 0.26);
+        c.beginPath(); c.moveTo(-ww, yy); c.lineTo(0, yy - h2 * 0.3); c.lineTo(ww, yy); c.closePath(); c.stroke(); }
+      if (v > 0.6) { c.beginPath(); c.moveTo(w2 * 1.6, 0); c.lineTo(w2 * 1.6, -h2 * 0.55); c.stroke();
+        c.beginPath(); c.moveTo(w2 * 1.1, -h2 * 0.4); c.lineTo(w2 * 1.6, -h2); c.lineTo(w2 * 2.1, -h2 * 0.4); c.closePath(); c.stroke(); } },
+    (c, s, v, ph, t) => {   // P7 Cobalt — SENTINEL PYLONS: watchtower slab with a slow-blinking eye
+      const h2 = 17 * s, w2 = 3.4 * s, blink = (Math.sin(t * 1.1 + ph) > 0.88);
+      c.strokeRect(-w2, -h2, w2 * 2, h2);
+      c.beginPath(); c.moveTo(-w2 * 2, 0); c.lineTo(w2 * 2, 0); c.stroke();
+      c.beginPath(); c.arc(0, -h2 * 0.78, 1.8 * s, 0, TAU); blink ? c.fill() : c.stroke(); },
+    (c, s, v, ph) => {      // P8 Mistral — WIND-BENT REEDS: blades all combed the same way + gust dashes
+      for (let i = 0; i < 4; i++) { const bx = (i - 1.5) * 4.5 * s, hh = (10 + (i % 2) * 4) * s;
+        c.beginPath(); c.moveTo(bx, 0); c.quadraticCurveTo(bx + 2 * s, -hh * 0.6, bx + 7 * s, -hh); c.stroke(); }
+      c.save(); c.setLineDash([3, 4]); c.beginPath(); c.moveTo(-12 * s, -14 * s); c.lineTo(2 * s, -16 * s); c.stroke(); c.restore(); },
+    (c, s, v, ph) => {      // P9 Halcyon — MIRAGE ARCHES: an arch and its dashed "echo" shimmer
+      const r = 11 * s;
+      c.beginPath(); c.arc(0, 0, r, Math.PI, TAU); c.stroke();
+      c.save(); c.setLineDash([2.5, 3.5]); c.globalAlpha *= 0.6; c.beginPath(); c.arc(3.5 * s, -1.5 * s, r, Math.PI, TAU); c.stroke(); c.restore(); },
+    (c, s, v, ph, t) => {   // P10 Tempest — STORM RODS: conductor spire + a bolt glyph crackling at the tip
+      const h2 = 17 * s;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -h2); c.stroke();
+      c.beginPath(); c.moveTo(-4 * s, 0); c.lineTo(4 * s, 0); c.stroke();
+      if (Math.sin(t * 1.7 + ph * 3) > 0.2) { c.beginPath(); c.moveTo(0, -h2); c.lineTo(3.5 * s, -h2 - 5 * s); c.lineTo(1 * s, -h2 - 5 * s); c.lineTo(4.5 * s, -h2 - 10 * s); c.stroke(); } },
+    (c, s, v, ph) => {      // P11 Umbral — SHADOW RIFTS: a lens-shaped tear, specks escaping it
+      const w2 = 12 * s;
+      c.save(); c.globalAlpha *= 1.6; c.fillStyle = "#000"; c.beginPath(); c.moveTo(-w2, 0); c.quadraticCurveTo(0, -5 * s, w2, 0); c.quadraticCurveTo(0, 5 * s, -w2, 0); c.fill(); c.restore();
+      c.beginPath(); c.moveTo(-w2, 0); c.quadraticCurveTo(0, -5 * s, w2, 0); c.quadraticCurveTo(0, 5 * s, -w2, 0); c.stroke();
+      c.beginPath(); c.arc(-w2 * 0.4, -6 * s, 1 * s, 0, TAU); c.fill();
+      c.beginPath(); c.arc(w2 * 0.3, -9 * s, 1.3 * s, 0, TAU); c.fill(); },
+    (c, s, v, ph) => {      // P12 Frost — ICE SHARDS: leaning frozen daggers with facet lines
+      const lean = (v - 0.5) * 0.6;
+      for (let i = 0; i < 2; i++) { const bx = (i - 0.5) * 9 * s, hh = (13 + i * 5) * s, tip = bx + lean * hh;
+        c.beginPath(); c.moveTo(bx - 4 * s, 0); c.lineTo(tip, -hh); c.lineTo(bx + 4 * s, 0); c.closePath(); c.stroke();
+        c.beginPath(); c.moveTo(bx, 0); c.lineTo(tip, -hh * 0.85); c.stroke(); } },
+    (c, s, v, ph) => {      // P13 Onyx — BROKEN MONOLITHS: fractured slab + its fallen shard
+      const h2 = 15 * s, w2 = 4.5 * s, tilt = 0.12 + v * 0.1;
+      c.save(); c.rotate(-tilt);
+      c.strokeRect(-w2, -h2, w2 * 2, h2);
+      c.beginPath(); c.moveTo(-w2, -h2 * 0.55); c.lineTo(w2, -h2 * 0.7); c.stroke(); c.restore();
+      c.beginPath(); c.moveTo(w2 * 1.6, 0); c.lineTo(w2 * 2.6, -3 * s); c.lineTo(w2 * 3.1, 0); c.closePath(); c.stroke(); },
+    (c, s, v, ph, t) => {   // P14 Wraith — WISP MARKERS: a grave stub and its restless floating wisp
+      const w2 = 4.5 * s, k = Math.sin(t * 0.9 + ph);
+      c.beginPath(); c.moveTo(-w2, 0); c.lineTo(-w2, -6 * s); c.arc(0, -6 * s, w2, Math.PI, TAU); c.lineTo(w2, 0); c.stroke();
+      c.globalAlpha *= 0.55 + 0.45 * Math.abs(k);
+      c.beginPath(); c.arc(k * 4 * s, -13 * s - Math.abs(k) * 3 * s, 2 * s, 0, TAU); c.stroke();
+      c.globalAlpha /= 0.55 + 0.45 * Math.abs(k); },
+    (c, s, v, ph, t) => {   // P15 Pyreling — ASH PYRES: stacked logs + a curl of smoke into the field
+      c.beginPath(); c.moveTo(-9 * s, 0); c.lineTo(0, -8 * s); c.lineTo(9 * s, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(-4.5 * s, -4 * s); c.lineTo(4.5 * s, -4 * s); c.stroke();
+      const k = (t * 0.2 + ph) % 1; c.globalAlpha *= (1 - k) * 0.9;
+      c.beginPath(); c.moveTo(0, -9 * s); c.quadraticCurveTo(4 * s, -12 * s - k * 8 * s, 0.5 * s, -15 * s - k * 12 * s); c.stroke();
+      c.globalAlpha /= Math.max(0.001, (1 - k) * 0.9); },
+    (c, s, v, ph) => {      // P16 Abyssal — VOID WELLS: a hole in the world with an infalling spiral
+      const r = 8 * s;
+      c.save(); c.globalAlpha *= 1.7; c.fillStyle = "#000"; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.restore();
+      c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke();
+      c.beginPath(); for (let a = 0; a < 4.2; a += 0.25) { const rr = r * (1.55 - a * 0.25); const x2 = Math.cos(a + ph) * rr, y2 = Math.sin(a + ph) * rr; a ? c.lineTo(x2, y2) : c.moveTo(x2, y2); } c.stroke(); },
+    (c, s, v, ph) => {      // P17 Devourer — BURROW MAWS: a toothed pit, mid-chew
+      const rx = 11 * s, ry = 5.5 * s;
+      c.save(); c.globalAlpha *= 1.7; c.fillStyle = "#000"; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.fill(); c.restore();
+      c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU); c.stroke();
+      for (let i = 0; i < 5; i++) { const a = Math.PI + (i + 0.5) / 5 * Math.PI, bx = Math.cos(a) * rx * 0.85, by = Math.sin(a) * ry * 0.85;
+        c.beginPath(); c.moveTo(bx - 1.6 * s, by); c.lineTo(bx, by + 3.5 * s); c.lineTo(bx + 1.6 * s, by); c.closePath(); c.stroke(); } },
+    (c, s, v, ph, t) => {   // P18 Null — NULL GATES: a broken portal ring, dashed inner horizon, unstable keystone
+      const r = 12 * s, gap = 0.7;
+      c.beginPath(); c.arc(0, -4 * s, r, gap - Math.PI, -gap); c.stroke();
+      c.save(); c.setLineDash([2, 4]); c.globalAlpha *= 0.7; c.beginPath(); c.arc(0, -4 * s, r * 0.6, 0, TAU); c.stroke(); c.restore();
+      const k = 0.5 + 0.5 * Math.sin(t * 1.3 + ph);
+      c.beginPath(); c.arc(0, -4 * s - r - 2 * s - k * 2 * s, 1.6 * s, 0, TAU); c.fill(); },
+  ];
+  const ENV_ROT = [Math.PI, 0, Math.PI / 2, -Math.PI / 2];   // rotate the local frame so local "-y" (the way every motif grows) points INTO the field from its edge
+  function drawEnv() {
+    ensureEnv();
+    const fn = ENV_DRAW[Math.min(Math.max(S.galaxy, 1), 18)] || ENV_DRAW[1];
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.strokeStyle = "#fff"; ctx.fillStyle = "#fff"; ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.07; ctx.strokeRect(1.5, 1.5, W - 3, H - 3);   // the real edge of the map, faintly
+    for (const a of envAnchors) {
+      ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(ENV_ROT[a.edge]);
+      ctx.globalAlpha = 0.36;
+      fn(ctx, a.s, a.v, a.p, t);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
   // v17.1 PLANET BACKDROP — every world gets a seeded grayscale identity (star density, faint nebulae,
   // a huge ultra-faint watermark of the planet's signature polygon) so a landing LOOKS like a new place
   // at a glance, without breaking the monochrome art or field readability. Rebuilt on planet change/resize.
@@ -1767,6 +1916,7 @@
     ctx.translate(SW / 2, SH / 2);                                  // center-locked world camera
     if (shake > 0.2 && opt("shake")) ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
     ctx.scale(camZoom, camZoom); ctx.translate(-W / 2, -H / 2);
+    drawEnv();   // v17.8: the planet's spawn-rim terrain — under everything that moves
     if (blackholeT > 0) { ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, TAU); ctx.fill(); }
     for (const b of beams) { const a = clamp(b.life / (b.w > 2 ? 0.13 : 0.08), 0, 1); ctx.strokeStyle = b.color; ctx.globalAlpha = a * 0.25; ctx.lineWidth = (b.w || 2) * 2.4; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.globalAlpha = a; ctx.lineWidth = b.w || 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
     ctx.globalAlpha = 1;
