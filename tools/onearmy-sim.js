@@ -108,7 +108,7 @@ const { chromium } = requirePlaywright();
         while (earned < tgt && guard++ < 30000) {
           const inc = incomePerSec(g, engineMult) + empire;
           if (inc <= 0) return { rows, dead: g };
-          S.cpsS = inc;   // v17.19: unit prices anchor to live income (seconds-of-throughput) — feed the sim's modeled income into the same anchor so purchases are priced honestly
+          S.cpsS = Math.max(S.cpsS || 0, inc);   // v17.19/20: unit+travel prices anchor to live income, RATCHETED like the game (rise-only per run) — feed the sim's modeled income into the same anchor so purchases are priced honestly
           spendAll();
           const remain = tgt - earned;
           // log-scaled integration: fine steps through the exponential ramp, coarser as elapsed grows —
@@ -118,6 +118,19 @@ const { chromium } = requirePlaywright();
           if (secs / 3600 / ACTIVE_MAX > 400) return { rows, dead: g };
         }
         spendAll();
+        // v17.20 TRAVEL MODELING (audit finding): the real game charges eco(g)×5e6 to LAUNCH and a
+        // ≥600s transit (300s for the first hop) — neither was modeled, silently understating every
+        // planet's true cost exactly like the unit-price hole. Save for the launch (income continues),
+        // pay it, then ride the transit (empire ticks; the field is in cargo).
+        if (g < (maxPlanet || SIM.TOTAL_PLANETS)) {
+          const tc = SIM.travelCost(g); let gT = 0;
+          while (S.cash < tc && gT++ < 20000) {
+            const inc2 = incomePerSec(g, engineMult) + empire; if (inc2 <= 0) break;
+            const slice = Math.min((tc - S.cash) / inc2, 300); S.cash += inc2 * slice; secs += slice;
+          }
+          S.cash = Math.max(0, S.cash - tc);
+          const transit = g === 1 ? 300 : 600; secs += transit; S.cash += empire * transit;   // in transit only the conquered empire earns
+        }
         empire += incomePerSec(g, engineMult) * 0.4 * 0.15;                      // BG_EFF tribute fraction
         const activeH = secs / 3600 / ACTIVE_MAX;
         const inc1 = incomePerSec(g, 1);   // engine-free income — capacity also excludes the engine here, so the ratio is regime-invariant
