@@ -2,7 +2,7 @@
   "name": "Idle Dot Shooter",
   "short_name": "Dot Shooter",
   "description": "A hardcore idle/incremental space shooter — your firepower IS your economy.",
-  "start_url": ".",
+  "start_url": "index.html",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#000000",
