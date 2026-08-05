@@ -129,7 +129,7 @@ const { chromium } = requirePlaywright();
             const slice = Math.min((tc - S.cash) / inc2, 300); S.cash += inc2 * slice; secs += slice;
           }
           S.cash = Math.max(0, S.cash - tc);
-          const transit = g === 1 ? 300 : 600; secs += transit; S.cash += empire * transit;   // in transit only the conquered empire earns
+          secs += 2;   // v17.22 (owner call): transit time removed — travel is a 2s cinematic jump; the launch SAVE above is the whole gate
         }
         empire += incomePerSec(g, engineMult) * 0.4 * 0.15;                      // BG_EFF tribute fraction
         const activeH = secs / 3600 / ACTIVE_MAX;
