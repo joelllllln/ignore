@@ -48,7 +48,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v17.5";   // v17.5 = MIND VALIDATION: __SIM.step exports the real update loop for simulated-time A/B field experiments; tools/mind-sim.js runs every defender class with Mind 0% vs maxed on its home planet and measures ACTUAL kills + income deltas (behavioral stats can't be proven by formula sims)   // v17.4 = UPGRADE-SCALING AUDIT: onearmy-sim now gates every upgrade dimension per planet (Capacity bankable-time, Luck vs its 60% cap, Value/Spawn effective bands) across all three Engine regimes; fixed the one real finding — the cash ceiling now rides the FRONTIER economy, so visiting an old world can no longer crash the ceiling below your wallet and freeze banking. Luck confirmed capped, Capacity effect (×1.60/lv) confirmed outpacing its cost (×1.55/lv), P1–3 tight ceiling confirmed as the designed opening   // v17.3 = UPDATE NOW button in Settings (owner ask): one tap force-checks the server (bypasses the 10-min auto-throttle) and reloads into the newest build — or says ✓ UP TO DATE / OFFLINE BUILD honestly. The automatic update pill is unchanged   // v17.2 = PLANET-RELATIVE ECONOMY (owner call): Value & Spawn Rate levels PERSIST but each new frontier raises the baseline "zero" — your carried lv-50 Spawn acts like an early level on the new world and you climb again (costs rebase on the same effective level, so every planet gets its full affordable eco-tab arc back; menace re-baselines with it — worlds start calm and grow monstrous). Capacity & Luck stay absolute. Currency reverted to ONE uniform ✦ Credit everywhere (the economy itself resets per planet now). Scaling re-proven: onearmy-sim ALL GATES PASS (P18 lands ×1.02 of designed — dead on curve), full sim suite green   // v17.1 = ERA WEAPONS + WORLD IDENTITY: new classes land punching at their era's weight (base dmg ×enemyHpMul of their home planet, tree nodes priced ×ERA to match — no more wet-noodle Railguns), arriving anywhere fires the FULL landing cinematic (letterbox, veil, camera slam, title card), every planet gets a seeded grayscale field backdrop (stars/nebulae/signature-polygon watermark) and mints its own LOCAL TENDER (name+symbol re-denominate per world; value identical — the one-economy stays sim-locked)   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
+  const VERSION = "v17.6";   // v17.6 = FIRE DISCIPLINE (owner call: "the game should naturally make more mistakes so Mind becomes more useful"): (1) dumbness is now continuous & real — each volley a unit reads the field with probability = ◈ Mind, otherwise it sprays nearest-first like every dumb neighbour; reading earns doomed-target skipping, value triage (>40%) and AoE cluster-seeking (>50%); (2) killing blows landing with ≥3× needed force VAPORIZE up to 30% of the loot and Mind is the fire-control stat that keeps it — the honest income channel that works in every regime (dots never escape, so pure target choice can't move melt-regime income); (3) fixed the coordination bookkeeping: `covered` used to count already-landed damage (instant beams marked resolved hits), making smart units skip wounded-but-alive dots — now only genuinely in-flight mortar shells claim targets (re-marked each frame). Proven by tools/mind-sim.js (seeded A/B on the real loop, killed-value metric)   // v17.5 = MIND VALIDATION: __SIM.step exports the real update loop for simulated-time A/B field experiments; tools/mind-sim.js runs every defender class with Mind 0% vs maxed on its home planet and measures ACTUAL kills + income deltas (behavioral stats can't be proven by formula sims)   // v17.4 = UPGRADE-SCALING AUDIT: onearmy-sim now gates every upgrade dimension per planet (Capacity bankable-time, Luck vs its 60% cap, Value/Spawn effective bands) across all three Engine regimes; fixed the one real finding — the cash ceiling now rides the FRONTIER economy, so visiting an old world can no longer crash the ceiling below your wallet and freeze banking. Luck confirmed capped, Capacity effect (×1.60/lv) confirmed outpacing its cost (×1.55/lv), P1–3 tight ceiling confirmed as the designed opening   // v17.3 = UPDATE NOW button in Settings (owner ask): one tap force-checks the server (bypasses the 10-min auto-throttle) and reloads into the newest build — or says ✓ UP TO DATE / OFFLINE BUILD honestly. The automatic update pill is unchanged   // v17.2 = PLANET-RELATIVE ECONOMY (owner call): Value & Spawn Rate levels PERSIST but each new frontier raises the baseline "zero" — your carried lv-50 Spawn acts like an early level on the new world and you climb again (costs rebase on the same effective level, so every planet gets its full affordable eco-tab arc back; menace re-baselines with it — worlds start calm and grow monstrous). Capacity & Luck stay absolute. Currency reverted to ONE uniform ✦ Credit everywhere (the economy itself resets per planet now). Scaling re-proven: onearmy-sim ALL GATES PASS (P18 lands ×1.02 of designed — dead on curve), full sim suite green   // v17.1 = ERA WEAPONS + WORLD IDENTITY: new classes land punching at their era's weight (base dmg ×enemyHpMul of their home planet, tree nodes priced ×ERA to match — no more wet-noodle Railguns), arriving anywhere fires the FULL landing cinematic (letterbox, veil, camera slam, title card), every planet gets a seeded grayscale field backdrop (stars/nebulae/signature-polygon watermark) and mints its own LOCAL TENDER (name+symbol re-denominate per world; value identical — the one-economy stays sim-locked)   // v17.0 = ONE ARMY (owner call): your fleet, trees, upgrade levels and cash TRAVEL WITH YOU — planets are one escalating campaign for one continuously-growing force, not 18 fresh starts. Ascension is now the game's ONLY reset (which is what gives it weight). Every price rides the FRONTIER planet's economy (no farm-backwards exploit); class unlocks ride your peak; the vault keeps campaign metadata only (conquered/earned/idle tribute); Auto-Buy collapses to ONE global build order; old saves migrate (active build becomes the army). Scaling re-proven end-to-end: tools/onearmy-sim.js measures the persistent army's real income per planet against the designed conquer curve; ascension ladder gates re-pass   // v16.10 = LOUDER INTUITION (owner: "keep making it more obvious"): tab dots → COUNT badges (how many affordable things wait inside, "!" amber for problems), travel button BOUNCES once a launch is payable, one-shot attention pops when a launch becomes payable / the wall arrives, and a 10s idle nudge bounces the cheapest affordable buy — still zero words   // v16.9 = INTUITION — the "what next?" is ambient, never spoken: ⬆ Tree buttons pulse when a node is affordable (trees pull you in), tab dots count tree nodes too, freshly-unlocked classes wear a NEW chip, COLLECTORS burns amber while loot expires uncollected, ECONOMY + the cap line burn amber while the wallet is pinned at Capacity, ready abilities glow when the field is target-rich. Whispers for options, amber for problems, chips for news — signals stay scarce   // v16.8 = JUICY sound: master bus with compressor glue (stacked pops duck musically, never clip), feedback-echo "room" the big one-shots tail into, Peggle-style kill-combo pentatonic ladder (streaks literally play a rising melody), two-stage loot gulps, abilities sized to their real durations (5s Black Hole drone + end-swallow, Frenzy sparkles across its 6s), layered boss detonation with sub, wheel spin-up rip, expedition landing bookend, jackpot run over a bass root   // v16.7 = SOUND — a full synthesized WebAudio layer to match the juiced visuals: throttled+ducked dot pops & loot gulps, draw-zaps, a voice per ability, conquest arpeggio, ascension riser+boom, victory fanfare, expedition launch rumble, wheel-slam (+jackpot run), boss-escape shrug, whisper-quiet UI ticks, error buzz. All synth, no assets; everything respects the Sound toggle   // v16.6 = every platform FEELS a push: cache-busted assets (?v= on css/js — iOS/Android can no longer serve a stale game.js under a fresh index), live "NEW VERSION — TAP TO UPDATE" detector (checks on load + every return from background), PWA manifest + Apple/Android install metadata + real PNG touch icons, notch-safe dock padding (viewport-fit=cover)   // v16.5 = release-polish pass: crash-proof main loop (an exception can no longer freeze the game), persistent VICTORY screen, honest Welcome-Back banking breakdown, bulk-buy (BUY ×N) unlocked for everyone, Esc/1-2-3 keyboard support, exclusive card modals, zoom-gated tree labels (mobile readability), closer star-map rest zoom on phones, 5-min first hop, retired FX/exchange dead code fully removed   // v16.4 = the WHOLE geometry flattens (owner call): planets pay a FEW cores on a flat curve (4·1.3^g — P1 pays 4, P18 ~346 not 8,273), Engine is +25%/lv topping out ~×800 not ×25k, and the wall softens ×2→×1.65 to make those numbers possible + leave headroom for future solar systems. Ladder & churn-death re-proven; old spends refunded
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
   // v16.9 AMBIENT HINTS — the "what next?" layer. The game never tells you what to do; instead the thing
@@ -1331,29 +1331,41 @@
   }
 
   function fireUnit(u, p) {
-    // gather every in-range dot, nearest first, preferring ones not already
-    // marked for lethal damage this frame (so fire spreads instead of overkilling).
+    // gather every in-range dot. `covered` = lethal damage genuinely IN FLIGHT (mortar shells
+    // arcing toward it) — v17.6 fixed this: it used to also count damage that had ALREADY landed
+    // (instant beams marked `aimed`/`pending` on resolved hits), so "coordination" made smart units
+    // skip wounded-but-alive dots instead of finishing them.
     const rng = uRange(u) ** 2; const cands = [];
-    const iq = Math.min(1, uInt(u));   // 0 = dumb (nearest-first), ~1 = perfect coordination
+    const iq = Math.min(1, uInt(u));   // 0 = dumb (nearest-first spray), ~1 = perfect fire control
     for (const d of dots) {
       if (d.dead || d.cloaked) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;   // Halcyon Mirage can't be targeted while cloaked
-      // a smarter unit "reads" lethal damage already inbound (pending kills + a margin
-      // for shots that haven't resolved yet) and won't waste a bolt on a doomed dot.
-      const inbound = (d.pending || 0) + (d.aimed || 0);
-      cands.push({ d, q, covered: inbound >= d.hp, value: d.value || 0 });
+      cands.push({ d, q, covered: (d.aimed || 0) >= d.hp, value: d.value || 0 });
     }
     if (!cands.length) return;
-    // dumb units sort by distance only; intelligent ones triage live targets first,
-    // then put their shots on the highest-value dots they can actually finish.
-    cands.sort((a, b) => (a.covered - b.covered) ||
-      (iq > 0.4 ? (b.value - a.value) : 0) || (a.q - b.q));
+    // v17.6 (owner call: "the game should naturally make more mistakes so Mind becomes more useful"):
+    // dumbness is CONTINUOUS. Each volley the unit READS THE FIELD with probability = ◈ Mind — or
+    // just sprays at whatever's nearest, doomed or not, exactly like its dumb neighbours. Reading earns:
+    //   · doomed targets (lethal shells inbound) drop to the back of the queue and are skipped
+    //   · > 40% Mind: value triage — shots go to the richest dot in range (which, per TOUGH_POW,
+    //     is also the best-matched target for a big shot — see FIRE DISCIPLINE in hitDot)
+    //   · > 50% Mind + splash: cluster-seeking — aim where the blast catches the most total loot
+    const reads = Math.random() < iq;
+    cands.sort((a, b) => (reads ? (a.covered - b.covered) : 0) ||
+      (reads && iq > 0.4 ? (b.value - a.value) : 0) || (a.q - b.q));
+    const spl = uSplash(u);
+    if (spl > 0 && reads && iq > 0.5 && cands.length > 2) {
+      // sample the NEAREST 24 (the thick of the field), not the richest few — a lone fat elite
+      // lagging at the spawn edge must lose to a trash cluster whose combined loot beats it
+      const R2 = spl * spl, top = cands.slice().sort((a, b) => a.q - b.q).slice(0, 24);
+      for (const c of top) { c.bv = c.value; for (const o of cands) { if (o !== c && (o.d.x - c.d.x) ** 2 + (o.d.y - c.d.y) ** 2 <= R2) c.bv += o.value; } }
+      top.sort((a, b) => (a.covered - b.covered) || (b.bv - a.bv) || (a.q - b.q));   // bv = total ✦ under the blast — cluster-seeking IS value triage for AoE
+      for (let i = 0; i < top.length; i++) cands[i] = top[i];
+    }
     const shots = 1 + uMulti(u);                            // keystone nodes grant extra simultaneous targets
     const fired = [];
     for (const c of cands) {
       if (fired.length >= shots) break;
-      // overkill avoidance: the more intelligent the unit, the more reliably it
-      // *skips* a dot another shot is already guaranteed to kill (saving the bolt).
-      if (c.covered && iq > 0 && Math.random() < iq) continue;
+      if (c.covered && reads) continue;                     // a reading unit never wastes a volley on a doomed dot
       fired.push(c);
     }
     if (!fired.length) fired.push(cands[0]);   // nothing valid to skip onto — fire anyway
@@ -1361,14 +1373,14 @@
     for (const c of fired) {
       const target = c.d;
       let dmg = uDmg(u), crit = Math.random() < uCrit(u); if (crit) dmg *= uCritMul(u);
-      target.aimed = (target.aimed || 0) + dmg;   // mark for coordination — later units this frame see it's spoken-for
       const ddx = target.x - p.x, ddy = target.y - p.y, ddl = Math.hypot(ddx, ddy) || 1;
       if (!recoiled) { u.rx = -ddx / ddl * 4; u.ry = -ddy / ddl * 4; u.aim = Math.atan2(ddy, ddx); u.flash = 0.08; recoiled = true; }   // muzzle recoil + aim + brief flash (toward first target)
       // LOB weapons (mortar) DON'T shoot a straight beam — they fire a high arcing bomb that
       // sails over the field and detonates on landing, blanketing the impact point in splash.
       if (DEF_TYPES[u.type].lob) {
         const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
-        shells.push({ x0: p.x, y0: p.y, tx: target.x, ty: target.y, t: 0,
+        target.aimed = (target.aimed || 0) + dmg;   // claim the target: this damage is genuinely IN FLIGHT (the shell re-marks its claim every frame until it lands — see the units pass in update)
+        shells.push({ x0: p.x, y0: p.y, tx: target.x, ty: target.y, t: 0, tref: target,
           dur: clamp(0.34 + ddl / 820, 0.36, 0.78), arc: 30 + Math.min(ddl * 0.18, 90),
           dmg, aoe, crit, type: u.type, color: uColor(u),
           r: 3 + Math.min(Math.log10(uDmg(u) + 1) * 1.1, 5), spin: 0 });
@@ -1378,9 +1390,9 @@
       if (crit) burst(target.x, target.y, 5, 90, 2);        // crit pops a little extra
       const explode = uExplode(u), aoe = uSplash(u) + (explode ? 34 + explode * 26 : 0);
       if (aoe > 0) {
-        for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) { d.pending = (d.pending || 0) + dmg; hitDot(d, dmg, u.type); }   // mark pending so overkill-avoidance (Mind) sees splash kills
+        for (const d of dots) if (!d.dead && (d.x - target.x) ** 2 + (d.y - target.y) ** 2 <= aoe * aoe) hitDot(d, dmg, u.type);   // instant damage — resolves right here, so no coordination mark (v17.6: marking resolved damage made `covered` lie)
         if (explode) { ring(target.x, target.y, 4, aoe, 0.2); burst(target.x, target.y, 7, 90, 2); }
-      } else { target.pending = (target.pending || 0) + dmg; hitDot(target, dmg, u.type); }
+      } else hitDot(target, dmg, u.type);
       // ✦ Chain Lightning — arc from the hit dot to nearby dots, fading per jump
       const chain = uChain(u);
       if (chain > 0) {
@@ -1390,7 +1402,7 @@
           for (const d of dots) { if (d.dead || seen.has(d)) continue; const q = (d.x - src.x) ** 2 + (d.y - src.y) ** 2; if (q < bd) { bd = q; best = d; } }
           if (!best) break;
           beams.push({ x1: src.x, y1: src.y, x2: best.x, y2: best.y, life: 0.1, color: "#fff", w: 2 });
-          seen.add(best); best.pending = (best.pending || 0) + cdmg; hitDot(best, cdmg, u.type); src = best; cdmg *= 0.85;   // mark pending so Mind sees chain kills
+          seen.add(best); hitDot(best, cdmg, u.type); src = best; cdmg *= 0.85;
         }
       }
       // ✦ Piercing Laser — punch a beam through every dot along the line of fire
@@ -1399,7 +1411,7 @@
         const nx = ddx / ddl, ny = ddy / ddl, width = 14 + pierce * 8, rngU = uRange(u);
         for (const d of dots) { if (d.dead || d === target) continue;
           const rx = d.x - p.x, ry = d.y - p.y, t = rx * nx + ry * ny; if (t < 0 || t > rngU) continue;
-          if (Math.abs(rx * -ny + ry * nx) <= width + d.r) { d.pending = (d.pending || 0) + dmg * 0.85; hitDot(d, dmg * 0.85, u.type); } }   // mark pending so Mind sees pierce kills
+          if (Math.abs(rx * -ny + ry * nx) <= width + d.r) hitDot(d, dmg * 0.85, u.type); }
         beams.push({ x1: p.x, y1: p.y, x2: p.x + nx * rngU, y2: p.y + ny * rngU, life: 0.09, color: "#fff", w: 2.5 });
       }
     }
@@ -1447,6 +1459,25 @@
         const sb = stat(); sb.dotsPopped++; sb.bosses = (sb.bosses || 0) + 1; if (src) sb.kills[src] = (sb.kills[src] || 0) + 1;
         recompute(); syncHUD();
         return;
+      }
+      // v17.6 FIRE DISCIPLINE (owner call: "the game should naturally make more mistakes so Mind
+      // becomes more useful"): a killing blow that lands with more force than the dot had left
+      // VAPORIZES part of the loot — ramping from 1.5× overshoot up to 30% at 8× — and ◈ Mind is
+      // the fire-control stat that keeps it: a calibrated class refunds the burn, and its value
+      // triage (rich = tough = well-matched targets, per TOUGH_POW) dodges the overshoot in the
+      // first place. This is what makes Mind pay real income in EVERY regime — dots never leave
+      // the field, so in melt regimes target choice alone can't move income; wasted force burning
+      // loot is the honest cost of dumbness. The gentle 1.5× knee is what reaches the rapid
+      // small-hit classes (Turret/Laser/Plasma): their killing blows overshoot modestly but often.
+      // ...and PRECISION HARVEST, the dividend side of the same coin: a calibrated class extracts
+      // up to +12% more loot from every kill. Rapid small-hit classes (Turret) physically can't
+      // overshoot much — their chained shots are well-matched to trash and elites die to clean
+      // chip-kills — so without the dividend their ◈ branch would stay a trap at home era.
+      if (ty) {
+        const k = dmg / Math.max(1e-9, d.hp + dmg);   // killing-blow overshoot (d.hp is ≤0 here; hp-before = hp + dmg)
+        const disc = Math.min(1, (derived.cls[src] || {}).int || 0);
+        const burn = 0.30 * clamp((k - 1.5) / 6.5, 0, 1) * (1 - disc);
+        d.value = Math.max(1, Math.round(d.value * (1 - burn) * (1 + 0.12 * disc)));
       }
       // bigger / tougher kills drop heavier loot that takes longer to consume
       const big = d.armored || (d.tier || 0) >= 3, cmax = big ? 1.6 : ((d.tier || 0) >= 1 || d.r > 12 ? 0.55 : 0.1);
@@ -1533,7 +1564,7 @@
     // dragged dot) — a real crush that grows with investment but never trivially one-shots tanky lategame dots.
     const bhDmg = blackholeT > 0 ? S.units.reduce((s, u) => s + uDmg(u) * uRate(u), 0) * 0.12 : 0;
     for (const d of dots) {
-      d.pending = 0; d.aimed = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;
+      d.aimed = 0; if (d.born < 0.2) d.born += dt; d.spin += dt * 0.9;   // claims rebuild each frame: live shells re-mark below, units add at fire time
       if (d.hit > 0) d.hit -= dt; if (d.drawCd > 0) d.drawCd -= dt; if (d.refl > 0) d.refl -= dt;
       if (d.boss) {
         d.life = (d.life || 0) + dt;
@@ -1577,6 +1608,7 @@
     }
     dots = dots.filter(d => !d.dead);
 
+    for (const sh of shells) if (sh.tref && !sh.tref.dead) sh.tref.aimed = (sh.tref.aimed || 0) + sh.dmg;   // v17.6: in-flight shells re-claim their target each frame, so `covered` means truly doomed — real coordination, not the old already-landed double-count
     for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; const period = 1 / uRate(u); const maxShots = Math.min(64, Math.max(1, Math.ceil(uRate(u) * dt) + 1)); let shots = 0; while (u.cd <= 0 && shots < maxShots) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } if (u.cd < -period) u.cd = -period; }   // machine-gun: per-frame allowance scales with rate×dt so high fire rates (Laser, Frenzy) fully realize and stay FRAME-RATE-INDEPENDENT; debt floored so it can't spiral
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
     // arcing mortar bombs: fly their parabola, then detonate on landing (deferred splash).
