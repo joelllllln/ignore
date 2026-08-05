@@ -528,3 +528,14 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 /* UPDATE NOW (v17.3) — the Settings one-tap updater */
 .seg-btn.upd-now{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none;font-weight:800;letter-spacing:.4px;min-width:150px}
 .seg-btn.upd-now:disabled{opacity:.75}
+
+/* v17.16 — amber tab explainers + the ascension "where cores come from" breakdown */
+.tab-note{display:none;align-items:center;gap:8px;background:rgba(255,164,72,.12);border:1px solid rgba(255,164,72,.55);color:#ffd9a8;
+  font:600 12px var(--mono);letter-spacing:.2px;border-radius:9px;padding:9px 12px;margin-bottom:6px;line-height:1.45}
+.tab-note.show{display:flex}
+.asc-src{margin:10px 0 12px;background:rgba(127,176,230,.07);border:1px solid rgba(127,176,230,.3);border-radius:10px;padding:10px 12px}
+.asc-src-h{font:700 11px var(--mono);letter-spacing:1.5px;color:#cfe4ff;margin-bottom:6px}
+.asc-how{margin-bottom:8px}
+.asc-chips{display:flex;flex-wrap:wrap;gap:5px}
+.asc-chip{font:700 11px var(--mono);color:#cfe4ff;background:rgba(127,176,230,.12);border:1px solid rgba(127,176,230,.4);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.asc-chip.dim{color:var(--dim);border-color:var(--edge);background:rgba(255,255,255,.05)}
