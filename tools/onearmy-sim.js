@@ -41,7 +41,7 @@ const { chromium } = requirePlaywright();
       S.units = [{ type: 'turret', cd: 0 }]; S.collectors = [{ type: 'drone' }];
       for (const k in S.lv) S.lv[k] = 0;
       for (const t in S.classNodes) S.classNodes[t] = {};
-      S.cash = Math.floor(SIM.eco(1) * 40); S.vault = {}; S.conquest = 1;
+      S.cash = Math.floor(SIM.eco(1) * 40); S.vault = {}; S.conquest = 1; S.cpsS = 0;
       S.galaxy = 1; S.peakGalaxy = 1; D.recompute();
     }
 
@@ -106,9 +106,10 @@ const { chromium } = requirePlaywright();
         const tgt = SIM.conquerTarget(g);
         let earned = 0, secs = 0, guard = 0;
         while (earned < tgt && guard++ < 30000) {
-          spendAll();
           const inc = incomePerSec(g, engineMult) + empire;
           if (inc <= 0) return { rows, dead: g };
+          S.cpsS = inc;   // v17.19: unit prices anchor to live income (seconds-of-throughput) — feed the sim's modeled income into the same anchor so purchases are priced honestly
+          spendAll();
           const remain = tgt - earned;
           // log-scaled integration: fine steps through the exponential ramp, coarser as elapsed grows —
           // giant slices at the weakest moment were inflating early-planet times ~40× in v1 of this sim
