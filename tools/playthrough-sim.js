@@ -32,10 +32,10 @@ const { chromium } = requirePlaywright();
     const VALUE_LV = 18, SPAWN_LV = 14;   // a committed-but-not-maxed economy investment (EFFECTIVE levels)
     function buildAndDPS(g, unlockedDef) {
       S.galaxy = g; S.peakGalaxy = Math.max(S.peakGalaxy, g);
-      // v17.2: eco levels re-baseline per frontier (ECO_BASE·(g−1) is the planet's "zero") — set ABSOLUTE
-      // levels so the EFFECTIVE level is the committed investment this sim has always modeled
-      S.lv.value = VALUE_LV + (SIM.ECO_BASE ? SIM.ECO_BASE.value : 16) * (g - 1);
-      S.lv.spawnRate = SPAWN_LV + (SIM.ECO_BASE ? SIM.ECO_BASE.spawnRate : 12) * (g - 1);
+      // v18.0: ONE global eco ladder — era-typical GLOBAL levels grow ~6/5 per planet of depth
+      // (the same slopes the save migration credits; matches onearmy-sim's measured campaigns)
+      S.lv.value = VALUE_LV + 6 * (g - 1);
+      S.lv.spawnRate = SPAWN_LV + 5 * (g - 1);
       S.lv.capacity = 40; S.lv.luck = 10;
       // own max of every unlocked defender + collector class
       S.units = []; S.collectors = [];

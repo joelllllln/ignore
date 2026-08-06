@@ -41,17 +41,17 @@ const { chromium } = requirePlaywright();
       S.units = [{ type: 'turret', cd: 0 }]; S.collectors = [{ type: 'drone' }];
       for (const k in S.lv) S.lv[k] = 0;
       for (const t in S.classNodes) S.classNodes[t] = {};
-      S.cash = Math.floor(SIM.eco(1) * 40); S.vault = {}; S.conquest = 1; S.cpsS = 0; S.ecoSnap = { value: 0, spawnRate: 0 };
+      S.cash = Math.floor(SIM.eco(1) * 160); S.vault = {}; S.conquest = 1;   // mirrors startMul (v18.0 cold-open purse)
       S.galaxy = 1; S.peakGalaxy = 1; D.recompute();
     }
 
     const dpsNow = () => { D.recompute(); let d = 0; for (const u of S.units) d += D.uDmg(u) * SIM.DEF_TYPES[u.type].rate * D.derived().cls[u.type].rate; return d; };
     // income model (same shape playthrough-sim used, from real curves)
     function incomePerSec(g, engineMult) {
-      const vMul = SIM.valueMul(SIM.ecoLv('value'));               // v17.2: EFFECTIVE levels — the economy re-baselines per frontier
+      const vMul = SIM.valueMul(SIM.ecoLv('value'));               // v18.0: ONE global level — the ladder is continuous
       const avgHP = 18 * SIM.enemyHpMul(g) * Math.pow(vMul, 1.3) * 1.3;
       const avgVal = SIM.eco(g) * vMul * (engineMult || 1);
-      const spawn = 0.9 + 2.0 * SIM.ecoLv('spawnRate');
+      const spawn = 0.9 + 0.9 * SIM.ecoLv('spawnRate');
       const kills = Math.min(dpsNow() / avgHP, spawn * 1.2);
       return kills * avgVal;
     }
@@ -102,14 +102,12 @@ const { chromium } = requirePlaywright();
       resetArmy();
       const rows = []; let empire = 0;
       for (let g = 1; g <= (maxPlanet || SIM.TOTAL_PLANETS); g++) {
-        if (g > S.peakGalaxy) S.ecoSnap = { value: S.lv.value || 0, spawnRate: S.lv.spawnRate || 0 };   // v17.28: new frontier = full eco re-baseline, exactly like activatePlanet
         S.galaxy = g; S.peakGalaxy = Math.max(S.peakGalaxy, g); D.recompute();
         const tgt = SIM.conquerTarget(g);
         let earned = 0, secs = 0, guard = 0;
         while (earned < tgt && guard++ < 30000) {
           const inc = incomePerSec(g, engineMult) + empire;
           if (inc <= 0) return { rows, dead: g };
-          S.cpsS = Math.max(S.cpsS || 0, inc / (engineMult || 1));   // v17.19/25: prices anchor to FARMED income (live ÷ Engine), ratcheted rise-only — the sim's page has ascLv 0 so pk().income=1, hence the division is applied here to match the shipped semantics
           spendAll();
           const remain = tgt - earned;
           // log-scaled integration: fine steps through the exponential ramp, coarser as elapsed grows —
@@ -183,8 +181,17 @@ const { chromium } = requirePlaywright();
       const inWall = 0.4 * Math.pow(1.65, x.g - 1) / reg.M >= 2 * ramp;   // U1 belongs where you PARK: melt planets are crossed in seconds and never bank
       if (x.g >= 4 && inWall && x.bankSecs != null && isFinite(x.bankSecs) && x.bankSecs < 600) fails.push(`U1 [M×${reg.M}] P${x.g} cash ceiling holds only ${x.bankSecs}s of income (<10min) — Capacity curve lagging`);   // P1–3 opening is DESIGNED tight (unchanged pre-v17 formula): forces active spending, teaches Capacity via the amber hint
       if (x.luckPct != null && x.luckPct >= 60) fails.push(`U2 [M×${reg.M}] P${x.g} Luck at the 60% cap — further buys would be dead`);
-      if (x.eff != null && x.g > 1 && (x.eff < 4 || x.eff > 90)) fails.push(`U3 [M×${reg.M}] P${x.g} effective Value ${x.eff} outside [4,90] — re-baseline band broken`);
-      if (x.effS != null && x.g > 1 && (x.effS < 3 || x.effS > 90)) fails.push(`U3 [M×${reg.M}] P${x.g} effective Spawn ${x.effS} outside [3,90]`);
+      // U3 (v18.0 semantics): eco levels are ONE global ladder now — absolute level, no re-baseline.
+      // Floor: the spend policy must find eco worth buying early (else the curve is mispriced into a
+      // trap). Ceiling: geometric costs (×1.30/×1.32 per level) must contain the level count even at
+      // Engine ×800 / P18 — a blowout past it means a value→income→value runaway feedback loop.
+      if (x.eff != null && x.g > 1 && (x.eff < 4 || x.eff > 140)) fails.push(`U3 [M×${reg.M}] P${x.g} global Value level ${x.eff} outside [4,140] — eco ladder starved or runaway`);
+      if (x.effS != null && x.g > 1 && (x.effS < 3 || x.effS > 130)) fails.push(`U3 [M×${reg.M}] P${x.g} global Spawn level ${x.effS} outside [3,130]`);
+    }
+    // U3-mono: a single global ladder can only rise — any per-planet DROP in level is a state bug
+    for (let i = 1; i < reg.rows.length; i++) {
+      if (reg.rows[i].eff < reg.rows[i - 1].eff) fails.push(`U3 [M×${reg.M}] Value level fell P${reg.rows[i - 1].g}→P${reg.rows[i].g} (${reg.rows[i - 1].eff}→${reg.rows[i].eff}) — global ladder went backwards`);
+      if (reg.rows[i].effS < reg.rows[i - 1].effS) fails.push(`U3 [M×${reg.M}] Spawn level fell P${reg.rows[i - 1].g}→P${reg.rows[i].g}`);
     }
   }
   console.log('\n' + (errs.length ? 'PAGE ERRORS: ' + errs.join(' | ') : 'no page errors'));

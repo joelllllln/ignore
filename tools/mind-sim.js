@@ -49,9 +49,8 @@ const { chromium } = requirePlaywright();
       S.galaxy = g; S.peakGalaxy = g; S.victory = true;                 // victory=true: no conquest fireworks mid-measure
       S.vault = {}; S.conquest = 1; S.travel = null;
       for (const k in S.lv) S.lv[k] = 0;
-      S.lv.value = (SIM.ECO_BASE.value * (g - 1)) + 18;                 // era-typical committed economy (effective 18/14 via the v17.28 snapshot)
-      S.lv.spawnRate = (SIM.ECO_BASE.spawnRate * (g - 1)) + 14;
-      S.ecoSnap = { value: SIM.ECO_BASE.value * (g - 1), spawnRate: SIM.ECO_BASE.spawnRate * (g - 1) };
+      S.lv.value = 12 + 2 * (g - 1);                                    // v18.0: era-typical GLOBAL levels (one continuous ladder)
+      S.lv.spawnRate = Math.round(10 + 1.5 * (g - 1));
       S.lv.capacity = 60; S.lv.luck = 10;                               // huge ceiling — banking never clamps the metric
       S.units = []; for (let i = 0; i < 4; i++) S.units.push({ type: t, cd: 0 });
       S.collectors = [];                                                // max fleet of every unlocked collector — collection never bottlenecks

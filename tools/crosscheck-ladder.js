@@ -56,15 +56,16 @@ function gates(res, name) {
   return f;
 }
 
-// GATED scenarios span the MEASURED wall-zone envelope (medians 0.64–0.83, P18 up to ×1.02).
-// The ×0.55 row is a beyond-envelope STRESS probe — informational, not gated (no regime measured
-// a wall-zone median below 0.64; at ×0.55 the game stays complete and sane, just 5 ascensions).
+// GATED scenarios span the MEASURED wall-zone envelope. v18.0 (fixed geometric economy, BUILD 1.19)
+// measured wall-zone medians ×0.64–0.81 across all seven regimes (M×1 0.64 · M×16 0.67 · M×256
+// 0.77 · M×800 0.81 · policy variants match), rising with depth inside each wall zone to ×1.07-1.08
+// at the P18 summit. The ×0.42 stress row is the pre-retune economy (BUILD 1.13) — informational:
+// there the campaign stays complete and sane but collapses to 4 ascensions, which is why BUILD moved.
 const scenarios = [
-  ["uniform ×0.55 (stress, beyond envelope)", () => 0.55, false],
-  ...[0.64, 0.72, 0.83, 1.0, 1.15].map(k => [`uniform ×${k}`, () => k, true]),   // ×1.15 added v17.26: the anchored eco arc pushed deep-regime medians to ×1.08-1.15
-  ["measured late-ladder 0.40→1.02", g => 0.40 + (1.02 - 0.40) * (g - 1) / (TOTAL - 1), true],
+  ["uniform ×0.42 (stress: BUILD-1.13 economy)", () => 0.42, false],
+  ...[0.64, 0.67, 0.77, 0.81, 1.0].map(k => [`uniform ×${k}`, () => k, true]),
+  ["measured v18 wall profile 0.55→1.08", g => 0.55 + (1.08 - 0.55) * (g - 1) / (TOTAL - 1), true],
   ["measured mid-ladder 0.50→0.85", g => 0.50 + (0.85 - 0.50) * (g - 1) / (TOTAL - 1), true],
-  ["measured anchored-era 0.90→1.15", g => 0.90 + (1.15 - 0.90) * (g - 1) / (TOTAL - 1), true],   // v17.26 measured profile
 ];
 
 let allFails = [];
