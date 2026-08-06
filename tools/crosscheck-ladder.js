@@ -61,9 +61,10 @@ function gates(res, name) {
 // a wall-zone median below 0.64; at ×0.55 the game stays complete and sane, just 5 ascensions).
 const scenarios = [
   ["uniform ×0.55 (stress, beyond envelope)", () => 0.55, false],
-  ...[0.64, 0.72, 0.83, 1.0].map(k => [`uniform ×${k}`, () => k, true]),
+  ...[0.64, 0.72, 0.83, 1.0, 1.15].map(k => [`uniform ×${k}`, () => k, true]),   // ×1.15 added v17.26: the anchored eco arc pushed deep-regime medians to ×1.08-1.15
   ["measured late-ladder 0.40→1.02", g => 0.40 + (1.02 - 0.40) * (g - 1) / (TOTAL - 1), true],
   ["measured mid-ladder 0.50→0.85", g => 0.50 + (0.85 - 0.50) * (g - 1) / (TOTAL - 1), true],
+  ["measured anchored-era 0.90→1.15", g => 0.90 + (1.15 - 0.90) * (g - 1) / (TOTAL - 1), true],   // v17.26 measured profile
 ];
 
 let allFails = [];
