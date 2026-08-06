@@ -21,7 +21,7 @@ const P = { W0: 0.4, R: 1.65, A: 4, CB: 1.3, E: 1.25, C0: 3, CR: 1.19 };   // sh
 
 function simulate(ratioAt) {
   const { W0, R, A, CB, E, C0, CR } = P;
-  let cores = 0, engineLv = 0, hours = 0, runs = [];
+  let cores = 0, engineLv = 0, hours = 0, runs = [], minedTot = 0, bankedTot = 0;
   const M = () => Math.pow(E, engineLv);
   const engCost = lv => Math.ceil(C0 * Math.pow(CR, lv));
   const spend = () => { while (engCost(engineLv) <= cores) { cores -= engCost(engineLv); engineLv++; } };
@@ -36,11 +36,15 @@ function simulate(ratioAt) {
       if (runH > 40) break;
     }
     const pendFinal = pend || banked.reduce((s, x) => s + cval(x), 0);
+    // v18.3 ◈ CORE MINES — conquered worlds trickle cores on the WALL clock (1/7 · 1.3^(g−1) per day).
+    // Upper-bound model: every banked planet held for the entire run at fully-idle pacing (×8.6 active).
+    const mined = banked.reduce((s, x) => s + (1 / 7) * Math.pow(1.3, x - 1), 0) * (runH * 8.6 / 24);
+    minedTot += mined; bankedTot += pendFinal;
     runs.push({ run, wall: g, hours: runH });
-    cores += pendFinal;
-    if (g > TOTAL) return { done: true, runs, hours };
+    cores += pendFinal + Math.floor(mined);
+    if (g > TOTAL) return { done: true, runs, hours, minedTot, bankedTot };
   }
-  return { done: false, runs, hours };
+  return { done: false, runs, hours, minedTot, bankedTot };
 }
 
 function gates(res, name) {
@@ -53,6 +57,9 @@ function gates(res, name) {
   if (res.hours < 25 || res.hours > 130) f.push(`L4 total ${res.hours.toFixed(0)}h`);
   if (res.runs.some(r => r.hours > 14)) f.push("L5 a run dragged past 14h");
   for (let i = 1; i < res.runs.length; i++) if (res.runs[i].wall < res.runs[i - 1].wall - 1) f.push("L6 wall collapsed");
+  // v18.3: core mines must stay a GARNISH on ascension banking, never a substitute — even at the
+  // fully-idle upper bound (every conquered world held the whole run at ×8.6 wall-clock)
+  if (res.minedTot > 0.25 * res.bankedTot) f.push(`L7 mines dug ${Math.round(res.minedTot)} vs ${res.bankedTot} banked (>25%) — idling for cores beats ascending`);
   return f;
 }
 
