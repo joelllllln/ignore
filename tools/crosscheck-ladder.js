@@ -40,7 +40,12 @@ function simulate(ratioAt) {
     // Upper-bound model: every banked planet held for the entire run at fully-idle pacing (×8.6 active).
     const mined = banked.reduce((s, x) => s + (1 / 7) * Math.pow(1.3, x - 1), 0) * (runH * 8.6 / 24);
     minedTot += mined; bankedTot += pendFinal;
-    runs.push({ run, wall: g, hours: runH });
+    // v18.7 PARK-vs-ASCEND (owner ask: "it should never be pointless to ascend"): at this run's wall,
+    // compare the two strategies' ◈/wall-clock-day — parking forever digs only the mines' rate, while
+    // the ascend CYCLE banks the pending pool every re-climb (run length at fully-idle ×8.6 pacing).
+    const parkedRate = banked.reduce((s, x) => s + (1 / 7) * Math.pow(1.3, x - 1), 0);
+    const cycleRate = pendFinal / Math.max(0.05, runH * 8.6 / 24);
+    runs.push({ run, wall: g, hours: runH, parkedRate, cycleRate, adv: cycleRate / Math.max(1e-9, parkedRate) });
     cores += pendFinal + Math.floor(mined);
     if (g > TOTAL) return { done: true, runs, hours, minedTot, bankedTot };
   }
@@ -60,6 +65,9 @@ function gates(res, name) {
   // v18.3: core mines must stay a GARNISH on ascension banking, never a substitute — even at the
   // fully-idle upper bound (every conquered world held the whole run at ×8.6 wall-clock)
   if (res.minedTot > 0.25 * res.bankedTot) f.push(`L7 mines dug ${Math.round(res.minedTot)} vs ${res.bankedTot} banked (>25%) — idling for cores beats ascending`);
+  // v18.7 L8: at EVERY wall of EVERY run, the ascend cycle's ◈/day must beat parked mining by ≥2× —
+  // there is never a point in the campaign where sitting on your mines out-earns ascending
+  for (const r of res.runs) if (r.adv < 2) f.push(`L8 run ${r.run} wall P${r.wall}: ascend cycle only ×${r.adv.toFixed(1)} parked mining (<2×) — parking competes with ascending`);
   return f;
 }
 
@@ -79,7 +87,8 @@ console.log("LADDER × MEASURED ENVELOPE — the prestige loop under what the ar
 for (const [name, fn, gated] of scenarios) {
   const res = simulate(fn), f = gated ? gates(res, name) : [];
   const r1 = res.runs[0];
-  console.log(`${name.padEnd(38)} ${res.done ? "finishes" : "STALLS  "} · ascensions ${String(res.runs.length - 1).padStart(2)} · run1 wall P${r1.wall} ${r1.hours.toFixed(1)}h · total ${res.hours.toFixed(1)}h · mines ${Math.round(res.minedTot)}◈/${res.bankedTot}◈ banked (${(res.minedTot / res.bankedTot * 100).toFixed(0)}%)  ${gated ? (f.length ? "FAIL: " + f.join(", ") : "PASS") : "(stress row — info only)"}`);
+  const minAdv = Math.min(...res.runs.map(r => r.adv));
+  console.log(`${name.padEnd(38)} ${res.done ? "finishes" : "STALLS  "} · ascensions ${String(res.runs.length - 1).padStart(2)} · run1 wall P${r1.wall} ${r1.hours.toFixed(1)}h · total ${res.hours.toFixed(1)}h · mines ${Math.round(res.minedTot)}◈/${res.bankedTot}◈ (${(res.minedTot / res.bankedTot * 100).toFixed(0)}%) · ascend≥×${minAdv.toFixed(1)} parked  ${gated ? (f.length ? "FAIL: " + f.join(", ") : "PASS") : "(stress row — info only)"}`);
   allFails.push(...f.map(x => `[${name}] ${x}`));
 }
 console.log(allFails.length ? "\nFAIL:\n  " + allFails.join("\n  ") : "\nLADDER HOLDS ACROSS THE ENTIRE MEASURED ENVELOPE");
