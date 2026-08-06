@@ -79,7 +79,7 @@ console.log("LADDER × MEASURED ENVELOPE — the prestige loop under what the ar
 for (const [name, fn, gated] of scenarios) {
   const res = simulate(fn), f = gated ? gates(res, name) : [];
   const r1 = res.runs[0];
-  console.log(`${name.padEnd(38)} ${res.done ? "finishes" : "STALLS  "} · ascensions ${String(res.runs.length - 1).padStart(2)} · run1 wall P${r1.wall} ${r1.hours.toFixed(1)}h · total ${res.hours.toFixed(1)}h  ${gated ? (f.length ? "FAIL: " + f.join(", ") : "PASS") : "(stress row — info only)"}`);
+  console.log(`${name.padEnd(38)} ${res.done ? "finishes" : "STALLS  "} · ascensions ${String(res.runs.length - 1).padStart(2)} · run1 wall P${r1.wall} ${r1.hours.toFixed(1)}h · total ${res.hours.toFixed(1)}h · mines ${Math.round(res.minedTot)}◈/${res.bankedTot}◈ banked (${(res.minedTot / res.bankedTot * 100).toFixed(0)}%)  ${gated ? (f.length ? "FAIL: " + f.join(", ") : "PASS") : "(stress row — info only)"}`);
   allFails.push(...f.map(x => `[${name}] ${x}`));
 }
 console.log(allFails.length ? "\nFAIL:\n  " + allFails.join("\n  ") : "\nLADDER HOLDS ACROSS THE ENTIRE MEASURED ENVELOPE");
