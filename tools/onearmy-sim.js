@@ -41,7 +41,7 @@ const { chromium } = requirePlaywright();
       S.units = [{ type: 'turret', cd: 0 }]; S.collectors = [{ type: 'drone' }];
       for (const k in S.lv) S.lv[k] = 0;
       for (const t in S.classNodes) S.classNodes[t] = {};
-      S.cash = Math.floor(SIM.eco(1) * 40); S.vault = {}; S.conquest = 1; S.cpsS = 0;
+      S.cash = Math.floor(SIM.eco(1) * 40); S.vault = {}; S.conquest = 1; S.cpsS = 0; S.ecoSnap = { value: 0, spawnRate: 0 };
       S.galaxy = 1; S.peakGalaxy = 1; D.recompute();
     }
 
@@ -102,6 +102,7 @@ const { chromium } = requirePlaywright();
       resetArmy();
       const rows = []; let empire = 0;
       for (let g = 1; g <= (maxPlanet || SIM.TOTAL_PLANETS); g++) {
+        if (g > S.peakGalaxy) S.ecoSnap = { value: S.lv.value || 0, spawnRate: S.lv.spawnRate || 0 };   // v17.28: new frontier = full eco re-baseline, exactly like activatePlanet
         S.galaxy = g; S.peakGalaxy = Math.max(S.peakGalaxy, g); D.recompute();
         const tgt = SIM.conquerTarget(g);
         let earned = 0, secs = 0, guard = 0;
