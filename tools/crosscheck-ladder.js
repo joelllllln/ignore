@@ -56,16 +56,15 @@ function gates(res, name) {
   return f;
 }
 
-// GATED scenarios span the MEASURED wall-zone envelope. v18.0 (fixed geometric economy, BUILD 1.19)
-// measured wall-zone medians ×0.64–0.81 across all seven regimes (M×1 0.64 · M×16 0.67 · M×256
-// 0.77 · M×800 0.81 · policy variants match), rising with depth inside each wall zone to ×1.07-1.08
-// at the P18 summit. The ×0.42 stress row is the pre-retune economy (BUILD 1.13) — informational:
-// there the campaign stays complete and sane but collapses to 4 ascensions, which is why BUILD moved.
+// GATED scenarios span the MEASURED wall-zone envelope. v18.1 (fixed geometric economy, BUILD 1.19,
+// target-anchored trees) measured wall-zone medians ×0.72–1.01 across all seven regimes (M×1 0.72 ·
+// M×16 0.81 · M×256 0.96 · M×800 1.01 · policy variants match), rising with depth inside each wall
+// zone to ×1.25-1.31 near the P18 summit. The ×0.42 stress row is the untuned BUILD-1.13 economy —
+// informational: complete and sane there, but only 4 ascensions, which is why BUILD moved to 1.19.
 const scenarios = [
   ["uniform ×0.42 (stress: BUILD-1.13 economy)", () => 0.42, false],
-  ...[0.64, 0.67, 0.77, 0.81, 1.0].map(k => [`uniform ×${k}`, () => k, true]),
-  ["measured v18 wall profile 0.55→1.08", g => 0.55 + (1.08 - 0.55) * (g - 1) / (TOTAL - 1), true],
-  ["measured mid-ladder 0.50→0.85", g => 0.50 + (0.85 - 0.50) * (g - 1) / (TOTAL - 1), true],
+  ...[0.64, 0.72, 0.81, 0.96, 1.01, 1.15].map(k => [`uniform ×${k}`, () => k, true]),
+  ["measured v18.1 wall profile 0.63→1.31", g => 0.63 + (1.31 - 0.63) * (g - 1) / (TOTAL - 1), true],
 ];
 
 let allFails = [];
