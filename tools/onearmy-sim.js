@@ -122,9 +122,13 @@ const { chromium } = requirePlaywright();
         // planet's true cost exactly like the unit-price hole. Save for the launch (income continues),
         // pay it, then ride the transit (empire ticks; the field is in cargo).
         if (g < (maxPlanet || SIM.TOTAL_PLANETS)) {
+          // v18.9 SETTLED WORLDS: after conquest COMBAT INCOME IS OVER (v18.6 — nothing spawns on your
+          // own world). The launch save runs on the settlement instead: the planet's supervised on-site
+          // tribute (×20 background rate) + the rest of the empire — exactly what the live game pays.
           const tc = SIM.travelCost(g); let gT = 0;
+          const settle = SIM.baseTarget(g) / (SIM.IDLE_PAYBACK_H * 3600) * 20;
           while (S.cash < tc && gT++ < 20000) {
-            const inc2 = incomePerSec(g, engineMult) + empire; if (inc2 <= 0) break;
+            const inc2 = settle + empire; if (inc2 <= 0) break;
             const slice = Math.min((tc - S.cash) / inc2, 300); S.cash += inc2 * slice; secs += slice;
           }
           S.cash = Math.max(0, S.cash - tc);

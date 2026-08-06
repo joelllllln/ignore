@@ -71,10 +71,9 @@ function gates(res, name) {
   return f;
 }
 
-// GATED scenarios span the MEASURED wall-zone envelope. v18.1 (fixed geometric economy, BUILD 1.19,
-// target-anchored trees) measured wall-zone medians ×0.72–1.01 across all seven regimes (M×1 0.72 ·
-// M×16 0.81 · M×256 0.96 · M×800 1.01 · policy variants match), rising with depth inside each wall
-// zone to ×1.25-1.31 near the P18 summit. The ×0.42 stress row is the untuned BUILD-1.13 economy —
+// GATED scenarios span the MEASURED wall-zone envelope. v18.9 (settled worlds: launch saves run on
+// the ×20 supervised settlement tribute, not combat income) measured wall-zone medians ×0.64–0.92
+// (M×1 0.64 · M×16 0.72 · M×256 0.86 · M×800 0.92), rising with depth inside each wall zone. The ×0.42 stress row is the untuned BUILD-1.13 economy —
 // informational: complete and sane there, but only 4 ascensions, which is why BUILD moved to 1.19.
 const scenarios = [
   ["uniform ×0.42 (stress: BUILD-1.13 economy)", () => 0.42, false],
