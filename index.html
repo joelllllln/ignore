@@ -16,14 +16,14 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.19" />
+<link rel="stylesheet" href="style.css?v=18.20" />
 </head>
 <body>
 <div id="root">
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v18.19</div>
+  <div id="version" class="layer">v18.20</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -131,7 +131,7 @@
       <li><i data-ico="gem"></i><b>ASCENSION</b> — the long game. Each planet's conquer bar takes ~<b>×1.65 as long</b> as the last, so every run eventually hits a <b>WALL</b>. Ascend — the game's ONLY reset: the cluster resets, every conquered planet banks a <b>handful of ◈ cores</b> (deeper = more), and cores buy one permanent thing — <b>the Singularity Engine: +25% ALL income per level</b> — that makes the next run <b>melt</b> your old territory. <b>THE LADDER:</b> hop at ~3 worlds on your first run, then ride every ascension a few worlds deeper — when the ◈ button burns <b>amber</b>, the wall is here and hopping beats grinding. Planet 18 is the summit of many ascensions.</li>
         <li><i data-ico="coin"></i><b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck. Every level is <b>one continuous ladder for the whole campaign</b> — nothing resets between planets; each level simply costs more than the last, and only <b>Ascension</b> starts the ladder fresh.</li>
         <li><i data-ico="planet"></i>Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for serious money: a fresh world greets you with <b>few but genuinely tough dots dropping fat bounties</b> — and the field grows thicker and meaner as your conquest advances. Tough fields pay a <b>premium</b>, so pushing the bar is always where the money is.</li>
-        <li><i data-ico="brush"></i><b>Draw across the field</b> to blast dots yourself — finger kills <b>CHAIN into a ☝ COMBO</b>: the quicker you kill, the bigger the bounty multiplier, up to <b>×5</b> (stop slashing and it drains away). Your draw also hits <b>mini-bosses for DOUBLE</b>, so actively drawing is how you seal a boss kill before its timer runs out.</li>
+        <li><i data-ico="brush"></i><b>Draw across the field</b> to blast dots yourself — finger kills <b>CHAIN into a COMBO</b>: the quicker you kill, the bigger the bounty multiplier, up to <b>×5</b> (stop slashing and it drains away). Your draw also hits <b>mini-bosses for DOUBLE</b>, so actively drawing is how you seal a boss kill before its timer runs out.</li>
       </ul>
       <button class="big" id="how-back">BACK</button>
     </div>
@@ -161,6 +161,17 @@
   <div id="galaxy-map" class="modal mapmodal">
     <canvas id="gmap"></canvas>
     <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-auto"><i data-ico="gear"></i>AUTO</button><button class="mbtn" id="gm-reset"><i data-ico="reset"></i>Recenter</button><button class="x" id="gm-close">✕</button></div></div>
+    <!-- QUICK NAV (v18.20): hop planets and jump systems without zoom-and-pan hunting -->
+    <div id="map-nav">
+      <button class="mnav" id="gm-you" title="jump to your planet">◉</button>
+      <button class="mnav" id="gm-prev">◀</button>
+      <button class="mnav mnav-cur" id="gm-cur">P1</button>
+      <button class="mnav" id="gm-next">▶</button>
+      <span class="mnav-gap"></span>
+      <button class="mnav mnav-sys" id="gm-sys0"></button>
+      <button class="mnav mnav-sys" id="gm-sys1"></button>
+      <button class="mnav mnav-sys" id="gm-sys2"></button>
+    </div>
     <div class="map-hint">one finger = move · two fingers: pinch to zoom, drag to rotate · scroll = zoom · tap a ★ sun to centre · tap a planet to visit</div>
     <div id="gm-info" class="gm-info"></div>
   </div>
@@ -267,6 +278,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.19"></script>
+<script src="js/game.js?v=18.20"></script>
 </body>
 </html>
