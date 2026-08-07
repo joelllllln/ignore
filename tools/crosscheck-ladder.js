@@ -35,14 +35,14 @@ function simulate(ratioAt) {
       if (runH > 40) break;
     }
     const pendFinal = pend || banked.reduce((s, x) => s + cval(x), 0);
-    // v18.3 ◈ CORE MINES — conquered worlds trickle cores on the WALL clock (1/7 · 1.3^(g−1) per day).
+    // v18.3 ◈ CORE MINES — conquered worlds trickle cores on the WALL clock (v18.25: 1/2 · 1.3^(g−1) per day).
     // Upper-bound model: every banked planet held for the entire run at fully-idle pacing (×8.6 active).
-    const mined = banked.reduce((s, x) => s + (1 / 7) * Math.pow(1.3, x - 1), 0) * (runH * 8.6 / 24);
+    const mined = banked.reduce((s, x) => s + (1 / 2) * Math.pow(1.3, x - 1), 0) * (runH * 8.6 / 24);
     minedTot += mined; bankedTot += pendFinal;
     // v18.7 PARK-vs-ASCEND (owner ask: "it should never be pointless to ascend"): at this run's wall,
     // compare the two strategies' ◈/wall-clock-day — parking forever digs only the mines' rate, while
     // the ascend CYCLE banks the pending pool every re-climb (run length at fully-idle ×8.6 pacing).
-    const parkedRate = banked.reduce((s, x) => s + (1 / 7) * Math.pow(1.3, x - 1), 0);
+    const parkedRate = banked.reduce((s, x) => s + (1 / 2) * Math.pow(1.3, x - 1), 0);
     const cycleRate = pendFinal / Math.max(0.05, runH * 8.6 / 24);
     runs.push({ run, wall: g, hours: runH, parkedRate, cycleRate, adv: cycleRate / Math.max(1e-9, parkedRate) });
     cores += pendFinal + Math.floor(mined);
@@ -68,9 +68,19 @@ function gates(res, name) {
   if (res.hours < 25 || res.hours > 130) f.push(`L4 total ${res.hours.toFixed(0)}h`);
   if (res.runs.some(r => r.hours > 14)) f.push("L5 a run dragged past 14h");
   for (let i = 1; i < res.runs.length; i++) if (res.runs[i].wall < res.runs[i - 1].wall - 1) f.push("L6 wall collapsed");
-  // v18.3: core mines must stay a GARNISH on ascension banking, never a substitute — even at the
-  // fully-idle upper bound (every conquered world held the whole run at ×8.6 wall-clock)
-  if (res.minedTot > 0.25 * res.bankedTot) f.push(`L7 mines dug ${Math.round(res.minedTot)} vs ${res.bankedTot} banked (>25%) — idling for cores beats ascending`);
+  // L7 is a BAND, not a ceiling (v18.25, owner: "make mines more productive"). Mining used to be a
+  // garnish at 7-9% of banked cores, so the 10%-of-target build barely registered as a decision; the
+  // base rate is now ×3.5 and mining lands at ~26-32%. The two edges encode the intent from both
+  // sides, so neither can drift away silently:
+  //   ceiling 40% — mining must never become the MAJORITY source, or holding worlds substitutes for
+  //     the loop (the harder guarantee lives in L8: the ascend cycle must still out-earn parking)
+  //   floor   12% — and it must never fall back to a rounding error, which is what made it feel
+  //     pointless in the first place
+  // Both are measured at the fully-idle upper bound: every conquered world held for the entire run
+  // at ×8.6 wall-clock pacing, which is the most generous case mining can possibly get.
+  const minePct = res.minedTot / Math.max(1, res.bankedTot);
+  if (minePct > 0.40) f.push(`L7 mines dug ${Math.round(res.minedTot)} vs ${res.bankedTot} banked (${(minePct * 100).toFixed(0)}% > 40%) — idling for cores rivals ascending`);
+  if (minePct < 0.12) f.push(`L7 mines dug only ${(minePct * 100).toFixed(0)}% of banked cores (<12%) — the mine build is back to being a garnish`);
   // v18.7 L8: at EVERY wall of EVERY run, the ascend cycle's ◈/day must beat parked mining by ≥2× —
   // there is never a point in the campaign where sitting on your mines out-earns ascending
   for (const r of res.runs) if (r.adv < 2) f.push(`L8 run ${r.run} wall P${r.wall}: ascend cycle only ×${r.adv.toFixed(1)} parked mining (<2×) — parking competes with ascending`);
