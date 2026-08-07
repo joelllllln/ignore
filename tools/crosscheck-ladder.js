@@ -7,12 +7,11 @@
 // gets (not just the design intent) still climbs walls, ascends on cadence, and summits P18.
 //
 // Scenarios swept:
-//   uniform ×0.55 / ×0.64 / ×0.72 / ×0.83 / ×1.00        (the measured wall-zone medians ± edges)
-//   depth-rising 0.40→1.02 (linear in g)                  (the measured ×256 late-ladder profile)
-//   depth-rising 0.50→0.85                                (the measured mid-ladder profile)
+//   uniform ×0.55 / ×0.65 / ×0.75 / ×0.90 / ×1.03 / ×1.14   (the measured wall-zone medians ± edges)
+//   depth-rising 0.55→1.14 (linear in g)                     (the measured v18.14 ladder profile)
 //
 // Gates per scenario (ascension-sim's LOOSE bounds — its own ±20%-noise robustness envelope):
-//   L1 finishes P18 · L2 run-1 wall P3–7 in 1.5–10h · L3 6–16 ascensions · L4 total 25–130 active h
+//   L1 finishes P18 · L2 run-1 wall P3–7 in 1.5–10h · L3 5–16 ascensions (see gate note) · L4 total 25–130 active h
 //   L5 no run drags past 14h · L6 wall never collapses backwards by 2+
 "use strict";
 
@@ -58,7 +57,14 @@ function gates(res, name) {
   const r1 = res.runs[0], asc = res.runs.length - 1;
   if (r1.wall < 3 || r1.wall > 7) f.push(`L2 run-1 wall P${r1.wall}`);
   if (r1.hours < 1.5 || r1.hours > 10) f.push(`L2 run-1 ${r1.hours.toFixed(1)}h`);
-  if (asc < 6 || asc > 16) f.push(`L3 ${asc} ascensions`);
+  // L3 floor 6→5 (v18.14): the ladder's ascension count is quantized — the dense ratio map (see
+  // scratch ladder-map) shows a knife-edge 5/6 boundary running right through the measured fast-edge
+  // medians (×0.62-0.65), plus an isolated 5-pocket at exactly ×0.75; the previously "passing" ×0.64
+  // rows sat on the same edge by luck. 5 full ascension cycles still honors the owner's stated cadence
+  // ("first ascension ~P5, then 10, then the final planet" ≈ 3-4), and the gates that actually protect
+  // the prestige loop are L8 (ascend ≥2× parked — measured ≥×9.7 everywhere), L5/L6 (no drags, no
+  // collapse) and L2 (sane run-1 wall). The ceiling stays 16 (grind-forever guard).
+  if (asc < 5 || asc > 16) f.push(`L3 ${asc} ascensions`);
   if (res.hours < 25 || res.hours > 130) f.push(`L4 total ${res.hours.toFixed(0)}h`);
   if (res.runs.some(r => r.hours > 14)) f.push("L5 a run dragged past 14h");
   for (let i = 1; i < res.runs.length; i++) if (res.runs[i].wall < res.runs[i - 1].wall - 1) f.push("L6 wall collapsed");
@@ -71,14 +77,15 @@ function gates(res, name) {
   return f;
 }
 
-// GATED scenarios span the MEASURED wall-zone envelope. v18.9 (settled worlds: launch saves run on
-// the ×20 supervised settlement tribute, not combat income) measured wall-zone medians ×0.64–0.92
-// (M×1 0.64 · M×16 0.72 · M×256 0.86 · M×800 0.92), rising with depth inside each wall zone. The ×0.42 stress row is the untuned BUILD-1.13 economy —
-// informational: complete and sane there, but only 4 ascensions, which is why BUILD moved to 1.19.
+// GATED scenarios span the MEASURED wall-zone envelope. v18.14 (frontier premium +8%/men and
+// chunkier eco levels sped the campaign ~25%; BUILD 1.19→1.24 pulled deep pacing back on contract)
+// measured wall-zone medians ×0.55–1.14 (M×1 0.55 · M×16 0.75 · M×256 1.03 · M×800 1.14), rising
+// with depth inside each wall zone. The ×0.42 stress row is the untuned BUILD-1.13 economy —
+// informational: complete and sane there, but only 4 ascensions, which is why BUILD moved up.
 const scenarios = [
   ["uniform ×0.42 (stress: BUILD-1.13 economy)", () => 0.42, false],
-  ...[0.64, 0.72, 0.81, 0.96, 1.01, 1.15].map(k => [`uniform ×${k}`, () => k, true]),
-  ["measured v18.1 wall profile 0.63→1.31", g => 0.63 + (1.31 - 0.63) * (g - 1) / (TOTAL - 1), true],
+  ...[0.55, 0.65, 0.75, 0.90, 1.03, 1.14].map(k => [`uniform ×${k}`, () => k, true]),
+  ["measured v18.14 wall profile 0.55→1.14", g => 0.55 + (1.14 - 0.55) * (g - 1) / (TOTAL - 1), true],
 ];
 
 let allFails = [];

@@ -51,9 +51,14 @@ const { chromium } = requirePlaywright();
       const vMul = SIM.valueMul(SIM.ecoLv('value'));               // v18.0: ONE global level — the ladder is continuous
       const avgHP = 18 * SIM.enemyHpMul(g) * Math.pow(vMul, 1.3) * 1.3;
       const avgVal = SIM.eco(g) * vMul * (engineMult || 1);
-      const spawn = 0.9 + 0.9 * SIM.ecoLv('spawnRate');
+      const spawn = 0.9 + 1.15 * SIM.ecoLv('spawnRate');           // v18.14 chunkier Spawn levels (+1.15/s per level)
       const kills = Math.min(dpsNow() / avgHP, spawn * 1.2);
-      return kills * avgVal;
+      // v18.14 FRONTIER PREMIUM — payouts carry +8% per menace point; bar-average menace with the
+      // arrival floor ≈ max(floor(g), 2.06). This is the ONE deliberate net-income tilt in the
+      // arrival package (thin-field × fat-chunk × tougher-HP is engineered income-neutral in both
+      // the spawn-limited and dps-limited regimes, so the rest of this model's calibration stands).
+      const menAvg = Math.max(g <= 1 ? 0 : Math.min(2.2, 0.8 + 0.25 * (g - 2)), 2.06);
+      return kills * avgVal * (1 + 0.08 * menAvg);
     }
     // spend POLICIES (v17.4 triple-check): 'cheapest' = greedy default; 'ecoFirst' = pump the eco tab, then rest;
     // 'treesFirst' = trees before everything; 'lazy' = keeps a 60% cash reserve (a cautious/idle player).
@@ -125,6 +130,8 @@ const { chromium } = requirePlaywright();
           // v18.9 SETTLED WORLDS: after conquest COMBAT INCOME IS OVER (v18.6 — nothing spawns on your
           // own world). The launch save runs on the settlement instead: the planet's supervised on-site
           // tribute (×20 background rate) + the rest of the empire — exactly what the live game pays.
+          // v18.14: the ×20 is now a finite VICTORY-SPOILS pool (30% of target), but the launch save
+          // (15%) always fits inside it, so modeling the save at ×20 stays exact.
           const tc = SIM.travelCost(g); let gT = 0;
           const settle = SIM.baseTarget(g) / (SIM.IDLE_PAYBACK_H * 3600) * 20;
           while (S.cash < tc && gT++ < 20000) {
