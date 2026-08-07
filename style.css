@@ -83,6 +83,18 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .ab-i{position:absolute;top:3px;left:4px;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid var(--edge);
   color:var(--text);font-family:var(--mono);font-style:italic;font-size:10px;line-height:13px;text-align:center}
 #info-text{font-size:14px;line-height:1.6}
+/* ◈ core popup (v18.17) — every prestige-core gain slides in, says its source + the new balance, auto-hides */
+#core-pop{position:fixed;left:0;right:0;top:env(safe-area-inset-top, 0px);z-index:41;display:flex;justify-content:center;pointer-events:none;
+  transform:translateY(-140%);opacity:0;transition:transform .35s cubic-bezier(.2,1.3,.4,1),opacity .35s ease}
+#core-pop.show{transform:translateY(0);opacity:1}
+.cp-card{margin-top:112px;display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid rgba(255,255,255,.45);border-radius:14px;
+  padding:12px 20px;text-align:left;box-shadow:0 10px 40px rgba(0,0,0,.6),0 0 24px rgba(255,255,255,.12);min-width:250px}
+.cp-gem{font-size:30px;color:#fff;text-shadow:0 0 14px rgba(255,255,255,.8);animation:cpspin 2.2s ease-in-out infinite}
+@keyframes cpspin{0%,100%{transform:scale(1)}50%{transform:scale(1.18) rotate(12deg)}}
+.cp-n{font-family:var(--mono);font-weight:800;font-size:17px;letter-spacing:1px;color:#fff}
+.cp-src{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--sd);margin-top:3px}
+.cp-tot{font-size:11px;color:var(--dim);margin-top:3px}
+
 /* boss-reward popup — non-blocking banner that slides down from the top and auto-hides */
 #boss-reward{position:fixed;left:0;right:0;top:env(safe-area-inset-top, 0px);z-index:40;display:flex;justify-content:center;pointer-events:none;
   transform:translateY(-140%);opacity:0;transition:transform .35s cubic-bezier(.2,1.3,.4,1),opacity .35s ease}

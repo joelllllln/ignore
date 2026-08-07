@@ -16,14 +16,14 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.16" />
+<link rel="stylesheet" href="style.css?v=18.17" />
 </head>
 <body>
 <div id="root">
   <canvas id="game"></canvas>
 
   <!-- BUILD VERSION (bumped every update — top-right) -->
-  <div id="version" class="layer">v18.16</div>
+  <div id="version" class="layer">v18.17</div>
 
   <!-- cinematic warp-into-base transition: letterbox bars, screen veil, landing title -->
   <div id="cine-top" class="cine"></div>
@@ -37,6 +37,18 @@
       <div class="br-title" id="br-title"></div>
       <div class="br-cash" id="br-cash"></div>
       <div class="br-bonus" id="br-bonus"></div>
+    </div>
+  </div>
+
+  <!-- ◈ CORE POPUP (v18.17): every prestige-core gain announces itself — amount, source, new balance -->
+  <div id="core-pop" class="layer">
+    <div class="cp-card">
+      <div class="cp-gem">◈</div>
+      <div class="cp-body">
+        <div class="cp-n" id="cp-n"></div>
+        <div class="cp-src" id="cp-src"></div>
+        <div class="cp-tot" id="cp-tot"></div>
+      </div>
     </div>
   </div>
 
@@ -255,6 +267,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.16"></script>
+<script src="js/game.js?v=18.17"></script>
 </body>
 </html>
