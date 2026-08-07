@@ -580,3 +580,40 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .asc-chips{display:flex;flex-wrap:wrap;gap:5px}
 .asc-chip{font:700 11px var(--mono);color:#cfe4ff;background:rgba(127,176,230,.12);border:1px solid rgba(127,176,230,.4);border-radius:999px;padding:3px 9px;white-space:nowrap}
 .asc-chip.dim{color:var(--dim);border-color:var(--edge);background:rgba(255,255,255,.05)}
+
+/* ── v18.26 RESPONSIVE PASS (owner: "make sure the screen and buttons align to all phone shapes
+   well"). Audited at 320x568 → 768x1024 → 844x390 landscape by tools' layout-audit:
+     · the tab row could not shrink, so BUY x1 was pushed 47px off a 320px screen
+     · the dock had no height ceiling, so on a landscape phone the buy rows and LAUNCH fell below
+       the fold entirely
+     · several primary controls sat under a comfortable thumb target
+   Everything below is a fit/reach fix; none of it changes the layout on a normal portrait phone. */
+#tabs{flex-wrap:nowrap}
+.tab{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:40px}
+#buymode{flex:0 1 auto;min-width:0;white-space:nowrap;min-height:40px}
+.act{min-height:44px}                      /* LAUNCH / TRAVEL is the primary action — full thumb target */
+.u-buy,.u-up{min-height:36px}
+.u-info{min-height:28px}
+/* the dock never eats the whole screen: it is a column with a hard ceiling, and only the scrolling
+   upgrade list gives way — so the tabs, the buy rows and LAUNCH are always reachable */
+#dock{display:flex;flex-direction:column;max-height:72vh;overflow:hidden}   /* overflow:hidden is what ENFORCES the ceiling — without it the rows just spilled past the screen bottom */
+#up-list{flex:1 1 0;min-height:0}          /* basis 0: the list takes only LEFTOVER space, so the tabs and the LAUNCH row are never pushed off a short screen */
+.ab{min-height:40px}
+/* narrow phones: tighten the tab row instead of overflowing it */
+@media (max-width:380px){
+  .tab{padding:9px 4px;font-size:11px;letter-spacing:0}
+  #buymode{padding:8px 8px;font-size:11px}
+  #dock{padding-left:6px;padding-right:6px}
+}
+/* short screens (landscape phones): give the world back some height */
+@media (max-height:560px){
+  /* the ceiling must leave room for the FULL fixed furniture (toggle + abilities + tabs + LAUNCH);
+     at 66vh it was 8px short and clipped the LAUNCH row clean off a landscape screen */
+  #dock{max-height:78vh}
+  #dock-toggle{padding:3px;margin-bottom:3px}
+  #abilities{margin-bottom:3px}
+  .ab{padding:5px 4px}
+  #tabs{margin-bottom:3px}
+  #up-list{max-height:22vh}   /* the scrolling list gives way instead */
+  #actions{margin-top:3px}
+}
