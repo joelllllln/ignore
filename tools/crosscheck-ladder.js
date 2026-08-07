@@ -7,8 +7,8 @@
 // gets (not just the design intent) still climbs walls, ascends on cadence, and summits P18.
 //
 // Scenarios swept:
-//   uniform ×0.55 / ×0.65 / ×0.75 / ×0.90 / ×1.03 / ×1.14   (the measured wall-zone medians ± edges)
-//   depth-rising 0.55→1.14 (linear in g)                     (the measured v18.14 ladder profile)
+//   uniform ×0.75 / ×0.90 / ×1.03 / ×1.20 / ×1.42 / ×1.59   (the measured wall-zone medians ± edges)
+//   depth-rising 0.75→1.59 (linear in g)                     (the measured v18.21 ladder profile)
 //
 // Gates per scenario (ascension-sim's LOOSE bounds — its own ±20%-noise robustness envelope):
 //   L1 finishes P18 · L2 run-1 wall P3–7 in 1.5–10h · L3 5–16 ascensions (see gate note) · L4 total 25–130 active h
@@ -77,15 +77,16 @@ function gates(res, name) {
   return f;
 }
 
-// GATED scenarios span the MEASURED wall-zone envelope. v18.14 (frontier premium +8%/men and
-// chunkier eco levels sped the campaign ~25%; BUILD 1.19→1.24 pulled deep pacing back on contract)
-// measured wall-zone medians ×0.55–1.14 (M×1 0.55 · M×16 0.75 · M×256 1.03 · M×800 1.14), rising
+// GATED scenarios span the MEASURED wall-zone envelope. v18.21 (owner: "I passively beat a lot of
+// the planets — per-upgrade scaling should be more aggressive") steepened Value ×1.37→1.46 and Spawn
+// ×1.39→1.48, so every eco level is a real commitment and the ladder can't be bought out cheaply:
+// measured wall-zone medians ×0.75–1.59 (M×1 0.75 · M×16 1.03 · M×256 1.42 · M×800 1.59), rising
 // with depth inside each wall zone. The ×0.42 stress row is the untuned BUILD-1.13 economy —
 // informational: complete and sane there, but only 4 ascensions, which is why BUILD moved up.
 const scenarios = [
   ["uniform ×0.42 (stress: BUILD-1.13 economy)", () => 0.42, false],
-  ...[0.55, 0.65, 0.75, 0.90, 1.03, 1.14].map(k => [`uniform ×${k}`, () => k, true]),
-  ["measured v18.14 wall profile 0.55→1.14", g => 0.55 + (1.14 - 0.55) * (g - 1) / (TOTAL - 1), true],
+  ...[0.75, 0.90, 1.03, 1.20, 1.42, 1.59].map(k => [`uniform ×${k}`, () => k, true]),
+  ["measured v18.21 wall profile 0.75→1.59", g => 0.75 + (1.59 - 0.75) * (g - 1) / (TOTAL - 1), true],
 ];
 
 let allFails = [];
