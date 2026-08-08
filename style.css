@@ -1,0 +1,619 @@
+:root{
+  --bg:#000000; --panel:rgba(20,20,20,.94); --edge:rgba(255,255,255,.20);
+  --cash:#ffffff; --sd:#cfcfcf; --red:#ffffff; --good:#ffffff; --warn:#cccccc;
+  --text:#f2f2f2; --dim:#8a8a8a; --mono:ui-monospace,"Consolas",monospace;
+  --def:#ffffff; --drone:#aaaaaa; --eco:#6f6f6f;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif;
+  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#root{position:absolute;inset:0}
+#game{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.layer{position:absolute;z-index:10}
+b{font-family:var(--mono)}
+button{font-family:inherit;color:inherit;cursor:pointer}
+
+/* top bar — v17.12 (owner call: "the menu around the edges I can't really click on iPhone 11"):
+   viewport-fit=cover pushes the HUD under the notch/status bar and into the curved corners; every
+   edge-anchored layer now offsets by env(safe-area-inset-*) and the right-rail buttons grew 38→46px */
+#top{top:0;left:0;right:0;display:flex;align-items:center;gap:10px;
+  padding:calc(8px + env(safe-area-inset-top, 0px)) calc(62px + env(safe-area-inset-right, 0px)) 8px calc(10px + env(safe-area-inset-left, 0px))}
+.t-cash{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:6px 12px;font-size:15px;color:var(--cash);white-space:nowrap}
+.t-cash b{font-size:19px}
+.t-cash{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}
+.t-cash span{display:block;color:var(--dim);font-size:11px;margin-top:1px}
+.tc-main{display:flex;align-items:baseline;gap:8px}
+#ui-cps{display:inline;color:var(--sd);font-size:13px;font-weight:700;margin-top:0}
+.t-galaxy{flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:5px 12px;min-width:0}
+.g-label{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-label b{color:#fff;font-size:14px}
+.g-tap{color:var(--dim);font-size:11px}
+.g-bar{height:6px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden;margin-top:4px}
+#galaxy-fill{height:100%;width:0;background:linear-gradient(90deg,#fff,#999);transition:width .2s}
+.t-sd{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:6px 12px;font-size:15px;color:var(--sd);white-space:nowrap}
+
+#btn-menu{top:calc(8px + env(safe-area-inset-top, 0px));right:calc(8px + env(safe-area-inset-right, 0px));width:46px;height:46px;background:var(--panel);border:1px solid var(--edge);
+  border-radius:12px;color:var(--text);font-size:21px}
+#btn-metrics{top:calc(62px + env(safe-area-inset-top, 0px));right:calc(8px + env(safe-area-inset-right, 0px));width:46px;height:46px;background:var(--panel);border:1px solid var(--edge);
+  border-radius:12px;color:var(--text);font-size:13px;letter-spacing:-1px;line-height:1;font-family:var(--mono)}
+#btn-ascend{top:calc(116px + env(safe-area-inset-top, 0px));right:calc(8px + env(safe-area-inset-right, 0px));min-width:46px;height:46px;padding:0 8px;display:flex;align-items:center;justify-content:center;gap:3px;background:var(--panel);border:1px solid var(--edge);
+  border-radius:12px;color:var(--text);font:700 13px var(--mono)}
+#btn-ascend svg.ico{width:16px;height:16px}
+#btn-ascend.has{border-color:#7fb0e6;color:#cfe4ff;box-shadow:0 0 10px rgba(127,176,230,.45)}
+#version{top:calc(168px + env(safe-area-inset-top, 0px));right:calc(8px + env(safe-area-inset-right, 0px));width:46px;text-align:center;font:600 9px var(--mono);color:var(--dim);letter-spacing:.3px;opacity:.85;pointer-events:none}
+.ascend-bal{display:flex;align-items:center;gap:5px;font:700 15px var(--mono);color:#cfe4ff;margin-bottom:10px}
+.ascend-bal svg.ico{width:16px;height:16px}
+.ascend-body{max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px}
+.perk-tier{margin-bottom:14px}
+.perk-tier-h{display:flex;justify-content:space-between;align-items:center;font:700 11px var(--mono);letter-spacing:1px;color:var(--dim);margin:0 0 6px}
+.perk-tier-h .locked{color:var(--warn);font-weight:700;letter-spacing:0}
+.perk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.perk.solo{grid-column:1/-1}   /* v16.3: the shop is ONE line — the Engine card spans the full grid */
+.perk{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--panel);border:1px solid var(--edge);border-radius:8px;padding:8px;color:var(--text);font:inherit;cursor:pointer}
+.perk .pk-top{display:flex;align-items:center;gap:5px;font-weight:700;font-size:12px}
+.perk .pk-top svg.ico{width:14px;height:14px;flex:0 0 auto}
+.perk .pk-eff{font-size:11px;color:var(--dim)}
+.perk .pk-cost{margin-top:3px;font-size:11px;font-weight:700;color:#cfe4ff;display:flex;align-items:center;gap:3px}
+.perk .pk-cost svg.ico{width:11px;height:11px}
+.perk:not(.owned):not(.locked):hover{border-color:#fff}
+.perk.owned{border-color:#5cb87a;cursor:default}
+.perk.owned .pk-cost{color:#5cb87a}
+.perk.locked{opacity:.4;cursor:not-allowed}
+.perk.cant{opacity:.65}
+#transition{position:absolute;inset:0;z-index:60;opacity:0;pointer-events:none}
+.cine{position:absolute;left:0;right:0;height:0;background:#000;z-index:58;pointer-events:none;transition:height .4s cubic-bezier(.6,0,.2,1)}
+#cine-top{top:0}#cine-bottom{bottom:0}
+#root.cinematic .cine{height:8.5%}
+#land-title{position:absolute;top:30%;left:0;right:0;text-align:center;z-index:62;pointer-events:none;color:#fff;font:800 22px var(--mono);letter-spacing:1px;opacity:0;text-shadow:0 0 24px rgba(0,0,0,.9),0 0 8px rgba(255,255,255,.4)}
+#land-title.show{animation:landtitle 2.4s ease forwards}
+#land-title .lt-sub{display:block;margin-top:8px;font:600 12px var(--mono);letter-spacing:.5px;color:#ffd9d9;opacity:.92;text-shadow:0 0 14px rgba(0,0,0,.95)}
+@keyframes landtitle{0%{opacity:0;transform:translateY(14px) scale(.94);letter-spacing:6px}16%{opacity:1;transform:none}68%{opacity:1}100%{opacity:0;letter-spacing:3px}}
+
+/* reactive button feel */
+.u-buy,.u-up,.u-info,.act,.ab,.big,.tab,.si-btn,.gm-go,.mbtn,#buymode,.x{transition:transform .08s ease, box-shadow .12s ease, opacity .12s ease}
+.u-buy:active,.u-up:active,.u-info:active,.act:active,.ab:active,.big:active,.tab:active,.si-btn:active,.gm-go:active,.mbtn:active,#buymode:active{transform:scale(.9)}
+.u-buy.afford{box-shadow:0 0 0 0 rgba(255,255,255,.5);animation:affordpulse 1.3s infinite}
+@keyframes affordpulse{0%,100%{box-shadow:0 0 6px rgba(255,255,255,.25)}50%{box-shadow:0 0 13px rgba(255,255,255,.6)}}
+
+/* info buttons */
+.u-info{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--edge);
+  color:var(--text);font-family:var(--mono);font-style:italic;font-weight:700;font-size:13px;margin-right:6px;line-height:1}
+.u-info:hover{border-color:#fff}
+.si-info{width:17px;height:17px;font-size:10px;margin:0 0 0 5px;vertical-align:middle;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.ab-i{position:absolute;top:3px;left:4px;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid var(--edge);
+  color:var(--text);font-family:var(--mono);font-style:italic;font-size:10px;line-height:13px;text-align:center}
+#info-text{font-size:14px;line-height:1.6}
+/* ◈ core popup (v18.17) — every prestige-core gain slides in, says its source + the new balance, auto-hides */
+#core-pop{position:fixed;left:0;right:0;top:env(safe-area-inset-top, 0px);z-index:41;display:flex;justify-content:center;pointer-events:none;
+  transform:translateY(-140%);opacity:0;transition:transform .35s cubic-bezier(.2,1.3,.4,1),opacity .35s ease}
+#core-pop.show{transform:translateY(0);opacity:1}
+.cp-card{margin-top:112px;display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid rgba(255,255,255,.45);border-radius:14px;
+  padding:12px 20px;text-align:left;box-shadow:0 10px 40px rgba(0,0,0,.6),0 0 24px rgba(255,255,255,.12);min-width:250px}
+.cp-gem{font-size:30px;color:#fff;text-shadow:0 0 14px rgba(255,255,255,.8);animation:cpspin 2.2s ease-in-out infinite}
+@keyframes cpspin{0%,100%{transform:scale(1)}50%{transform:scale(1.18) rotate(12deg)}}
+.cp-n{font-family:var(--mono);font-weight:800;font-size:17px;letter-spacing:1px;color:#fff}
+.cp-src{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--sd);margin-top:3px}
+.cp-tot{font-size:11px;color:var(--dim);margin-top:3px}
+
+/* boss-reward popup — non-blocking banner that slides down from the top and auto-hides */
+#boss-reward{position:fixed;left:0;right:0;top:env(safe-area-inset-top, 0px);z-index:40;display:flex;justify-content:center;pointer-events:none;
+  transform:translateY(-140%);opacity:0;transition:transform .35s cubic-bezier(.2,1.3,.4,1),opacity .35s ease}
+#boss-reward.show{transform:translateY(0);opacity:1}
+#boss-reward .br-card{margin-top:64px;background:var(--panel);border:1px solid var(--edge);border-radius:14px;
+  padding:12px 22px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.6);min-width:220px}
+#boss-reward .br-title{font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:1.5px;color:#fff}
+#boss-reward .br-cash{font-family:var(--mono);font-weight:800;font-size:22px;color:var(--cash);margin-top:3px}
+#boss-reward .br-bonus{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--sd);margin-top:4px}
+
+/* ── BOSS BOUNTY WHEEL (v15.0) — the spin-to-win ritual on every boss kill. AAA monochrome:
+   luminance-tiered slices, white neon glow, sweeping card sheen, springy pointer, slammed-in reveal. */
+#wheel{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 42%,rgba(0,0,0,.22),rgba(0,0,0,.78));
+  opacity:0;pointer-events:none;transition:opacity .28s ease}
+#wheel.show{opacity:1;pointer-events:auto}
+#wheel .wh-card{position:relative;background:var(--panel);border:1px solid var(--edge);border-radius:18px;
+  padding:16px 18px 13px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.05),0 18px 60px rgba(0,0,0,.8),0 0 46px rgba(255,255,255,.08);
+  transform:scale(.86) translateY(16px);transition:transform .34s cubic-bezier(.2,1.5,.4,1)}
+#wheel.show .wh-card{transform:scale(1) translateY(0)}
+#wheel .wh-card::after{content:"";position:absolute;inset:0;border-radius:18px;pointer-events:none;opacity:0;
+  background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,.16) 50%,transparent 68%)}
+#wheel.show .wh-card::after{animation:wh-sweep 1.15s ease .18s 1}
+@keyframes wh-sweep{0%{opacity:0;transform:translateX(-42%)}30%{opacity:1}100%{opacity:0;transform:translateX(42%)}}
+.wh-title{font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:2px;color:#fff;
+  text-shadow:0 0 14px rgba(255,255,255,.4)}
+.wh-box{position:relative;width:340px;height:310px}
+#wh-canvas{width:340px;height:310px;display:block}
+.wh-pointer{display:none;position:absolute;left:50%;top:30px;width:0;height:0;transform:translateX(-50%);transform-origin:50% 22%;
+  border-left:11px solid transparent;border-right:11px solid transparent;border-top:21px solid #fff;
+  filter:drop-shadow(0 0 9px rgba(255,255,255,.7))}
+.wh-pointer.tick{animation:wh-tick .09s ease}
+@keyframes wh-tick{40%{transform:translateX(-50%) scaleY(.7)}100%{transform:translateX(-50%) scaleY(1)}}
+.wh-result{min-height:27px;font-family:var(--mono);font-weight:800;font-size:19px;color:var(--cash);text-align:center;
+  text-shadow:0 0 16px rgba(255,255,255,.35);max-width:340px}
+.wh-result.slam{animation:wh-slam .5s cubic-bezier(.2,1.6,.35,1)}
+@keyframes wh-slam{0%{transform:scale(2.1);opacity:0;filter:blur(3px)}55%{opacity:1}100%{transform:scale(1);filter:blur(0)}}
+.wh-hint{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--dim);min-height:14px;animation:wh-pulse 1.4s ease infinite}
+@keyframes wh-pulse{50%{opacity:.35}}
+@media (max-width:400px){.wh-box,#wh-canvas{width:300px;height:274px}.wh-pointer{top:24px}}
+#info-gif{display:none;width:100%;max-width:340px;margin:0 auto 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);image-rendering:auto}
+
+/* metrics modal */
+#metrics-body{display:flex;flex-direction:column;gap:14px;margin-bottom:14px}
+.met-sec h3{font-size:12px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;font-family:var(--mono)}
+.met-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+.met-row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;gap:8px}
+.met-row .k{color:var(--dim)}
+.met-row .v{color:#fff;font-family:var(--mono)}
+.met-bar{margin:3px 0 2px}
+.met-bar .bl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px}
+.met-bar .bl .k{color:var(--text)}.met-bar .bl .v{color:var(--dim);font-family:var(--mono)}
+.met-bar .track{height:6px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
+.met-bar .fill{height:100%;background:linear-gradient(90deg,#fff,#888)}
+.met-empty{color:var(--dim);font-size:12px}
+
+/* dock */
+#dock{left:0;right:0;bottom:0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.96) 20%);padding:6px 8px calc(8px + env(safe-area-inset-bottom, 0px))}   /* v16.6: viewport-fit=cover means the dock reaches under the iPhone home indicator — pad past it */
+#dock-toggle{text-align:center;color:var(--dim);font-size:12px;font-weight:700;letter-spacing:1px;padding:5px;cursor:pointer;
+  border:1px solid var(--edge);border-radius:8px;margin-bottom:6px;background:var(--panel)}
+#dock.min #abilities,#dock.min #tabs,#dock.min #up-list,#dock.min #actions,#dock.min #settle-panel{display:none}
+#abilities{display:flex;gap:6px;margin-bottom:6px}
+.ab{flex:1;position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--edge);border-radius:9px;
+  color:var(--text);padding:7px 4px;font-size:12px;font-weight:700}
+.ab:disabled,.ab.cd{opacity:.55}
+.ab.cd .ab-n{opacity:.7}
+.ab-cd{position:absolute;left:0;bottom:0;height:3px;background:var(--sd);width:0}
+#tabs{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.tab{position:relative;flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:9px;color:var(--dim);
+  padding:9px 6px;font-size:12px;font-weight:800;letter-spacing:.5px}
+.tab.sel{color:var(--text);border-color:#fff;background:rgba(255,255,255,.12)}
+.tab.has-buy::after{content:"";position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;
+  background:var(--cash);box-shadow:0 0 6px var(--cash);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+#ui-cash.capped{animation:capped 0.9s infinite}
+@keyframes capped{0%,100%{color:var(--text);text-shadow:none}50%{color:#fff;text-shadow:0 0 8px rgba(255,255,255,.9)}}
+#buymode{flex:0 0 auto;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.5);border-radius:9px;color:#fff;
+  padding:8px 12px;font-size:12px;font-weight:800;font-family:var(--mono)}
+.hidden{display:none!important}
+
+/* v18.13 settlement panel — replaces the shop dock on settled worlds */
+#settle-panel{display:flex;flex-direction:column;gap:7px;background:var(--panel);border:1px solid var(--edge);border-radius:11px;padding:10px 12px}
+.sp-head{font-size:12px;font-weight:800;letter-spacing:1px;color:var(--sd)}
+.sp-mine .sp-dig{font-size:13px;font-weight:700;color:var(--text)}
+.sp-bar{height:8px;margin:6px 0 4px;border-radius:5px;border:1px solid var(--edge);overflow:hidden;background:rgba(255,255,255,.05)}
+.sp-fill{height:100%;background:linear-gradient(90deg,var(--sd),#fff);transition:width .6s linear}
+.sp-eta{font-size:12px;color:var(--dim)}
+.sp-eta b{color:var(--text);font-family:var(--mono)}
+.sp-build{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none;border-radius:9px;padding:9px 6px;font-size:13px;font-weight:800;letter-spacing:.5px}
+.sp-build:disabled{background:var(--panel);color:var(--dim);border:1px solid var(--edge)}
+.sp-note,.sp-inc{font-size:12px;color:var(--dim);line-height:1.4}
+.sp-inc b{color:var(--cash)}
+
+/* action row (travel / dust / rebirth) */
+#actions{display:flex;gap:8px;margin-top:6px}
+.act{flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:11px;color:var(--text);
+  padding:9px 6px;font-size:13px;font-weight:800;letter-spacing:.5px}
+.act.travel{color:#fff;border-color:rgba(255,255,255,.35)}
+.act.travel.ready{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none}
+.act.travel.ready:disabled{opacity:.5}
+.act.enroute{color:var(--text);border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.07)}
+.act.dust,.act.rebirth{color:var(--sd);border-color:rgba(255,255,255,.35);flex:0 0 auto;padding:9px 13px}
+#btn-auto{flex:0 0 auto;padding:9px 12px}
+#btn-auto.on{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none}
+/* AUTO-BUY modal */
+.auto-lock{color:var(--warn);font-size:12px;margin:8px 0;text-align:center;line-height:1.4}
+.auto-list{display:flex;flex-direction:column;gap:6px;margin:12px 0;max-height:54vh;overflow-y:auto}
+.auto-list>*{flex:0 0 auto}   /* never shrink rows/sections — let the list scroll instead of squishing 18 planets */
+.auto-row{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:8px 9px}
+.auto-row.off{opacity:.55}
+.auto-row.active{border-color:rgba(255,255,255,.85);box-shadow:0 0 0 1px rgba(255,255,255,.5) inset,0 0 12px rgba(255,255,255,.12)}
+.auto-row.active .ar-next{color:#fff;animation:ar-run 1.5s ease infinite}
+@keyframes ar-run{50%{opacity:.5}}
+.auto-row .ar-slot{width:16px;text-align:center;color:var(--dim);font-size:12px;font-weight:800;flex:0 0 auto}
+.auto-row .ar-main{flex:1;min-width:0}
+.auto-row .ar-sel{width:100%;background:#161616;border:1px solid var(--edge);color:var(--text);border-radius:7px;padding:5px 6px;font-size:13px;font-weight:700}
+.auto-row .ar-next{color:var(--dim);font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auto-row .ar-step{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.auto-row .ar-step button{background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:7px;min-width:28px;height:28px;font-size:14px;font-weight:800;line-height:1;padding:0 5px}
+.auto-row .ar-step .as-q{min-width:22px;text-align:center;font-size:13px;font-family:var(--mono)}
+.auto-row .as-edit{background:var(--panel);border:1px solid rgba(255,255,255,.7);color:#fff;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:800;flex:0 0 auto;font-family:var(--mono);letter-spacing:.5px}
+.auto-row .ar-x{background:none;border:none;color:var(--dim);font-size:15px;flex:0 0 auto;padding:0 2px}
+.auto-add{background:var(--panel);border:1px dashed var(--edge);color:var(--text);border-radius:10px;padding:10px;font-size:13px;font-weight:800}
+/* all-planets accordion */
+.auto-sec{border:1px solid var(--edge);border-radius:11px;overflow:hidden;background:rgba(255,255,255,.02)}
+.auto-sec.on{border-color:rgba(255,255,255,.55)}
+.auto-sec-head{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer}
+.auto-sec-head .asx-pow{flex:0 0 auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--edge);background:var(--panel);color:var(--dim);font-size:14px;font-weight:800}
+.auto-sec-head .asx-pow.on{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none}
+.auto-sec-head .asx-main{flex:1;min-width:0;cursor:pointer}
+.auto-sec-head .asx-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auto-sec-head .asx-here{color:#fff;font-weight:800;font-size:11px;text-shadow:0 0 8px rgba(255,255,255,.5)}
+.auto-sec-head .asx-sub{color:var(--dim);font-size:11px;margin-top:1px}
+.auto-sec-body{display:flex;flex-direction:column;gap:6px;padding:0 10px 10px}
+.auto-sec.exp{background:rgba(255,255,255,.04)}
+
+/* ── AUTO-BUY completion (v15.6): the plan says it's DONE in many ways ── */
+#btn-auto,.mbtn{position:relative}
+#btn-auto.done::after,.mbtn.done::after{content:"✓";position:absolute;top:-7px;right:-7px;width:18px;height:18px;border-radius:50%;
+  background:#fff;color:#000;font-weight:900;font-size:12px;line-height:18px;text-align:center;
+  box-shadow:0 0 10px rgba(255,255,255,.7);animation:auto-done 1.1s ease infinite}
+#btn-auto.done.seen::after,.mbtn.done.seen::after{animation:none;box-shadow:0 0 6px rgba(255,255,255,.4)}
+@keyframes auto-done{50%{transform:scale(1.35);box-shadow:0 0 16px rgba(255,255,255,.95)}}
+.auto-sec.done{border-color:#fff;box-shadow:0 0 14px rgba(255,255,255,.12)}
+.auto-sec.done .asx-sub{color:#fff;font-weight:800;letter-spacing:.5px}
+
+/* ── ASCENSION screen (v16.0) ── */
+#ascend .asc-go{background:linear-gradient(95deg,#fff,#bbb);color:#000;font-family:var(--mono);letter-spacing:1px;margin-bottom:4px}
+#ascend .asc-go:disabled{opacity:.4}
+#ascend .asc-note{font-size:11px;margin:4px 0 10px;line-height:1.5}
+#ascend .asc-coach{margin:8px 0 2px;font:600 12px var(--mono);color:var(--sd);line-height:1.45}
+#ascend .asc-coach.hot{color:#ffd9a8;border:1px solid rgba(255,164,72,.4);background:rgba(255,150,50,.08);border-radius:8px;padding:7px 9px}
+#ascend .pk-lv{font-family:var(--mono);font-weight:800;opacity:.75;margin-left:4px}
+
+/* ── tree PICK mode (v15.6): a proper DONE pill + live "saved" feedback ── */
+#st-pick-done{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:6;
+  background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;border-radius:24px;
+  padding:13px 26px;font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:1px;
+  box-shadow:0 6px 24px rgba(0,0,0,.6),0 0 18px rgba(255,255,255,.25);white-space:nowrap}
+#st-pick-done.bump{animation:pick-bump .3s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pick-bump{40%{transform:translateX(-50%) scale(1.09)}100%{transform:translateX(-50%) scale(1)}}
+.st-tip.pick{color:#fff;font-weight:800;font-family:var(--mono);letter-spacing:.4px}
+.st-tip.pick.saved{text-shadow:0 0 10px rgba(255,255,255,.6)}
+.auto-locked{color:var(--dim);font-size:11px;text-align:center;padding:4px}
+.auto-hint{font-size:11px;margin-top:6px;line-height:1.4}
+.auto-planet{font-size:12px;font-weight:700;color:var(--sd);letter-spacing:0;font-family:var(--mono)}
+.gi-auto{background:var(--panel);border:1px solid rgba(255,255,255,.7);color:#fff;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800;margin-left:6px;font-family:var(--mono);letter-spacing:.5px}
+#st-auto.on{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none}
+
+.act.rebirth{background:rgba(255,255,255,.1);animation:pulse 1.6s infinite}
+
+/* ability cooldown seconds */
+.ab-s{position:absolute;top:4px;right:7px;font-size:11px;font-family:var(--mono);color:var(--sd)}
+.u-buy.afford{box-shadow:0 0 10px rgba(255,255,255,.45)}
+
+/* galaxy map rows */
+.gm{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid var(--edge);
+  border-radius:10px;padding:9px 11px;margin-bottom:6px}
+.gm.current{border-color:#fff;background:rgba(255,255,255,.12)}
+.gm.done{opacity:.75}
+.gm.locked{opacity:.45}
+.gm-n{width:26px;height:26px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;
+  border:1px solid var(--edge);font-family:var(--mono);font-size:13px;font-weight:700}
+.gm.current .gm-n{background:#fff;color:#000;border:none}
+.gm.done .gm-n{background:rgba(255,255,255,.25)}
+.gm-mid{flex:1;min-width:0}
+.gm-name{font-size:14px;font-weight:700}
+.gm-sub{font-size:11px;color:var(--dim)}
+.gm-here{font-family:var(--mono);font-size:12px;color:#fff}
+.gm-chk{color:#fff;font-size:16px}.gm-lock{opacity:.6}
+.gm-go{background:#e6e6e6;border:none;color:#000;font-weight:800;border-radius:8px;padding:8px 11px;font-family:var(--mono);font-size:13px}
+.gm-go:disabled{background:#333;color:var(--dim)}
+
+#up-list{display:flex;flex-direction:column;gap:5px;max-height:25vh;overflow-y:auto}
+.up{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:7px 9px}
+.up .u-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.up .u-mid{flex:1;min-width:0}
+.up .u-name{font-size:14px;font-weight:700}
+.up .u-name .lv{color:var(--dim);font-family:var(--mono);font-size:12px;margin-left:6px}
+.up .u-desc{font-size:11px;color:var(--dim)}
+.up .u-buy{flex:0 0 auto;background:#e6e6e6;border:none;color:#000;font-weight:800;
+  border-radius:9px;padding:8px 12px;font-size:13px;font-family:var(--mono);min-width:78px;text-align:center}
+.up .u-buy.cash{background:#e6e6e6;color:#000}
+.up .u-buy:disabled{background:#2b3340;color:var(--dim)}
+.up.maxed .u-buy{background:#2b3340;color:var(--good)}
+
+/* modals */
+.modal{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:16px;
+  background:rgba(4,7,13,.72);backdrop-filter:blur(3px)}
+.modal.show{display:flex}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:18px;max-width:460px;width:100%;
+  max-height:88%;overflow-y:auto;box-shadow:0 18px 60px rgba(0,0,0,.6)}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.card-head h2{display:flex;align-items:center;font-family:var(--mono);font-weight:700;letter-spacing:.04em;font-size:16px;color:#fff}
+.x{background:transparent;border:none;color:var(--dim);font-size:18px;padding:10px 12px;margin:-6px -8px}   /* v17.11: real thumb-size tap target (~44px) on every close button, without shifting card layouts */
+.muted{color:var(--dim);font-size:13px;line-height:1.5;margin-bottom:12px}
+.rb-gain{font-family:var(--mono);font-size:24px;color:var(--sd);text-align:center;margin:8px 0 14px}
+.big{display:flex;align-items:center;justify-content:center;gap:.05em;width:100%;margin:6px 0;background:#f1f1f1;border:none;color:#000;
+  font-family:var(--mono);font-weight:700;letter-spacing:.04em;font-size:15px;padding:13px;border-radius:2px;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))}
+.big.danger{background:none;border:1px solid var(--warn);color:var(--warn);clip-path:none;border-radius:2px}
+/* ── bespoke thin-line icon glyphs (replace all emoji; inherit currentColor) ── */
+svg.ico{width:1.05em;height:1.05em;vertical-align:-.16em;flex:0 0 auto;stroke:currentColor;fill:none;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map-title svg.ico{margin-right:.5em}
+.ab .ab-n svg.ico{margin-right:.35em}
+.set-lbl b svg.ico{margin-right:.45em;vertical-align:-.18em}
+.how-list svg.ico{width:1.2em;height:1.2em;vertical-align:-.22em;margin-right:.15em;stroke-width:1.6}
+.gi-tag svg.ico,.gi-unlock svg.ico{margin-right:.35em;vertical-align:-.15em}
+#sd-list{display:flex;flex-direction:column;gap:8px}
+
+/* 3D star map */
+.mapmodal{padding:0;background:#000}
+.mapmodal.show{display:block}
+#gmap{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.map-bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:calc(12px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) 12px calc(14px + env(safe-area-inset-left, 0px));z-index:2}   /* v17.12: clear the notch */
+.map-title{font-family:var(--mono);letter-spacing:3px;color:#fff;font-size:14px}
+.map-btns{display:flex;align-items:center;gap:8px}
+.mbtn{background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:9px;padding:7px 11px;font-size:12px;font-weight:700}
+.mbtn.on{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none}
+.mbtn:hover{border-color:#fff}
+.map-bar .x{font-size:24px;color:#fff;min-width:50px;min-height:50px;margin:-4px 0;padding:0;display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(255,255,255,.28);border-radius:12px;background:rgba(255,255,255,.07)}   /* v17.11: the star map's exit gets the same big visible treatment as the tree's */
+.map-hint{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:var(--dim);font-size:12px;z-index:2;pointer-events:none}
+/* v18.20 star-map quick nav — planet steppers + system jump chips, no zoom-and-pan hunting */
+#map-nav{position:absolute;top:calc(58px + env(safe-area-inset-top, 0px));left:0;right:0;display:flex;justify-content:center;align-items:center;gap:6px;z-index:2;padding:0 10px;flex-wrap:wrap}
+.mnav{background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:800;letter-spacing:.5px}
+.mnav:active{background:rgba(255,255,255,.16)}
+.mnav-cur{font-family:var(--mono);min-width:96px}
+.mnav-sys{color:var(--dim)}
+.mnav-sys.on{color:#fff;border-color:rgba(255,255,255,.55);background:rgba(255,255,255,.10)}
+.mnav-gap{width:10px}
+/* phones: keep the whole nav on ONE row — tighter chips, no wrap */
+@media (max-width:620px){
+  #map-nav{gap:4px;flex-wrap:nowrap;padding:0 6px}
+  .mnav{padding:6px 7px;font-size:11px}
+  .mnav-cur{min-width:0;flex:0 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:104px}
+  .mnav-sys{flex:0 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .mnav-gap{width:2px}
+}
+
+/* home screen */
+.home-card{text-align:center;max-width:420px}
+.home-title{font-family:var(--mono);font-size:30px;font-weight:800;letter-spacing:3px;line-height:1;margin-bottom:6px;color:#fff}
+.home-title span{display:block}
+.home-stats{display:flex;justify-content:center;gap:18px;color:var(--dim);font-size:13px;margin-bottom:16px}
+.home-stats b{color:#fff}
+.big.alt{background:transparent;border:1px solid var(--edge);color:var(--text);font-weight:700}
+.big.alt:hover{border-color:#fff}
+.big.alt.danger{color:var(--dim)}
+/* SETTINGS menu */
+.set-list{display:flex;flex-direction:column;gap:4px;margin:4px 0 14px;max-height:62vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,.07)}
+.set-row:last-child{border-bottom:none}
+.set-lbl{display:flex;flex-direction:column;gap:2px;min-width:0}
+.set-lbl b{font-size:14.5px;color:#fff;font-weight:700}
+.set-lbl span{font-size:11px;color:var(--dim)}
+.set-ctrl{display:flex;flex-shrink:0;gap:5px;align-items:center}
+/* segmented control */
+.seg{display:inline-flex;border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+.seg button{background:transparent;border:none;color:var(--dim);font-weight:700;font-size:12.5px;padding:8px 11px;min-width:42px;line-height:1}
+.seg button.on{background:linear-gradient(95deg,#fff,#bbb);color:#000}
+/* toggle switch */
+.sw{position:relative;width:50px;height:28px;border-radius:999px;border:1px solid var(--edge);background:rgba(255,255,255,.06);flex-shrink:0}
+.sw .knob{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#888;transition:left .14s ease,background .14s ease}
+.sw.on{background:linear-gradient(95deg,#fff,#cfcfcf);border-color:#fff}
+.sw.on .knob{left:24px;background:#000}
+.home-codes{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:16px;font-size:12px;color:var(--dim)}
+.home-codes label{letter-spacing:2px}
+.home-codes input{flex:0 1 120px;background:#000;border:1px solid var(--edge);color:#fff;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px}
+.home-codes button{background:transparent;border:1px solid var(--edge);color:var(--text);border-radius:6px;padding:6px 10px;font:inherit;font-weight:700;cursor:pointer}
+.home-codes button:hover{border-color:#fff}
+.home-codes #code-msg{min-width:70px;text-align:left}
+.how-list{list-style:none;text-align:left;margin-bottom:14px}
+.how-list li{font-size:13px;color:var(--dim);padding:5px 0;line-height:1.45}
+.how-list b{color:#fff}
+
+/* unit upgrade tree */
+#up-stats{font-size:13px;color:var(--text);margin-bottom:10px}
+#up-stats b{color:#fff;font-family:var(--mono)}
+#up-paths{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.path{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:10px;padding:9px 11px}
+.p-mid{flex:1;min-width:0}
+.p-name{font-size:14px;font-weight:700}
+.p-pips{font-family:var(--mono);letter-spacing:2px;color:#fff;font-size:12px;margin-left:6px}
+.p-fx{font-size:11px;color:var(--dim);font-family:var(--mono)}
+.p-buy{flex:0 0 auto;background:#e6e6e6;border:none;color:#000;font-weight:800;border-radius:9px;padding:9px 12px;font-size:13px;font-family:var(--mono);min-width:74px}
+.p-buy:disabled{background:#333;color:var(--dim)}
+
+/* ---- defence-tab 'upgrade class' button ---- */
+.u-up{flex:0 0 auto;background:rgba(255,255,255,.1);border:1px solid var(--edge);color:#fff;border-radius:9px;padding:8px 9px;font-size:12px;font-weight:700;margin-right:6px}
+.u-up:hover{border-color:#fff}
+
+/* ---- full-screen class skill tree ---- */
+.stmodal{padding:0;background:#000;flex-direction:column;align-items:stretch;justify-content:flex-start}
+.stmodal.show{display:flex}
+.st-head{display:flex;justify-content:space-between;align-items:center;padding:calc(14px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 14px calc(16px + env(safe-area-inset-left, 0px))}   /* v17.12: the tree header (and its big X) clears the notch */
+.st-head b{font-family:var(--mono);letter-spacing:2px;font-size:18px;color:#fff}
+.st-head .muted{font-size:12px}
+.st-head .x{font-size:26px;color:#fff;min-width:54px;min-height:54px;margin:-4px 0;padding:0;display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(255,255,255,.28);border-radius:14px;background:rgba(255,255,255,.07)}   /* v17.11 (owner call: "on a tree I can't get out") — the tree's exit is now a big, visible, unmissable button */
+.st-stats{text-align:center;color:var(--text);font-size:13px;padding:0 16px 10px}
+.st-stats b{color:#fff;font-family:var(--mono)}
+.st-wallet{display:flex;justify-content:center;gap:10px;padding:0 16px 12px}
+.st-wallet .sw-col{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:6px 18px;min-width:104px}
+.st-wallet .sw-lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--dim)}
+.st-wallet #sw-tot{font-family:var(--mono);font-size:20px;font-weight:800;color:var(--cash)}
+.st-wallet #sw-rate{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sd)}
+#sttree{flex:1;width:100%;min-height:0;display:block;touch-action:none;cursor:grab}
+#sttree:active{cursor:grabbing}
+.st-foot{padding:12px 16px;display:flex;align-items:center;gap:12px}
+.st-foot .st-tip{flex:1;color:var(--dim);font-size:11px}
+/* node detail panel */
+.st-info{position:absolute;left:12px;right:12px;bottom:70px;z-index:4;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:13px 15px;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.st-info.show{display:block}
+.si-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.si-name{font-family:var(--mono);letter-spacing:1px;color:#fff;font-size:16px;font-weight:800}
+.si-tag{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.si-desc{font-size:12px;color:var(--text);line-height:1.45;margin-bottom:6px}
+.si-fx{font-family:var(--mono);font-size:12px;color:var(--sd);margin-bottom:6px}
+.si-prev{font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:10px}
+.si-prev b{color:#fff;font-family:var(--mono)}
+.si-prev .si-after b{color:#fff}
+.si-btn{display:block;width:100%;background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;font-size:14px;padding:11px;border-radius:10px;font-family:var(--mono)}
+.si-btn:disabled{background:#2b2b2b;color:var(--dim)}
+.st-foot #st-reset{flex:0 0 auto;background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:10px;padding:11px 14px;font-weight:700}
+.st-foot #st-reset:hover{border-color:#fff}
+.st-foot #st-sell{flex:0 0 auto;min-width:110px;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:10px;padding:11px 16px;font-weight:700}
+
+/* ---- galaxy info panel ---- */
+.gm-info{position:absolute;left:12px;right:12px;bottom:44px;z-index:3;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;display:none}
+.gm-info.show{display:block}
+.gi-name{font-family:var(--mono);letter-spacing:2px;color:#fff;font-size:15px;margin-bottom:4px}
+.gi-desc{font-size:12px;color:var(--dim);line-height:1.4}
+.gi-unlock{font-size:11px;color:#fff;margin-top:6px}
+.gi-counter{color:#cfe4ff;font-weight:700;letter-spacing:.02em}
+/* first-run coach-mark tutorial */
+#tutorial{position:fixed;inset:0;z-index:60;display:none;pointer-events:none}   /* non-blocking: clicks pass through so you can DO the thing each step asks */
+#tutorial.show{display:block}
+#tutorial.nospot{background:rgba(0,0,0,.74)}
+#tut-spot{position:absolute;border:2px solid #cfe4ff;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.74),0 0 18px rgba(127,176,230,.6);transition:left .25s ease,top .25s ease,width .25s ease,height .25s ease;pointer-events:none}
+#tutorial.nospot #tut-spot{display:none}
+#tut-card{position:absolute;left:50%;transform:translateX(-50%);width:min(360px,88vw);background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.6);pointer-events:auto}   /* only the card itself captures taps */
+#tutorial.nospot #tut-card{top:50%!important;bottom:auto!important;transform:translate(-50%,-50%)}
+#tut-card h3{font:700 16px var(--mono);color:#fff;margin:3px 0 8px;display:flex;align-items:center}
+#tut-card p{font-size:13px;line-height:1.55;color:var(--text);margin:0 0 14px}
+.tut-step{font:700 11px var(--mono);letter-spacing:1.5px;color:var(--dim)}
+.tut-btns{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+#tut-skip{background:transparent;border:1px solid var(--edge);color:var(--dim);border-radius:8px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
+#tut-next{width:auto;margin:0;padding:8px 18px}
+.gi-act{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.gi-tag{font-family:var(--mono);font-size:12px;color:var(--dim)}
+#gi-travel,#gi-jump,#gi-visit{background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;border-radius:9px;padding:10px 16px;font-family:var(--mono);cursor:pointer}
+#gi-travel:disabled{background:#333;color:var(--dim)}
+
+/* save transfer (Settings → Export / Import) */
+.save-io{background:transparent;border:1px solid var(--edge);color:var(--text);border-radius:8px;padding:8px 12px;font:700 12px var(--mono);letter-spacing:.5px;cursor:pointer}
+.save-io:hover{border-color:#fff}
+
+/* skill-tree ALLOCATE button pulses the moment it becomes affordable (live tick in the loop) */
+.si-btn.afford:not(:disabled){animation:affordpulse 1.3s infinite}
+
+/* ── polish pass: motion where the UI used to snap ── */
+/* modals fade in, cards rise — one beat, no exit animation (closing should feel instant) */
+.modal.show{animation:modalfade .16s ease}
+.modal.show .card{animation:cardrise .18s cubic-bezier(.2,.9,.3,1)}
+@keyframes modalfade{from{opacity:0}}
+@keyframes cardrise{from{opacity:0;transform:translateY(10px) scale(.98)}}
+/* cash counter breathes when money lands (throttled in syncHUD) */
+#ui-cash{display:inline-block}
+#ui-cash.bump{animation:cashbump .28s cubic-bezier(.2,.9,.3,1)}
+@keyframes cashbump{35%{transform:scale(1.12)}}
+
+/* ── micro-juice pass 2 (visual only) ── */
+/* conquer bar: a slow sheen sweeps the fill; the track pops when a quarter-milestone is crossed */
+#galaxy-fill{position:relative;overflow:hidden}
+#galaxy-fill::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);transform:translateX(-100%);animation:barsheen 3.4s ease-in-out infinite}
+@keyframes barsheen{0%,55%{transform:translateX(-100%)}90%,100%{transform:translateX(100%)}}
+.g-bar.milestone{animation:barpop .5s cubic-bezier(.2,.9,.3,1)}
+@keyframes barpop{35%{transform:scaleY(1.7);box-shadow:0 0 12px rgba(255,255,255,.55)}}
+/* ability buttons flash once the moment their cooldown ends */
+.ab.ready-pop{animation:abready .55s ease}
+@keyframes abready{30%{transform:scale(1.07);border-color:#fff;box-shadow:0 0 16px rgba(255,255,255,.5)}}
+/* PC hotbar visibly takes a 1/2/3 keypress */
+.ab.kb-hit{animation:kbhit .18s ease}
+@keyframes kbhit{40%{transform:scale(.93)}}
+/* shop rows cascade in softly when the list rebuilds (tab switch / purchase) */
+#up-list .up{animation:rowin .16s both}
+#up-list .up:nth-child(2){animation-delay:.025s}
+#up-list .up:nth-child(3){animation-delay:.05s}
+#up-list .up:nth-child(4){animation-delay:.075s}
+#up-list .up:nth-child(5){animation-delay:.1s}
+#up-list .up:nth-child(n+6){animation-delay:.12s}
+@keyframes rowin{from{opacity:0}}
+/* travel button: a dark sheen drifts across while it's READY to launch */
+.act.travel.ready{position:relative;overflow:hidden}
+.act.travel.ready::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-45%;background:linear-gradient(100deg,transparent,rgba(0,0,0,.22),transparent);animation:travelsheen 2.8s ease-in-out infinite}
+@keyframes travelsheen{0%,55%{left:-45%}100%{left:110%}}
+/* gem chip pops when a gem lands (class re-triggered in syncHUD) */
+#btn-ascend.bump{animation:cashbump .32s cubic-bezier(.2,.9,.3,1)}
+/* v16.2 ladder coach: the WALL state — this bar now outprices a hop; the button burns amber until you ascend.
+   Declared AFTER .bump so its animation wins once the one-shot bump has played. */
+#btn-ascend.wall{border-color:#ffb35c;color:#ffd9a8;animation:wallpulse 1.1s ease-in-out infinite}
+@keyframes wallpulse{0%,100%{box-shadow:0 0 8px rgba(255,164,72,.35)}50%{box-shadow:0 0 18px rgba(255,164,72,.8)}}
+
+/* boss recap banner — escape variant reads muted next to a kill */
+#boss-reward.escape .br-title{color:var(--dim)}
+#boss-reward.escape .br-cash{color:var(--sd)}
+
+/* VICTORY — persistent all-worlds-conquered celebration (v16.5) */
+#victory .card{text-align:center;max-width:440px}
+#victory h2{letter-spacing:2px}
+.vic-sub{color:#fff;font-size:14px;margin:2px 0 10px}
+.vic-stats{display:flex;flex-direction:column;gap:6px;margin:10px 0 12px;padding:12px 14px;border:1px solid var(--edge);border-radius:12px;background:rgba(255,255,255,.04)}
+.vic-stats .vs-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12.5px}
+.vic-stats .vs-row b{color:#fff}
+.vic-stats .vs-row span{color:var(--dim);letter-spacing:.6px}
+
+/* ERROR TOAST — the loop caught an exception and recovered (v16.5) */
+#err-toast{position:fixed;top:calc(52px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:200;background:rgba(0,0,0,.88);border:1px solid rgba(255,164,72,.7);color:#ffd9a8;font:600 11.5px var(--mono);letter-spacing:.4px;padding:8px 14px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .3s ease}
+#err-toast.show{opacity:1}
+
+/* UPDATE PILL (v16.6) — a newer build was pushed while this device kept the old one alive; tap to pull it */
+#upd-toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);z-index:210;background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font:800 12px var(--mono);letter-spacing:.6px;padding:11px 18px;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.7),0 0 14px rgba(255,255,255,.35);opacity:0;pointer-events:none;transition:opacity .3s ease;animation:updpulse 1.6s ease-in-out infinite}
+#upd-toast.show{opacity:1;pointer-events:auto}
+@keyframes updpulse{0%,100%{box-shadow:0 6px 24px rgba(0,0,0,.7),0 0 10px rgba(255,255,255,.25)}50%{box-shadow:0 6px 24px rgba(0,0,0,.7),0 0 20px rgba(255,255,255,.55)}}
+
+/* AMBIENT HINTS (v16.9) — the "what next?" layer. Whispers for options, amber for problems, chips for news. */
+.tab.alert::after{content:"";position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;
+  background:#ffb35c;box-shadow:0 0 7px rgba(255,164,72,.9);animation:pulse 1.2s infinite}   /* amber overrides the white has-buy dot */
+.u-up.afford{border-color:rgba(255,255,255,.85);animation:affordpulse 1.3s infinite}          /* a tree node is affordable — the tree pulls you in */
+.u-newchip{display:none;margin-left:7px;padding:1.5px 6px 2px;border-radius:999px;background:#fff;color:#000;
+  font:800 9px var(--mono);letter-spacing:1px;vertical-align:2px}                              /* freshly unlocked class */
+#ui-cap.full{color:#ffb35c;text-shadow:0 0 6px rgba(255,164,72,.5);font-weight:700}            /* the cap you're pinned against */
+.ab.oppo{border-color:rgba(255,255,255,.7);box-shadow:0 0 11px rgba(255,255,255,.3)}           /* ready + target-rich field = now */
+
+/* LOUDER HINTS (v16.10) — count badges, travel bounce, transition pops, idle nudge */
+.t-badge{display:none;position:absolute;top:-6px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+  background:#fff;color:#000;font:800 10px var(--mono);line-height:17px;text-align:center;
+  box-shadow:0 0 8px rgba(255,255,255,.55),0 1px 4px rgba(0,0,0,.6)}
+.t-badge.on{display:block;animation:badgein .25s cubic-bezier(.2,1.6,.4,1)}
+.t-badge.warn{background:#ffb35c;box-shadow:0 0 9px rgba(255,164,72,.85),0 1px 4px rgba(0,0,0,.6)}
+@keyframes badgein{0%{transform:scale(.4)}100%{transform:scale(1)}}
+.act.travel.go{animation:travelgo 1.15s ease-in-out infinite}
+@keyframes travelgo{0%,100%{transform:translateY(0);box-shadow:0 0 10px rgba(255,255,255,.35)}50%{transform:translateY(-2.5px);box-shadow:0 0 20px rgba(255,255,255,.75)}}
+.attn{animation:attnpop .8s cubic-bezier(.2,1.5,.35,1) !important}
+@keyframes attnpop{0%{transform:scale(1)}30%{transform:scale(1.16);box-shadow:0 0 26px rgba(255,255,255,.95)}100%{transform:scale(1)}}
+.nudge{animation:nudgebounce .7s cubic-bezier(.3,1.6,.4,1)}
+@keyframes nudgebounce{0%,100%{transform:translateY(0)}25%{transform:translateY(-5px) scale(1.06)}55%{transform:translateY(1.5px)}}
+
+/* UPDATE NOW (v17.3) — the Settings one-tap updater */
+.seg-btn.upd-now{background:linear-gradient(95deg,#fff,#bbb);color:#000;border:none;font-weight:800;letter-spacing:.4px;min-width:150px}
+.seg-btn.upd-now:disabled{opacity:.75}
+
+/* v17.16 — amber tab explainers + the ascension "where cores come from" breakdown */
+.tab-note{display:none;align-items:center;gap:8px;background:rgba(255,164,72,.12);border:1px solid rgba(255,164,72,.55);color:#ffd9a8;
+  font:600 12px var(--mono);letter-spacing:.2px;border-radius:9px;padding:9px 12px;margin-bottom:6px;line-height:1.45}
+.tab-note.show{display:flex}
+.asc-src{margin:10px 0 12px;background:rgba(127,176,230,.07);border:1px solid rgba(127,176,230,.3);border-radius:10px;padding:10px 12px}
+.asc-src-h{font:700 11px var(--mono);letter-spacing:1.5px;color:#cfe4ff;margin-bottom:6px}
+.asc-how{margin-bottom:8px}
+.asc-chips{display:flex;flex-wrap:wrap;gap:5px}
+.asc-chip{font:700 11px var(--mono);color:#cfe4ff;background:rgba(127,176,230,.12);border:1px solid rgba(127,176,230,.4);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.asc-chip.dim{color:var(--dim);border-color:var(--edge);background:rgba(255,255,255,.05)}
+
+/* ── v18.26 RESPONSIVE PASS (owner: "make sure the screen and buttons align to all phone shapes
+   well"). Audited at 320x568 → 768x1024 → 844x390 landscape by tools' layout-audit:
+     · the tab row could not shrink, so BUY x1 was pushed 47px off a 320px screen
+     · the dock had no height ceiling, so on a landscape phone the buy rows and LAUNCH fell below
+       the fold entirely
+     · several primary controls sat under a comfortable thumb target
+   Everything below is a fit/reach fix; none of it changes the layout on a normal portrait phone. */
+#tabs{flex-wrap:nowrap}
+.tab{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:40px}
+#buymode{flex:0 1 auto;min-width:0;white-space:nowrap;min-height:40px}
+.act{min-height:44px}                      /* LAUNCH / TRAVEL is the primary action — full thumb target */
+.u-buy,.u-up{min-height:36px}
+.u-info{min-height:28px}
+/* the dock never eats the whole screen: it is a column with a hard ceiling, and only the scrolling
+   upgrade list gives way — so the tabs, the buy rows and LAUNCH are always reachable */
+#dock{display:flex;flex-direction:column;max-height:72vh;overflow:hidden}   /* overflow:hidden is what ENFORCES the ceiling — without it the rows just spilled past the screen bottom */
+#up-list{flex:1 1 0;min-height:0}          /* basis 0: the list takes only LEFTOVER space, so the tabs and the LAUNCH row are never pushed off a short screen */
+.ab{min-height:40px}
+/* narrow phones: tighten the tab row instead of overflowing it */
+@media (max-width:380px){
+  .tab{padding:9px 4px;font-size:11px;letter-spacing:0}
+  #buymode{padding:8px 8px;font-size:11px}
+  #dock{padding-left:6px;padding-right:6px}
+}
+/* short screens (landscape phones): give the world back some height */
+@media (max-height:560px){
+  /* the ceiling must leave room for the FULL fixed furniture (toggle + abilities + tabs + LAUNCH);
+     at 66vh it was 8px short and clipped the LAUNCH row clean off a landscape screen */
+  #dock{max-height:78vh}
+  #dock-toggle{padding:3px;margin-bottom:3px}
+  #abilities{margin-bottom:3px}
+  .ab{padding:5px 4px}
+  #tabs{margin-bottom:3px}
+  #up-list{max-height:22vh}   /* the scrolling list gives way instead */
+  #actions{margin-top:3px}
+}
