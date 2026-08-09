@@ -56,8 +56,11 @@ Dot difficulty and craziness are driven by how much you invest in **Value**:
 - **Every planet's dots wear a distinct signature** — its own silhouette
   (circle/triangle/diamond/pentagon/hex/octagon…), grayscale shade and centre glyph,
   so worlds read differently at a glance (no two of the 18 repeat).
-- **Dots keep evolving with Value, forever.** A continuous *menace grade* (driven by
-  Value/Spawn/HP) grows the spike count & length, inner-ring count and an expanding
+- **Dots keep evolving, forever.** A continuous *menace grade* — which since v18.0 rides
+  the **conquer bar** (every world lands readable and grows monstrous as its conquest
+  advances, settling at a spicy-but-farmable 2.0 once held), with a depth-scaled floor so
+  a fresh deep world never opens soft — grows the spike count & length, inner-ring count
+  and an expanding
   outer halo — there's no plateau, and each planet's **native race decoration scales
   with it too** (brood cells multiply, shields/armor layer, satellites & swirl-arms
   add, heal/shock pulses expand, teleport trails lengthen…).
@@ -226,15 +229,70 @@ Your cash *multiplier* is **Value** in the Economy tab — collectors just gathe
 
 The **ECONOMY** tab multiplies the other pillars:
 
-- **Value** — a **flat +8% cash per dot** per level (additive — it doesn't compound,
+- **Value** — a **flat +13% cash per dot** per level (additive — it doesn't compound,
   so it's strong early and never runs away), and the difficulty/craziness dial (see
   above): a big reason to invest is ramping dot *menace* — tougher dots, armored
-  elites and exotic kinds.
-- **Spawn Rate** — more dots per second. With Value softened, this is now a
-  primary income lever (more targets → more kills → more cash), up to the
-  on-screen cap — lean on it and your collectors to keep up.
+  elites and exotic kinds. Enemy HP scales **super-linearly** with Value, so it
+  genuinely toughens the world as it enriches it.
+- **Spawn Rate** — **+1.15 dots/sec** per level. More targets → more kills → more
+  cash, up to the on-screen cap — lean on it and your collectors to keep up.
 - **Capacity** — your cash ceiling (raise it before big purchases).
 - **Luck** — a **+0.3% per level** chance of rare high-value **special** dots (~9× cash).
+
+Since **v18.0** these are **one global ladder** on fixed geometric curves (Value
+×1.46/level, Spawn ×1.48) — nothing reads your income, ratchets, or re-baselines per
+planet. v18.21 steepened both so every eco level is a real commitment rather than a
+chip you buy twenty of.
+
+## The field
+
+The playfield is the **whole screen** — no border, no frame, no edge. Dots come in over
+the **edge of your view**, evenly all the way around, landing just inside it so you always
+see them arrive; your army holds the middle. **Pinch** (or scroll) to zoom right out and
+see twice the field — nothing marks where it ends, so pulling back just shows more world.
+
+The dock is an **overlay on top of the field**, never a boundary: **Minimise** uncovers
+more of the same world rather than resizing one. Nothing about the field, the camera or
+the spawn ring reads any UI element, so opening the menu, switching tabs or landing on a
+settled world can't move the world underneath you — only a real resize or rotate refits it.
+
+Every world uses the same field. (v18.26–v18.30 experimented with per-planet landscape
+art — circular worlds, terrain belts, 18 biomes — and it was **removed**: worlds are
+distinguished by their native race, their dots' silhouettes and their backdrop, not by
+map decoration.)
+
+## Conquest, settlement & the ⛏ core mines
+
+Filling a planet's conquer bar doesn't just unlock Travel — it changes what the world *is*:
+
+- **The world settles.** Nothing spawns any more, the army stands down, and the leftover
+  fauna scatters. A settled planet is at peace; the dock swaps the whole shop for a
+  **SETTLEMENT panel**.
+- **Victory spoils.** Conquest banks a finite pool (30% of the planet's conquer target)
+  paid out at ×20 while you sit on the world — enough to fund the launch and a mine.
+  After it drains, parking pays exactly the from-anywhere tribute, so **the frontier
+  always out-earns farming backwards**.
+- **A warden challenges you.** Moments after the fireworks, that world's own named boss
+  takes the seam on a 60s clock — all 18 are bespoke, built from the apex mechanics of
+  that planet's native race (Slag Broodmother, Azure Bulwark, Halcyon Phantasm, The Null
+  King…), each announcing a **tell** so the trick is teachable. Beat it and its hoard
+  **founds the mine on the spot**; lose and you can ▲ **SUMMON** it again.
+- **◈ Core mines** dig prestige cores on the real-time clock — P1 one core every two days,
+  each deeper planet ×1.3 faster — live *and* through your whole absence, each mine on its
+  own timeline. Mining is a real second stream (~25–33% of campaign cores) but **ascending
+  still out-earns parking by ×2.8–3.5 at every wall**, which is sim-gated.
+
+## Active play
+
+- **Draw across the field** to cut dots down yourself, and tap or drag loot to bank it
+  instantly at full value.
+- **☝ Combo** — finger kills **chain**: each one pays the current multiplier and heats the
+  chain toward a **×5** cap. Heat is budgeted (a burst swipe only reaches ~×2; the cap takes
+  several seconds of sustained slaughter), and only *draw* kills heat it — units and
+  collectors never do, so the macro curves are untouched.
+- **Idle counts, but only 20%.** Your empire pushes the conquer bar at a fifth of active
+  pace — identically online and offline — so playing is ~5× faster and **no world falls
+  while you're away**. Cash still banks in full.
 
 ## Big-Moment abilities
 
@@ -255,7 +313,9 @@ Each runs on a cooldown — save them for dense or high-value screens.
 
 ### Planet Layers — Travel = Progress
 
-There is **one currency** (✦ Credits, everywhere) and **one army** — but the ECONOMY re-baselines per planet: your Value/Spawn levels persist, yet each new frontier raises what "level zero" means, so a carried level-50 Spawn behaves like an early level on the new world and you build the economy up all over again (costs rebase with it, so every planet has a full, affordable eco arc). Since
+There is **one currency** (✦ Credits, everywhere) and **one army**, and since v18.0 **one
+global economy ladder** — every price in the game is a fixed geometric curve set at design
+time, so nothing re-baselines when you travel. Since
 v17, **ONE ARMY**: your fleet, skill trees, upgrade levels and cash all **travel
 with you**. Nothing restarts when you land on a new world; planets are an
 escalating difficulty ladder for one continuously-growing force, and your
@@ -305,15 +365,10 @@ escalating difficulty ladder for one continuously-growing force, and your
   active grind; lategame the empire can largely **idle you to the next conquest**,
   so you never hand-manage all 18. **This idle empire is your cross-planet
   progression** — the more worlds you hold, the faster every world goes.
-- **⚙ Auto-Buy** turns idle income into real build progress (otherwise it just caps
-  at your cash ceiling). Since v17 it's **ONE global build order** — one army, one
-  plan (the old 18 per-planet queues are gone). Each **step** is one of: an Economy
-  upgrade or Unit bought **N times** (a count), or a **skill tree** step where you
-  **hand-pick the exact nodes** you want on one class (open it, **EDIT ⚙**, tap
-  nodes — picking a deep node auto-marks its path so it's reachable). The queue runs
-  **strictly in order** — step 1 finishes before step 2 starts. Every auto-buy costs
-  **+50% over manual**, so it never out-classes hands-on play. Runs live **and
-  simulates while you're away**, and gets faster the more planets you hold.
+- **⚙ Auto-Buy is currently STASHED** (owner call, v18.4). The system is intact behind a
+  single flag (`AUTOBUY_ON` in `js/game.js`) — one global build order, hand-picked tree
+  nodes, +50% over manual, simulated while away — but its buttons are hidden and away-pools
+  bank whole instead of spending themselves. Flip the flag to bring it back.
 
 Your idle empire is **not spendable at once** — tribute streams in per second
 (capacity-clamped), so it can never *instant-max* your next purchase. It earns
@@ -334,9 +389,10 @@ at its mouth.
   (plus your empire's idle rate) for the **entire time you were gone, with no
   time cap**, shown on a Welcome-back screen. Screen-lock, app-switch,
   tab-freeze and full closes all credit the same way (visibilitychange /
-  pagehide / freeze lifecycle hooks). Cash still respects your Capacity
-  ceiling and the conquer bar caps at its target, so a long absence is big
-  but never game-breaking.
+  pagehide / freeze lifecycle hooks). Cash still respects your Capacity ceiling, and
+  the **conquer bar advances at only 20% of active pace** while you're away (the same
+  allowance as live idle, v18.21/v18.22) — so a long absence is a big payday but can
+  never finish a planet for you.
 - Everything autosaves to `localStorage`. **Reset Save** fully wipes progress.
 - **Save codes** (Settings → Save transfer): **Export** copies a portable
   `IDS1.` code, **Import** (or pasting the code into the home-screen CODES box)
@@ -376,16 +432,23 @@ js/game.js   The whole game: dots & dot kinds, defender classes & formation,
              & solar systems, juice (particles/shake/flash), offline,
              save, single requestAnimationFrame loop
 icon.svg     App icon
-tools/       Headless balancing aids (run with Node):
-  balance-check.js   audits economy upgrade cost-vs-effect ratios for
-                     infinite-money exploits
-  playthrough-sim.js drives the REAL game in headless Chromium (via window.__SIM)
-                     through all 18 planets — verifies scaling climbs, every
-                     weapon/collector unlock gates correctly, travel stays
-                     affordable, and no planet walls
-                     (needs Playwright: npm i -D playwright)
-  active-sim.js      same real-game drive at 4 engagement levels (0/10/35/100%
-                     active) — per-planet conquer/cumulative timeline each
+tools/       Headless balancing aids (run with Node; the ones that drive the real
+             game need Playwright: npm i -D playwright):
+  onearmy-sim.js     THE pacing gate — drives the REAL game (via window.__SIM)
+                     with a persistent one-army fleet across three Engine
+                     regimes, and reports measured-vs-designed conquer hours
+  ascension-sim.js   the prestige ladder: design gates, ladder/policy gate,
+                     --verify game contract, noise robustness. Run it before
+                     touching ANY pacing constant
+  crosscheck-ladder.js re-runs the ladder against onearmy's MEASURED envelope —
+                     L1–L8 gates (incl. L7 mining share, L8 ascend-beats-parking)
+  balance-check.js   economy upgrade cost-vs-effect audit (infinite-money check)
+  playthrough-sim.js real-game drive through all 18 planets — unlock gating,
+                     travel affordability, no walls
+  active-sim.js      same drive at 4 engagement levels (0/10/35/100% active)
+  mind-sim.js        ◈ Mind branch: income with Mind off vs maxed, per class
+  empire-sim.js · niche-sim.js · weapon-balance.js   idle empire, class niches,
+                     per-class weapon output
 ```
 
 Everything runs client-side in one `requestAnimationFrame` loop.
@@ -393,7 +456,15 @@ Everything runs client-side in one `requestAnimationFrame` loop.
 ## Dev tools
 
 ```bash
-node --check js/game.js      # syntax check
-node tools/balance-check.js  # economy exploit audit (should PASS)
-node tools/active-sim.js     # per-planet conquer times at 4 engagement levels (needs Playwright)
+node --check js/game.js            # syntax check
+node tools/onearmy-sim.js          # THE pacing gate — measured vs designed conquer hours
+node tools/crosscheck-ladder.js    # the prestige ladder under the measured envelope
+node tools/ascension-sim.js        # prestige design gates (run before touching pacing)
+node tools/balance-check.js        # economy exploit audit (should PASS)
+node tools/active-sim.js           # per-planet conquer times at 4 engagement levels
 ```
+
+All three sims must print their PASS line before a pacing change ships. Anything that
+touches the field, the camera, spawning or the dock also gets driven through the headless
+probe battery (world framing, dock stability, layout across seven device shapes, the
+warden gauntlet, save fuzzing, migration and the offline paths) — see CONTRIBUTING.md.

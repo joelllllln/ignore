@@ -39,8 +39,8 @@ what's written here, **this file wins** — follow it.
    mobile browsers cache assets aggressively, and the in-game update pill
    compares the running `VERSION` against the `?v=` it fetches from
    `index.html`, so a mismatch between them breaks update detection.
-3. Sanity-check: `node --check js/game.js`, and the tools in `tools/` if
-   balance/pacing is affected.
+3. Sanity-check: `node --check js/game.js`, and the sims in `tools/` if
+   balance/pacing is affected (see §6).
 4. Commit to `main` with a clear message.
 5. `git push -u origin main`.
 6. **MANDATORY:** give the owner a **play link** pinned to the new commit (see
@@ -63,7 +63,28 @@ https://raw.githack.com/joelllllln/ignore/<commit-sha>/index.html
 (Use the full or short SHA of the commit you just pushed.) Never end a turn that
 included a code change without pasting this link.
 
-## 5. Notes
+## 5. Verify before you ship
+
+- **Pacing / economy / prestige changes** must re-pass all three sims, every time:
+  `node tools/onearmy-sim.js` (measured-vs-designed conquer hours — THE gate),
+  `node tools/crosscheck-ladder.js` (the ladder under that measured envelope, gates
+  L1–L8), `node tools/ascension-sim.js` (prestige design gates + `--verify` contract).
+  `tools/balance-check.js` audits upgrade cost-vs-effect. If a change moves the
+  wall-zone medians, say so explicitly in the commit message.
+- **Field / camera / spawning / dock / layout changes** get driven through the real
+  game in headless Chromium before shipping. The battery lives in the session
+  scratchpad (not the repo) and covers, at minimum: world framing and spawn placement,
+  **dock stability** (Minimise, tab switches and the settlement panel must NOT move the
+  world), layout across seven real device shapes, the 18-warden gauntlet, the flow
+  order (conquer → warden → build → launch), save fuzzing, the migration matrix, the
+  offline paths and a boot smoke test that also checks `VERSION` and both `?v=`
+  cache-busters are in lockstep.
+- When you fix a visual or behavioural bug the owner reported, **add a probe that fails
+  on the old behaviour** — several regressions here (the world resizing under the dock,
+  a border reappearing at zoom-out, terrain landing on a lattice) were only caught
+  because something measured them.
+
+## 6. Notes
 
 - Branch deletion via `git push --delete` is blocked in the remote execution
   environment (org egress policy returns 403). If old branches need removing,
@@ -72,6 +93,13 @@ included a code change without pasting this link.
   push — just tell the owner.
 - Keep the art minimalist black-and-white; the field is heavily juiced but the
   silhouettes stay clean.
+- **The field has no border and no map art** (owner decision, v18.30/v18.31). Every
+  world uses the same borderless full-screen field; worlds are distinguished by their
+  native race, dot silhouettes and backdrop, not by map decoration. Don't reintroduce
+  per-planet landscapes, a drawn world edge, or anything that frames the playfield.
+- **The world must never be sized from the DOM** (owner decision, v18.33). The field is
+  the whole screen; the dock is an overlay on top of it. Measuring the dock to fit the
+  world is what made Minimise resize the map and move the spawn ring.
 - Stats in skill trees **stack additively** (linear, no runaway) — that's a
   deliberate design choice; don't switch to multiplicative/compounding.
 - **TREE NODE costs are DEPTH-PRICED** (owner decision, v14.2, sim-calibrated):
