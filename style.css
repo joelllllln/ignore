@@ -549,6 +549,46 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 #conquest .vs-row b{text-align:right;font-weight:600}
 #cq-note{margin:2px 0 14px}
 
+/* ◈ PRODUCTION VISUALS in the Ascension tab (v18.42).
+   Monochrome by decision: every mark is white at a different opacity — a single-hue sequential — and
+   identity comes from position plus a direct label, never from colour. Marks stay thin with a rounded
+   data-end, gridlines are hairline and solid, and separation between touching fills is a 2px gap in the
+   surface colour rather than a stroke drawn around them. */
+.asc-viz{display:flex;flex-direction:column;gap:14px;margin:4px 0 14px}
+.av-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.av-tile{display:flex;flex-direction:column;gap:1px;padding:9px 11px;border:1px solid var(--edge);border-radius:11px;background:rgba(255,255,255,.03)}
+.av-k{font:600 10px var(--mono);letter-spacing:1px;color:var(--dim)}
+.av-v{font:700 19px var(--mono);color:#fff;line-height:1.15}
+.av-s{font:500 10.5px var(--mono);color:var(--dim)}
+.av-sec{display:flex;flex-direction:column;gap:7px}
+.av-h{font:700 11px var(--mono);letter-spacing:1.2px;color:var(--sd)}
+.av-sub{font:500 11px var(--mono);color:var(--dim);line-height:1.45}
+.av-sub b{color:#fff}
+.av-bars{display:flex;flex-direction:column;gap:6px}
+.av-row{display:grid;grid-template-columns:minmax(74px,29%) 1fr auto;align-items:center;gap:9px}
+.av-lbl{font:600 11px var(--mono);color:var(--sd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av-track{position:relative;height:10px;background:rgba(255,255,255,.06);border-radius:5px}
+.av-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.86);border-radius:0 4px 4px 0}
+.av-bar.dim{background:rgba(255,255,255,.34)}
+.av-val{font:700 11px var(--mono);color:#fff;white-space:nowrap}
+/* stacked bar: the 2px surface gap does the separating, not a border */
+.av-stack{display:flex;gap:2px;height:14px;border-radius:7px;overflow:hidden;background:rgba(255,255,255,.06)}
+.av-seg{display:block;height:100%}
+.av-seg.s1{background:rgba(255,255,255,.88)}
+.av-seg.s2{background:rgba(255,255,255,.34)}
+.av-legend{display:flex;flex-wrap:wrap;gap:14px;font:500 11px var(--mono);color:var(--dim)}
+.av-legend b{color:#fff}
+.av-sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.av-sw.s1{background:rgba(255,255,255,.88)}
+.av-sw.s2{background:rgba(255,255,255,.34)}
+.av-svg{width:100%;height:auto;display:block}
+.av-grid{stroke:rgba(255,255,255,.14);stroke-width:1;vector-effect:non-scaling-stroke}
+.av-line{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.av-dot{fill:#fff;stroke:var(--panel);stroke-width:2;vector-effect:non-scaling-stroke}   /* 2px surface ring, not a border */
+.av-dot.ghost{fill:rgba(255,255,255,.45)}
+.av-axis{display:flex;justify-content:space-between;font:600 10px var(--mono);letter-spacing:.6px;color:var(--dim)}
+@media (max-width:380px){ .av-tiles{grid-template-columns:1fr} }
+
 /* ERROR TOAST — the loop caught an exception and recovered (v16.5) */
 #err-toast{position:fixed;top:calc(52px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:200;background:rgba(0,0,0,.88);border:1px solid rgba(255,164,72,.7);color:#ffd9a8;font:600 11.5px var(--mono);letter-spacing:.4px;padding:8px 14px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .3s ease}
 #err-toast.show{opacity:1}
