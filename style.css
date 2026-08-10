@@ -534,6 +534,14 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .vic-stats .vs-row b{color:#fff}
 .vic-stats .vs-row span{color:var(--dim);letter-spacing:.6px}
 
+/* CONQUEST REPORT (v18.34) — same slab as the victory stats, but its values are sentences rather than
+   numbers, so the label holds its width and the value wraps under itself instead of squeezing it out. */
+#conquest h2{letter-spacing:1.4px}
+#conquest .vs-row{gap:14px;align-items:baseline}
+#conquest .vs-row span{flex:0 0 auto;white-space:nowrap}
+#conquest .vs-row b{text-align:right;font-weight:600}
+#cq-note{margin:2px 0 14px}
+
 /* ERROR TOAST — the loop caught an exception and recovered (v16.5) */
 #err-toast{position:fixed;top:calc(52px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:200;background:rgba(0,0,0,.88);border:1px solid rgba(255,164,72,.7);color:#ffd9a8;font:600 11.5px var(--mono);letter-spacing:.4px;padding:8px 14px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .3s ease}
 #err-toast.show{opacity:1}
