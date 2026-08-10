@@ -64,6 +64,13 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .cine{position:absolute;left:0;right:0;height:0;background:#000;z-index:58;pointer-events:none;transition:height .4s cubic-bezier(.6,0,.2,1)}
 #cine-top{top:0}#cine-bottom{bottom:0}
 #root.cinematic .cine{height:8.5%}
+/* CONQUEST CINEMATIC (v18.38) — the HUD and the dock pull off screen behind the letterbox bars for the
+   duration, so the sequence plays on a clean field. The transition lives on the elements themselves so
+   they fade back IN as smoothly as they left when the class is dropped. */
+   Every .layer goes: the top bar, the dock, the version badge, the ascend/metrics/menu buttons. The
+   letterbox, the veil and the title card are NOT .layer, so they stay — they are the film. */
+.layer{transition:opacity .45s ease}
+#root.conquering .layer{opacity:0;pointer-events:none}
 #land-title{position:absolute;top:30%;left:0;right:0;text-align:center;z-index:62;pointer-events:none;color:#fff;font:800 22px var(--mono);letter-spacing:1px;opacity:0;text-shadow:0 0 24px rgba(0,0,0,.9),0 0 8px rgba(255,255,255,.4)}
 #land-title.show{animation:landtitle 2.4s ease forwards}
 #land-title .lt-sub{display:block;margin-top:8px;font:600 12px var(--mono);letter-spacing:.5px;color:#ffd9d9;opacity:.92;text-shadow:0 0 14px rgba(0,0,0,.95)}
