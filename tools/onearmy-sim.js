@@ -133,7 +133,7 @@ const { chromium } = requirePlaywright();
           // v18.14: the ×20 is now a finite VICTORY-SPOILS pool (30% of target), but the launch save
           // (15%) always fits inside it, so modeling the save at ×20 stays exact.
           const tc = SIM.travelCost(g); let gT = 0;
-          const settle = SIM.baseTarget(g) / (SIM.IDLE_PAYBACK_H * 3600) * 20;
+          const settle = SIM.baseTarget(g) / (SIM.SPOILS_PAYOUT_H * 3600);   // v18.43: ⚑ spoils have their own rate now — a conquered world pays no tribute, so the old bgRate×20 derivation is zero
           while (S.cash < tc && gT++ < 20000) {
             const inc2 = settle + empire; if (inc2 <= 0) break;
             const slice = Math.min((tc - S.cash) / inc2, 300); S.cash += inc2 * slice; secs += slice;
