@@ -672,3 +672,10 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
   #up-list{max-height:22vh}   /* the scrolling list gives way instead */
   #actions{margin-top:3px}
 }
+
+/* v18.47 loot-rot warning: sits under the cash/cap line, hidden until a quarter of your
+   money is timing out uncollected. Same monochrome palette as everything else — it earns
+   attention by APPEARING, not by colour. */
+#ui-leak{display:none;font-size:11px;letter-spacing:.02em;color:var(--warn);margin-top:2px;line-height:1.2}
+#ui-leak.show{display:block;animation:leakpulse 1.6s ease-in-out infinite}
+@keyframes leakpulse{0%,100%{opacity:.55}50%{opacity:1}}
