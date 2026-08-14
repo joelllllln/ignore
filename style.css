@@ -171,8 +171,14 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .ab.cd .ab-n{opacity:.7}
 .ab-cd{position:absolute;left:0;bottom:0;height:3px;background:var(--sd);width:0}
 #tabs{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+/* v18.49: the count badge lives on this WRAPPER, not inside the <button>. Chromium's UA stylesheet
+   forces overflow:hidden on <button> and IGNORES an author overflow:visible, so a badge parented to
+   the button is always sliced along its border-radius — which is what made it look like it was
+   painted behind. The slot is a plain span, so the overhang escapes cleanly. */
+.tslot{position:relative;flex:1;display:flex}
 .tab{position:relative;flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:9px;color:var(--dim);
-  padding:9px 6px;font-size:12px;font-weight:800;letter-spacing:.5px}
+  padding:9px 6px;font-size:12px;font-weight:800;letter-spacing:.5px;
+}
 .tab.sel{color:var(--text);border-color:#fff;background:rgba(255,255,255,.12)}
 .tab.has-buy::after{content:"";position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;
   background:var(--cash);box-shadow:0 0 6px var(--cash);animation:pulse 1.2s infinite}
