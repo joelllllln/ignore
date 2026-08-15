@@ -146,7 +146,9 @@ async function auditPlanet(browser, g) {
              spawnN: T.spawnN, spawnV: T.spawnV, deadN: T.deadN, deadV: T.deadV,
              dots: I.dots().length, cps: I.derived().cps || 0,
              priceValue: SIM.upCost('value'), priceSpawn: SIM.upCost('spawnRate'),
-             priceNode: isFinite(node) ? node : 0, priceUnit: isFinite(unit) ? unit : 0 };
+             // null, NOT 0 — "every unlocked type is already at its cap of 4" is not a free
+             // purchase, and printing it as 0s made the cheapest row in the table a lie.
+             priceNode: isFinite(node) ? node : null, priceUnit: isFinite(unit) ? unit : null };
   });
   await page.close();
 
@@ -156,7 +158,7 @@ async function auditPlanet(browser, g) {
   const spawnMean = r.spawnN ? r.spawnV / r.spawnN : 0;
   const deadMean = r.deadN ? r.deadV / r.deadN : 0;
   const designedPassive = setup.designedActive / ACTIVE_MAX;
-  const secs = v => banked > 0 ? v / banked : Infinity;
+  const secs = v => v == null ? null : (banked > 0 ? v / banked : Infinity);
   return {
     g, setup, errs, banked, lost,
     ratio: banked / designedPassive,
@@ -197,13 +199,13 @@ async function auditPlanet(browser, g) {
   console.log('\nPRICES, in seconds of the income measured on that planet — flat means affordable-ness scales');
   console.log('  P | next unit | next Value | next Spawn | next node | boss bounty');
   for (const r of rows) {
-    const f = v => !isFinite(v) ? '  never' : v < 6000 ? Math.round(v) + 's' : (v / 3600).toFixed(1) + 'h';
+    const f = v => v == null ? '     —' : !isFinite(v) ? '  never' : v < 6000 ? Math.round(v) + 's' : (v / 3600).toFixed(1) + 'h';
     console.log(pad(r.g, 3) + ' | ' + pad(f(r.secsUnit), 9) + ' | ' + pad(f(r.secsValue), 10) +
       ' | ' + pad(f(r.secsSpawn), 10) + ' | ' + pad(f(r.secsNode), 9) + ' | ' + pad(f(r.secsBoss), 11));
   }
 
   // drift = how far the worst planet is from the best, per column. Flat is the goal.
-  const drift = (key) => { const v = rows.map(r => r[key]).filter(x => isFinite(x) && x > 0);
+  const drift = (key) => { const v = rows.map(r => r[key]).filter(x => x != null && isFinite(x) && x > 0);
     return v.length ? (Math.max(...v) / Math.min(...v)) : 0; };
   console.log('\nDRIFT ACROSS THE CAMPAIGN (max ÷ min — 1.0 is perfectly flat)');
   for (const [k, label] of [['ratio', 'income vs designed'], ['selection', 'selection'], ['collection', 'collection'],
