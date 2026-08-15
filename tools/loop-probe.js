@@ -21,6 +21,8 @@
 //   L1 a build with BOTH trees selects ≥ 80% and collects ≥ 80%   (the intended build works)
 //   L2 a guns-only build's COLLECTION is visibly bad (< 50%)      (the trap still exists to warn about…)
 //   L3 …and the game SAYS so — the loot-rot HUD line is showing   (…and v18.47's warning fires)
+//   L4 a warden's maxHp NEVER rises mid-duel, even if you finger-draw through the
+//      calibration window                                        (the v18.50 heal bug)
 //
 //   node tools/loop-probe.js            (add --verbose for the per-case table)
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
@@ -102,6 +104,42 @@ async function runCase(browser, c) {
   };
 }
 
+// L4: drive a real warden duel while drawing through the 1s-5s calibration window — the exact input
+// that used to make the keeper re-size its pool UPWARD and become unkillable.
+async function wardenDuel(browser) {
+  const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'load' });
+  await page.waitForFunction('!!window.__IDS');
+  await page.click('#home-play'); await page.waitForTimeout(400);
+  await page.evaluate(() => { const t = document.querySelector('#tut-skip'); if (t) t.click(); });
+  const r = await page.evaluate(async () => {
+    const I = window.__IDS, S = I.S();
+    S.galaxy = 1; S.peakGalaxy = 1; S.cash = 1e12; I.recompute();
+    for (let i = 0; i < 4; i++) I.buyUnit('turret');
+    for (let i = 0; i < 2; i++) I.buyUnit('drone');
+    while ((S.lv.value | 0) < 8) I.buyUp('value');
+    S.cash = 1e12; I.recompute();
+    I.earn(window.__SIM.conquerTarget(1));
+    if (!I.summonWarden()) return { err: 'summonWarden refused' };
+    const t0 = performance.now();
+    let peakMax = 0, openMax = 0, maxRise = 0, hpRise = 0, prevMax = 0, prevHp = 0;
+    for (let i = 0; i < 150; i++) {
+      const d = I.dots().find(x => x.boss); if (!d) break;
+      const el = (performance.now() - t0) / 1000;
+      if (el > 1.0 && el < 5.0) I.brushAt(d.x, d.y);           // draw straight through the sample window
+      if (!openMax) openMax = d.maxHp;
+      if (prevMax) { maxRise = Math.max(maxRise, d.maxHp - prevMax); hpRise = Math.max(hpRise, d.hp - prevHp); }
+      prevMax = d.maxHp; prevHp = d.hp; peakMax = Math.max(peakMax, d.maxHp);
+      await new Promise(res => setTimeout(res, 100));
+    }
+    return { openMax: Math.round(openMax), peakMax: Math.round(peakMax),
+             maxRise: Math.round(maxRise), hpRise: Math.round(hpRise) };
+  });
+  await page.close();
+  return { ...r, errs };
+}
+
 (async () => {
   const verbose = process.argv.includes('--verbose');
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
@@ -115,9 +153,19 @@ async function runCase(browser, c) {
       ((o.selection * 100).toFixed(0) + '%').padStart(9) + ' | ' + ((o.collection * 100).toFixed(0) + '%').padStart(10) +
       ' | ' + Math.round(o.banked).toLocaleString().padStart(10) + ' | ' + (o.leakShown ? o.leakText : '—'));
   }
+  const wd = await wardenDuel(browser);
   await browser.close();
 
   const fails = [];
+  if (wd.err) fails.push('L4 ' + wd.err);
+  else {
+    if (verbose) console.log('\nwarden duel (drawing through calibration): opens ' + wd.openMax.toLocaleString() +
+      ' · peak maxHp ' + wd.peakMax.toLocaleString() + ' · biggest maxHp rise ' + wd.maxRise.toLocaleString());
+    // regen (0.012/s, by design) makes hp tick up between hits, so only maxHp is asserted flat.
+    if (wd.maxRise > 1) fails.push(`L4 warden maxHp ROSE by ${wd.maxRise.toLocaleString()} mid-duel — the pool must only ever shrink`);
+    if (wd.peakMax > wd.openMax + 1) fails.push(`L4 warden peak maxHp ${wd.peakMax.toLocaleString()} exceeded its opening pool ${wd.openMax.toLocaleString()}`);
+  }
+  for (const e of wd.errs || []) fails.push('page error [warden]: ' + e);
   const both = out.both, guns = out.guns;
   if (!(both.selection >= 0.80)) fails.push(`L1 both-tree selection ${(both.selection * 100).toFixed(0)}% < 80% — guns cannot reach the field's value`);
   if (!(both.collection >= 0.80)) fails.push(`L1 both-tree collection ${(both.collection * 100).toFixed(0)}% < 80% — drones cannot bank what dies`);
