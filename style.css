@@ -685,3 +685,8 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 #ui-leak{display:none;font-size:11px;letter-spacing:.02em;color:var(--warn);margin-top:2px;line-height:1.2}
 #ui-leak.show{display:block;animation:leakpulse 1.6s ease-in-out infinite}
 @keyframes leakpulse{0%,100%{opacity:.55}50%{opacity:1}}
+
+/* v18.51 ascend prompt: same shape as the loot-rot line, hidden until the run has run out of
+   road (a rung costs >30 min AND ascending would bank a core). */
+#ui-ascend-hint{display:none;font-size:11px;letter-spacing:.02em;color:var(--warn);margin-top:2px;line-height:1.2}
+#ui-ascend-hint.show{display:block;animation:leakpulse 1.6s ease-in-out infinite}

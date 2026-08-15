@@ -34,7 +34,7 @@ const { chromium } = requirePlaywright();
   const result = await page.evaluate((ENGINE_MULT) => {
     const SIM = window.__SIM, D = window.__IDS, S = D.S();
     const ACTIVE_MAX = 8.6;                     // skilled active play banks ~8.6× the passive model (see README/sims)
-    const out = { rows: [], TOTAL: SIM.TOTAL_PLANETS };
+    const out = { rows: [], TOTAL: SIM.TOTAL_PLANETS, ECO_STEP: SIM.ECO_STEP || 1, ECO_FINE_FROM: SIM.ECO_FINE_FROM || 0 };
 
     // ---- ascension-fresh army ----
     function resetArmy() {
@@ -51,7 +51,7 @@ const { chromium } = requirePlaywright();
       const vMul = SIM.valueMul(SIM.ecoLv('value'));               // v18.0: ONE global level — the ladder is continuous
       const avgHP = 18 * SIM.enemyHpMul(g) * Math.pow(vMul, 1.3) * 1.3;
       const avgVal = SIM.eco(g) * vMul * (engineMult || 1);
-      const spawn = 0.9 + 1.15 * SIM.ecoLv('spawnRate');           // v18.14 chunkier Spawn levels (+1.15/s per level)
+      const spawn = SIM.spawnFromLv(SIM.ecoLv('spawnRate'));      // v18.51: the GAME's curve — this was a hardcoded 0.9 + 1.15*lv and would have kept the pre-ECO_STEP scale
       const kills = Math.min(dpsNow() / avgHP, spawn * 1.2);
       // v18.14 FRONTIER PREMIUM — payouts carry +8% per menace point; bar-average menace with the
       // arrival floor ≈ max(floor(g), 2.06). This is the ONE deliberate net-income tilt in the
@@ -196,8 +196,12 @@ const { chromium } = requirePlaywright();
       // Floor: the spend policy must find eco worth buying early (else the curve is mispriced into a
       // trap). Ceiling: geometric costs (×1.30/×1.32 per level) must contain the level count even at
       // Engine ×800 / P18 — a blowout past it means a value→income→value runaway feedback loop.
-      if (x.eff != null && x.g > 1 && (x.eff < 4 || x.eff > 140)) fails.push(`U3 [M×${reg.M}] P${x.g} global Value level ${x.eff} outside [4,140] — eco ladder starved or runaway`);
-      if (x.effS != null && x.g > 1 && (x.effS < 3 || x.effS > 130)) fails.push(`U3 [M×${reg.M}] P${x.g} global Spawn level ${x.effS} outside [3,130]`);
+      // v18.51: these bounds are in LEGACY level units, but S.lv counts RUNGS, which are finer past
+      // ECO_FINE_FROM. Convert the reading back to legacy rather than re-baselining the design.
+      const toLeg = r => { const C = result.ECO_FINE_FROM || 0, ES = result.ECO_STEP || 1; return r <= C ? r : C + (r - C) / ES; };
+      const legV = x.eff == null ? null : toLeg(x.eff), legS = x.effS == null ? null : toLeg(x.effS);
+      if (legV != null && x.g > 1 && (legV < 4 || legV > 140)) fails.push(`U3 [M×${reg.M}] P${x.g} global Value level ${legV} outside [4,140] — eco ladder starved or runaway`);
+      if (legS != null && x.g > 1 && (legS < 3 || legS > 130)) fails.push(`U3 [M×${reg.M}] P${x.g} global Spawn level ${legS} outside [3,130]`);
     }
     // U3-mono: a single global ladder can only rise — any per-planet DROP in level is a state bug
     for (let i = 1; i < reg.rows.length; i++) {
