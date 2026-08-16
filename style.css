@@ -303,7 +303,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .gm-go:disabled{background:#333;color:var(--dim)}
 
 #up-list{display:flex;flex-direction:column;gap:5px;max-height:25vh;overflow-y:auto}
-.up{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:7px 9px}
+.up{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:7px 9px;position:relative;overflow:hidden}
 .up .u-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
 .up .u-mid{flex:1;min-width:0}
 .up .u-name{font-size:14px;font-weight:700}
@@ -690,3 +690,33 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
    road (a rung costs >30 min AND ascending would bank a core). */
 #ui-ascend-hint{display:none;font-size:11px;letter-spacing:.02em;color:var(--warn);margin-top:2px;line-height:1.2}
 #ui-ascend-hint.show{display:block;animation:leakpulse 1.6s ease-in-out infinite}
+
+/* ============ v18.53 MILESTONE CHARGE ============
+   Value's lump lands every few levels. The row FILLS toward it so you can see it coming, then goes
+   loud on the buy that pays it. Monochrome only — brightness, scale and motion, never colour. */
+.up .u-mile{position:absolute;left:0;top:0;bottom:0;width:calc(var(--mile,0) * 100%);
+  background:linear-gradient(90deg,rgba(255,255,255,.02),rgba(255,255,255,.13));
+  pointer-events:none;transition:width .35s cubic-bezier(.3,1,.4,1)}
+.up .u-milechip{display:none;margin-left:7px;font-family:var(--mono);font-size:10px;font-weight:800;
+  letter-spacing:.08em;color:#000;background:#fff;border-radius:3px;padding:1px 5px;vertical-align:2px}
+
+/* getting close: the fill brightens and the row starts to breathe */
+.up.mile-near{border-color:rgba(255,255,255,.42)}
+.up.mile-near .u-mile{background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.22))}
+.up.mile-near .u-dot{animation:milepulse 1.5s ease-in-out infinite}
+
+/* the NEXT buy is the lump: unmistakable */
+.up.mile-ready{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.55),0 0 18px rgba(255,255,255,.30);
+  animation:mileready 1.15s ease-in-out infinite}
+.up.mile-ready .u-mile{background:linear-gradient(90deg,rgba(255,255,255,.10),rgba(255,255,255,.34))}
+.up.mile-ready .u-milechip{display:inline-block;animation:milepulse .9s ease-in-out infinite}
+.up.mile-ready .u-name{text-shadow:0 0 12px rgba(255,255,255,.55)}
+.up.mile-ready .u-buy{background:#fff;box-shadow:0 0 14px rgba(255,255,255,.6);transform:scale(1.05)}
+
+@keyframes milepulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.16)}}
+@keyframes mileready{0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.45),0 0 12px rgba(255,255,255,.20)}
+                     50%{box-shadow:0 0 0 1px rgba(255,255,255,.75),0 0 26px rgba(255,255,255,.45)}}
+@media (prefers-reduced-motion:reduce){
+  .up.mile-ready,.up.mile-ready .u-milechip,.up.mile-near .u-dot{animation:none}
+  .up .u-mile{transition:none}
+}
