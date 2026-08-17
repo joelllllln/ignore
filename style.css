@@ -786,8 +786,8 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .ax-hero.none .ax-haul{color:var(--dim)}
 
 /* ── THE TRADE: the scariest question, side by side instead of a run-on sentence ── */
-.ax-trade{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
-.ax-col{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border-radius:10px;
+.ax-trade{display:grid;grid-template-columns:1.42fr 1fr;gap:7px;margin-bottom:12px}   /* RESETS carries four icons, KEEPS two — equal columns wrapped the fourth onto its own line */
+.ax-col{display:flex;flex-direction:column;gap:1px;padding:9px 10px;border-radius:10px;
   border:1px solid var(--edge);background:rgba(255,255,255,.02);
   font:600 11.5px var(--mono);color:var(--dim)}
 .ax-col-h{font:800 10px var(--mono);letter-spacing:.12em;margin-bottom:3px}
@@ -852,3 +852,50 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
   .ax-hero.go,.ax-hero.go::after,#ascend .asc-go.hot{animation:none}
   .ax-hero.go::after{opacity:.3}
 }
+
+
+/* ===== v18.58 — THE LOOP AS PICTURES ("more obvious what's going on, super simple and visual") =====
+   v18.57 got the hierarchy right but still explained prestige in prose. A sentence is not a
+   picture. Four numbered tiles carry the mechanic, two bars on one axis carry the payoff, and
+   icons carry the trade — the page can now be understood without reading a full sentence. */
+
+/* the four-step loop: what you give up, what pays, what it buys, what that does to the next run */
+.ax-loop{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:2px 0 12px}
+.ax-loop-s{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;
+  padding:9px 4px 8px;border:1px solid var(--edge);border-radius:10px;background:rgba(255,255,255,.02)}
+.ax-loop-s svg.ico{width:20px;height:20px;opacity:.92}
+.ax-loop-s b{font:800 9px var(--mono);letter-spacing:.04em;color:#fff;line-height:1.2}
+.ax-loop-s span:not(.ax-loop-n){font:600 8.5px var(--mono);color:var(--dim);line-height:1.25}
+.ax-loop-n{position:absolute;top:4px;left:5px;font:800 8px var(--mono);color:var(--dim);opacity:.7}
+/* the cycle closes: the last tile points back at the first */
+.ax-loop-s:last-child{border-color:rgba(207,228,255,.34);background:rgba(207,228,255,.05)}
+.ax-loop-s:last-child b{color:#cfe4ff}
+@media (max-width:379px){ .ax-loop{grid-template-columns:repeat(2,1fr)} }
+
+/* INCOME, NOW vs AFTER — two bars on one axis. No arrow, no division to do in your head. */
+.ax-cmp{display:flex;flex-direction:column;gap:5px;margin:9px 0 2px}
+.ax-cmp-r{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:9px}
+.ax-cmp-k{font:700 10px var(--mono);letter-spacing:.08em;color:var(--dim)}
+.ax-cmp-t{position:relative;height:13px;border-radius:7px;background:rgba(255,255,255,.07)}
+.ax-cmp-b{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:rgba(255,255,255,.32);
+  transition:width .4s cubic-bezier(.3,1,.4,1)}
+.ax-cmp-v{font:800 14px var(--mono);color:var(--dim);white-space:nowrap;min-width:46px;text-align:right}
+.ax-cmp-r.after .ax-cmp-k{color:#fff}
+.ax-cmp-r.after .ax-cmp-b{background:#fff;box-shadow:0 0 14px rgba(255,255,255,.5)}
+.ax-cmp-r.after .ax-cmp-v{color:#fff;font-size:17px}
+.ax-flat{margin:8px 0 2px;font:700 13px var(--mono);color:var(--dim)}
+.ax-flat b{color:#fff}
+
+/* the trade, as icons */
+.ax-ics{display:flex;flex-wrap:wrap;gap:7px 8px;margin-top:5px}
+.ax-ic{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:34px}
+.ax-ic svg.ico{width:17px;height:17px;opacity:.8}
+.ax-ic em{font:600 9px var(--mono);font-style:normal;letter-spacing:.02em}
+.ax-col.keep .ax-ic svg.ico{opacity:1}
+
+/* how close the bank is to the next Engine level — a bar, not a sentence */
+.ax-fill{position:relative;height:6px;border-radius:3px;background:rgba(255,255,255,.07);margin:0 0 9px;overflow:hidden}
+.ax-fill span{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:#cfe4ff;
+  transition:width .4s cubic-bezier(.3,1,.4,1)}
+
+@media (prefers-reduced-motion:reduce){ .ax-cmp-b,.ax-fill span{transition:none} }

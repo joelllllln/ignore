@@ -11,6 +11,10 @@
 //   A5  the Engine's "your N reach Lv X" matches a full greedy spend, not a 3-row window
 //   A6  the evidence sections are FOLDED by default — they must not outrank the verb
 //   A7  nothing is clipped by its own box and there are no page errors
+//   A8  the four-step LOOP STRIP is present with all four steps, at every size (v18.58)
+//   A9  the income comparison is TWO BARS, correctly proportioned — the "after" bar is the longer
+//       one and the ratio of their widths matches the ratio of the multipliers they claim
+//   A10 the trade shows ICONS, not a word list
 //
 //   node tools/ascend-page.js            (--shots to also write a screenshot per state)
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
@@ -79,10 +83,9 @@ const STATES = {
         const ASC_E = 1.25, l = window.__SIM.ASC_BY.engine, lv = I.ascLv('engine'), banked = (M.asc && M.asc.cores) | 0;
         const reach = c => { let n = 0, left = c; while (lv + n < l.max && window.__SIM.ascCost(l, lv + n) <= left) { left -= window.__SIM.ascCost(l, lv + n); n++; } return n; };
         const wantNow = Math.pow(ASC_E, lv + reach(banked)), wantAft = Math.pow(ASC_E, lv + reach(banked + pend));
-        const from = (q('.ax-from') || {}).textContent || '', to = (q('.ax-to') || {}).textContent || '';
-        // A5: the Engine's reach claim
-        const engSub = (q('.ax-eng-sub') || {}).textContent || '';
-        const engReachClaim = (engSub.match(/Lv (\d+)/) || [])[1];
+        // A5: the Engine's reach claim now lives in the header ("Lv 6 -> 18 affordable")
+        const engHead = (q('.ax-eng-lv') || {}).textContent || '';
+        const engReachClaim = (engHead.match(/→\s*(\d+)/) || [])[1];
         // A7: anything clipped by its own box
         const clipped = [...document.querySelectorAll('#ascend .ax-hero *, #ascend .ax-col, #ascend .ax-step, #ascend .ax-eng-head *, #ascend .ax-dock *')]
           .filter(e => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible').length;
@@ -91,10 +94,13 @@ const STATES = {
           goTop: gr ? Math.round(gr.top) : -1, vh,
           heroKind: hero ? ['go', 'wait', 'none'].find(k => hero.classList.contains(k)) || '?' : 'NO-HERO',
           verdict: ((document.querySelector('.ax-verdict') || {}).textContent || '').trim().slice(0, 40),
-          from, to, wantFrom: '×' + (wantNow < 10 ? Math.round(wantNow * 10) / 10 : Math.round(wantNow)),
-          wantTo: '×' + (wantAft < 10 ? Math.round(wantAft * 10) / 10 : Math.round(wantAft)),
-          sameMult: Math.abs(wantAft - wantNow) < 1e-9,
+          wantNow, wantAft, sameMult: Math.abs(wantAft - wantNow) < 1e-9,
           engReachClaim: engReachClaim ? +engReachClaim : null, engWant: lv + reach(banked),
+          loopSteps: document.querySelectorAll('#ascend .ax-loop-s').length,
+          bars: [...document.querySelectorAll('#ascend .ax-cmp-r')].map(r => ({
+            w: parseFloat((r.querySelector('.ax-cmp-b') || {}).style?.width || '0'),
+            v: parseFloat(((r.querySelector('.ax-cmp-v') || {}).textContent || '').replace(/[^\d.]/g, '')) })),
+          tradeIcons: document.querySelectorAll('#ascend .ax-ic svg').length,
           openDetails: [...document.querySelectorAll('#ascend details')].filter(d => d.open).length,
           totalDetails: document.querySelectorAll('#ascend details').length,
           clipped,
@@ -109,8 +115,23 @@ const STATES = {
       if (r.pend >= 1 && r.haulNum !== String(r.pend)) fails.push('haul "' + r.haulNum + '" != pending ' + r.pend);
       if (r.heroKind !== st.expect) fails.push('verdict ' + r.heroKind + ', expected ' + st.expect);
       if (!r.verdict) fails.push('no verdict line');
-      if (!r.sameMult && (r.from !== r.wantFrom || r.to !== r.wantTo)) fails.push('transform ' + r.from + '->' + r.to + ' should be ' + r.wantFrom + '->' + r.wantTo);
+      // A4/A9 together: the two bars must PRINT the honest multipliers and be DRAWN in that ratio.
+      // Compared against the unrounded truth, so multFmt's display rounding cannot mask a real drift.
+      if (!r.sameMult && r.bars.length === 2) {
+        const [a, b] = r.bars, m = Math.max(r.wantNow, r.wantAft);
+        const near = (x, y, t) => Math.abs(x - y) <= Math.max(t, Math.abs(y) * t);
+        if (!near(a.v, r.wantNow, 0.06) || !near(b.v, r.wantAft, 0.06))
+          fails.push('bars print ×' + a.v + '/×' + b.v + ', honest is ×' + r.wantNow.toFixed(1) + '/×' + r.wantAft.toFixed(1));
+        if (Math.abs(a.w - r.wantNow / m * 100) > 0.6 || Math.abs(b.w - r.wantAft / m * 100) > 0.6)
+          fails.push('bar widths ' + a.w + '%/' + b.w + '% do not encode the multipliers');
+      }
       if (r.engReachClaim != null && r.engReachClaim !== r.engWant) fails.push('engine reach Lv' + r.engReachClaim + ' should be Lv' + r.engWant);
+      if (r.loopSteps !== 4) fails.push('loop strip has ' + r.loopSteps + ' steps, want 4');
+      if (r.bars.length) {
+        if (r.bars.length !== 2) fails.push(r.bars.length + ' comparison bars, want 2');
+        else if (!(r.bars[1].w >= r.bars[0].w)) fails.push('the "after" bar is shorter than "now"');
+      }
+      if (r.tradeIcons < 5) fails.push('trade shows ' + r.tradeIcons + ' icons, want 6');
       if (r.openDetails > 0) fails.push(r.openDetails + ' details open by default');
       if (r.clipped) fails.push(r.clipped + ' clipped');
       if (errs.length) fails.push('page errors: ' + errs.join(' | '));
@@ -118,8 +139,9 @@ const STATES = {
 
       lines.push('    ' + name.padEnd(6) + ' verdict=' + r.heroKind.padEnd(4) +
         ' haul=' + (r.pend >= 1 ? '+' + r.haulNum : '—').padEnd(6) +
-        ' ' + (r.sameMult ? (r.from + ' flat').padEnd(14) : (r.from + '->' + r.to).padEnd(14)) +
+        ' ' + (r.sameMult ? 'flat'.padEnd(14) : ('×' + r.bars[0]?.v + '->×' + r.bars[1]?.v).padEnd(14)) +
         ' btn@' + String(r.goTop).padStart(4) + '/' + r.vh +
+        ' loop ' + r.loopSteps + ' bars ' + r.bars.length + ' ics ' + r.tradeIcons +
         ' folded ' + (r.totalDetails - r.openDetails) + '/' + r.totalDetails +
         (fails.length ? '   <-- ' + fails.join('; ') : ''));
       await page.close();
