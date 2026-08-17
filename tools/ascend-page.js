@@ -15,6 +15,13 @@
 //   A9  the income comparison is TWO BARS, correctly proportioned — the "after" bar is the longer
 //       one and the ratio of their widths matches the ratio of the multipliers they claim
 //   A10 the trade shows ICONS, not a word list
+//   --- v18.59, the patterns borrowed from shipped idle games ---
+//   A11 the NEXT-◈ bar is present whenever the current world's bar can still pay one, and its width
+//       matches the percentage it prints (Cookie Clicker's "next chip at N cookies")
+//   A12 the run-identity strip shows run / best / all-time, all of which we already tracked
+//   A13 THE GUARD: one tap ARMS and does NOT reset the run; only the second tap commits. No native
+//       browser dialog may fire — a headless caller had the old confirm() auto-dismissed, which
+//       silently turned ascend() into a no-op for every future tool.
 //
 //   node tools/ascend-page.js            (--shots to also write a screenshot per state)
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
@@ -101,16 +108,39 @@ const STATES = {
             w: parseFloat((r.querySelector('.ax-cmp-b') || {}).style?.width || '0'),
             v: parseFloat(((r.querySelector('.ax-cmp-v') || {}).textContent || '').replace(/[^\d.]/g, '')) })),
           tradeIcons: document.querySelectorAll('#ascend .ax-ic svg').length,
+          nextBar: (() => { const t = q('.ax-next-b'), v = q('.ax-next-v');
+            return t ? { w: parseFloat(t.style.width || '0'), pct: parseFloat((v || {}).textContent || '0') } : null; })(),
+          runBits: [...document.querySelectorAll('#ascend .ax-run-i')].map(e => (e.textContent || '').trim()),
           openDetails: [...document.querySelectorAll('#ascend details')].filter(d => d.open).length,
           totalDetails: document.querySelectorAll('#ascend details').length,
           clipped,
         };
       });
 
+      const fails = []; let guard = '—';
+      // A13 — drive the guard for real. One tap must arm and change nothing; two must commit.
+      if (r.pend >= 1) {
+        let nativeDialog = false;
+        page.on('dialog', async d => { nativeDialog = true; await d.dismiss(); });
+        const before = await page.evaluate(() => ({ runs: (window.__IDS.META().asc.runs | 0), gal: window.__IDS.S().galaxy }));
+        await page.click('#ascend-go'); await page.waitForTimeout(140);
+        const mid = await page.evaluate(() => ({ runs: (window.__IDS.META().asc.runs | 0), gal: window.__IDS.S().galaxy,
+          armed: !!(document.querySelector('#ascend-go') || {}).classList?.contains('armed'),
+          label: ((document.querySelector('#ascend-go') || {}).textContent || '') }));
+        if (mid.runs !== before.runs) fails.push('ONE TAP RESET THE RUN — the guard is not holding');
+        if (!mid.armed) fails.push('first tap did not arm the button');
+        if (!/AGAIN/i.test(mid.label)) fails.push('armed label does not ask for a second tap: "' + mid.label + '"');
+        await page.click('#ascend-go'); await page.waitForTimeout(260);
+        const after = await page.evaluate(() => ({ runs: (window.__IDS.META().asc.runs | 0), gal: window.__IDS.S().galaxy }));
+        if (after.runs !== before.runs + 1) fails.push('second tap did not ascend (runs ' + before.runs + '->' + after.runs + ')');
+        if (after.gal !== 1) fails.push('ascension did not reset to P1 (galaxy ' + after.gal + ')');
+        if (nativeDialog) fails.push('a NATIVE browser dialog fired — the in-frame guard was bypassed');
+        guard = 'arm+commit ok';
+      }
+
       if (SHOTS) { const c = await page.$('#ascend .card');
         if (c) await c.screenshot({ path: path.resolve(__dirname, '..', 'asc-' + vp.w + '-' + name + '.png') }); }
 
-      const fails = [];
       if (!r.goOnScreen) fails.push('BUTTON OFF SCREEN (top ' + r.goTop + ' of ' + r.vh + ')');
       if (r.pend >= 1 && r.haulNum !== String(r.pend)) fails.push('haul "' + r.haulNum + '" != pending ' + r.pend);
       if (r.heroKind !== st.expect) fails.push('verdict ' + r.heroKind + ', expected ' + st.expect);
@@ -132,6 +162,8 @@ const STATES = {
         else if (!(r.bars[1].w >= r.bars[0].w)) fails.push('the "after" bar is shorter than "now"');
       }
       if (r.tradeIcons < 5) fails.push('trade shows ' + r.tradeIcons + ' icons, want 6');
+      if (r.nextBar && Math.abs(r.nextBar.w - r.nextBar.pct) > 1.1) fails.push('next-◈ bar drawn ' + r.nextBar.w + '% but prints ' + r.nextBar.pct + '%');
+      if (r.runBits.length !== 3) fails.push('run strip has ' + r.runBits.length + ' items, want 3');
       if (r.openDetails > 0) fails.push(r.openDetails + ' details open by default');
       if (r.clipped) fails.push(r.clipped + ' clipped');
       if (errs.length) fails.push('page errors: ' + errs.join(' | '));
@@ -142,6 +174,7 @@ const STATES = {
         ' ' + (r.sameMult ? 'flat'.padEnd(14) : ('×' + r.bars[0]?.v + '->×' + r.bars[1]?.v).padEnd(14)) +
         ' btn@' + String(r.goTop).padStart(4) + '/' + r.vh +
         ' loop ' + r.loopSteps + ' bars ' + r.bars.length + ' ics ' + r.tradeIcons +
+        ' next ' + (r.nextBar ? r.nextBar.pct + '%' : '—') + ' run ' + r.runBits.length + ' guard ' + guard +
         ' folded ' + (r.totalDetails - r.openDetails) + '/' + r.totalDetails +
         (fails.length ? '   <-- ' + fails.join('; ') : ''));
       await page.close();
