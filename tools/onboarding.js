@@ -20,6 +20,16 @@
 //       at second zero all four economy upgrades are affordable (40/54/117/140 against 400 cash)
 //       while the only visible alternative costs 393, so hiding it removed the affordable actions
 //       rather than the complexity. This gate stops that from coming back.
+//   --- v18.62, the pre-existing systems this all had to be adapted to ---
+//   O11 the objective is VISIBLE during the first-run tutorial. The tutorial's second step talks
+//       about it, so hiding it there made the tutorial contradict itself on screen.
+//   O12 only ONE teaching UI at a time — the just-in-time coach must not paint over the tutorial.
+//   O13 the settlement panel replaces the shop, so the objective and abilities stand down with it,
+//       and un-settling must NOT un-hide abilities the reveal gate deliberately hid (the settle
+//       block used to set display:"" on #abilities every transition and fight the gate).
+//   O14 a save written BEFORE progressive reveal existed must not be re-onboarded. META.seen is
+//       absent on every pre-v18.60 save, so a returning player would load in to find their
+//       COLLECTORS tab, abilities and ascend button gone after hours of play.
 //
 //   node tools/onboarding.js
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
@@ -41,6 +51,46 @@ const visibleControls = () => {
 (async () => {
   const browser = await chromium.launch();
   let bad = 0;
+
+  // ── O14: a veteran save from before progressive reveal existed ───────────────────────────────
+  {
+    const ctx = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    // planted BEFORE boot: the live page re-saves on unload and would clobber a post-hoc write
+    await ctx.addInitScript(() => {
+      const S = { v18: 1, ecoS: 1, cash: 5e6, galaxy: 4, peakGalaxy: 4, lv: { value: 30, spawnRate: 28, capacity: 34, luck: 12 },
+        classNodes: { turret: { a1: 1, a2: 1 } }, units: [{ type: 'turret' }, { type: 'turret' }, { type: 'mortar' }],
+        collectors: [{ type: 'drone' }, { type: 'drone' }], totalRun: 5e6, runSec: 9000,
+        vault: { 1: { conquered: true }, 2: { conquered: true }, 3: { conquered: true }, 4: { conquered: false, earned: 0 } },
+        travel: null, conquest: 1, victory: false, auto: {} };
+      const META = { totalEver: 9e6, stats: {}, opts: {}, tutorialDone: true,
+        asc: { cores: 120, lv: { engine: 4 }, runs: 2, best: 5, lifetime: 300, v: 3 } };   // NOTE: no `seen`
+      try { localStorage.setItem('ids_clone.v3', JSON.stringify({ S, META })); } catch (e) {}
+    });
+    const page = await ctx.newPage();
+    await page.goto(URL, { waitUntil: 'load' });
+    await page.waitForFunction('!!window.__IDS');
+    await page.click('#home-play'); await page.waitForTimeout(600);
+    const vet = await page.evaluate(() => {
+      const I = window.__IDS;
+      const vis = sel => { const e = document.querySelector(sel); if (!e) return false;
+        return getComputedStyle(e.closest('.tslot') || e).display !== 'none'; };
+      return { loaded: I.S().peakGalaxy, keys: ['collect', 'tree', 'eco', 'abil', 'ascend'].filter(k => I.revealed(k)),
+        collectTab: vis('.tab[data-tab="drone"]'), abil: vis('#abilities'), ascend: vis('#btn-ascend') };
+    });
+    const f = [];
+    if (vet.loaded !== 4) f.push('the planted veteran save did not load (peakGalaxy ' + vet.loaded + ')');
+    else {
+      if (vet.keys.length < 5) f.push('veteran save re-onboarded — only revealed: ' + (vet.keys.join(',') || 'nothing'));
+      if (!vet.collectTab) f.push('veteran lost the COLLECTORS tab');
+      if (!vet.abil) f.push('veteran lost abilities');
+      if (!vet.ascend) f.push('veteran lost the ascend button');
+    }
+    bad += f.length;
+    console.log('  ' + 'veteran save (pre-v18.60)'.padEnd(24) + 'P' + vet.loaded + '  revealed ' + vet.keys.length + '/5' +
+      '  tabs ' + (vet.collectTab ? 'y' : 'N') + ' abil ' + (vet.abil ? 'y' : 'N') + ' ascend ' + (vet.ascend ? 'y' : 'N'));
+    f.forEach(x => console.log('      <-- ' + x));
+    await page.close();
+  }
 
   for (const vp of VIEWS) {
     const page = await (await browser.newContext({ viewport: { width: vp.w, height: vp.h } })).newPage();
@@ -74,6 +124,35 @@ const visibleControls = () => {
         travel: (document.querySelector('#btn-travel') || {}).textContent || '' };
     }, visibleControls.toString());
 
+    // O11/O12 — with the tutorial up: objective visible, coach silent
+    const tut = await page.evaluate(() => new Promise(res => {
+      const I = window.__IDS;
+      I.META().tutorialDone = false;
+      const t = document.querySelector('#set-tutorial'); if (t) t.click();
+      setTimeout(() => {
+        const ob = document.querySelector('#objective'), co = document.querySelector('#coach');
+        res({ tutUp: !!document.querySelector('#tutorial.show'),
+              objShown: !!(ob && ob.classList.contains('show')),
+              coachShown: !!(co && co.classList.contains('show')) });
+      }, 900);
+    }));
+    await page.evaluate(() => { const t = document.querySelector('#tut-skip'); if (t) t.click(); });
+    await page.waitForTimeout(300);
+
+    // O13 — settle the world, then un-settle, and check nobody clobbered the reveal gate
+    const settle = await page.evaluate(async () => {
+      const I = window.__IDS, S = I.S();
+      const vis = sel => { const e = document.querySelector(sel); return !!e && getComputedStyle(e).display !== 'none'; };
+      const abilBefore = vis('#abilities');                          // hidden on a virgin save
+      S.vault[S.galaxy] = { conquered: true, earned: 0 }; I.recompute(); I.syncHUD();
+      await new Promise(r => setTimeout(r, 250));
+      const ob = document.querySelector('#objective');
+      const onSettle = { obj: !!(ob && ob.classList.contains('show')), abil: vis('#abilities') };
+      S.vault[S.galaxy] = { conquered: false, earned: 0 }; I.recompute(); I.syncHUD();
+      await new Promise(r => setTimeout(r, 120)); I.syncHUD();
+      return { abilBefore, onSettle, abilAfter: vis('#abilities') };
+    });
+
     // O4 — satisfy the objective and check it moves on
     const obj2 = await page.evaluate(() => { const I = window.__IDS, S = I.S();
       S.cash = 1e9; I.buyUnit('turret'); I.syncHUD();
@@ -102,6 +181,12 @@ const visibleControls = () => {
       if (m && +m[1] > 24) fails.push('conquer bar advertises a ' + m[1] + 'h ETA'); }
     if (!sticky.on) fails.push('reveal did not fire when its condition was met');
     if (sticky.on && !sticky.still) fails.push('a revealed feature DISAPPEARED again — reveals must be sticky');
+    if (!tut.tutUp) fails.push('could not reopen the tutorial to test it');
+    if (tut.tutUp && !tut.objShown) fails.push('objective HIDDEN during the tutorial that talks about it');
+    if (tut.tutUp && tut.coachShown) fails.push('coach painted over the tutorial — two teaching UIs at once');
+    if (settle.onSettle.obj) fails.push('objective still shown over the settlement panel');
+    if (settle.onSettle.abil) fails.push('abilities still shown over the settlement panel');
+    if (!settle.abilBefore && settle.abilAfter) fails.push('un-settling UN-HID abilities the reveal gate had hidden');
     if (errs.length) fails.push('page errors: ' + errs.join(' | '));
     bad += fails.length;
 
@@ -112,6 +197,8 @@ const visibleControls = () => {
       '  dots@land ' + String(t0.dots).padStart(2) +
       '  obj "' + t0.objText.slice(0, 22) + '" -> "' + obj2.slice(0, 22) + '"' +
       '  eco ' + (t0.ecoVisible ? 'shown' : 'HIDDEN') +
+      '  tut[obj ' + (tut.objShown ? 'y' : 'N') + ' coach ' + (tut.coachShown ? 'ON' : 'off') + ']' +
+      '  settle[' + (settle.onSettle.obj || settle.onSettle.abil ? 'LEAK' : 'clean') + ']' +
       '  sticky ' + (sticky.on && sticky.still ? 'ok' : 'NO'));
     fails.forEach(f => console.log('      <-- ' + f));
     await page.close();
