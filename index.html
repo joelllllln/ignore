@@ -16,7 +16,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.56" />
+<link rel="stylesheet" href="style.css?v=18.57" />
 </head>
 <body>
 <div id="root">
@@ -261,11 +261,12 @@
   <button id="btn-ascend" class="layer" title="Ascension"><i data-ico="gem"></i><b id="ascend-n">0</b></button>
   <div id="ascend" class="modal">
     <div class="card">
-      <div class="card-head"><h2><i data-ico="gem"></i>Ascension</h2><button class="x" id="ascend-close">✕</button></div>
-      <p class="muted">The prestige loop: push the cluster until the next conquer bar is a <b>WALL</b>, then ascend — the run resets and every conquered planet banks a <b>handful of ◈ cores</b> (deeper worlds pay more). Cores buy one thing, forever: <b>Engine levels, +25% ALL income each</b>. They never reset.</p>
-      <div class="ascend-bal"><i data-ico="gem"></i><b id="ascend-bal">0</b> ◈ cores</div>
+      <div class="card-head"><h2><i data-ico="gem"></i>Ascension</h2>
+        <div class="ascend-bal"><b id="ascend-bal">0</b> ◈ banked</div>
+        <button class="x" id="ascend-close">✕</button></div>
       <div id="ascend-body" class="ascend-body"></div>
-      <button class="big" id="ascend-back">DONE</button>
+      <!-- the verb lives in a pinned bar, not in the scroll: it was measured 108% of the way down the page -->
+      <div class="ax-dock"><button class="big asc-go" id="ascend-go">◈ ASCEND</button><button class="ax-done" id="ascend-back">DONE</button></div>
     </div>
   </div>
 
@@ -293,6 +294,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.56"></script>
+<script src="js/game.js?v=18.57"></script>
 </body>
 </html>

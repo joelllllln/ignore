@@ -41,9 +41,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #btn-ascend svg.ico{width:16px;height:16px}
 #btn-ascend.has{border-color:#7fb0e6;color:#cfe4ff;box-shadow:0 0 10px rgba(127,176,230,.45)}
 #version{top:calc(168px + env(safe-area-inset-top, 0px));right:calc(8px + env(safe-area-inset-right, 0px));width:46px;text-align:center;font:600 9px var(--mono);color:var(--dim);letter-spacing:.3px;opacity:.85;pointer-events:none}
-.ascend-bal{display:flex;align-items:center;gap:5px;font:700 15px var(--mono);color:#cfe4ff;margin-bottom:10px}
+.ascend-bal{margin-left:auto;margin-right:10px;font:700 13px var(--mono);color:#cfe4ff;white-space:nowrap}
 .ascend-bal svg.ico{width:16px;height:16px}
-.ascend-body{max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px}
+.ascend-body{margin-bottom:0}   /* v18.57: the CARD is the only scroller now, so .ax-dock can pin to its bottom edge */
 .perk-tier{margin-bottom:14px}
 .perk-tier-h{display:flex;justify-content:space-between;align-items:center;font:700 11px var(--mono);letter-spacing:1px;color:var(--dim);margin:0 0 6px}
 .perk-tier-h .locked{color:var(--warn);font-weight:700;letter-spacing:0}
@@ -749,3 +749,106 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
   .up.mile-ready .u-shine{opacity:.35}
 }
 
+
+
+/* ================= v18.57 THE ASCENSION PAGE — ONE SCREEN, ONE DECISION =================
+   The old page put four charts of equal weight above the one button it exists for, and the
+   button measured 108% of the way down the scroll. This is the hierarchy it should always
+   have had: the promise, the verdict, the trade, the sink — then the evidence, folded away.
+   Motion language deliberately echoes the upgrade milestones (brightness, scale, a travelling
+   sheen — never colour as the carrier), so the two juiciest moments in the game rhyme. */
+
+/* ── THE HERO: what you bank and what it turns your income into ── */
+.ax-hero{position:relative;overflow:hidden;border:1px solid var(--edge);border-radius:12px;
+  padding:14px 15px 13px;margin:2px 0 12px;background:rgba(255,255,255,.03);
+  display:flex;flex-direction:column;gap:3px}
+.ax-hero .ax-k{font:700 10px var(--mono);letter-spacing:.14em;color:var(--dim)}
+.ax-hero .ax-haul{font:800 40px var(--mono);line-height:1.02;color:#fff;letter-spacing:-.01em}
+.ax-gem{font-style:normal;font-size:.5em;margin-left:.22em;vertical-align:.42em;opacity:.85}
+.ax-xform{display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin-top:5px}
+.ax-from{font:700 17px var(--mono);color:var(--dim)}
+.ax-arrow{font:700 16px var(--mono);color:var(--dim)}
+.ax-to{font:800 24px var(--mono);color:#fff;text-shadow:0 0 16px rgba(255,255,255,.45)}
+.ax-xk{font:600 11px var(--mono);color:var(--dim)}
+.ax-verdict{margin-top:9px;padding-top:9px;border-top:1px solid var(--edge);
+  font:600 12px var(--mono);color:var(--sd);line-height:1.45}
+
+/* GO — the wall is here and hopping wins. The hero becomes the banner, with the same
+   travelling sheen the milestone rows use. */
+.ax-hero.go{border-color:rgba(255,255,255,.85);background:rgba(255,255,255,.06);
+  animation:axpulse 1.5s ease-in-out infinite}
+.ax-hero.go::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 34%,rgba(255,255,255,.16) 46%,
+    rgba(255,255,255,.46) 50%,rgba(255,255,255,.16) 54%,transparent 66%);
+  animation:mileshine 2.4s linear infinite}
+.ax-hero.go .ax-verdict{color:#fff}
+.ax-hero.none{opacity:.72}
+.ax-hero.none .ax-haul{color:var(--dim)}
+
+/* ── THE TRADE: the scariest question, side by side instead of a run-on sentence ── */
+.ax-trade{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.ax-col{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border-radius:10px;
+  border:1px solid var(--edge);background:rgba(255,255,255,.02);
+  font:600 11.5px var(--mono);color:var(--dim)}
+.ax-col-h{font:800 10px var(--mono);letter-spacing:.12em;margin-bottom:3px}
+.ax-col.lose .ax-col-h{color:var(--dim)}
+.ax-col.keep{border-color:rgba(207,228,255,.34);background:rgba(207,228,255,.05)}
+.ax-col.keep .ax-col-h,.ax-col.keep span{color:#cfe4ff}
+
+/* ── THE ENGINE: the one sink, as the next three concrete purchases ── */
+.ax-eng{border:1px solid var(--edge);border-radius:12px;padding:12px 13px;margin-bottom:12px;
+  background:rgba(255,255,255,.02)}
+.ax-eng-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.ax-eng-t{display:flex;align-items:center;gap:6px;font:800 11.5px var(--mono);letter-spacing:.08em;color:#fff}
+.ax-eng-t svg.ico{width:14px;height:14px;flex:0 0 auto}
+.ax-eng-lv{font:700 11px var(--mono);color:var(--dim);white-space:nowrap}
+.ax-eng-now{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.ax-eng-now b{font:800 26px var(--mono);color:#fff;line-height:1}
+.ax-eng-now span{font:600 11px var(--mono);color:var(--dim);flex:1 1 100%;line-height:1.45}
+.ax-steps{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.ax-step{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;
+  padding:5px 9px;border-radius:7px;border:1px solid var(--edge);background:rgba(255,255,255,.02);
+  font:700 11.5px var(--mono);color:var(--dim);opacity:.6}
+.ax-step.can{opacity:1;border-color:rgba(207,228,255,.42);color:#cfe4ff}
+.ax-step-c{text-align:left;color:var(--dim)}
+.ax-step.can .ax-step-c{color:#cfe4ff}
+.ax-step-x{color:#fff;font-weight:800}
+.ax-eng-sub{font:600 11px var(--mono);color:var(--dim);line-height:1.45;margin-bottom:8px}
+.ax-eng-sub b{color:#fff}
+.ax-buy{margin:0;font-size:13px;padding:11px;background:transparent;border:1px solid var(--edge);color:var(--text)}
+.ax-buy.hot{background:#cfe4ff;border-color:#cfe4ff;color:#000}
+.ax-buy:disabled{opacity:.38}
+
+/* ── THE EVIDENCE: same charts, folded away so they cannot outrank the verb ── */
+.ax-more{border:1px solid var(--edge);border-radius:10px;margin-bottom:8px;
+  background:rgba(255,255,255,.02);overflow:hidden}
+.ax-more>summary{cursor:pointer;list-style:none;padding:10px 12px;
+  font:700 11px var(--mono);letter-spacing:.09em;color:var(--sd);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px}
+.ax-more>summary::-webkit-details-marker{display:none}
+.ax-more>summary::after{content:"+";font:800 15px var(--mono);color:var(--dim);line-height:1}
+.ax-more[open]>summary::after{content:"–"}
+.ax-more>summary:hover{color:#fff}
+.ax-more>*:not(summary){padding:0 12px}
+.ax-more>*:last-child{padding-bottom:11px}
+.ax-more .av-bars,.ax-more .av-stack,.ax-more .av-legend,.ax-more .asc-chips{margin-bottom:8px}
+.ax-more .asc-how{margin-bottom:0}
+.ax-ladder{font-size:11px;line-height:1.5;margin:2px 0 0}
+
+/* ── THE PINNED ACTION BAR: the verb is never something you scroll to find ── */
+.ax-dock{position:sticky;bottom:0;z-index:2;margin:6px -18px -18px;padding:10px 18px 14px;
+  background:linear-gradient(to top,var(--panel) 74%,rgba(0,0,0,0));
+  display:flex;align-items:center;gap:8px}
+.ax-dock .asc-go{flex:1 1 auto;margin:0;min-width:0}
+.ax-dock .ax-done{flex:0 0 auto;background:transparent;border:1px solid var(--edge);color:var(--dim);
+  font:700 12px var(--mono);letter-spacing:.06em;padding:13px 14px;border-radius:2px;min-height:44px;cursor:pointer}
+.ax-dock .ax-done:hover{border-color:#fff;color:#fff}
+/* the ascend button goes loud only when the verdict says GO */
+#ascend .asc-go.hot{animation:axpulse 1.5s ease-in-out infinite}
+
+@keyframes axpulse{0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.42),0 0 14px rgba(255,255,255,.22)}
+                   50%{box-shadow:0 0 0 1px rgba(255,255,255,.92),0 0 30px rgba(255,255,255,.5)}}
+@media (prefers-reduced-motion:reduce){
+  .ax-hero.go,.ax-hero.go::after,#ascend .asc-go.hot{animation:none}
+  .ax-hero.go::after{opacity:.3}
+}
