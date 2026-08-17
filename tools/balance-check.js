@@ -32,9 +32,18 @@ let bad = 0;
 // ── PART 1: the classic runaway audit for the geometric costs ──
 function probe(id, effectKey, additive) {
   const read = lv => { S.lv[id] = lv; A.recompute(); return { eff: A.derived()[effectKey], cost: A.upCost(id) }; };
-  const a = read(4), b = read(5); S.lv[id] = 0; A.recompute();
-  const costMul = b.cost / a.cost;
-  const effMul = additive ? 1 : b.eff / a.eff;
+  // v18.56: measure across a WHOLE milestone leg, not two adjacent levels. Every economy stat now
+  // withholds MILE_SHARE of its growth and repays it in a lump every MILE_LEG legacy levels, so an
+  // adjacent-level sample reads either the shaved slope or the lump — never the real per-level rate.
+  // (It already read the lump before this change: Capacity showed ×3.09 and Value ×1.23, both of
+  // which are one leg's worth of growth wearing a single level's clothes.) Both endpoints here are
+  // milestones, where the curve is identical to the pre-milestone one, so the geometric mean over
+  // the leg IS the per-level growth this audit is asking about.
+  const LEG = SIM.MILE_LEG, a = read(SIM.rungLv(LEG)), b = read(SIM.rungLv(2 * LEG));
+  S.lv[id] = 0; A.recompute();
+  const per = 1 / LEG;   // in LEGACY levels — the unit the curve constants are written in
+  const costMul = Math.pow(b.cost / a.cost, per);
+  const effMul = additive ? 1 : Math.pow(b.eff / a.eff, per);
   return { costMul, effMul, ratio: costMul / effMul, additive };
 }
 const checks = [
