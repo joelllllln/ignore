@@ -47,7 +47,9 @@ const SCREENS = [
   { k: 'home',    open: async p => {} },
   { k: 'play',    open: async p => { await p.click('#home-play'); await p.waitForTimeout(350);
                                      await p.evaluate(() => { const t = document.querySelector('#tut-skip'); if (t) t.click(); }); } },
-  { k: 'defence', open: async p => { await p.evaluate(() => document.querySelector('.tab[data-tab="def"]').click()); } },
+  // v18.60: features are progressively revealed now, so unlock everything first — this tool is
+  // testing LAYOUT at full complexity, which is the harder case. tools/onboarding.js tests the gate.
+  { k: 'defence', open: async p => { await p.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); document.querySelector('.tab[data-tab="def"]').click(); }); } },
   { k: 'collect', open: async p => { await p.evaluate(() => document.querySelector('.tab[data-tab="drone"]').click()); } },
   { k: 'economy', open: async p => { await p.evaluate(() => document.querySelector('.tab[data-tab="eco"]').click()); } },
   { k: 'starmap', open: async p => { await p.evaluate(() => window.__IDS.setScreen('map')); await p.waitForTimeout(250); } },

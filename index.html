@@ -16,7 +16,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.59" />
+<link rel="stylesheet" href="style.css?v=18.60" />
 </head>
 <body>
 <div id="root">
@@ -88,6 +88,9 @@
       <span class="tslot"><button class="tab" data-tab="eco">ECONOMY</button></span>
       <button id="buymode" title="Buy amount">BUY ×1</button>
     </div>
+    <!-- v18.60: ONE current objective. A sandbox with 28 affordances and no sequence is what made
+         this game hard to pick up; a single "do this next" turns it into a chain. -->
+    <div id="objective"><span class="ob-t"></span><span class="ob-s"></span></div>
     <div id="up-list"></div>
     <div id="settle-panel" style="display:none"></div>
     <div id="actions">
@@ -124,15 +127,15 @@
         <li><i data-ico="turret"></i><b>Defenders</b> auto-fire at dots. Dots are TANKY — more damage = faster kills = more income, so your defenders &amp; their skill trees ARE your economy.</li>
         <li><i data-ico="shield"></i><b>Armored dots</b> (double-ringed) have huge defense and move slowly — they need real firepower but drop a big bounty, and their cash orbs are heavy &amp; slow, so you'll want stronger collectors.</li>
         <li><i data-ico="alien"></i>Every <b>planet has its own native enemy race</b> with a unique ability &amp; look — splitters that split again and again, shielded bastions, cloakers, teleporting wraiths, loot-eating devourers, minion-spawning broods and more. The tougher a dot, the more spikes &amp; rings it grows. Tap a planet on the map to see its native race.</li>
-        <li><i data-ico="planet"></i>The field has <b>no edges</b> — dots come in over the edge of your view, all the way around, and your army holds the middle. The field is the <b>whole screen</b>: the menu sits on top of it, so <b>Minimise</b> uncovers more of the same world rather than changing it. <b>Pinch</b> to zoom right out and see twice the field; nothing marks where it ends.</li>
+        <li><i data-ico="planet"></i>The field has <b>no edges</b> — dots come in over the edge of your view, all the way around, and your army holds the middle. The field is the <b>whole screen</b>: the menu sits on top of it, so <b>Minimise</b> uncovers more of the same planet rather than changing it. <b>Pinch</b> to zoom right out and see twice the field; nothing marks where it ends.</li>
         <li><i data-ico="gem"></i>Big kills drop <b>heavy loot</b> that a collector must sit and <b>consume</b> (watch the ring fill) — small dots are instant, fat ones tie a collector up.</li>
         <li><i data-ico="tree"></i><b>Tap any defender</b> (or hit ⬆ Tree) to open its <b>skill tree</b> — an interconnected node map. Allocate outward from the centre; each node needs a <b>connected</b> node first. Nodes <b>stack additively</b> (each adds a flat bonus that sums — linear, no runaway; early nodes feel strong, later ones taper), and ✦ <b>keystones</b> add multishot AND a crazy <b>weapon specialization</b> — ✦Explosive Rounds (bombs), ✦Chain Lightning, or ✦Piercing Laser. A whole <b>◈ Mind</b> branch upgrades the unit's <b>intelligence &amp; coordination</b> — smart units avoid overkill, don't both shoot the same doomed dot, and triage the most valuable targets, so no shot is wasted. Node prices grow with DEPTH — each ring outward costs more, but buying a node never raises any other node&#8217;s price, so any node you can afford is always a good buy. Every unit of that class shares the tree.</li>
         <li><i data-ico="collector"></i><b>Collectors</b> gather the cash dots drop. Buy more in the <b>COLLECTORS</b> tab and unlock new classes across all three systems: <b>Drone</b> → <b>Drone Swarm</b> → <b>Heavy Collector</b> → <b>Magnet</b> → <b>Tractor</b> → <b>Black Hole</b> → <b>Wormhole</b> (the last two slowly drag everything in). Each has its own skill web.</li>
-        <li><i data-ico="star4"></i><b>Conquer planets</b> to unlock <b>Travel</b> and add each world to your <b>idle empire</b> (it keeps earning for you forever, even offline). <b>Your whole army travels with you</b> — units, trees, upgrades and cash all carry forward; nothing restarts. Each new world's dots are tougher and richer, and every conquer bar takes roughly <b>×1.65 as long as the last</b>, so each campaign eventually slows into a wall. That's by design: it's your cue to <b>Ascend</b>. <b>Conquest rewards playing:</b> your empire banks cash around the clock (away a week, earn a week) and chips the conquer bar for you — but only at <b>20% of active pace</b>, so being at the controls is ~<b>5× faster</b> and no world falls while you're away.</li>
-      <li><i data-ico="castle"></i>A conquered world is <b>SETTLED — at peace, no more enemies</b>. It does <b>not</b> pay you rent for owning it: what it pays is a one-time pot of <b>⚑ victory spoils</b>, paid out fast while you're parked there (easily covers your next launch), and once that pot is spent the world is done paying. <b>Income comes from playing, never from holding</b> — the frontier is the only place money is made, and you can put a <b>⛏ ◈ CORE MINE</b> on it — and that comes with the world, because <b>filling the conquer bar does not take a planet, it earns you the right to fight for it</b>. At 100% the world is still contested: keep farming and banking as long as you like, and when you are ready the dock button reads <b>▲ SUMMON</b> and calls out that world&#8217;s own <b>▲ SEAM KEEPER</b>. <b>Every planet has a different one</b>, named and built from its native race&#8217;s tricks (brood-floods, reflecting shields, cloakers, blinkers, loot-eaters…). Beat it inside 60s and the planet is <b>yours</b> — the conquest plays out and its hoard <b>founds the ◈ core mine</b> on the spot. Lose and nothing is lost: the bar stays full, you keep farming, and you can call it out again as often as you like. <b>There is no way past the keeper</b> — no world is conquered, and no mine is ever founded, without beating it. Once built, the panel shows the mine at work with a countdown to the next ◈ — every mine digs on its <b>own independent timeline</b>, even while you're away — P1 pays <b>1◈ every couple of days</b> and each deeper mine runs ×1.3 faster, adding up to roughly <b>a quarter of the ◈ a run banks</b>. Conquering is still the main payday, but a well-built empire of mines is a real second stream.</li>
-      <li><i data-ico="gem"></i><b>ASCENSION</b> — the long game. Each planet's conquer bar takes ~<b>×1.65 as long</b> as the last, so every run eventually hits a <b>WALL</b>. Ascend — the game's ONLY reset: the cluster resets, every conquered planet banks a <b>handful of ◈ cores</b> (deeper = more), and cores buy one permanent thing — <b>the Singularity Engine: +25% ALL income per level</b> — that makes the next run <b>melt</b> your old territory. <b>THE LADDER:</b> hop at ~3 worlds on your first run, then ride every ascension a few worlds deeper — when the ◈ button burns <b>amber</b>, the wall is here and hopping beats grinding. Planet 18 is the summit of many ascensions.</li>
+        <li><i data-ico="star4"></i><b>Conquer planets</b> to unlock <b>Travel</b> and add each planet to your <b>idle empire</b> (it keeps earning for you forever, even offline). <b>Your whole army travels with you</b> — units, trees, upgrades and cash all carry forward; nothing restarts. Each new planet's dots are tougher and richer, and every conquer bar takes roughly <b>×1.65 as long as the last</b>, so each campaign eventually slows into a wall. That's by design: it's your cue to <b>Ascend</b>. <b>Conquest rewards playing:</b> your empire banks cash around the clock (away a week, earn a week) and chips the conquer bar for you — but only at <b>20% of active pace</b>, so being at the controls is ~<b>5× faster</b> and no planet falls while you're away.</li>
+      <li><i data-ico="castle"></i>A conquered planet is <b>SETTLED — at peace, no more enemies</b>. It does <b>not</b> pay you rent for owning it: what it pays is a one-time pot of <b>⚑ victory spoils</b>, paid out fast while you're parked there (easily covers your next launch), and once that pot is spent the planet is done paying. <b>Income comes from playing, never from holding</b> — the frontier is the only place money is made, and you can put a <b>⛏ ◈ CORE MINE</b> on it — and that comes with the planet, because <b>filling the conquer bar does not take a planet, it earns you the right to fight for it</b>. At 100% the planet is still contested: keep farming and banking as long as you like, and when you are ready the dock button reads <b>▲ SUMMON</b> and calls out that planet&#8217;s own <b>▲ SEAM KEEPER</b>. <b>Every planet has a different one</b>, named and built from its native race&#8217;s tricks (brood-floods, reflecting shields, cloakers, blinkers, loot-eaters…). Beat it inside 60s and the planet is <b>yours</b> — the conquest plays out and its hoard <b>founds the ◈ core mine</b> on the spot. Lose and nothing is lost: the bar stays full, you keep farming, and you can call it out again as often as you like. <b>There is no way past the keeper</b> — no planet is conquered, and no mine is ever founded, without beating it. Once built, the panel shows the mine at work with a countdown to the next ◈ — every mine digs on its <b>own independent timeline</b>, even while you're away — P1 pays <b>1◈ every couple of days</b> and each deeper mine runs ×1.3 faster, adding up to roughly <b>a quarter of the ◈ a run banks</b>. Conquering is still the main payday, but a well-built empire of mines is a real second stream.</li>
+      <li><i data-ico="gem"></i><b>ASCENSION</b> — the long game. Each planet's conquer bar takes ~<b>×1.65 as long</b> as the last, so every run eventually hits a <b>WALL</b>. Ascend — the game's ONLY reset: the cluster resets, every conquered planet banks a <b>handful of ◈ cores</b> (deeper = more), and cores buy one permanent thing — <b>the Singularity Engine: +25% ALL income per level</b> — that makes the next run <b>melt</b> your old territory. <b>THE LADDER:</b> hop at ~3 planets on your first run, then ride every ascension a few planets deeper — when the ◈ button burns <b>amber</b>, the wall is here and hopping beats grinding. Planet 18 is the summit of many ascensions.</li>
         <li><i data-ico="coin"></i><b>ECONOMY</b> tab boosts cash value, spawn rate, capacity &amp; luck. Every level is <b>one continuous ladder for the whole campaign</b> — nothing resets between planets; each level simply costs more than the last, and only <b>Ascension</b> starts the ladder fresh.</li>
-        <li><i data-ico="planet"></i>Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for serious money: a fresh world greets you with <b>few but genuinely tough dots dropping fat bounties</b> — and the field grows thicker and meaner as your conquest advances. Tough fields pay a <b>premium</b>, so pushing the bar is always where the money is.</li>
+        <li><i data-ico="planet"></i>Tap the <b>planet bar</b> (top) for the star map — <b>three solar systems</b> of planets. Travel to new planets for serious money: a fresh planet greets you with <b>few but genuinely tough dots dropping fat bounties</b> — and the field grows thicker and meaner as your conquest advances. Tough fields pay a <b>premium</b>, so pushing the bar is always where the money is.</li>
         <li><i data-ico="brush"></i><b>Draw across the field</b> to blast dots yourself — finger kills <b>CHAIN into a COMBO</b>: the quicker you kill, the bigger the bounty multiplier, up to <b>×5</b> (stop slashing and it drains away). Your draw also hits <b>mini-bosses for DOUBLE</b>, so actively drawing is how you seal a boss kill before its timer runs out.</li>
       </ul>
       <button class="big" id="how-back">BACK</button>
@@ -229,7 +232,7 @@
   <div id="victory" class="modal">
     <div class="card">
       <div class="card-head"><h2>★ CLUSTER CONQUERED</h2></div>
-      <p class="vic-sub">All <b>18 worlds</b> are yours.</p>
+      <p class="vic-sub">All <b>18 planets</b> are yours.</p>
       <div id="victory-stats" class="vic-stats"></div>
       <p class="muted">The cluster keeps earning for you forever — and Ascension still banks ◈ cores if you want to run it back even harder.</p>
       <button class="big" id="victory-ok">KEEP PLAYING</button>
@@ -270,6 +273,9 @@
     </div>
   </div>
 
+  <!-- v18.60 JUST-IN-TIME COACH: one line, fired the first time a system becomes relevant -->
+  <div id="coach" class="layer"></div>
+
   <!-- FIRST-RUN COACH MARKS -->
   <div id="tutorial">
     <div id="tut-spot"></div>
@@ -294,6 +300,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.59"></script>
+<script src="js/game.js?v=18.60"></script>
 </body>
 </html>

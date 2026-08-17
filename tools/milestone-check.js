@@ -114,8 +114,11 @@ const pad = (s, n) => String(s).padStart(n);
     await page.click('#home-play'); await page.waitForTimeout(350);
     await page.evaluate(() => { const t = document.querySelector('#tut-skip'); if (t) t.click(); });
     await page.waitForTimeout(200);
-    // the dock opens on DEFENCE — the economy rows do not exist until that tab is picked
-    await page.evaluate(() => { const t = [...document.querySelectorAll('#tabs button')].find(x => /ECONOMY/i.test(x.textContent)); if (t) t.click(); });
+    // the dock opens on DEFENCE — the economy rows do not exist until that tab is picked, and since
+    // v18.60 the ECONOMY tab itself is hidden on a virgin save until a squad exists (progressive
+    // reveal). This tool is testing the milestone system at full complexity, so unlock first.
+    await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD();
+      const t = [...document.querySelectorAll('#tabs button')].find(x => /ECONOMY/i.test(x.textContent)); if (t) t.click(); });
     await page.waitForTimeout(250);
 
     const res = await page.evaluate(({ ids, LABEL }) => {
