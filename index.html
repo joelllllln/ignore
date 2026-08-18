@@ -16,7 +16,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.65" />
+<link rel="stylesheet" href="style.css?v=18.66" />
 </head>
 <body>
 <div id="root">
@@ -98,6 +98,19 @@
       <button class="act travel" id="btn-travel">TRAVEL ▸</button>
     </div>
   </div>
+
+  <!-- v18.66 PERSISTENT BOTTOM NAV (owner: "make the game like cookie clicker — different
+       menus/screens rather than small buttons on 1 main screen"). Measured before: thirteen screens
+       existed and every one of them was reached from a 46px UNLABELLED corner icon, a tap on the
+       planet bar with no affordance, or a button buried inside a shop row. These are the game's
+       destinations, at thumb size, with their names on them. -->
+  <nav id="nav" class="layer">
+    <button class="nv sel" data-nav="play"><i data-ico="turret"></i><span>PLAY</span></button>
+    <button class="nv" data-nav="map"><i data-ico="planet"></i><span>PLANETS</span></button>
+    <button class="nv" data-nav="ascend"><i data-ico="gem"></i><span>ASCEND</span><b class="nv-b" id="nv-asc"></b></button>
+    <button class="nv" data-nav="stats"><i data-ico="chart"></i><span>STATS</span></button>
+    <button class="nv" data-nav="more"><i data-ico="menu"></i><span>MORE</span></button>
+  </nav>
 
   <!-- HOME SCREEN -->
   <div id="home" class="modal show">
@@ -252,7 +265,6 @@
   </div>
 
   <!-- METRICS -->
-  <button id="btn-metrics" class="layer" title="Metrics">▁▄█</button>
   <div id="metrics" class="modal">
     <div class="card">
       <div class="card-head"><h2>Metrics</h2><button class="x" id="metrics-close">✕</button></div>
@@ -289,7 +301,6 @@
   </div>
 
   <!-- MENU -->
-  <button id="btn-menu" class="layer"><i data-ico="menu"></i></button>
   <div id="menu" class="modal">
     <div class="card">
       <div class="card-head"><h2>Idle Dot Shooter</h2><button class="x" id="menu-close">✕</button></div>
@@ -301,6 +312,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.65"></script>
+<script src="js/game.js?v=18.66"></script>
 </body>
 </html>

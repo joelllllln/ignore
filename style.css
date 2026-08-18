@@ -162,7 +162,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .met-empty{color:var(--dim);font-size:12px}
 
 /* dock */
-#dock{left:0;right:0;bottom:0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.96) 20%);padding:6px 8px calc(8px + env(safe-area-inset-bottom, 0px))}   /* v16.6: viewport-fit=cover means the dock reaches under the iPhone home indicator — pad past it */
+#dock{left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));background:linear-gradient(180deg,transparent,rgba(0,0,0,.96) 20%);padding:6px 8px calc(8px + env(safe-area-inset-bottom, 0px))}   /* v16.6: viewport-fit=cover means the dock reaches under the iPhone home indicator — pad past it */
 #dock-toggle{text-align:center;color:var(--dim);font-size:12px;font-weight:700;letter-spacing:1px;padding:5px;cursor:pointer;
   border:1px solid var(--edge);border-radius:8px;margin-bottom:6px;background:var(--panel)}
 #dock.min #abilities,#dock.min #tabs,#dock.min #up-list,#dock.min #actions,#dock.min #settle-panel,#dock.min #objective{display:none}   /* v18.62: the objective is dock furniture too — Minimise must take it with the rest */
@@ -664,7 +664,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .u-info{min-height:28px}
 /* the dock never eats the whole screen: it is a column with a hard ceiling, and only the scrolling
    upgrade list gives way — so the tabs, the buy rows and LAUNCH are always reachable */
-#dock{display:flex;flex-direction:column;max-height:72vh;overflow:hidden}   /* overflow:hidden is what ENFORCES the ceiling — without it the rows just spilled past the screen bottom */
+#dock{display:flex;flex-direction:column;max-height:64vh;overflow:hidden}   /* v18.66: the nav bar took the bottom 58px, so the ceiling comes down with it */   /* overflow:hidden is what ENFORCES the ceiling — without it the rows just spilled past the screen bottom */
 #up-list{flex:1 1 0;min-height:0}          /* basis 0: the list takes only LEFTOVER space, so the tabs and the LAUNCH row are never pushed off a short screen */
 .ab{min-height:40px}
 /* narrow phones: tighten the tab row instead of overflowing it */
@@ -984,3 +984,45 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
 @keyframes stagepulse{0%,100%{box-shadow:0 0 0 1px rgba(255,179,92,.5),0 0 18px rgba(255,179,92,.3)}
                       50%{box-shadow:0 0 0 1px rgba(255,179,92,1),0 0 40px rgba(255,179,92,.65)}}
 @media (prefers-reduced-motion:reduce){ #btn-ascend.stage{animation:none} }
+
+
+/* ═══════ v18.66 THE NAV — destinations, not corner icons ═══════
+   Thirteen screens existed and every one was reached from a 46px unlabelled corner icon, a "▁▄█"
+   glyph, a "+0" chip that never said ASCENSION, or a tap on the planet bar with no affordance. The
+   bar is persistent, sits ABOVE modals so switching is one tap from anywhere, and every item is a
+   full-width thumb target WITH ITS NAME ON IT. */
+:root{--nav-h:58px}
+#nav{left:0;right:0;bottom:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+  display:flex;align-items:stretch;z-index:40;
+  background:rgba(8,8,8,.97);border-top:1px solid var(--edge);backdrop-filter:blur(6px)}
+.nv{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;background:none;border:none;color:var(--dim);cursor:pointer;
+  font:700 9px var(--mono);letter-spacing:.07em;padding:6px 2px;
+  -webkit-tap-highlight-color:transparent;transition:color .16s ease}
+.nv svg.ico{width:19px;height:19px;flex:0 0 auto}
+.nv span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.nv:hover{color:#fff}
+.nv.sel{color:#fff}
+/* the selected item gets a bar, not a colour — same monochrome rule as everything else */
+.nv.sel::before{content:"";position:absolute;top:0;left:22%;right:22%;height:2px;background:#fff;
+  border-radius:0 0 2px 2px;box-shadow:0 0 10px rgba(255,255,255,.7)}
+.nv.locked{opacity:.32;pointer-events:none}   /* progressive reveal reaches the nav too */
+
+/* the pending-◈ badge: the offer is readable from every screen, not just the field */
+.nv-b{display:none;position:absolute;top:3px;right:calc(50% - 26px);
+  font:800 9px var(--mono);letter-spacing:0;color:#000;background:#cfe4ff;
+  border-radius:9px;padding:1px 5px;line-height:1.35}
+.nv-b.on{display:block}
+.nv-b.hot{background:#ffb35c;animation:navhot 1.4s ease-in-out infinite}
+@keyframes navhot{0%,100%{box-shadow:0 0 0 0 rgba(255,179,92,.6)}50%{box-shadow:0 0 0 6px rgba(255,179,92,0)}}
+@media (prefers-reduced-motion:reduce){ .nv-b.hot{animation:none} }
+
+/* modals must not hide behind the bar */
+.modal{padding-bottom:calc(16px + var(--nav-h) + env(safe-area-inset-bottom, 0px))}
+/* a short landscape screen cannot spare 58px of height — go compact, icons only */
+@media (max-height:560px){
+  :root{--nav-h:44px}
+  .nv span{display:none}
+  .nv svg.ico{width:20px;height:20px}
+}

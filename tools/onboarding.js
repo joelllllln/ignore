@@ -44,6 +44,14 @@
 //   T6  the spotlight TRACKS its target — it used to be positioned once at render(), so a reveal
 //       firing mid-tutorial reflowed the dock and left the ring pointing at empty space
 //
+//   --- v18.66, the nav: screens instead of corner icons ---
+//   N1  five destinations exist and each shows its NAME, not just an icon (on a normal phone)
+//   N2  every nav item clears the tap floor on both axes
+//   N3  each destination actually opens its screen
+//   N4  the nav stays ABOVE an open modal, so switching screens is one tap from anywhere
+//   N5  ASCEND is inert until a core is pending, then carries the pending count as a badge
+//   N6  the old corner icons (#btn-menu, #btn-metrics) are gone — not merely hidden
+//
 //   node tools/onboarding.js
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
 const { chromium } = requirePlaywright();
@@ -58,7 +66,10 @@ const visibleControls = () => {
   const vis = el => { const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     return r.width > 1 && r.height > 1 && s.visibility !== 'hidden' && s.display !== 'none' && +s.opacity > 0.05
       && r.top < innerHeight && r.bottom > 0 && r.left < innerWidth && r.right > 0; };
-  return [...document.querySelectorAll('#root button, #root .tab, #root .ab')].filter(vis);
+  // #nav excluded deliberately: O1 is about CROWDING on the play surface, and the nav is five
+  // labelled persistent destinations — the cure for that crowding. N1/N2 gate the nav on its own terms.
+  return [...document.querySelectorAll('#root button, #root .tab, #root .ab')]
+    .filter(e => !e.closest('#nav')).filter(vis);
 };
 
 (async () => {
@@ -88,7 +99,10 @@ const visibleControls = () => {
       const vis = sel => { const e = document.querySelector(sel); if (!e) return false;
         return getComputedStyle(e.closest('.tslot') || e).display !== 'none'; };
       return { loaded: I.S().peakGalaxy, keys: ['collect', 'tree', 'eco', 'abil', 'ascend'].filter(k => I.revealed(k)),
-        collectTab: vis('.tab[data-tab="drone"]'), abil: vis('#abilities'), ascend: vis('#btn-ascend') };
+        collectTab: vis('.tab[data-tab="drone"]'), abil: vis('#abilities'),
+        // v18.66: the corner #btn-ascend is now ONLY the centre-stage wall badge. A veteran's route
+        // to ascension is the nav, so that is what must not be locked away from them.
+        ascend: !document.querySelector('#nav .nv[data-nav="ascend"]').classList.contains('locked') };
     });
     const f = [];
     if (vet.loaded !== 4) f.push('the planted veteran save did not load (peakGalaxy ' + vet.loaded + ')');
@@ -101,6 +115,75 @@ const visibleControls = () => {
     bad += f.length;
     console.log('  ' + 'veteran save (pre-v18.60)'.padEnd(24) + 'P' + vet.loaded + '  revealed ' + vet.keys.length + '/5' +
       '  tabs ' + (vet.collectTab ? 'y' : 'N') + ' abil ' + (vet.abil ? 'y' : 'N') + ' ascend ' + (vet.ascend ? 'y' : 'N'));
+    f.forEach(x => console.log('      <-- ' + x));
+    await page.close();
+  }
+
+  // ── N1-N6: the nav ───────────────────────────────────────────────────────────────────────────
+  {
+    const page = await (await browser.newContext({ viewport: { width: 430, height: 932 } })).newPage();
+    const errs = []; page.on('pageerror', e => errs.push(String(e).slice(0, 160)));
+    await page.goto(URL, { waitUntil: 'load' });
+    await page.waitForFunction('!!window.__IDS');
+    await page.click('#home-play'); await page.waitForTimeout(600);
+    await page.evaluate(() => { const t = document.querySelector('#tut-skip'); if (t) t.click(); });
+    await page.waitForTimeout(400);
+    const f = [];
+
+    const base = await page.evaluate(() => {
+      const items = [...document.querySelectorAll('#nav .nv')].map(b => {
+        const r = b.getBoundingClientRect(), sp = b.querySelector('span');
+        return { key: b.dataset.nav, w: Math.round(r.width), h: Math.round(r.height),
+          name: sp && getComputedStyle(sp).display !== 'none' ? sp.textContent.trim() : '',
+          locked: b.classList.contains('locked') };
+      });
+      return { items, corners: !!document.querySelector('#btn-menu') || !!document.querySelector('#btn-metrics'),
+        ascLocked: (items.find(i => i.key === 'ascend') || {}).locked };
+    });
+    if (base.items.length !== 5) f.push('nav has ' + base.items.length + ' destinations, want 5');
+    for (const it of base.items) {
+      if (!it.name) f.push(it.key + ' has no visible name — icon only');
+      if (Math.min(it.w, it.h) < 28) f.push(it.key + ' tap target ' + it.w + 'x' + it.h);
+    }
+    if (base.corners) f.push('the old corner icons still exist in the DOM');
+    if (!base.ascLocked) f.push('ASCEND is live on a virgin save with nothing pending');
+
+    // N3/N4 — every destination opens, and the nav stays reachable on top of it
+    const dest = { map: '#galaxy-map', stats: '#metrics', more: '#menu', ascend: '#ascend' };
+    const opened = {};
+    await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });   // unlock ASCEND
+    for (const [k, sel] of Object.entries(dest)) {
+      await page.click('#nav .nv[data-nav="' + k + '"]'); await page.waitForTimeout(320);
+      const r = await page.evaluate(s2 => {
+        const m = document.querySelector(s2), nav = document.querySelector('#nav');
+        const nr = nav.getBoundingClientRect();
+        const zTop = +getComputedStyle(nav).zIndex >= +getComputedStyle(m).zIndex;
+        // is the nav actually clickable, or is the modal painted over it?
+        const mid = document.elementFromPoint(nr.left + nr.width * 0.1, nr.top + nr.height / 2);
+        return { open: !!m && m.classList.contains('show'), zTop, hitsNav: !!(mid && mid.closest('#nav')) };
+      }, sel);
+      opened[k] = r.open;
+      if (!r.open) f.push('nav ' + k + ' did not open ' + sel);
+      if (!r.zTop || !r.hitsNav) f.push('the nav is not tappable over ' + sel + ' (z ' + r.zTop + ', hit ' + r.hitsNav + ')');
+      await page.click('#nav .nv[data-nav="play"]'); await page.waitForTimeout(220);
+    }
+    // N5 — the pending badge
+    const badge = await page.evaluate(() => {
+      const I = window.__IDS, S = I.S();
+      S.vault = { 1: { conquered: true }, 2: { conquered: true } }; I.recompute(); I.syncHUD();
+      const b2 = document.querySelector('#nv-asc');
+      return { pend: I.pendingCores(), txt: (b2 || {}).textContent || '', on: !!(b2 && b2.classList.contains('on')) };
+    });
+    if (badge.pend > 0 && !badge.on) f.push('ASCEND badge not shown with ' + badge.pend + ' pending');
+    if (badge.pend > 0 && !badge.txt.includes(String(badge.pend))) f.push('ASCEND badge reads "' + badge.txt + '", pending is ' + badge.pend);
+
+    if (errs.length) f.push('page errors: ' + errs.join(' | '));
+    bad += f.length;
+    console.log('  ' + 'nav'.padEnd(24) + base.items.length + ' dests [' + base.items.map(i => i.name || i.key + '?').join(' ') + ']' +
+      '  opens ' + Object.entries(opened).filter(([, v]) => v).length + '/' + Object.keys(dest).length +
+      '  corners-gone ' + (base.corners ? 'NO' : 'y') +
+      '  asc-locked-at-start ' + (base.ascLocked ? 'y' : 'N') +
+      '  badge ' + (badge.on ? '"' + badge.txt + '"' : 'off'));
     f.forEach(x => console.log('      <-- ' + x));
     await page.close();
   }
