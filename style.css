@@ -96,7 +96,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #core-pop.show{transform:translateY(0);opacity:1}
 .cp-card{margin-top:112px;display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid rgba(255,255,255,.45);border-radius:14px;
   padding:12px 20px;text-align:left;box-shadow:0 10px 40px rgba(0,0,0,.6),0 0 24px rgba(255,255,255,.12);min-width:250px}
-.cp-gem{font-size:30px;color:#fff;text-shadow:0 0 14px rgba(255,255,255,.8);animation:cpspin 2.2s ease-in-out infinite}
+.cp-gem{display:flex;align-items:center;justify-content:center;color:#fff;animation:cpspin 2.2s ease-in-out infinite;
+  filter:drop-shadow(0 0 10px rgba(255,255,255,.75))}   /* v18.63: the same kite the award animation draws, not the ◈ glyph */
+.cp-gem svg.ico{width:30px;height:30px;stroke-width:1.6}
 @keyframes cpspin{0%,100%{transform:scale(1)}50%{transform:scale(1.18) rotate(12deg)}}
 .cp-n{font-family:var(--mono);font-weight:800;font-size:17px;letter-spacing:1px;color:#fff}
 .cp-src{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--sd);margin-top:3px}
@@ -780,7 +782,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
   display:flex;flex-direction:column;gap:3px}
 .ax-hero .ax-k{font:700 10px var(--mono);letter-spacing:.14em;color:var(--dim)}
 .ax-hero .ax-haul{font:800 40px var(--mono);line-height:1.02;color:#fff;letter-spacing:-.01em}
-.ax-gem{font-style:normal;font-size:.5em;margin-left:.22em;vertical-align:.42em;opacity:.85}
+svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opacity:.9;stroke-width:2.2}   /* v18.63: icon, not glyph — one silhouette for the currency */
 .ax-xform{display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin-top:5px}
 .ax-from{font:700 17px var(--mono);color:var(--dim)}
 .ax-arrow{font:700 16px var(--mono);color:var(--dim)}
