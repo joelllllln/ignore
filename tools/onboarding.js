@@ -55,6 +55,9 @@
 //   N4  the nav stays ABOVE an open modal, so switching screens is one tap from anywhere
 //   N5  ASCEND is inert until a core is pending, then carries the pending count as a badge
 //   N6  the old corner icons (#btn-menu, #btn-metrics) are gone — not merely hidden
+//   N9  the three POWERS are a permanent tier of the menu (v18.69): present AND tappable on every
+//       destination, and firing one from a non-PLAY screen really starts its cooldown. They used to
+//       live in the PLAY dock, so opening the shop or the star map took them away entirely.
 //
 //   node tools/onboarding.js
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
@@ -185,6 +188,30 @@ const visibleControls = () => {
       if (!r.zTop || !r.hitsNav) f.push('the nav is not tappable over ' + sel + ' (z ' + r.zTop + ', hit ' + r.hitsNav + ')');
       await page.click('#nav .nv[data-nav="play"]'); await page.waitForTimeout(220);
     }
+    // N9 — the powers, on every screen, actually pressable
+    await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });
+    let powBad = 0, powWhere = [];
+    for (const k of ['play', 'upgrades', 'map', 'ascend', 'more']) {
+      await page.evaluate(kk => window.__IDS.navGo(kk), k); await page.waitForTimeout(260);
+      const st = await page.evaluate(() => ['ab-frenzy', 'ab-dotrain', 'ab-blackhole'].map(id => {
+        const e = document.getElementById(id); if (!e) return 'missing';
+        const q = e.getBoundingClientRect(), cs = getComputedStyle(e);
+        if (!(q.width > 1 && q.height > 1 && cs.display !== 'none' && +cs.opacity > 0.05)) return 'hidden';
+        const hit = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+        return hit && e.contains(hit) ? 'ok' : 'blocked';
+      }));
+      const bad2 = st.filter(x => x !== 'ok');
+      if (bad2.length) { powBad += bad2.length; powWhere.push(k + ':' + bad2.join('/')); }
+    }
+    if (powBad) f.push('powers not usable on every screen — ' + powWhere.join(', '));
+    // ...and one must actually FIRE from a screen that is not PLAY
+    await page.evaluate(() => window.__IDS.navGo('upgrades')); await page.waitForTimeout(260);
+    const cdBefore = await page.evaluate(() => window.__IDS.abil().frenzy);
+    await page.click('#ab-frenzy'); await page.waitForTimeout(280);
+    const cdAfter = await page.evaluate(() => window.__IDS.abil().frenzy);
+    if (!(cdAfter > cdBefore)) f.push('firing a power from the UPGRADES screen did nothing');
+    await page.evaluate(() => window.__IDS.navGo('play')); await page.waitForTimeout(200);
+
     // N5 — the pending badge
     const badge = await page.evaluate(() => {
       const I = window.__IDS, S = I.S();
@@ -201,7 +228,8 @@ const visibleControls = () => {
       '  opens ' + Object.entries(opened).filter(([, v]) => v).length + '/' + Object.keys(dest).length +
       '  corners-gone ' + (base.corners ? 'NO' : 'y') +
       '  asc-locked-at-start ' + (base.ascLocked ? 'y' : 'N') +
-      '  badge ' + (badge.on ? '"' + badge.txt + '"' : 'off'));
+      '  badge ' + (badge.on ? '"' + badge.txt + '"' : 'off') +
+      '  powers ' + (powBad ? 'BROKEN' : 'all 5 screens'));
     f.forEach(x => console.log('      <-- ' + x));
     await page.close();
   }

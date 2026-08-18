@@ -16,7 +16,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.68" />
+<link rel="stylesheet" href="style.css?v=18.69" />
 </head>
 <body>
 <div id="root">
@@ -87,11 +87,6 @@
   <!-- BOTTOM DOCK -->
   <div id="dock" class="layer">
     <div id="dock-toggle">▾ Minimise</div>
-    <div id="abilities">
-      <button class="ab" id="ab-frenzy"><i class="ab-i" data-info="frenzy">i</i><span class="ab-g"><i data-ico="bolt"></i></span><span class="ab-n">FRENZY</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
-      <button class="ab" id="ab-dotrain"><i class="ab-i" data-info="dotrain">i</i><span class="ab-g"><i data-ico="rain"></i></span><span class="ab-n">DOT RAIN</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
-      <button class="ab" id="ab-blackhole"><i class="ab-i" data-info="blackhole">i</i><span class="ab-g"><i data-ico="blackhole"></i></span><span class="ab-n">BLACK HOLE</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
-    </div>
     <div id="settle-panel" style="display:none"></div>
     <div id="actions">
       <button class="act" id="btn-auto"><i data-ico="gear"></i>AUTO</button>
@@ -124,12 +119,23 @@
     </div>
   </div>
 
+  <!-- v18.69: the three POWERS are a permanent tier of the menu (owner: "the 3 powers should be
+       integrated as a permanent part of the menu"). They used to live in the PLAY dock, which meant
+       they vanished the moment you opened the shop or the star map — you could not fire a Black Hole
+       while spending your money. They sit above the destinations now, on every screen. -->
   <nav id="nav" class="layer">
+  <div id="abilities">
+  <button class="ab" id="ab-frenzy"><i class="ab-i" data-info="frenzy">i</i><span class="ab-g"><i data-ico="bolt"></i></span><span class="ab-n">FRENZY</span><span class="ab-s" id="s-frenzy"></span><span class="ab-cd" id="cd-frenzy"></span></button>
+  <button class="ab" id="ab-dotrain"><i class="ab-i" data-info="dotrain">i</i><span class="ab-g"><i data-ico="rain"></i></span><span class="ab-n">DOT RAIN</span><span class="ab-s" id="s-dotrain"></span><span class="ab-cd" id="cd-dotrain"></span></button>
+  <button class="ab" id="ab-blackhole"><i class="ab-i" data-info="blackhole">i</i><span class="ab-g"><i data-ico="blackhole"></i></span><span class="ab-n">BLACK HOLE</span><span class="ab-s" id="s-blackhole"></span><span class="ab-cd" id="cd-blackhole"></span></button>
+  </div>
+    <div class="nav-dest">
     <button class="nv" data-nav="map"><i data-ico="planet"></i><span>PLANETS</span></button>
     <button class="nv" data-nav="upgrades"><i data-ico="coin"></i><span>UPGRADES</span><b class="nv-b" id="nv-up"></b></button>
     <button class="nv sel nv-mid" data-nav="play"><i data-ico="turret"></i><span>PLAY</span></button>
     <button class="nv" data-nav="ascend"><i data-ico="gem"></i><span>ASCEND</span><b class="nv-b" id="nv-asc"></b></button>
     <button class="nv" data-nav="more"><i data-ico="menu"></i><span>MORE</span></button>
+    </div>
   </nav>
 
   <!-- HOME SCREEN -->
@@ -333,6 +339,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.68"></script>
+<script src="js/game.js?v=18.69"></script>
 </body>
 </html>

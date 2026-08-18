@@ -83,7 +83,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 @keyframes affordpulse{0%,100%{box-shadow:0 0 6px rgba(255,255,255,.25)}50%{box-shadow:0 0 13px rgba(255,255,255,.6)}}
 
 /* info buttons */
-.u-info{flex:0 0 auto;width:28px;height:28px;border-radius:50%;   /* v18.55: was 26px — under the tap-target floor on every device */background:rgba(255,255,255,.08);border:1px solid var(--edge);
+.u-info{flex:0 0 auto;width:30px;height:30px;min-width:30px;min-height:30px;box-sizing:border-box;border-radius:50%;   /* v18.69: was exactly 28 — the tap FLOOR — so any sub-pixel rounding on a tablet put it at 27 and under. 30 with explicit minimums leaves rounding somewhere to go. */   /* v18.55: was 26px — under the tap-target floor on every device */background:rgba(255,255,255,.08);border:1px solid var(--edge);
   color:var(--text);font-family:var(--mono);font-style:italic;font-weight:700;font-size:13px;margin-right:6px;line-height:1}
 .u-info:hover{border-color:#fff}
 .si-info{width:17px;height:17px;font-size:10px;margin:0 0 0 5px;vertical-align:middle;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -661,7 +661,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 #buymode{flex:0 0 auto;min-width:44px;white-space:nowrap;min-height:40px}   /* v18.55: min-width:0 let this collapse to a 21px sliver on a 280px-wide Fold — the tabs beside it have flex:1 and give ground instead */
 .act{min-height:44px}                      /* LAUNCH / TRAVEL is the primary action — full thumb target */
 .u-buy,.u-up{min-height:36px}
-.u-info{min-height:28px}
+.u-info{min-height:30px}
 /* the dock never eats the whole screen: it is a column with a hard ceiling, and only the scrolling
    upgrade list gives way — so the tabs, the buy rows and LAUNCH are always reachable */
 #dock{display:flex;flex-direction:column;max-height:64vh;overflow:hidden}   /* v18.66: the nav bar took the bottom 58px, so the ceiling comes down with it */   /* overflow:hidden is what ENFORCES the ceiling — without it the rows just spilled past the screen bottom */
@@ -1109,3 +1109,37 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
 /* the dock is PLAY furniture, and with abilities not yet revealed and no action to take it was
    left holding nothing but its own "Minimise" toggle. An empty container should not be on screen. */
 #dock.empty{display:none !important}
+
+
+/* ═══════ v18.69 — THE POWERS ARE PART OF THE MENU ═══════
+   They lived in the PLAY dock, so they vanished the moment you opened the shop or the star map —
+   you could not fire a Black Hole while spending your money. The nav is two tiers now: powers on
+   top, destinations underneath, both permanent and both reachable from every screen. */
+#nav{flex-direction:column;height:auto;padding:0 0 env(safe-area-inset-bottom, 0px)}
+#nav #abilities{display:grid;grid-template-columns:repeat(3,1fr);gap:0;width:100%;
+  border-bottom:1px solid var(--edge);background:rgba(255,255,255,.02)}
+#nav .nav-dest{display:flex;align-items:stretch;width:100%}
+
+/* the power tiles, sized for a menu tier rather than a dock panel */
+#nav .ab{border:none;border-radius:0;background:none;min-height:52px;
+  padding:7px 3px 6px;gap:3px}
+#nav .ab + .ab{border-left:1px solid var(--edge)}
+#nav .ab .ab-g svg.ico{width:23px;height:23px}
+#nav .ab .ab-n{font-size:8.5px}
+#nav .ab .ab-i{top:2px;left:3px;font-size:9px;width:15px;height:15px;line-height:15px}
+#nav .ab .ab-s{top:3px;right:5px;font-size:9px}
+#nav .ab .ab-cd{bottom:0}
+
+@media (max-height:560px){
+  #nav .ab{min-height:38px;padding:4px 2px}
+  #nav .ab .ab-g svg.ico{width:19px;height:19px}
+  #nav .ab .ab-n{display:none}
+}
+
+/* v18.69: widening .u-info from 28 to 30 (to survive tablet rounding) cost 2px on the narrowest
+   phone and tipped the Capacity row's text into clipping at 280px. Reclaim it from the gaps, which
+   have slack, rather than from the tap target, which does not. */
+@media (max-width:300px){
+  .up{gap:6px;padding-left:9px;padding-right:9px}
+  .up .u-name{font-size:13px}
+}
