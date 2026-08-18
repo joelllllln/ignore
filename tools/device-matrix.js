@@ -49,9 +49,9 @@ const SCREENS = [
                                      await p.evaluate(() => { const t = document.querySelector('#tut-skip'); if (t) t.click(); }); } },
   // v18.60: features are progressively revealed now, so unlock everything first — this tool is
   // testing LAYOUT at full complexity, which is the harder case. tools/onboarding.js tests the gate.
-  { k: 'defence', open: async p => { await p.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); document.querySelector('.tab[data-tab="def"]').click(); }); } },
-  { k: 'collect', open: async p => { await p.evaluate(() => document.querySelector('.tab[data-tab="drone"]').click()); } },
-  { k: 'economy', open: async p => { await p.evaluate(() => document.querySelector('.tab[data-tab="eco"]').click()); } },
+  { k: 'defence', open: async p => { await p.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); window.__IDS.navGo('upgrades');   /* v18.67: the shop is its own screen now */ document.querySelector('.tab[data-tab="def"]').click(); }); } },
+  { k: 'collect', open: async p => { await p.evaluate(() => { window.__IDS.navGo('upgrades'); document.querySelector('.tab[data-tab="drone"]').click(); }); } },
+  { k: 'economy', open: async p => { await p.evaluate(() => { window.__IDS.navGo('upgrades'); document.querySelector('.tab[data-tab="eco"]').click(); }); } },
   { k: 'starmap', open: async p => { await p.evaluate(() => window.__IDS.setScreen('map')); await p.waitForTimeout(250); } },
   { k: 'tree',    open: async p => { await p.evaluate(() => { window.__IDS.setScreen('play'); window.__IDS.openSkillTree('turret'); }); await p.waitForTimeout(300); } },
   { k: 'ascend',  open: async p => { await p.evaluate(() => { window.__IDS.setScreen('play'); window.__IDS.openAscend(); }); await p.waitForTimeout(250); } },

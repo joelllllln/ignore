@@ -46,6 +46,10 @@
 //
 //   --- v18.66, the nav: screens instead of corner icons ---
 //   N1  five destinations exist and each shows its NAME, not just an icon (on a normal phone)
+//   N7  PLAY sits in the MIDDLE of the bar (v18.67, owner: "the shoot page should be in the middle")
+//   N8  ONE SCREEN AT A TIME — opening a destination must leave no other screen's controls live.
+//       The v18.66 audit found the star map still tappable behind the ascension page (galaxy-map and
+//       skilltree were missing from CARD_MODALS) and the whole shop dock under every screen.
 //   N2  every nav item clears the tap floor on both axes
 //   N3  each destination actually opens its screen
 //   N4  the nav stays ABOVE an open modal, so switching screens is one tap from anywhere
@@ -146,10 +150,13 @@ const visibleControls = () => {
       if (Math.min(it.w, it.h) < 28) f.push(it.key + ' tap target ' + it.w + 'x' + it.h);
     }
     if (base.corners) f.push('the old corner icons still exist in the DOM');
+    // N7 — PLAY is the middle seat
+    { const keys = base.items.map(i => i.key), mid = keys[Math.floor(keys.length / 2)];
+      if (mid !== 'play') f.push('PLAY is not the middle destination (order: ' + keys.join(',') + ')'); }
     if (!base.ascLocked) f.push('ASCEND is live on a virgin save with nothing pending');
 
     // N3/N4 — every destination opens, and the nav stays reachable on top of it
-    const dest = { map: '#galaxy-map', stats: '#metrics', more: '#menu', ascend: '#ascend' };
+    const dest = { map: '#galaxy-map', upgrades: '#upgrades', more: '#menu', ascend: '#ascend' };
     const opened = {};
     await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });   // unlock ASCEND
     for (const [k, sel] of Object.entries(dest)) {
@@ -163,6 +170,17 @@ const visibleControls = () => {
         return { open: !!m && m.classList.contains('show'), zTop, hitsNav: !!(mid && mid.closest('#nav')) };
       }, sel);
       opened[k] = r.open;
+      const leak = await page.evaluate(sel2 => {
+        const own = document.querySelector(sel2);
+        const vis = el => { const q = el.getBoundingClientRect(), st = getComputedStyle(el);
+          return q.width > 1 && q.height > 1 && st.visibility !== 'hidden' && st.display !== 'none' && +st.opacity > 0.05; };
+        // any control that is visible, belongs to neither this screen nor the nav, and is not the
+        // always-on top bar, means two screens are open at once
+        return [...document.querySelectorAll('#root button, #root .tab, #root .ab')].filter(vis)
+          .filter(e => !e.closest('#nav') && !e.closest('#top') && !(own && own.contains(e)))
+          .map(e => e.id || (e.textContent || '').trim().slice(0, 14)).slice(0, 8);
+      }, sel);
+      if (leak.length) f.push('another screen is still live behind ' + k + ': ' + leak.join(', '));
       if (!r.open) f.push('nav ' + k + ' did not open ' + sel);
       if (!r.zTop || !r.hitsNav) f.push('the nav is not tappable over ' + sel + ' (z ' + r.zTop + ', hit ' + r.hitsNav + ')');
       await page.click('#nav .nv[data-nav="play"]'); await page.waitForTimeout(220);
@@ -251,13 +269,15 @@ const visibleControls = () => {
     if (replayed) {
       await page.evaluate(() => { const n = document.querySelector('#tut-next'); if (n) n.click(); });   // step 2 targets #up-list
       await page.waitForTimeout(300);
-      const a = await page.evaluate(() => document.querySelector('#tut-spot').getBoundingClientRect().top);
-      await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });   // force a dock reflow
+      await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });   // force a reflow
       await page.waitForTimeout(350);
+      // v18.67: ask the GAME what this step targets. The gate used to hardcode #up-list, which moved
+      // to the Upgrades screen — so it was measuring drift against an element the step no longer aims at.
       const t = await page.evaluate(() => {
-        const sp = document.querySelector('#tut-spot').getBoundingClientRect();
-        const el = document.querySelector('#up-list').getBoundingClientRect();
-        return Math.abs(sp.top + sp.height / 2 - (el.top + el.height / 2));
+        const sel = window.__IDS.TUT_SEL(); if (!sel) return 0;          // a nospot step cannot drift
+        const el = document.querySelector(sel); if (!el) return 9999;
+        const sp = document.querySelector('#tut-spot').getBoundingClientRect(), er = el.getBoundingClientRect();
+        return Math.abs(sp.top + sp.height / 2 - (er.top + er.height / 2));
       });
       tracks = t <= 12 ? 'ok' : 'DRIFTED ' + Math.round(t) + 'px';
       if (t > 12) f.push('the spotlight drifted ' + Math.round(t) + 'px off its target after a reflow');

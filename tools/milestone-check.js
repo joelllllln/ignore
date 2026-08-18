@@ -117,7 +117,7 @@ const pad = (s, n) => String(s).padStart(n);
     // the dock opens on DEFENCE — the economy rows do not exist until that tab is picked, and since
     // v18.60 the ECONOMY tab itself is hidden on a virgin save until a squad exists (progressive
     // reveal). This tool is testing the milestone system at full complexity, so unlock first.
-    await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD();
+    await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); window.__IDS.navGo('upgrades');   /* v18.67: the shop is its own screen now */
       const t = [...document.querySelectorAll('#tabs button')].find(x => /ECONOMY/i.test(x.textContent)); if (t) t.click(); });
     await page.waitForTimeout(250);
 

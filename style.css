@@ -1026,3 +1026,35 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
   .nv span{display:none}
   .nv svg.ico{width:20px;height:20px}
 }
+
+
+/* ═══════ v18.67 — UPGRADES IS A SCREEN, AND PLAY SITS IN THE MIDDLE ═══════
+   The shop used to share the dock with the combat furniture, so every screen you opened had the
+   whole store sitting underneath it (the audit found DEFENCE, ✦393, ⬆Tree and btn-travel still
+   present behind the ascension page). It is a destination now, full height, with room to breathe. */
+.modal.screen{align-items:stretch;padding:0}
+.modal.screen>.card{max-width:none;width:100%;border:none;border-radius:0;
+  max-height:none;height:100%;display:flex;flex-direction:column;
+  padding:calc(12px + env(safe-area-inset-top, 0px)) 12px
+          calc(12px + var(--nav-h) + env(safe-area-inset-bottom, 0px))}
+.modal.screen #tabs{flex:0 0 auto;margin-bottom:8px}
+/* the list is the page now — it takes every pixel the card can spare instead of a 25vh sliver */
+.modal.screen #up-list{flex:1 1 auto;max-height:none;min-height:0;overflow-y:auto}
+
+/* the objective doubles as the way TO the screen that satisfies it */
+#objective.tappable{cursor:pointer}
+#objective.tappable:hover{border-color:#fff;background:rgba(255,255,255,.08)}
+#objective.tappable:active{transform:scale(.99)}
+
+/* PLAY takes the middle seat and reads as the home of the game */
+.nv-mid svg.ico{width:22px;height:22px}
+.nv-mid.sel{color:#fff}
+
+/* v18.67: the star-map controls were the last sub-28px tap targets left anywhere in the game —
+   the audit flagged gm-you / gm-prev / gm-cur / gm-next / gm-sys0..2 on every visit to PLANETS. */
+#gm-you,#gm-prev,#gm-cur,#gm-next,.mnav-sys{min-height:32px;min-width:32px;padding-top:6px;padding-bottom:6px}
+
+/* the wallet travels with the shop — the top bar is behind this screen */
+.up-wallet{margin-left:auto;margin-right:10px;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.up-wallet b{font:800 15px var(--mono);color:#fff}
+.up-wallet span{font:600 10px var(--mono);color:var(--dim)}
