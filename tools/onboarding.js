@@ -16,7 +16,7 @@
 //   O7  the conquer ETA is either absent or believable; it must never print a three-digit hour count
 //   O8  reveals are STICKY — a feature that has appeared must never disappear again
 //   O9  no page errors anywhere in the run
-//   O10 the ECONOMY tab is reachable from the FIRST FRAME. v18.60 gated it and that was wrong —
+//   O10 ECONOMY is reachable AND populated from the FIRST FRAME. v18.60 gated it and that was wrong —
 //       at second zero all four economy upgrades are affordable (40/54/117/140 against 400 cash)
 //       while the only visible alternative costs 393, so hiding it removed the affordable actions
 //       rather than the complexity. This gate stops that from coming back.
@@ -159,7 +159,9 @@ const visibleControls = () => {
     if (!base.ascLocked) f.push('ASCEND is live on a virgin save with nothing pending');
 
     // N3/N4 — every destination opens, and the nav stays reachable on top of it
-    const dest = { map: '#galaxy-map', upgrades: '#upgrades', more: '#menu', ascend: '#ascend' };
+    // v18.70: MORE left the nav for the banner ☰ (five destinations, PLAY in the middle), and
+    // ECONOMY took its seat as a screen of its own.
+    const dest = { map: '#galaxy-map', upgrades: '#upgrades', economy: '#economy', ascend: '#ascend' };
     const opened = {};
     await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });   // unlock ASCEND
     for (const [k, sel] of Object.entries(dest)) {
@@ -281,11 +283,18 @@ const visibleControls = () => {
     let dragOk = false;
     if (replayed) {
       const b4 = await page.evaluate(() => ({ popped: (window.__IDS.META().stats.dotsPopped | 0) }));
-      for (let pass = 0; pass < 6; pass++) {
-        await page.mouse.move(40, 420 + pass * 30); await page.mouse.down();
-        for (let k = 1; k <= 12; k++) await page.mouse.move(40 + k * 30, 420 + pass * 30 + (k % 2 ? 20 : -20));
-        await page.mouse.up(); await page.waitForTimeout(120);
-      }
+      // v18.70: this used to be six sweeps down one fixed strip and it cleared the bar by a single
+      // dot — a coin-flip, not a gate (same shape as the loop-probe flake). It now sweeps the FIELD:
+      // bands either side of the world centre, both directions, with a beat between passes for the
+      // spawner to refill. It is still testing exactly one thing — does a drag reach the game.
+      { const vp = page.viewportSize(), cy = Math.round(vp.height * 0.5);
+        for (let pass = 0; pass < 10; pass++) {
+          const y = cy + (pass % 5 - 2) * 46, ltr = pass % 2 === 0;
+          const x0 = ltr ? 30 : vp.width - 30, dx = (ltr ? 1 : -1) * Math.round((vp.width - 60) / 12);
+          await page.mouse.move(x0, y); await page.mouse.down();
+          for (let k = 1; k <= 12; k++) await page.mouse.move(x0 + k * dx, y + (k % 2 ? 22 : -22));
+          await page.mouse.up(); await page.waitForTimeout(180);
+        } }
       await page.waitForTimeout(350);
       const af = await page.evaluate(() => ({ popped: (window.__IDS.META().stats.dotsPopped | 0) }));
       dragOk = af.popped > b4.popped;
@@ -341,8 +350,13 @@ const visibleControls = () => {
         return /^0\//.test(d.trim());
       }).length;
       const lockedRows = rows.filter(r => /from P\d/.test((r.querySelector('.u-buy') || {}).textContent || '')).length;
-      const ecoTab = document.querySelector('.tab[data-tab="eco"]');
-      const ecoVisible = !!ecoTab && getComputedStyle(ecoTab.closest('.tslot') || ecoTab).display !== 'none';
+      // v18.70: ECONOMY is a nav destination, not a tab. Same question, asked of the new furniture —
+      // and asked HARDER: the nav item must be visible AND the screen must actually hold its rows,
+      // because a reachable button onto an empty page fails the player the same way a hidden tab did.
+      const ecoNav = document.querySelector('#nav .nv[data-nav="economy"]');
+      const ecoVisible = !!ecoNav && getComputedStyle(ecoNav).display !== 'none'
+        && !ecoNav.classList.contains('locked')
+        && document.querySelectorAll('#eco-list .up').length >= 4;
       // v18.68: the objective banner left the play surface for the UPGRADES screen. Open that screen
       // to read it — a gate that keeps checking the field would just certify it as missing.
       window.__IDS.navGo('upgrades');
@@ -407,7 +421,7 @@ const visibleControls = () => {
 
     const fails = [];
     if (t0.controls > MAX_CTL) fails.push(t0.controls + ' controls at t=0 (max ' + MAX_CTL + '): ' + t0.labels.join('/'));
-    if (!t0.ecoVisible) fails.push('ECONOMY tab hidden at t=0 — its upgrades are the cheapest buys in the game');
+    if (!t0.ecoVisible) fails.push('ECONOMY unreachable or empty at t=0 — its upgrades are the cheapest buys in the game');
     if (t0.lockedRows > 0) fails.push(t0.lockedRows + ' locked class rows rendered');
     if (t0.rows > 1 && !t0.moreLine) fails.push('locked classes hidden but no "more unlock" line');
     if (t0.treeOnUnowned > 0) fails.push(t0.treeOnUnowned + ' Tree buttons on unowned classes');

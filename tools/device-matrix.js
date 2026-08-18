@@ -51,7 +51,7 @@ const SCREENS = [
   // testing LAYOUT at full complexity, which is the harder case. tools/onboarding.js tests the gate.
   { k: 'defence', open: async p => { await p.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); window.__IDS.navGo('upgrades');   /* v18.67: the shop is its own screen now */ document.querySelector('.tab[data-tab="def"]').click(); }); } },
   { k: 'collect', open: async p => { await p.evaluate(() => { window.__IDS.navGo('upgrades'); document.querySelector('.tab[data-tab="drone"]').click(); }); } },
-  { k: 'economy', open: async p => { await p.evaluate(() => { window.__IDS.navGo('upgrades'); document.querySelector('.tab[data-tab="eco"]').click(); }); } },
+  { k: 'economy', open: async p => { await p.evaluate(() => { window.__IDS.navGo('economy'); }); } },   /* v18.70: its own destination, not the third tab of the army shop */
   { k: 'starmap', open: async p => { await p.evaluate(() => window.__IDS.setScreen('map')); await p.waitForTimeout(250); } },
   { k: 'tree',    open: async p => { await p.evaluate(() => { window.__IDS.setScreen('play'); window.__IDS.openSkillTree('turret'); }); await p.waitForTimeout(300); } },
   { k: 'ascend',  open: async p => { await p.evaluate(() => { window.__IDS.setScreen('play'); window.__IDS.openAscend(); }); await p.waitForTimeout(250); } },

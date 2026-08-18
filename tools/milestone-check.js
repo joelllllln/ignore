@@ -114,16 +114,14 @@ const pad = (s, n) => String(s).padStart(n);
     await page.click('#home-play'); await page.waitForTimeout(350);
     await page.evaluate(() => { const t = document.querySelector('#tut-skip'); if (t) t.click(); });
     await page.waitForTimeout(200);
-    // the dock opens on DEFENCE — the economy rows do not exist until that tab is picked, and since
-    // v18.60 the ECONOMY tab itself is hidden on a virgin save until a squad exists (progressive
-    // reveal). This tool is testing the milestone system at full complexity, so unlock first.
-    await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); window.__IDS.navGo('upgrades');   /* v18.67: the shop is its own screen now */
-      const t = [...document.querySelectorAll('#tabs button')].find(x => /ECONOMY/i.test(x.textContent)); if (t) t.click(); });
+    // v18.70: ECONOMY is its own destination — no tab to find, no tab to click. This tool is testing
+    // the milestone system at full complexity, so unlock everything first regardless.
+    await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); window.__IDS.navGo('economy'); });
     await page.waitForTimeout(250);
 
     const res = await page.evaluate(({ ids, LABEL }) => {
       const I = window.__IDS, SIM = window.__SIM, S = I.S();
-      const rowOf = id => [...document.querySelectorAll('#up-list .up')].find(el => {
+      const rowOf = id => [...document.querySelectorAll('#eco-list .up')].find(el => {
         const n = el.querySelector('.u-name'); return n && (n.textContent || '').toLowerCase().startsWith(LABEL[id]); });
       const out = {};
       for (const id of ids) {

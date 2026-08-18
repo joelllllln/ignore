@@ -39,7 +39,7 @@ avoid overkill) → dots pop and drop cash orbs → **collectors** gather them
 come faster → travel / trigger an ability for a burst.
 
 **Dots are tanky.** More damage = faster kills = more income, so your defenders
-and their skill trees *are* your economy — you can't just spam the economy tab.
+and their skill trees *are* your economy — you can't just spam the ECONOMY screen.
 
 ## You choose the difficulty (and the reward)
 
@@ -443,6 +443,8 @@ tools/       Headless balancing aids (run with Node; the ones that drive the rea
   crosscheck-ladder.js re-runs the ladder against onearmy's MEASURED envelope —
                      L1–L8 gates (incl. L7 mining share, L8 ascend-beats-parking)
   balance-check.js   economy upgrade cost-vs-effect audit (infinite-money check)
+  domstub.js         the shared headless DOM/canvas stub the two Node-only sims
+                     (balance-check, ascension-sim --verify) load game.js under
   playthrough-sim.js real-game drive through all 18 planets — unlock gating,
                      travel affordability, no walls
   active-sim.js      same drive at 4 engagement levels (0/10/35/100% active)

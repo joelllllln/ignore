@@ -16,7 +16,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.69" />
+<link rel="stylesheet" href="style.css?v=18.70" />
 </head>
 <body>
 <div id="root">
@@ -75,6 +75,7 @@
       <div class="hud-row">
         <div class="hud-cash"><b id="ui-cash">0</b><span id="ui-cps">+0/s</span></div>
         <div class="hud-planet">PLANET <b id="ui-galaxy">1</b> <span id="ui-gname"></span><span class="g-tap">▾</span></div>
+        <button id="btn-more" title="Menu, stats and settings"><i data-ico="menu"></i></button>
       </div>
       <div class="g-bar"><div id="galaxy-fill"></div></div>
       <div class="hud-row hud-foot">
@@ -104,7 +105,7 @@
        sharing the field with the combat furniture. -->
   <div id="upgrades" class="modal screen">
     <div class="card">
-      <div class="card-head"><h2><i data-ico="coin"></i>Upgrades</h2><div class="up-wallet"><b id="up-cash">0</b><span id="up-cps">+0/s</span></div><button class="x" id="up-close">✕</button></div>
+      <div class="card-head"><h2><i data-ico="turret"></i>Army</h2><div class="up-wallet"><b id="up-cash">0</b><span id="up-cps">+0/s</span></div><button class="x" id="up-close">✕</button></div>
       <!-- v18.68: the objective banner left the FIELD (owner: "remove the banner prompting to do
            stuff on the main page") and lives here instead, where the buying actually happens — the
            guidance survives without cluttering the game screen. -->
@@ -112,10 +113,19 @@
       <div id="tabs">
         <span class="tslot"><button class="tab sel" data-tab="def">DEFENCE</button></span>
         <span class="tslot"><button class="tab" data-tab="drone">COLLECTORS</button></span>
-        <span class="tslot"><button class="tab" data-tab="eco">ECONOMY</button></span>
         <button id="buymode" title="Buy amount">BUY ×1</button>
       </div>
       <div id="up-list"></div>
+    </div>
+  </div>
+
+  <!-- v18.70 ECONOMY IS ITS OWN SCREEN (owner: "make the economy but a separate tab/screen"). It was
+       the third tab inside the Army shop, which buried the four upgrades the whole income model
+       rides on behind a tab switch. It is a destination now, flanking PLAY opposite the army. -->
+  <div id="economy" class="modal screen">
+    <div class="card">
+      <div class="card-head"><h2><i data-ico="coin"></i>Economy</h2><div class="up-wallet"><b id="eco-cash">0</b><span id="eco-cps">+0/s</span></div><button class="x" id="eco-close">✕</button></div>
+      <div id="eco-list"></div>
     </div>
   </div>
 
@@ -131,10 +141,10 @@
   </div>
     <div class="nav-dest">
     <button class="nv" data-nav="map"><i data-ico="planet"></i><span>PLANETS</span></button>
-    <button class="nv" data-nav="upgrades"><i data-ico="coin"></i><span>UPGRADES</span><b class="nv-b" id="nv-up"></b></button>
-    <button class="nv sel nv-mid" data-nav="play"><i data-ico="turret"></i><span>PLAY</span></button>
+    <button class="nv" data-nav="upgrades"><i data-ico="turret"></i><span>ARMY</span><b class="nv-b" id="nv-up"></b></button>
+    <button class="nv sel nv-mid" data-nav="play"><i data-ico="play"></i><span>PLAY</span></button>
+    <button class="nv" data-nav="economy"><i data-ico="coin"></i><span>ECONOMY</span><b class="nv-b" id="nv-eco"></b></button>
     <button class="nv" data-nav="ascend"><i data-ico="gem"></i><span>ASCEND</span><b class="nv-b" id="nv-asc"></b></button>
-    <button class="nv" data-nav="more"><i data-ico="menu"></i><span>MORE</span></button>
     </div>
   </nav>
 
@@ -339,6 +349,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.69"></script>
+<script src="js/game.js?v=18.70"></script>
 </body>
 </html>

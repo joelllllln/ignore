@@ -1072,7 +1072,12 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
 .hud:hover{border-color:rgba(255,255,255,.4)}
 .hud-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0}
 .hud-cash{display:flex;align-items:baseline;gap:7px;min-width:0}
-.hud-cash b{font:800 26px var(--mono);color:#fff;line-height:1;letter-spacing:-.01em}
+.hud-cash b{font:800 26px var(--mono);color:#fff;line-height:1;letter-spacing:-.01em;white-space:nowrap}
+/* v18.70: the ☰ took real width out of the banner row and the money WRAPPED — the currency mark on
+   one line and "50.0K" on the next. The wallet never wraps; the planet name, which already has an
+   ellipsis, is the thing that gives. */
+.hud-cash{flex:0 0 auto}                                   /* the money never shrinks and never clips */
+.hud-planet{flex:1 1 auto;min-width:0;text-align:right}    /* the planet name is what gives — it already ellipsizes */
 .hud-cash span{font:700 12px var(--mono);color:var(--sd);white-space:nowrap}
 .hud-planet{font:700 11px var(--mono);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hud-planet b{color:#fff}
@@ -1143,3 +1148,29 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
   .up{gap:6px;padding-left:9px;padding-right:9px}
   .up .u-name{font-size:13px}
 }
+
+/* ═══════ v18.70 — ECONOMY IS ITS OWN SCREEN ═══════ */
+
+/* #eco-list is the Economy screen's whole body. It gets the same treatment #up-list gets inside a
+   .modal.screen — take every spare pixel, scroll rather than squash — instead of inheriting the
+   25vh sliver that only ever made sense when the list shared the dock with the field. */
+#eco-list{display:flex;flex-direction:column;gap:5px;flex:1 1 auto;min-height:0;overflow-y:auto}
+#eco-list .up{animation:rowin .16s both}
+#eco-list .up:nth-child(2){animation-delay:.025s}
+#eco-list .up:nth-child(3){animation-delay:.05s}
+#eco-list .up:nth-child(4){animation-delay:.075s}
+#eco-list .up:nth-child(n+5){animation-delay:.1s}
+
+/* MORE left the nav so PLAY could keep the middle seat with ECONOMY beside it. It is a real 34px
+   target in the banner, not the 46px unlabelled corner icon this whole restructure was undoing —
+   and it must not look like part of the planet readout it sits next to. */
+#btn-more{flex:0 0 auto;align-self:center;display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;margin:-4px -5px -4px 0;padding:0;
+  background:none;border:1px solid var(--edge);border-radius:9px;color:var(--sd);cursor:pointer}
+#btn-more svg.ico{width:18px;height:18px}
+#btn-more:hover{border-color:rgba(255,255,255,.45);color:#fff}
+#btn-more:active{transform:scale(.94)}
+
+/* the nav badges now carry the "something in here is affordable" count for ARMY and ECONOMY, and
+   the amber "!" the tab badges used to carry for a leak or a pinned wallet. */
+.nv-b.warn{background:#ffb35c;color:#000}

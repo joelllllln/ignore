@@ -24,7 +24,7 @@ const path = require('path');
   await p.click("#home-play"); await p.waitForTimeout(600);
   await p.evaluate(() => { const t = document.querySelector("#tut-skip"); if (t) t.click(); window.__IDS.revealAll(); window.__IDS.syncHUD(); });
   await p.waitForTimeout(400);
-  for (const nav of ["map","upgrades","play","ascend","more"]) {
+  for (const nav of ["map","upgrades","play","economy","ascend"]) {   // v18.70: ECONOMY joined the nav, MORE moved to the banner ☰
     await p.evaluate(k => { const b2 = document.querySelector('#nav .nv[data-nav="'+k+'"]'); if (b2) b2.click(); }, nav);
     await p.waitForTimeout(350);
     const r = await p.evaluate(() => {
