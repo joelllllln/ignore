@@ -1058,3 +1058,54 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
 .up-wallet{margin-left:auto;margin-right:10px;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
 .up-wallet b{font:800 15px var(--mono);color:#fff}
 .up-wallet span{font:600 10px var(--mono);color:var(--dim)}
+
+
+/* ═══════ v18.68 — ONE PROGRESS BANNER, BIG POWER-UPS, NO NAG ON THE FIELD ═══════ */
+
+/* THE BANNER. Money, planet and the conquer bar were three boxes in two corners, plus a percentage
+   stranded on the LAUNCH button a whole viewport away from the bar it described. One card. */
+#top{padding:calc(8px + env(safe-area-inset-top, 0px)) 8px 0;display:block}
+.hud{flex:1 1 auto;min-width:0;   /* #top is a flex row: without this the banner shrinks to its text and stops two-thirds across */
+  display:flex;flex-direction:column;gap:6px;padding:10px 13px 9px;
+  border:1px solid var(--edge);border-radius:14px;background:rgba(8,8,8,.9);backdrop-filter:blur(4px);
+  cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hud:hover{border-color:rgba(255,255,255,.4)}
+.hud-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0}
+.hud-cash{display:flex;align-items:baseline;gap:7px;min-width:0}
+.hud-cash b{font:800 26px var(--mono);color:#fff;line-height:1;letter-spacing:-.01em}
+.hud-cash span{font:700 12px var(--mono);color:var(--sd);white-space:nowrap}
+.hud-planet{font:700 11px var(--mono);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-planet b{color:#fff}
+.hud-planet .g-tap{margin-left:4px;opacity:.7}
+.hud .g-bar{height:9px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden}
+.hud .g-bar>#galaxy-fill{height:100%;background:#fff;border-radius:5px;transition:width .35s ease}
+.hud-foot{font:700 10.5px var(--mono);letter-spacing:.08em;color:var(--sd);align-items:center}
+.hud-foot #ui-cap,.hud-foot #ui-leak,.hud-foot #ui-ascend-hint{margin-left:auto;text-align:right}
+
+/* POWER-UPS: icon-first tiles instead of a text row with a 14px glyph in it */
+#abilities{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.ab{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  padding:11px 4px 9px;border:1px solid var(--edge);border-radius:13px;background:var(--panel);
+  color:var(--text);cursor:pointer;overflow:hidden;min-height:74px}
+.ab .ab-g{display:flex;align-items:center;justify-content:center}
+.ab .ab-g svg.ico{width:30px;height:30px;stroke-width:1.7}
+.ab .ab-n{font:800 9.5px var(--mono);letter-spacing:.07em;color:var(--sd);white-space:nowrap}
+.ab:not(.cd){border-color:rgba(255,255,255,.34)}
+.ab:not(.cd) .ab-g svg.ico{filter:drop-shadow(0 0 8px rgba(255,255,255,.45))}
+.ab:not(.cd) .ab-n{color:#fff}
+.ab.cd{opacity:.5}
+.ab .ab-s{position:absolute;top:5px;right:8px;font:800 10px var(--mono);color:#fff}
+.ab .ab-i{position:absolute;top:4px;left:5px}
+
+/* the objective moved into UPGRADES — give it room above the tabs */
+#upgrades #objective{margin-bottom:9px}
+
+@media (max-height:560px){
+  .hud-cash b{font-size:20px}
+  .ab{min-height:56px;padding:7px 3px 6px}
+  .ab .ab-g svg.ico{width:22px;height:22px}
+}
+
+/* the dock is PLAY furniture, and with abilities not yet revealed and no action to take it was
+   left holding nothing but its own "Minimise" toggle. An empty container should not be on screen. */
+#dock.empty{display:none !important}

@@ -19,6 +19,8 @@
 //
 // GATES
 //   L1 a build with BOTH trees selects ≥ 80% and collects ≥ 80%   (the intended build works)
+//      — measured as the MEDIAN of RUNS real playthroughs, because one run of a live combat loop
+//        carries ±30 points of noise and a gate that flakes is a gate that gets ignored
 //   L2 a guns-only build's COLLECTION is visibly bad (< 50%)      (the trap still exists to warn about…)
 //   L3 …and the game SAYS so — the loot-rot HUD line is showing   (…and v18.47's warning fires)
 //   L4 a warden's maxHp NEVER rises mid-duel, even if you finger-draw through the
@@ -146,8 +148,22 @@ async function wardenDuel(browser) {
   const out = {};
   console.log('LOOP PROBE — real loop, real purchases, money that actually banks (P2, passive)\n');
   if (verbose) console.log('build                                 | nodes | selection | collection | banked ¤/s | rot warning');
+  // v18.68: the L1 gates were FLAKY, which is worse than absent — a gate that cries wolf gets
+  // ignored. Eight consecutive samples of both-tree selection read 78, 107, 107, 126, 77, 133, 81,
+  // 114 against an 80% threshold: the probe plays the REAL combat loop, so a single run carries
+  // ±30 points of spawn/RNG noise and cannot tell 80 from 110. Each case now runs RUNS times and
+  // reports the MEDIAN, which collapses that spread without moving the threshold — the gate still
+  // fails on a genuine regression, it just stops failing on a coin flip.
+  const RUNS = 3, mid = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
   for (const c of CASES) {
-    const o = await runCase(browser, c);
+    const samples = [];
+    for (let i = 0; i < RUNS; i++) samples.push(await runCase(browser, c));
+    const o = { ...samples[0],
+      selection: mid(samples.map(x => x.selection)),
+      collection: mid(samples.map(x => x.collection)),
+      banked: mid(samples.map(x => x.banked)),
+      leakShown: samples.filter(x => x.leakShown).length > RUNS / 2,
+      errs: samples.flatMap(x => x.errs) };
     out[o.key] = o;
     if (verbose) console.log(o.label.padEnd(37) + ' | ' + String(o.nodes).padStart(5) + ' | ' +
       ((o.selection * 100).toFixed(0) + '%').padStart(9) + ' | ' + ((o.collection * 100).toFixed(0) + '%').padStart(10) +

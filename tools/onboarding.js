@@ -315,6 +315,9 @@ const visibleControls = () => {
       const lockedRows = rows.filter(r => /from P\d/.test((r.querySelector('.u-buy') || {}).textContent || '')).length;
       const ecoTab = document.querySelector('.tab[data-tab="eco"]');
       const ecoVisible = !!ecoTab && getComputedStyle(ecoTab.closest('.tslot') || ecoTab).display !== 'none';
+      // v18.68: the objective banner left the play surface for the UPGRADES screen. Open that screen
+      // to read it — a gate that keeps checking the field would just certify it as missing.
+      window.__IDS.navGo('upgrades');
       const ob = document.querySelector('#objective');
       return { ecoVisible, controls: ctl.length, labels: ctl.map(b => (b.textContent || '').trim().slice(0, 14)),
         rows: rows.length, lockedRows, treeOnUnowned,
@@ -322,8 +325,10 @@ const visibleControls = () => {
         objShown: !!(ob && ob.classList.contains('show')),
         objText: ((document.querySelector('#objective .ob-t') || {}).textContent || '').trim(),
         dots: window.__IDS.dots().length,
-        travel: (document.querySelector('#btn-travel') || {}).textContent || '' };
+        // v18.68: the conquer readout moved off the LAUNCH button into the top progress banner
+        travel: (document.querySelector('#ui-conq') || {}).textContent || '' };
     }, visibleControls.toString());
+    await page.evaluate(() => window.__IDS.navGo('play'));   // back to the field for the rest
 
     // O11/O12 — with the tutorial up: objective visible, coach silent
     const tut = await page.evaluate(() => new Promise(res => {
@@ -331,6 +336,7 @@ const visibleControls = () => {
       I.META().tutorialDone = false;
       const t = document.querySelector('#set-tutorial'); if (t) t.click();
       setTimeout(() => {
+        window.__IDS.navGo('upgrades');
         const ob = document.querySelector('#objective'), co = document.querySelector('#coach');
         res({ tutUp: !!document.querySelector('#tutorial.show'),
               objShown: !!(ob && ob.classList.contains('show')),
@@ -347,6 +353,9 @@ const visibleControls = () => {
       const abilBefore = vis('#abilities');                          // hidden on a virgin save
       S.vault[S.galaxy] = { conquered: true, earned: 0 }; I.recompute(); I.syncHUD();
       await new Promise(r => setTimeout(r, 250));
+      // v18.68: the objective banner left the play surface for the UPGRADES screen. Open that screen
+      // to read it — a gate that keeps checking the field would just certify it as missing.
+      window.__IDS.navGo('upgrades');
       const ob = document.querySelector('#objective');
       const onSettle = { obj: !!(ob && ob.classList.contains('show')), abil: vis('#abilities') };
       S.vault[S.galaxy] = { conquered: false, earned: 0 }; I.recompute(); I.syncHUD();
