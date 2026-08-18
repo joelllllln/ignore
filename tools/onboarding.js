@@ -31,6 +31,19 @@
 //       absent on every pre-v18.60 save, so a returning player would load in to find their
 //       COLLECTORS tab, abilities and ascend button gone after hours of play.
 //
+//   --- v18.64, the tutorial itself, driven rather than counted ---
+//   T1  no step's spotlight may cover most of the viewport. Step 1 targeted #game — the full-screen
+//       canvas — so the "spotlight" lit everything, the dim never appeared, and the card floated
+//       over a fully lit game with no focus at all. A step with no usable target must go NOSPOT
+//       (centred card on a dim backdrop) instead.
+//   T2  every step is EITHER nospot-with-a-dim OR has a real, smaller-than-screen spotlight
+//   T3  the card never covers the spotlight it is pointing at
+//   T4  a drag REACHES THE GAME while the cards are up — step 1 says "go on, try it now", so if the
+//       overlay swallowed input that instruction would be a lie
+//   T5  Next advances, the last button closes, tutorialDone survives a reload, replay still works
+//   T6  the spotlight TRACKS its target — it used to be positioned once at render(), so a reveal
+//       firing mid-tutorial reflowed the dock and left the ring pointing at empty space
+//
 //   node tools/onboarding.js
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
 const { chromium } = requirePlaywright();
@@ -88,6 +101,91 @@ const visibleControls = () => {
     bad += f.length;
     console.log('  ' + 'veteran save (pre-v18.60)'.padEnd(24) + 'P' + vet.loaded + '  revealed ' + vet.keys.length + '/5' +
       '  tabs ' + (vet.collectTab ? 'y' : 'N') + ' abil ' + (vet.abil ? 'y' : 'N') + ' ascend ' + (vet.ascend ? 'y' : 'N'));
+    f.forEach(x => console.log('      <-- ' + x));
+    await page.close();
+  }
+
+  // ── T1-T6: the tutorial, driven step by step ─────────────────────────────────────────────────
+  {
+    const page = await (await browser.newContext({ viewport: { width: 430, height: 932 } })).newPage();
+    const errs = []; page.on('pageerror', e => errs.push(String(e).slice(0, 160)));
+    await page.goto(URL, { waitUntil: 'load' });
+    await page.waitForFunction('!!window.__IDS');
+    await page.click('#home-play'); await page.waitForTimeout(1100);
+    const f = [];
+    const readStep = () => page.evaluate(() => {
+      const w = document.querySelector('#tutorial'), sp = document.querySelector('#tut-spot'), cd = document.querySelector('#tut-card');
+      const rb = e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
+      const nospot = w.classList.contains('nospot');
+      return { up: w.classList.contains('show'), nospot,
+        step: (document.querySelector('#tut-step') || {}).textContent || '',
+        dim: nospot ? getComputedStyle(w).backgroundColor : getComputedStyle(sp).boxShadow.slice(0, 40),
+        spot: nospot ? null : rb(sp), card: rb(cd), vw: innerWidth, vh: innerHeight };
+    });
+    const steps = [];
+    for (let i = 0; i < 6; i++) {
+      const st = await readStep(); if (!st.up) break;
+      steps.push(st);
+      const area = st.spot ? (st.spot.w * st.spot.h) / (st.vw * st.vh) : 0;
+      if (st.spot && area > 0.55) f.push(st.step + ': spotlight covers ' + Math.round(area * 100) + '% of the screen — it lights everything and kills the dim');
+      if (st.nospot && !/rgba?\(/.test(st.dim || '')) f.push(st.step + ': nospot step has no dim backdrop');
+      if (st.spot) { const c = st.card, sp = st.spot;   // T3: card must not cover its own spotlight
+        const ox = Math.max(0, Math.min(c.x + c.w, sp.x + sp.w) - Math.max(c.x, sp.x));
+        const oy = Math.max(0, Math.min(c.y + c.h, sp.y + sp.h) - Math.max(c.y, sp.y));
+        if (ox * oy > sp.w * sp.h * 0.25) f.push(st.step + ': the card covers its own spotlight'); }
+      await page.click('#tut-next'); await page.waitForTimeout(350);
+    }
+    if (steps.length < 1) f.push('the tutorial never appeared on a fresh save');
+    const closed = await page.evaluate(() => !document.querySelector('#tutorial.show'));
+    if (!closed) f.push('the last button did not close the tutorial');
+
+    // T5 — persistence and replay
+    await page.reload({ waitUntil: 'load' }); await page.waitForFunction('!!window.__IDS');
+    await page.click('#home-play'); await page.waitForTimeout(900);
+    if (await page.evaluate(() => !!document.querySelector('#tutorial.show'))) f.push('the tutorial came BACK after being completed');
+    await page.evaluate(() => { const t = document.querySelector('#set-tutorial'); if (t) t.click(); });
+    await page.waitForTimeout(800);
+    const replayed = await page.evaluate(() => !!document.querySelector('#tutorial.show'));
+    if (!replayed) f.push('replay from settings did not reopen the tutorial');
+
+    // T4 — a drag must reach the game through the overlay ("go on, try it now")
+    let dragOk = false;
+    if (replayed) {
+      const b4 = await page.evaluate(() => ({ popped: (window.__IDS.META().stats.dotsPopped | 0) }));
+      for (let pass = 0; pass < 6; pass++) {
+        await page.mouse.move(40, 420 + pass * 30); await page.mouse.down();
+        for (let k = 1; k <= 12; k++) await page.mouse.move(40 + k * 30, 420 + pass * 30 + (k % 2 ? 20 : -20));
+        await page.mouse.up(); await page.waitForTimeout(120);
+      }
+      await page.waitForTimeout(350);
+      const af = await page.evaluate(() => ({ popped: (window.__IDS.META().stats.dotsPopped | 0) }));
+      dragOk = af.popped > b4.popped;
+      if (!dragOk) f.push('a drag did NOT reach the game while the tutorial was up — step 1 says "try it now"');
+    }
+
+    // T6 — the spotlight must track its target across a reflow
+    let tracks = 'n/a';
+    if (replayed) {
+      await page.evaluate(() => { const n = document.querySelector('#tut-next'); if (n) n.click(); });   // step 2 targets #up-list
+      await page.waitForTimeout(300);
+      const a = await page.evaluate(() => document.querySelector('#tut-spot').getBoundingClientRect().top);
+      await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });   // force a dock reflow
+      await page.waitForTimeout(350);
+      const t = await page.evaluate(() => {
+        const sp = document.querySelector('#tut-spot').getBoundingClientRect();
+        const el = document.querySelector('#up-list').getBoundingClientRect();
+        return Math.abs(sp.top + sp.height / 2 - (el.top + el.height / 2));
+      });
+      tracks = t <= 12 ? 'ok' : 'DRIFTED ' + Math.round(t) + 'px';
+      if (t > 12) f.push('the spotlight drifted ' + Math.round(t) + 'px off its target after a reflow');
+    }
+
+    if (errs.length) f.push('page errors: ' + errs.join(' | '));
+    bad += f.length;
+    console.log('  ' + 'tutorial'.padEnd(24) + 'steps ' + steps.length +
+      '  ' + steps.map(x => x.nospot ? 'dim' : 'spot').join('/') +
+      '  closes ' + (closed ? 'y' : 'N') + '  replay ' + (replayed ? 'y' : 'N') +
+      '  drag-through ' + (dragOk ? 'y' : 'N') + '  tracks ' + tracks);
     f.forEach(x => console.log('      <-- ' + x));
     await page.close();
   }
