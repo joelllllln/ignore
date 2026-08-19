@@ -16,7 +16,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.74" />
+<link rel="stylesheet" href="style.css?v=18.75" />
 </head>
 <body>
 <div id="root">
@@ -230,19 +230,27 @@
   <div id="galaxy-map" class="modal mapmodal">
     <canvas id="gmap"></canvas>
     <div class="map-bar"><span class="map-title">★ STAR MAP</span><div class="map-btns"><button class="mbtn" id="gm-auto"><i data-ico="gear"></i>AUTO</button><button class="mbtn" id="gm-reset"><i data-ico="reset"></i>Recenter</button><button class="x" id="gm-close">✕</button></div></div>
-    <!-- QUICK NAV (v18.20): hop planets and jump systems without zoom-and-pan hunting -->
-    <div id="map-nav">
-      <button class="mnav" id="gm-you" title="jump to your planet">◉</button>
-      <button class="mnav" id="gm-prev">◀</button>
-      <button class="mnav mnav-cur" id="gm-cur">P1</button>
-      <button class="mnav" id="gm-next">▶</button>
-      <span class="mnav-gap"></span>
-      <button class="mnav mnav-sys" id="gm-sys0"></button>
-      <button class="mnav mnav-sys" id="gm-sys1"></button>
-      <button class="mnav mnav-sys" id="gm-sys2"></button>
+    <div class="map-hint">one finger = move · two fingers: pinch to zoom, drag to rotate · scroll = zoom</div>
+    <!-- v18.75 THE STAR MAP NAVIGATOR (owner: "make the star map navigation much better and easier to
+         use and bigger"). It was one cramped row of pills at the TOP of the screen, out of thumb
+         reach, in which every name was truncated to nothing — "P2 · Em…", "★ He…", "★ Cyg…", "★ Ere…".
+         Two different jobs (step a planet / jump a system) shared one undifferentiated row, and
+         nothing told you where you were among eighteen planets or which you had taken.
+         It is a bottom dock now: your three systems on one row, and every planet in the chosen system
+         as a real named chip below, each wearing its own state. The ◀ ▶ steppers are gone — with the
+         whole system laid out there is nothing left to step through. -->
+    <div id="gm-dock">
+      <div id="gm-info" class="gm-info"></div>
+      <div id="map-nav">
+        <div class="mnav-top">
+          <button class="mnav-you" id="gm-you" title="jump to your planet"><span class="my-dot">◉</span>YOU</button>
+          <button class="mnav-sys" id="gm-sys0"></button>
+          <button class="mnav-sys" id="gm-sys1"></button>
+          <button class="mnav-sys" id="gm-sys2"></button>
+        </div>
+        <div id="gm-planets"></div>
+      </div>
     </div>
-    <div class="map-hint">one finger = move · two fingers: pinch to zoom, drag to rotate · scroll = zoom · tap a ★ sun to centre · tap a planet to visit</div>
-    <div id="gm-info" class="gm-info"></div>
   </div>
 
   <!-- AUTO-BUY (idle automation) -->
@@ -363,6 +371,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.74"></script>
+<script src="js/game.js?v=18.75"></script>
 </body>
 </html>

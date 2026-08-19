@@ -24,6 +24,11 @@
 //   F4 MUST-SEE  — named controls (a screen's `must` list) that have to be
 //                  visible WITHOUT scrolling, because they are the only action
 //                  the panel offers and nothing else on screen states the price.
+//   F5 READABLE  — labels (a screen's `noclip` list) that must never be cut off
+//                  with an ellipsis. F3 forgives an ellipsis because for most
+//                  labels it IS the designed answer to a narrow box; in the star
+//                  map navigator it was the entire defect, a row of controls
+//                  reading "P2 · Em…  ★ He…  ★ Cyg…  ★ Ere…".
 //
 // A control 1px under the nav is as unusable as one a mile off screen, so the
 // bar is the same for both. Panels that are DELIBERATELY scrollable (#up-list,
@@ -65,7 +70,19 @@ const SCREENS = [
       S.vault[S.galaxy] = { conquered: false, earned: 0 }; I.recompute(); I.navGo("play"); I.syncHUD(); } },
   { k: "army", open: () => { window.__IDS.navGo("upgrades"); } },
   { k: "economy", open: () => { window.__IDS.navGo("economy"); } },
-  { k: "planets", open: () => { window.__IDS.navGo("map"); } },
+  // The star map's navigator (v18.75) is the busiest dock in the game: three system tabs plus every
+  // world in the chosen system. EREBUS is the worst case at eight, and the info card stacks above it.
+  // `noclip` — labels that must be READ IN FULL, never ellipsised. F3 deliberately forgives an
+  // ellipsis, because for most labels that IS the designed answer to a narrow box. In the star map
+  // navigator it is the bug: the whole complaint was a row reading "P2 · Em…  ★ He…  ★ Cyg…  ★ Ere…".
+  { k: "planets", must: ["#gm-you", "#gm-sys0", "#gm-sys1", "#gm-sys2"],
+    noclip: [".mnav-sys .ms-n", ".mnav-sys .ms-c", ".mpl .mp-l", ".mpl .mp-n"],
+    open: () => { window.__IDS.navGo("map"); } },
+  { k: "map erebus", noclip: [".mnav-sys .ms-n", ".mpl .mp-l"],
+    open: () => { window.__IDS.navGo("map"); window.__IDS.GMap.focusSys(2); } },
+  { k: "map card", noclip: [".mnav-sys .ms-n", ".mpl .mp-l"],
+    open: () => { const I = window.__IDS; I.navGo("map"); I.GMap.focusSys(2);
+      I.GMap.focusPlanet(14); I.showGalaxyInfo(14); } },
   { k: "ascend", open: () => { window.__IDS.navGo("ascend"); } },
   { k: "menu", open: () => { window.__IDS.navGo("more"); } },
   { k: "settings", open: () => { window.__IDS.navGo("more"); document.querySelector("#menu-settings").click(); } },
@@ -181,6 +198,16 @@ const probe = (navSel, CTL) => {
     if (!scrollsY && s.overflowY === "hidden" && dy > 2) overflow.push(named(el) + " +" + dy + "px tall");
     else if (!scrollsX && s.overflowX === "hidden" && !ellipsis && dx > 2) overflow.push(named(el) + " +" + dx + "px wide");
   }
+  // F5 — labels that must be readable IN FULL (see `noclip` above)
+  const cut = [];
+  for (const sel of (window.__FIT_NOCLIP || [])) {
+    const list = [...document.querySelectorAll(sel)].filter(shown);
+    if (!list.length) { cut.push(sel + " matched nothing"); continue; }
+    for (const el of list) {
+      if (el.scrollWidth > el.clientWidth + 1) cut.push('"' + (el.textContent || "").trim() + '" truncated (' + el.scrollWidth + " into " + el.clientWidth + "px)");
+    }
+  }
+
   // F4 — named controls that must be visible without scrolling (see `must` above)
   const buried = [];
   for (const sel of (window.__FIT_MUST || [])) {
@@ -192,7 +219,7 @@ const probe = (navSel, CTL) => {
       if (r.h < raw.height - 2) buried.push(sel + " only " + Math.round(r.h) + "/" + Math.round(raw.height) + "px visible"); }
   }
 
-  return { clipped: [...new Set(clipped)], covered: [...new Set(covered)], overflow: [...new Set(overflow)], buried: [...new Set(buried)] };
+  return { clipped: [...new Set(clipped)], covered: [...new Set(covered)], overflow: [...new Set(overflow)], buried: [...new Set(buried)], cut: [...new Set(cut)] };
 };
 
 (async () => {
@@ -229,19 +256,21 @@ const probe = (navSel, CTL) => {
           const n = G.nodes.find(x => x.kind !== "start"); if (n) window.__IDS.showNodeInfo(n); });
         await page.waitForTimeout(320);
       }
-      await page.evaluate(m => { window.__FIT_MUST = m; }, sc.must || []);
+      await page.evaluate(m => { window.__FIT_MUST = m[0]; window.__FIT_NOCLIP = m[1]; }, [sc.must || [], sc.noclip || []]);
       const res = await page.evaluate(([src, navSel, ctl]) => new Function("return (" + src + ")")()(navSel, ctl), [probe.toString(), "#nav", CTL]);
-      const bad = res.clipped.length || res.covered.length || res.overflow.length || res.buried.length;
+      const bad = res.clipped.length || res.covered.length || res.overflow.length || res.buried.length || res.cut.length;
       console.log("  " + sc.k.padEnd(11)
         + " clipped " + (res.clipped.join(", ") || "-").slice(0, 46).padEnd(46)
         + " covered " + (res.covered.join(", ") || "-").slice(0, 38).padEnd(38)
         + " overflow " + (res.overflow.join(", ") || "-").slice(0, 26).padEnd(26)
-        + " must-see " + (res.buried.join(", ") || (sc.must ? "ok" : "-")));
+        + " must-see " + (res.buried.join(", ") || (sc.must ? "ok" : "-")).padEnd(9)
+        + " readable " + (res.cut.join(", ").slice(0, 40) || (sc.noclip ? "ok" : "-")));
       if (bad) fails.push(v.n + " / " + sc.k + ": "
         + [res.clipped.length ? "CLIPPED " + res.clipped.join(", ") : "",
            res.covered.length ? "COVERED " + res.covered.join(", ") : "",
            res.overflow.length ? "OVERFLOW " + res.overflow.join(", ") : "",
-           res.buried.length ? "BURIED " + res.buried.join(", ") : ""].filter(Boolean).join(" | "));
+           res.buried.length ? "BURIED " + res.buried.join(", ") : "",
+           res.cut.length ? "TRUNCATED " + res.cut.join(", ") : ""].filter(Boolean).join(" | "));
       await page.evaluate(() => window.__IDS.navGo("play"));
       await page.waitForTimeout(200);
     }

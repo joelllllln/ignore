@@ -71,11 +71,13 @@ included a code change without pasting this link.
   L1–L8), `node tools/ascension-sim.js` (prestige design gates + `--verify` contract).
   `tools/balance-check.js` audits upgrade cost-vs-effect. If a change moves the
   wall-zone medians, say so explicitly in the commit message.
-- **Any UI change** re-runs `node tools/fit-audit.js` — thirteen screens across five
+- **Any UI change** re-runs `node tools/fit-audit.js` — sixteen screens across five
   device shapes, checking that nothing is off screen, nothing is buried under the
   persistent nav, nothing covers a control, and nothing clips its own text. It is
   the gate for "does it fit", and it catches screens the nav does not reach
-  (the skill tree, the info modals) which `screen-audit.js` cannot see.
+  (the skill tree, the info modals) which `screen-audit.js` cannot see. A screen can
+  also name controls that must be visible without scrolling (`must`) and labels that
+  must never be ellipsised (`noclip`) — the plain checks forgive both on purpose.
 - **Skill-tree layout changes** also re-run `node tools/tree-stability.js`. Fit and
   stability are different questions: v18.71 shipped a tree that fitted perfectly and
   jumped 90px every time you tapped a node, because the detail panel took height from
