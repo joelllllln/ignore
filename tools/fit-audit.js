@@ -56,6 +56,13 @@ const VIEWS = [
 // because an unselected tree hides the very panel the owner photographed.
 const SCREENS = [
   { k: "play", open: () => { window.__IDS.navGo("play"); } },
+  // A CONQUERED world swaps the dock for the settlement panel while the powers stay in the nav above
+  // it. That state was never audited, and it is where v18.73's missing-powers bug lived.
+  { k: "settled", must: ["#ab-frenzy", "#ab-dotrain", "#ab-blackhole"],
+    open: () => { const I = window.__IDS, S = I.S();
+      S.vault[S.galaxy] = { conquered: true, earned: 0 }; I.recompute(); I.navGo("play"); I.syncHUD(); } },
+  { k: "unsettle", open: () => { const I = window.__IDS, S = I.S();
+      S.vault[S.galaxy] = { conquered: false, earned: 0 }; I.recompute(); I.navGo("play"); I.syncHUD(); } },
   { k: "army", open: () => { window.__IDS.navGo("upgrades"); } },
   { k: "economy", open: () => { window.__IDS.navGo("economy"); } },
   { k: "planets", open: () => { window.__IDS.navGo("map"); } },

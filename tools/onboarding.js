@@ -395,16 +395,26 @@ const visibleControls = () => {
     const settle = await page.evaluate(async () => {
       const I = window.__IDS, S = I.S();
       const vis = sel => { const e = document.querySelector(sel); return !!e && getComputedStyle(e).display !== 'none'; };
-      const abilBefore = vis('#abilities');                          // hidden on a virgin save
+      // v18.73: reveal FIRST, so the settled-world check is asked of a save that actually has powers.
+      // Asked of a virgin save it was vacuous — abilities are hidden either way, so "hidden while
+      // settled" passed for the wrong reason and could never have caught the powers going missing.
+      I.revealAll(); I.navGo('play'); I.syncHUD();
+      await new Promise(r => setTimeout(r, 150));
+      const abilBefore = vis('#abilities');
       S.vault[S.galaxy] = { conquered: true, earned: 0 }; I.recompute(); I.syncHUD();
       await new Promise(r => setTimeout(r, 250));
-      // v18.68: the objective banner left the play surface for the UPGRADES screen. Open that screen
-      // to read it — a gate that keeps checking the field would just certify it as missing.
+      // v18.68: the objective banner left the play surface for the UPGRADES screen, so it is read
+      // there. v18.73: the POWERS went the other way — they are PLAY-only now — so the two halves of
+      // this check have to be asked on their own screens, or each one certifies the other's home.
       window.__IDS.navGo('upgrades');
+      await new Promise(r => setTimeout(r, 150));
       const ob = document.querySelector('#objective');
-      const onSettle = { obj: !!(ob && ob.classList.contains('show')), abil: vis('#abilities') };
+      const objOnSettle = !!(ob && ob.classList.contains('show'));
+      I.navGo('play');
+      await new Promise(r => setTimeout(r, 150));
+      const onSettle = { obj: objOnSettle, abil: vis('#abilities') };
       S.vault[S.galaxy] = { conquered: false, earned: 0 }; I.recompute(); I.syncHUD();
-      await new Promise(r => setTimeout(r, 120)); I.syncHUD();
+      await new Promise(r => setTimeout(r, 150)); I.syncHUD();
       return { abilBefore, onSettle, abilAfter: vis('#abilities') };
     });
 
@@ -440,7 +450,12 @@ const visibleControls = () => {
     if (tut.tutUp && !tut.objShown) fails.push('objective HIDDEN during the tutorial that talks about it');
     if (tut.tutUp && tut.coachShown) fails.push('coach painted over the tutorial — two teaching UIs at once');
     if (settle.onSettle.obj) fails.push('objective still shown over the settlement panel');
-    if (settle.onSettle.abil) fails.push('abilities still shown over the settlement panel');
+    // v18.73: this used to demand the OPPOSITE — abilities hidden over the settlement panel — which
+    // was right when they were dock furniture the panel replaced (v18.13) and wrong the moment they
+    // moved into the nav (v18.69). A conquered planet is a settled world, and that is where a mature
+    // save spends most of its time farming the travel cost, so the powers were gone exactly when you
+    // most want them. The settle panel is in the DOCK; the powers are in the NAV, above it.
+    if (settle.abilBefore && !settle.onSettle.abil) fails.push('SETTLING a world hid the powers — they are nav furniture, not dock furniture');
     if (!settle.abilBefore && settle.abilAfter) fails.push('un-settling UN-HID abilities the reveal gate had hidden');
     if (errs.length) fails.push('page errors: ' + errs.join(' | '));
     bad += fails.length;
@@ -453,7 +468,7 @@ const visibleControls = () => {
       '  obj "' + t0.objText.slice(0, 22) + '" -> "' + obj2.slice(0, 22) + '"' +
       '  eco ' + (t0.ecoVisible ? 'shown' : 'HIDDEN') +
       '  tut[obj ' + (tut.objShown ? 'y' : 'N') + ' coach ' + (tut.coachShown ? 'ON' : 'off') + ']' +
-      '  settle[' + (settle.onSettle.obj || settle.onSettle.abil ? 'LEAK' : 'clean') + ']' +
+      '  settle[obj ' + (settle.onSettle.obj ? 'LEAK' : 'hidden') + ' powers ' + (settle.onSettle.abil ? 'kept' : 'LOST') + ']' +
       '  sticky ' + (sticky.on && sticky.still ? 'ok' : 'NO'));
     fails.forEach(f => console.log('      <-- ' + f));
     await page.close();
