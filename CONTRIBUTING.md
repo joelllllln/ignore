@@ -86,6 +86,9 @@ included a code change without pasting this link.
   they do not make them. The Black Hole must credit zero kills to itself while still
   being worth its 60s cooldown — deleting an ability would satisfy the first half on
   its own, so both halves are gated.
+- **Dock changes** re-run `node tools/dock-order.js`. The primary action (TRAVEL /
+  ▲ SUMMON / VISIT) sits above the dock's chrome and can never be hidden by it — a
+  Minimise toggle that collapses your one live action is how ▲ SUMMON went missing.
 - **Boss/spawn timing changes** re-run `node tools/boss-timer.js`. The banner countdown
   must be the spawner's own clock, not a second one that drifts — it freezes while a boss
   is on the field and on a settled world, because the spawn does.

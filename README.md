@@ -451,6 +451,8 @@ tools/       Headless balancing aids (run with Node; the ones that drive the rea
                      inspect, allocate and pick — the web must not move 1px
   ability-check.js   the Black Hole must credit ZERO kills to itself, still beat
                      a quiet 5s by 1.6x, and actually pull (measured per dot)
+  dock-order.js      chrome never sits above the primary action, and Minimise
+                     can never hide it — the dock's priority order
   boss-timer.js      the mini-boss countdown must be the SPAWNER's own clock —
                      frozen when the spawn is, silent on a settled world, and
                      equal to the real remaining time to the second

@@ -163,9 +163,13 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 
 /* dock */
 #dock{left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));background:linear-gradient(180deg,transparent,rgba(0,0,0,.96) 20%);padding:6px 8px calc(8px + env(safe-area-inset-bottom, 0px))}   /* v16.6: viewport-fit=cover means the dock reaches under the iPhone home indicator — pad past it */
-#dock-toggle{text-align:center;color:var(--dim);font-size:12px;font-weight:700;letter-spacing:1px;padding:5px;cursor:pointer;
-  border:1px solid var(--edge);border-radius:8px;margin-bottom:6px;background:var(--panel)}
-#dock.min #abilities,#dock.min #tabs,#dock.min #up-list,#dock.min #actions,#dock.min #settle-panel,#dock.min #objective{display:none}   /* v18.62: the objective is dock furniture too — Minimise must take it with the rest */
+/* v18.78: below the action, not above it, and quieter than it. */
+#dock-toggle{text-align:center;color:var(--dim);font-size:11px;font-weight:700;letter-spacing:1px;padding:4px;cursor:pointer;
+  border:1px solid var(--edge);border-radius:8px;margin-top:6px;background:var(--panel)}
+/* Minimise collapses the bulky SETTLEMENT panel. It must never take #actions with it — that is the
+   one live thing you came here to press, and hiding ▲ SUMMON behind a chrome toggle is how the
+   most important button in a run went missing. */
+#dock.min #abilities,#dock.min #tabs,#dock.min #up-list,#dock.min #settle-panel,#dock.min #objective{display:none}   /* v18.62: the objective is dock furniture too — Minimise must take it with the rest */
 #abilities{display:flex;gap:6px;margin-bottom:6px}
 .ab{flex:1;position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--edge);border-radius:9px;
   color:var(--text);padding:7px 4px;font-size:12px;font-weight:700}
@@ -205,7 +209,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .sp-inc b{color:var(--cash)}
 
 /* action row (travel / dust / rebirth) */
-#actions{display:flex;gap:8px;margin-top:6px}
+/* v18.78: a full-bleed slab across a 844px landscape screen is a wall, not a button — it ate a
+   third of the playfield. The action row keeps a sane maximum and centres itself. */
+#actions{display:flex;gap:8px;margin-top:6px;max-width:520px;margin-left:auto;margin-right:auto}
 .act{flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:11px;color:var(--text);
   padding:9px 6px;font-size:13px;font-weight:800;letter-spacing:.5px}
 .act.travel{color:#fff;border-color:rgba(255,255,255,.35)}
@@ -768,7 +774,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
   /* the ceiling must leave room for the FULL fixed furniture (toggle + abilities + tabs + LAUNCH);
      at 66vh it was 8px short and clipped the LAUNCH row clean off a landscape screen */
   #dock{max-height:78vh}
-  #dock-toggle{padding:3px;margin-bottom:3px}
+  #dock-toggle{padding:3px;margin-top:3px}
   #abilities{margin-bottom:3px}
   .ab{padding:5px 4px}
   #tabs{margin-bottom:3px}
