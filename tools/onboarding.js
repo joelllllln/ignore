@@ -55,6 +55,8 @@
 //   N4  the nav stays ABOVE an open modal, so switching screens is one tap from anywhere
 //   N5  ASCEND is inert until a core is pending, then carries the pending count as a badge
 //   N6  the old corner icons (#btn-menu, #btn-metrics) are gone — not merely hidden
+//   N10 a core you WIN is a core you can spend: the boss wheel banks one directly, so the ascend
+//       door opens on the BANK, not only on cores a conquest has staged.
 //   N9  the three POWERS belong to PLAY and only to PLAY (v18.72, owner call reversing v18.69):
 //       present AND tappable on the field, GONE on every other destination. You fire them at dots,
 //       so a live Black Hole tile on the Economy page is offering something you cannot even see.
@@ -216,6 +218,26 @@ const visibleControls = () => {
     await page.click('#ab-frenzy'); await page.waitForTimeout(280);
     const cdAfter = await page.evaluate(() => window.__IDS.abil().frenzy);
     if (!(cdAfter > cdBefore)) f.push('firing a power from PLAY did nothing');
+
+    // N10 — a core WON is a core you can spend. The boss-bounty wheel banks a core directly on a 2%
+    // roll, and a boss can die long before your first conquest — so the ascend door must open on the
+    // BANK, not only on pending. Measured before v18.76: the wheel printed "◈ +1 CORE — banked to
+    // Ascension" while the nav's ASCEND item sat at pointer-events:none, holding a currency you
+    // could not spend. Asked on a virgin save, which is the only state where the two differ.
+    { const wheel = await page.evaluate(() => {
+        const I = window.__IDS;
+        I.META().seen = {};                                   // forget the reveal, so this is a real question
+        const na = () => document.querySelector('#nav .nv[data-nav="ascend"]');
+        I.syncHUD();
+        const before = { locked: !!(na() && na().classList.contains('locked')), banked: (I.META().asc.cores) | 0 };
+        I.awardCores(1, 'rare drop — BOSS BOUNTY WHEEL'); I.syncHUD();
+        const el = na(), cs = el ? getComputedStyle(el) : null;
+        return { before, banked: (I.META().asc.cores) | 0, pending: I.pendingCores(),
+                 locked: !!(el && el.classList.contains('locked')), pointer: cs ? cs.pointerEvents : 'none' };
+      });
+      if (!wheel.before.locked) f.push('N10 is vacuous — ASCEND was already unlocked before the wheel core');
+      if (wheel.locked || wheel.pointer === 'none') f.push('a WHEEL core (banked ' + wheel.banked + ', pending ' + wheel.pending + ') left ASCEND unclickable — you cannot spend what you won');
+      await page.evaluate(() => { const I = window.__IDS; I.META().asc.cores = 0; I.revealAll(); I.syncHUD(); }); }
 
     // N5 — the pending badge
     const badge = await page.evaluate(() => {
