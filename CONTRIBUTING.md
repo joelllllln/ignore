@@ -80,6 +80,10 @@ included a code change without pasting this link.
   stability are different questions: v18.71 shipped a tree that fitted perfectly and
   jumped 90px every time you tapped a node, because the detail panel took height from
   the canvas and the tree's scale is derived from the canvas box.
+- **Ability changes** re-run `node tools/ability-check.js`. The powers SET UP kills;
+  they do not make them. The Black Hole must credit zero kills to itself while still
+  being worth its 60s cooldown — deleting an ability would satisfy the first half on
+  its own, so both halves are gated.
 - **Field / camera / spawning / dock / layout changes** get driven through the real
   game in headless Chromium before shipping. The battery lives in the session
   scratchpad (not the repo) and covers, at minimum: world framing and spawn placement,

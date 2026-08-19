@@ -448,6 +448,8 @@ tools/       Headless balancing aids (run with Node; the ones that drive the rea
                      nothing clipping its own text (scroll-aware)
   tree-stability.js  does the skill tree STAY PUT? pan/zoom somewhere, then tap,
                      inspect, allocate and pick — the web must not move 1px
+  ability-check.js   the Black Hole must credit ZERO kills to itself, still beat
+                     a quiet 5s by 1.6x, and actually pull (measured per dot)
   domstub.js         the shared headless DOM/canvas stub the two Node-only sims
                      (balance-check, ascension-sim --verify) load game.js under
   playthrough-sim.js real-game drive through all 18 planets — unlock gating,
