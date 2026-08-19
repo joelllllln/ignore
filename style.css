@@ -266,12 +266,14 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #ascend .pk-lv{font-family:var(--mono);font-weight:800;opacity:.75;margin-left:4px}
 
 /* ── tree PICK mode (v15.6): a proper DONE pill + live "saved" feedback ── */
-#st-pick-done{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:6;
+/* v18.71: same floating-offset problem as .st-info — bottom:64px predates the nav. It joins the
+   column too, so it can never be buried under the bar however tall the bar gets. */
+#st-pick-done{flex:0 0 auto;align-self:center;margin:0 12px 10px;
   background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;border-radius:24px;
   padding:13px 26px;font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:1px;
   box-shadow:0 6px 24px rgba(0,0,0,.6),0 0 18px rgba(255,255,255,.25);white-space:nowrap}
 #st-pick-done.bump{animation:pick-bump .3s cubic-bezier(.2,1.6,.4,1)}
-@keyframes pick-bump{40%{transform:translateX(-50%) scale(1.09)}100%{transform:translateX(-50%) scale(1)}}
+@keyframes pick-bump{40%{transform:scale(1.09)}100%{transform:scale(1)}}
 .st-tip.pick{color:#fff;font-weight:800;font-family:var(--mono);letter-spacing:.4px}
 .st-tip.pick.saved{text-shadow:0 0 10px rgba(255,255,255,.6)}
 .auto-locked{color:var(--dim);font-size:11px;text-align:center;padding:4px}
@@ -444,13 +446,31 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .st-wallet .sw-lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--dim)}
 .st-wallet #sw-tot{font-family:var(--mono);font-size:20px;font-weight:800;color:var(--cash)}
 .st-wallet #sw-rate{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sd)}
-#sttree{flex:1;width:100%;min-height:0;display:block;touch-action:none;cursor:grab}
+.st-body{flex:1 1 0;min-height:0;min-width:0;display:flex;flex-direction:column}
+#sttree{flex:1 1 0;width:100%;min-height:80px;min-width:0;display:block;touch-action:none;cursor:grab}   /* v18.71: a floor, so the detail panel can never squeeze the tree out of existence */
 #sttree:active{cursor:grabbing}
-.st-foot{padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}   /* v18.55: wrap — at 280px wide the two fixed-width buttons pushed the row to 305px and scrolled the page sideways */
+.st-foot{flex:0 0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}   /* v18.55: wrap — at 280px wide the two fixed-width buttons pushed the row to 305px and scrolled the page sideways */
 .st-foot .st-tip{flex:1;color:var(--dim);font-size:11px}
+/* v18.71: the pan/zoom hint wrapped the foot to THREE rows on a small screen (154px of a 445px
+   column), which is what pushed Recenter and SELL ONE under the nav once the detail panel joined
+   the column. It is a hint, not a control — the tree's own gestures still work, and the how-to
+   still explains them. It stands down where the pixels are actually scarce. */
+/* :not(.pick) is load-bearing — #st-pick-tip shares the class and carries the live "saved to this
+   Auto-Buy step" feedback, which is not a hint you can drop. Only the pan/zoom line goes. */
+@media (max-width:420px), (max-height:700px){ .st-foot .st-tip:not(.pick){display:none} }
+
 /* node detail panel */
-.st-info{position:absolute;left:12px;right:12px;bottom:70px;z-index:4;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:13px 15px;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
-.st-info.show{display:block}
+/* v18.71 (owner: "make sure the UI fits") — this panel used to FLOAT: position:absolute,
+   bottom:70px, a number from back when the nav did not exist. With the two-tier nav its
+   UPGRADE button sat 23px UNDER the bar on every phone shape, and the panel itself covered
+   Recenter and SELL ONE. No offset can be right for a bar whose height varies and a foot row
+   that wraps, so it does not float any more: it is a flex item in the column, between the tree
+   and the foot. Overlap is now impossible by construction rather than by arithmetic.
+   NB: this changes the CANVAS height when a node is picked, so showNodeInfo() re-resizes. */
+.st-info{flex:0 1 auto;min-height:96px;margin:0 12px 10px;max-height:42%;overflow:hidden;background:var(--panel);
+  border:1px solid var(--edge);border-radius:14px;padding:13px 15px;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.st-info.show{display:flex;flex-direction:column}
+.si-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .si-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .si-name{font-family:var(--mono);letter-spacing:1px;color:#fff;font-size:16px;font-weight:800}
 .si-tag{font-family:var(--mono);font-size:11px;color:var(--dim)}
@@ -459,7 +479,11 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .si-prev{font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:10px}
 .si-prev b{color:#fff;font-family:var(--mono)}
 .si-prev .si-after b{color:#fff}
-.si-btn{display:block;width:100%;background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;font-size:14px;padding:11px;border-radius:10px;font-family:var(--mono)}
+/* v18.71: the panel scrolls when the column is short, and the first thing to scroll out of sight
+   was the ALLOCATE button — the only reason the panel is on screen. Measured on a 320x568 phone:
+   0 of its 38px visible. The button is now a sibling of the scroll box, not inside it, so it is
+   always on screen and never floats over the text it sits below. */
+.si-btn{display:block;flex:0 0 auto;margin-top:2px;width:100%;background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;font-weight:800;font-size:14px;padding:11px;border-radius:10px;font-family:var(--mono)}
 .si-btn:disabled{background:#2b2b2b;color:var(--dim)}
 .st-foot #st-reset{flex:0 1 auto;min-width:0;background:var(--panel);border:1px solid var(--edge);color:var(--text);border-radius:10px;padding:11px 14px;font-weight:700}
 .st-foot #st-reset:hover{border-color:#fff}
@@ -1174,3 +1198,30 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
 /* the nav badges now carry the "something in here is affordable" count for ARMY and ECONOMY, and
    the amber "!" the tab badges used to carry for a leak or a pinned wallet. */
 .nv-b.warn{background:#ffb35c;color:#000}
+
+/* LANDSCAPE. 844x390 leaves a 297px column once the nav is reserved, and the tree's fixed chrome —
+   header, the stat line, the two wallet tiles — ate 161px of it, which pushed Recenter and SELL ONE
+   under the bar. The stat line is the one thing here that is genuinely redundant: the detail panel
+   prints the same numbers as "Now: 5 dmg · 1.4/s · 240 rng" right above the button. */
+@media (max-height:520px){
+  .st-head{padding-top:calc(8px + env(safe-area-inset-top, 0px));padding-bottom:8px}
+  .st-head .x{min-width:44px;min-height:44px;font-size:22px}
+  .st-stats{display:none}
+  .st-wallet{padding-bottom:6px;gap:8px}
+  .st-wallet .sw-col{padding:3px 12px;min-width:88px}
+  .st-wallet #sw-tot{font-size:15px}
+  .st-wallet #sw-rate{font-size:13px}
+  /* side by side: the panel takes width, which landscape has, instead of height, which it has not */
+  .st-body{flex-direction:row;gap:10px}
+  .st-info{min-height:0;max-height:100%;width:min(360px,42%);flex:0 0 auto;margin:0 12px 0 0;padding:10px 13px}
+  #sttree{min-height:0}
+  /* ...and the panel's own content is trimmed to fit that column WITHOUT scrolling, because the
+     thing that scrolls out of sight first is the ALLOCATE button — the only reason the panel exists.
+     The flavour line is the one part that carries no number, so it is the part that goes. */
+  .st-info .si-desc{display:none}
+  .st-info .si-head{margin-bottom:2px}
+  .st-info .si-name{font-size:14px}
+  .st-info .si-fx{font-size:11px;margin-bottom:4px}
+  .st-info .si-prev{font-size:11px;line-height:1.4;margin-bottom:7px}
+  .st-info .si-btn{padding:9px;font-size:13px}
+}

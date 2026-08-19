@@ -16,7 +16,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/icon-180.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="stylesheet" href="style.css?v=18.70" />
+<link rel="stylesheet" href="style.css?v=18.71" />
 </head>
 <body>
 <div id="root">
@@ -200,13 +200,21 @@
       <div class="sw-col"><span class="sw-lbl">TOTAL</span><b id="sw-tot">0</b></div>
       <div class="sw-col"><span class="sw-lbl">PER SEC</span><b id="sw-rate">+0/s</b></div>
     </div>
+    <!-- v18.71: the tree and its node-detail panel share one BODY box. Stacked in portrait, side by
+         side in landscape — a 390px-tall phone has no vertical room for both, and plenty of width. -->
+    <div class="st-body">
     <canvas id="sttree"></canvas>
+    <!-- v18.71: the detail text scrolls, the ACTION does not. They are separate boxes now — a sticky
+         button would have floated over the "what does this boost?" ⓘ at the top of the scroll. -->
     <div id="st-info" class="st-info">
-      <div class="si-head"><span class="si-name" id="si-name"></span><span class="si-tag" id="si-tag"></span></div>
-      <div class="si-desc" id="si-desc"></div>
-      <div class="si-fx" id="si-fx"></div>
-      <div class="si-prev" id="si-prev"></div>
+      <div class="si-body">
+        <div class="si-head"><span class="si-name" id="si-name"></span><span class="si-tag" id="si-tag"></span></div>
+        <div class="si-desc" id="si-desc"></div>
+        <div class="si-fx" id="si-fx"></div>
+        <div class="si-prev" id="si-prev"></div>
+      </div>
       <button id="st-upgrade" class="si-btn">UPGRADE</button>
+    </div>
     </div>
     <button id="st-pick-done" style="display:none">✓ DONE — ORDER SAVED</button>
     <div class="st-foot"><span class="st-tip">drag to pan · scroll / pinch to zoom · tap a node for details</span><span id="st-pick-tip" class="st-tip pick" style="display:none">PICK MODE — every tap is saved to this Auto-Buy step instantly</span><button id="st-auto" style="display:none"><i data-ico="gear"></i>Pick</button><button id="st-max" style="display:none">★ MAX TREE</button><button id="st-reset"><i data-ico="reset"></i>Recenter</button><button id="st-sell">SELL ONE</button></div>
@@ -349,6 +357,6 @@
     </div>
   </div>
 </div>
-<script src="js/game.js?v=18.70"></script>
+<script src="js/game.js?v=18.71"></script>
 </body>
 </html>

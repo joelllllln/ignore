@@ -443,6 +443,9 @@ tools/       Headless balancing aids (run with Node; the ones that drive the rea
   crosscheck-ladder.js re-runs the ladder against onearmy's MEASURED envelope —
                      L1–L8 gates (incl. L7 mining share, L8 ascend-beats-parking)
   balance-check.js   economy upgrade cost-vs-effect audit (infinite-money check)
+  fit-audit.js       does the UI FIT? twelve screens x five shapes: nothing off
+                     screen, nothing under the nav, nothing covering a control,
+                     nothing clipping its own text (scroll-aware)
   domstub.js         the shared headless DOM/canvas stub the two Node-only sims
                      (balance-check, ascension-sim --verify) load game.js under
   playthrough-sim.js real-game drive through all 18 planets — unlock gating,
