@@ -86,6 +86,9 @@ included a code change without pasting this link.
   they do not make them. The Black Hole must credit zero kills to itself while still
   being worth its 60s cooldown — deleting an ability would satisfy the first half on
   its own, so both halves are gated.
+- **Boss/spawn timing changes** re-run `node tools/boss-timer.js`. The banner countdown
+  must be the spawner's own clock, not a second one that drifts — it freezes while a boss
+  is on the field and on a settled world, because the spawn does.
 - **Field / camera / spawning / dock / layout changes** get driven through the real
   game in headless Chromium before shipping. The battery lives in the session
   scratchpad (not the repo) and covers, at minimum: world framing and spawn placement,
