@@ -71,11 +71,15 @@ included a code change without pasting this link.
   L1–L8), `node tools/ascension-sim.js` (prestige design gates + `--verify` contract).
   `tools/balance-check.js` audits upgrade cost-vs-effect. If a change moves the
   wall-zone medians, say so explicitly in the commit message.
-- **Any UI change** re-runs `node tools/fit-audit.js` — twelve screens across five
+- **Any UI change** re-runs `node tools/fit-audit.js` — thirteen screens across five
   device shapes, checking that nothing is off screen, nothing is buried under the
   persistent nav, nothing covers a control, and nothing clips its own text. It is
   the gate for "does it fit", and it catches screens the nav does not reach
   (the skill tree, the info modals) which `screen-audit.js` cannot see.
+- **Skill-tree layout changes** also re-run `node tools/tree-stability.js`. Fit and
+  stability are different questions: v18.71 shipped a tree that fitted perfectly and
+  jumped 90px every time you tapped a node, because the detail panel took height from
+  the canvas and the tree's scale is derived from the canvas box.
 - **Field / camera / spawning / dock / layout changes** get driven through the real
   game in headless Chromium before shipping. The battery lives in the session
   scratchpad (not the repo) and covers, at minimum: world framing and spawn placement,

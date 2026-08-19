@@ -9,7 +9,7 @@
 // screen-audit.js already walked the five NAV destinations. It could not have
 // caught this: the skill tree is not on the nav, it is opened from a shop row.
 // This tool walks EVERY screen the game can show, including the ones behind
-// other screens, and asks three questions of each of them:
+// other screens, and asks four questions of each of them:
 //
 //   F1 CLIPPED   — is any interactive control (or the panel holding it) outside
 //                  the viewport, or underneath the persistent nav bar? The nav
@@ -21,10 +21,17 @@
 //                  scrollHeight past clientWidth/Height) without that box being
 //                  scrollable? That is text clipped mid-word, not a scroll list.
 //
+//   F4 MUST-SEE  — named controls (a screen's `must` list) that have to be
+//                  visible WITHOUT scrolling, because they are the only action
+//                  the panel offers and nothing else on screen states the price.
+//
 // A control 1px under the nav is as unusable as one a mile off screen, so the
 // bar is the same for both. Panels that are DELIBERATELY scrollable (#up-list,
 // #eco-list, the how-to body) are exempt from F3 by computed overflow, not by a
-// name whitelist — a list that stops scrolling stops being exempt.
+// name whitelist — a list that stops scrolling stops being exempt. F1 and F2 are
+// scroll-aware for the same reason: a row below the fold is one flick away, and
+// a sticky footer covering it is doing its job. F4 is where "must not scroll"
+// gets stated explicitly, so those exemptions can never swallow a real burial.
 //
 // Run: node tools/fit-audit.js         (needs Playwright)
 // ---------------------------------------------------------------------------
@@ -142,7 +149,17 @@ const probe = (navSel, CTL) => {
     }
     // F2 — what does a thumb at the middle of the VISIBLE part actually hit?
     const hit = document.elementFromPoint(r.left + r.w / 2, r.top + r.h / 2);
-    if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) covered.push(named(el) + " <- " + named(hit));
+    if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
+      // A STICKY footer covering content that scrolls beneath it is the point of a sticky footer,
+      // not a defect: scroll on and the row comes out from under it. The ascension page's pinned
+      // ASCEND bar and the shop lists both work this way. Whether a control is close enough to
+      // "the only action here" to be exempt from scrolling is exactly what `must` is for, so this
+      // exemption cannot quietly swallow that case.
+      let st = hit, sticky = false;
+      while (st && st !== document.body) { const ps = getComputedStyle(st).position;
+        if (ps === "sticky" || ps === "fixed") { sticky = true; break; } st = st.parentElement; }
+      if (!(sticky && scrollable(el))) covered.push(named(el) + " <- " + named(hit));
+    }
   }
 
   // F3 — content spilling a box that is not scrollable

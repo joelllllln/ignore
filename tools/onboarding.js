@@ -55,9 +55,11 @@
 //   N4  the nav stays ABOVE an open modal, so switching screens is one tap from anywhere
 //   N5  ASCEND is inert until a core is pending, then carries the pending count as a badge
 //   N6  the old corner icons (#btn-menu, #btn-metrics) are gone — not merely hidden
-//   N9  the three POWERS are a permanent tier of the menu (v18.69): present AND tappable on every
-//       destination, and firing one from a non-PLAY screen really starts its cooldown. They used to
-//       live in the PLAY dock, so opening the shop or the star map took them away entirely.
+//   N9  the three POWERS belong to PLAY and only to PLAY (v18.72, owner call reversing v18.69):
+//       present AND tappable on the field, GONE on every other destination. You fire them at dots,
+//       so a live Black Hole tile on the Economy page is offering something you cannot even see.
+//       Checked both ways — a gate that only asserted "visible on PLAY" would pass if they were
+//       visible everywhere, which is the exact state this replaced.
 //
 //   node tools/onboarding.js
 function requirePlaywright(){ try { return require('playwright'); } catch(e){ try { return require('/opt/node22/lib/node_modules/playwright'); } catch(e2){ console.error('This tool needs Playwright'); process.exit(1);} } }
@@ -190,10 +192,10 @@ const visibleControls = () => {
       if (!r.zTop || !r.hitsNav) f.push('the nav is not tappable over ' + sel + ' (z ' + r.zTop + ', hit ' + r.hitsNav + ')');
       await page.click('#nav .nv[data-nav="play"]'); await page.waitForTimeout(220);
     }
-    // N9 — the powers, on every screen, actually pressable
+    // N9 — the powers live on PLAY, and nowhere else
     await page.evaluate(() => { window.__IDS.revealAll(); window.__IDS.syncHUD(); });
-    let powBad = 0, powWhere = [];
-    for (const k of ['play', 'upgrades', 'map', 'ascend', 'more']) {
+    let powWhere = [];
+    for (const k of ['play', 'upgrades', 'economy', 'map', 'ascend', 'more']) {
       await page.evaluate(kk => window.__IDS.navGo(kk), k); await page.waitForTimeout(260);
       const st = await page.evaluate(() => ['ab-frenzy', 'ab-dotrain', 'ab-blackhole'].map(id => {
         const e = document.getElementById(id); if (!e) return 'missing';
@@ -202,17 +204,18 @@ const visibleControls = () => {
         const hit = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
         return hit && e.contains(hit) ? 'ok' : 'blocked';
       }));
-      const bad2 = st.filter(x => x !== 'ok');
-      if (bad2.length) { powBad += bad2.length; powWhere.push(k + ':' + bad2.join('/')); }
+      // on PLAY all three must be there and pressable; anywhere else all three must be gone
+      const want = k === 'play' ? 'ok' : 'hidden';
+      const bad2 = st.filter(x => x !== want);
+      if (bad2.length) powWhere.push(k + ' wanted ' + want + ', got ' + bad2.join('/'));
     }
-    if (powBad) f.push('powers not usable on every screen — ' + powWhere.join(', '));
-    // ...and one must actually FIRE from a screen that is not PLAY
-    await page.evaluate(() => window.__IDS.navGo('upgrades')); await page.waitForTimeout(260);
+    if (powWhere.length) f.push('powers are not PLAY-only — ' + powWhere.join('; '));
+    // ...and on PLAY, one must actually FIRE
+    await page.evaluate(() => window.__IDS.navGo('play')); await page.waitForTimeout(260);
     const cdBefore = await page.evaluate(() => window.__IDS.abil().frenzy);
     await page.click('#ab-frenzy'); await page.waitForTimeout(280);
     const cdAfter = await page.evaluate(() => window.__IDS.abil().frenzy);
-    if (!(cdAfter > cdBefore)) f.push('firing a power from the UPGRADES screen did nothing');
-    await page.evaluate(() => window.__IDS.navGo('play')); await page.waitForTimeout(200);
+    if (!(cdAfter > cdBefore)) f.push('firing a power from PLAY did nothing');
 
     // N5 — the pending badge
     const badge = await page.evaluate(() => {
@@ -231,7 +234,7 @@ const visibleControls = () => {
       '  corners-gone ' + (base.corners ? 'NO' : 'y') +
       '  asc-locked-at-start ' + (base.ascLocked ? 'y' : 'N') +
       '  badge ' + (badge.on ? '"' + badge.txt + '"' : 'off') +
-      '  powers ' + (powBad ? 'BROKEN' : 'all 5 screens'));
+      '  powers ' + (powWhere.length ? 'BROKEN' : 'PLAY only'));
     f.forEach(x => console.log('      <-- ' + x));
     await page.close();
   }

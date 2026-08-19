@@ -266,15 +266,24 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #ascend .pk-lv{font-family:var(--mono);font-weight:800;opacity:.75;margin-left:4px}
 
 /* ── tree PICK mode (v15.6): a proper DONE pill + live "saved" feedback ── */
-/* v18.71: same floating-offset problem as .st-info — bottom:64px predates the nav. It joins the
-   column too, so it can never be buried under the bar however tall the bar gets. */
-#st-pick-done{flex:0 0 auto;align-self:center;margin:0 12px 10px;
+/* v18.72: bottom:64px predated the nav and reached under it. Anchored to the TOP of .st-body now —
+   inside the tree's own box, so it can never reach the foot or the bar, clear of the detail panel
+   at the bottom, and (unlike v18.71's flex item) it does not steal height from the canvas. */
+#st-pick-done{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:6;max-width:calc(100% - 24px);
   background:linear-gradient(95deg,#fff,#bbb);border:none;color:#000;border-radius:24px;
   padding:13px 26px;font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:1px;
   box-shadow:0 6px 24px rgba(0,0,0,.6),0 0 18px rgba(255,255,255,.25);white-space:nowrap}
 #st-pick-done.bump{animation:pick-bump .3s cubic-bezier(.2,1.6,.4,1)}
-@keyframes pick-bump{40%{transform:scale(1.09)}100%{transform:scale(1)}}
+@keyframes pick-bump{40%{transform:translateX(-50%) scale(1.09)}100%{transform:translateX(-50%) scale(1)}}
 .st-tip.pick{color:#fff;font-weight:800;font-family:var(--mono);letter-spacing:.4px}
+/* v18.72: the pick-mode chrome moved OUT of .st-foot and into the tree body. In the foot it grew the
+   row when you entered PICK mode, which shrank the canvas and jumped the web (25-37px, measured).
+   The foot's height is now constant, so nothing the player does can move the tree. */
+#st-pick-tip{position:absolute;top:98px;left:50%;transform:translateX(-50%);z-index:6;max-width:calc(100% - 24px);
+  text-align:center;font-size:11px;line-height:1.35;background:rgba(0,0,0,.82);border-radius:8px;padding:5px 10px}
+#st-auto{position:absolute;top:10px;left:12px;z-index:6;background:var(--panel);border:1px solid var(--edge);
+  color:var(--text);border-radius:10px;padding:9px 13px;font-weight:700;font-size:13px}
+#st-auto.on{border-color:#fff;color:#fff}
 .st-tip.pick.saved{text-shadow:0 0 10px rgba(255,255,255,.6)}
 .auto-locked{color:var(--dim);font-size:11px;text-align:center;padding:4px}
 .auto-hint{font-size:11px;margin-top:6px;line-height:1.4}
@@ -446,7 +455,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .st-wallet .sw-lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--dim)}
 .st-wallet #sw-tot{font-family:var(--mono);font-size:20px;font-weight:800;color:var(--cash)}
 .st-wallet #sw-rate{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sd)}
-.st-body{flex:1 1 0;min-height:0;min-width:0;display:flex;flex-direction:column}
+.st-body{position:relative;flex:1 1 0;min-height:0;min-width:0;display:flex;flex-direction:column}
 #sttree{flex:1 1 0;width:100%;min-height:80px;min-width:0;display:block;touch-action:none;cursor:grab}   /* v18.71: a floor, so the detail panel can never squeeze the tree out of existence */
 #sttree:active{cursor:grabbing}
 .st-foot{flex:0 0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}   /* v18.55: wrap — at 280px wide the two fixed-width buttons pushed the row to 305px and scrolled the page sideways */
@@ -460,14 +469,16 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 @media (max-width:420px), (max-height:700px){ .st-foot .st-tip:not(.pick){display:none} }
 
 /* node detail panel */
-/* v18.71 (owner: "make sure the UI fits") — this panel used to FLOAT: position:absolute,
-   bottom:70px, a number from back when the nav did not exist. With the two-tier nav its
-   UPGRADE button sat 23px UNDER the bar on every phone shape, and the panel itself covered
-   Recenter and SELL ONE. No offset can be right for a bar whose height varies and a foot row
-   that wraps, so it does not float any more: it is a flex item in the column, between the tree
-   and the foot. Overlap is now impossible by construction rather than by arithmetic.
-   NB: this changes the CANVAS height when a node is picked, so showNodeInfo() re-resizes. */
-.st-info{flex:0 1 auto;min-height:96px;margin:0 12px 10px;max-height:42%;overflow:hidden;background:var(--panel);
+/* THE PANEL, v18.72. It floats again — but INSIDE .st-body, not inside the whole modal.
+   v18.71 fixed the wrong half of the problem. The original bug was that "bottom:70px" measured
+   from the bottom of the MODAL, so the panel reached down through the foot row and under the nav.
+   Making it a flex item did fix that, and broke something worse: showing it changed the canvas
+   height, so tapping a node re-scaled and jumped the whole tree (measured: a node at y=211 leapt
+   to y=118 and shrank 20%, on every tap).
+   Anchoring it to .st-body gets both. The body's bottom edge already sits above the foot, which
+   already sits above the nav, so the panel physically cannot reach either — and the canvas keeps
+   its size, so the tree does not move when you tap it. */
+.st-info{position:absolute;left:12px;right:12px;bottom:0;z-index:4;max-height:60%;overflow:hidden;background:var(--panel);
   border:1px solid var(--edge);border-radius:14px;padding:13px 15px;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 .st-info.show{display:flex;flex-direction:column}
 .si-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -1211,9 +1222,8 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
   .st-wallet .sw-col{padding:3px 12px;min-width:88px}
   .st-wallet #sw-tot{font-size:15px}
   .st-wallet #sw-rate{font-size:13px}
-  /* side by side: the panel takes width, which landscape has, instead of height, which it has not */
-  .st-body{flex-direction:row;gap:10px}
-  .st-info{min-height:0;max-height:100%;width:min(360px,42%);flex:0 0 auto;margin:0 12px 0 0;padding:10px 13px}
+  /* the panel takes the right-hand side, which landscape has to spare, instead of the bottom */
+  .st-info{left:auto;right:0;top:0;bottom:0;width:min(360px,42%);max-height:none;padding:10px 13px}
   #sttree{min-height:0}
   /* ...and the panel's own content is trimmed to fit that column WITHOUT scrolling, because the
      thing that scrolls out of sight first is the ALLOCATE button — the only reason the panel exists.
