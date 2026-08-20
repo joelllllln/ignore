@@ -127,19 +127,18 @@ const { chromium } = requirePlaywright();
         // planet's true cost exactly like the unit-price hole. Save for the launch (income continues),
         // pay it, then ride the transit (empire ticks; the field is in cargo).
         if (g < (maxPlanet || SIM.TOTAL_PLANETS)) {
-          // v18.9 SETTLED WORLDS: after conquest COMBAT INCOME IS OVER (v18.6 — nothing spawns on your
-          // own world). The launch save runs on the settlement instead: the planet's supervised on-site
-          // tribute (×20 background rate) + the rest of the empire — exactly what the live game pays.
-          // v18.14: the ×20 is now a finite VICTORY-SPOILS pool (30% of target), but the launch save
-          // (15%) always fits inside it, so modeling the save at ×20 stays exact.
+          // v18.79 LAUNCHING IS FREE. This used to be the launch SAVE: a settled world spawns nothing,
+          // so after a conquest you sat on the planet's ⚑ victory-spoils pot until you could afford the
+          // 15% launch price. Both halves of that are gone — the price is zero and a taken world pays
+          // no cash — so there is nothing to save for and nothing to save WITH. Priced from the game's
+          // own travelCost() rather than assumed, so if a launch price ever returns this re-arms itself.
           const tc = SIM.travelCost(g); let gT = 0;
-          const settle = SIM.baseTarget(g) / (SIM.SPOILS_PAYOUT_H * 3600);   // v18.43: ⚑ spoils have their own rate now — a conquered world pays no tribute, so the old bgRate×20 derivation is zero
           while (S.cash < tc && gT++ < 20000) {
-            const inc2 = settle + empire; if (inc2 <= 0) break;
-            const slice = Math.min((tc - S.cash) / inc2, 300); S.cash += inc2 * slice; secs += slice;
+            if (empire <= 0) break;
+            const slice = Math.min((tc - S.cash) / empire, 300); S.cash += empire * slice; secs += slice;
           }
           S.cash = Math.max(0, S.cash - tc);
-          secs += 2;   // v17.22 (owner call): transit time removed — travel is a 2s cinematic jump; the launch SAVE above is the whole gate
+          secs += 2;   // v17.22 (owner call): transit time removed — travel is a 2s cinematic jump
         }
         empire += incomePerSec(g, engineMult) * 0.4 * 0.15;                      // BG_EFF tribute fraction
         const activeH = secs / 3600 / ACTIVE_MAX;

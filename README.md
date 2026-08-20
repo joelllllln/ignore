@@ -268,10 +268,10 @@ Filling a planet's conquer bar doesn't just unlock Travel — it changes what th
 - **The world settles.** Nothing spawns any more, the army stands down, and the leftover
   fauna scatters. A settled planet is at peace; the dock swaps the whole shop for a
   **SETTLEMENT panel**.
-- **Victory spoils.** Conquest banks a finite pool (30% of the planet's conquer target)
-  paid out at ×20 while you sit on the world — enough to fund the launch and a mine.
-  After it drains, parking pays exactly the from-anywhere tribute, so **the frontier
-  always out-earns farming backwards**.
+- **It pays no credits.** A taken world gives you the planet and its ◈ seam, and nothing
+  else — no rent, no pot, no tribute. **The frontier is the only place money is made.**
+  (Until v18.79 a conquest banked a ⚑ victory-spoils pool, which existed purely to fund
+  the launch price. Launching is free now, so the pool had no job left.)
 - **A warden challenges you.** Moments after the fireworks, that world's own named boss
   takes the seam on a 60s clock — all 18 are bespoke, built from the apex mechanics of
   that planet's native race (Slag Broodmother, Azure Bulwark, Halcyon Phantasm, The Null
@@ -453,6 +453,9 @@ tools/       Headless balancing aids (run with Node; the ones that drive the rea
                      a quiet 5s by 1.6x, and actually pull (measured per dot)
   dock-order.js      chrome never sits above the primary action, and Minimise
                      can never hide it — the dock's priority order
+  boss-feel.js       bosses REACT: the well hauls one in and it swims back out,
+                     damage shoves it, wardens differ from each other — and the
+                     seam duel is still decided by damage, not by drift
   boss-timer.js      the mini-boss countdown must be the SPAWNER's own clock —
                      frozen when the spawn is, silent on a settled world, and
                      equal to the real remaining time to the second

@@ -89,6 +89,10 @@ included a code change without pasting this link.
 - **Dock changes** re-run `node tools/dock-order.js`. The primary action (TRAVEL /
   ▲ SUMMON / VISIT) sits above the dock's chrome and can never be hidden by it — a
   Minimise toggle that collapses your one live action is how ▲ SUMMON went missing.
+- **Boss movement / ability changes** re-run `node tools/boss-feel.js`. It gates BOTH
+  directions at once: bosses must react to the player (the well, knockback) AND wardens
+  must still hold the seam inside their leash — v18.24 pinned them for a measured reason
+  and a "more interactive" boss that drifts out of range brings the coin-flip duel back.
 - **Boss/spawn timing changes** re-run `node tools/boss-timer.js`. The banner countdown
   must be the spawner's own clock, not a second one that drifts — it freezes while a boss
   is on the field and on a settled world, because the spawn does.
