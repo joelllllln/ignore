@@ -93,6 +93,13 @@ included a code change without pasting this link.
   directions at once: bosses must react to the player (the well, knockback) AND wardens
   must still hold the seam inside their leash — v18.24 pinned them for a measured reason
   and a "more interactive" boss that drifts out of range brings the coin-flip duel back.
+- **Play-screen HUD changes** re-run `node tools/play-hud.js`. It gates the three things
+  that rot when the furniture around them moves: an earned ◈ must fly to the ASCEND
+  control that counts it (checked on the point `drawCoreFx` ACTUALLY used, hit-tested
+  with `elementFromPoint` — asking the helper alone would pass while the draw kept a
+  stale corner, which is exactly how cores spent fifteen versions flying off the top of
+  the screen), the settled-world overlay must not restate what the settlement panel says
+  live below it, and the banner foot must never clip the capacity readout.
 - **Boss/spawn timing changes** re-run `node tools/boss-timer.js`. The banner countdown
   must be the spawner's own clock, not a second one that drifts — it freezes while a boss
   is on the field and on a settled world, because the spawn does.

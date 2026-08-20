@@ -1181,7 +1181,15 @@ svg.ico.ax-gem{width:.46em;height:.46em;margin-left:.2em;vertical-align:.5em;opa
 .hud .g-bar{height:9px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden}
 .hud .g-bar>#galaxy-fill{height:100%;background:#fff;border-radius:5px;transition:width .35s ease}
 .hud-foot{font:700 10.5px var(--mono);letter-spacing:.08em;color:var(--sd);align-items:center}
-.hud-foot #ui-cap,.hud-foot #ui-leak,.hud-foot #ui-ascend-hint{margin-left:auto;text-align:right}
+.hud-foot #ui-cap{margin-left:auto;text-align:right}
+/* v18.81: the leak warning and the ascend hint are SENTENCES, and they were sharing one row with the
+   conquer readout, the boss clock and the cap. Measured with the warning up: the row went from 12px
+   to 42px on a normal phone and 68px on a Fold — three and four lines of shuffled fragments — and
+   "cap 550" ellipsised to "cap…" on every shape. A warning is not a stat; it gets its own line.
+   flex-basis:100% forces the break, so the stats row stays one clean line and nothing is truncated. */
+.hud-foot{flex-wrap:wrap;row-gap:3px}
+.hud-foot #ui-leak,.hud-foot #ui-ascend-hint{flex:0 0 100%;text-align:left;margin-left:0;line-height:1.35}
+.hud-foot #ui-leak:empty,.hud-foot #ui-ascend-hint:empty{display:none}
 /* v18.77: the mini-boss countdown sits with CONQUER, on the left of the banner foot — both answer
    "what is this planet about to do". White in the last fifteen seconds and while one is on the
    field; the rest of the time it is as quiet as everything else on that row. */
