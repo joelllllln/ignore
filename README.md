@@ -455,7 +455,10 @@ tools/       Headless balancing aids (run with Node; the ones that drive the rea
                      can never hide it — the dock's priority order
   boss-feel.js       bosses REACT: the well hauls one in and it swims back out,
                      damage shoves it, wardens differ from each other — and the
-                     seam duel is still decided by damage, not by drift
+                     seam duel is still decided by damage, not by drift. Also
+                     the TRACKING game: the finger must halve a duel, and bosses
+                     must get harder to track with depth without ever becoming
+                     untrackable (modelled against a hand with a reaction delay)
   boss-timer.js      the mini-boss countdown must be the SPAWNER's own clock —
                      frozen when the spawn is, silent on a settled world, and
                      equal to the real remaining time to the second

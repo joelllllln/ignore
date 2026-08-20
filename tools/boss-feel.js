@@ -30,6 +30,25 @@
 //   BF6  no boss ever has an undefined movement style, and no boss position
 //        is ever NaN (a leash divide-by-zero put one there during development)
 //
+// v18.80 adds the TRACKING GAME (owner: "make it a finger tracking game where each
+// boss becomes harder and harder to track (not impossible) and finger damage
+// should mean a lot to a boss"):
+//
+//   BF7  the finger is worth a great deal — tracking a boss must roughly HALVE
+//        the duel against the same rack. Safe to make it this strong because a
+//        warden's HP pool is calibrated with the finger's damage SUBTRACTED, so
+//        a player who never touches the screen still gets the duel the pool was
+//        built for.
+//   BF8  bosses get harder to track with depth, MONOTONICALLY — and never
+//        impossible: a hand with no reaction delay still holds ~98% at P18, so
+//        the difficulty is against reaction time, not against physics.
+//
+// BF8 models a real hand: a reaction DELAY (it aims where the boss was ~190ms
+// ago), a speed cap, and smoothing. Without the delay the model is a perfect
+// tracker and every depth reads 98% — which is exactly what the first two
+// attempts at this mechanic measured, and why "push the boss away" was the wrong
+// design. A boss cannot out-run a finger. It can out-manoeuvre a slow one.
+//
 // Run: node tools/boss-feel.js         (needs Playwright)
 // ---------------------------------------------------------------------------
 "use strict";
@@ -171,6 +190,69 @@ const clearBoss = () => { for (const d of window.__IDS.dots()) if (d.boss) { d.h
   });
   console.log("BF5 knockback             |v| " + (kick ? Math.round(kick.before) + " -> " + Math.round(kick.after) + "px/s on one hit" : "NO BOSS"));
   if (!kick || !(kick.after > 40)) fails.push("damage does not move a boss — a hit changed its speed by " + (kick ? Math.round(kick.after - kick.before) : "n/a") + "px/s");
+
+  // ---- BF7/BF8 — the tracking game ----------------------------------------------------------
+  // The virtual hand lives IN THE PAGE and drives the real brushAt() every frame. Round-tripping a
+  // Playwright mouse per sample was far too slow to finish a duel.
+  await page.evaluate(() => {
+    window.__F = { on: false, lag: 0.35, speed: 1100, delay: 190, hist: null, x: null, y: null, contact: 0, frames: 0, last: 0 };
+    const step = ts => {
+      const I = window.__IDS, F = window.__F;
+      const dt = F.last ? Math.min(0.05, (ts - F.last) / 1000) : 0.016; F.last = ts;
+      if (F.on) { const d = I.dots().find(x => x.boss);
+        if (d) {
+          if (F.x === null) { F.x = d.x - 260; F.y = d.y - 200; }
+          F.hist = F.hist || []; F.hist.push({ t: ts, x: d.x, y: d.y });
+          while (F.hist.length > 2 && ts - F.hist[0].t > F.delay) F.hist.shift();
+          const aim = F.hist[0];
+          let nx = F.x + (aim.x - F.x) * F.lag, ny = F.y + (aim.y - F.y) * F.lag;
+          const mx = F.speed * dt, dd = Math.hypot(nx - F.x, ny - F.y);
+          if (dd > mx) { nx = F.x + (nx - F.x) * mx / dd; ny = F.y + (ny - F.y) * mx / dd; }
+          F.x = nx; F.y = ny; I.brushAt(F.x, F.y);
+          F.frames++; if (Math.hypot(d.x - F.x, d.y - F.y) <= 30 + d.r) F.contact++;
+        } }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  const trackDuel = async (g, opts) => {
+    await page.evaluate(gg => { const I = window.__IDS, S = I.S(); S.galaxy = gg; S.vault = {};
+      for (const d of I.dots()) if (d.boss) { d.hp = -1; d.dead = true; }
+      const F = window.__F; F.on = false; F.x = null; F.contact = 0; F.frames = 0; F.last = 0; F.hist = null;
+      I.recompute(); I.syncHUD(); }, g);
+    await page.waitForTimeout(300);
+    await page.evaluate(o => { window.__SIM.spawnBoss(true);
+      if (o) { const F = window.__F; F.lag = o.lag; F.delay = o.delay; F.on = true; } }, opts || null);
+    let t = 0, dead = false;
+    for (let i = 0; i < 70; i++) {
+      await page.waitForTimeout(500); t += 0.5;
+      if (!(await page.evaluate(() => !!window.__IDS.dots().find(x => x.boss)))) { dead = true; break; }
+    }
+    const st = await page.evaluate(() => { const F = window.__F; F.on = false; return { c: F.contact, f: F.frames }; });
+    return { t: dead ? t : null, contact: st.f ? st.c / st.f : 0 };
+  };
+  const HAND = { lag: 0.35, delay: 190 }, PERFECT = { lag: 1, delay: 0 };
+  const track = [];
+  for (const g of [1, 9, 18]) {
+    const none = await trackDuel(g, null);
+    const hand = await trackDuel(g, HAND);
+    const perf = await trackDuel(g, PERFECT);
+    track.push({ g, none: none.t, hand: hand.t, handC: hand.contact, perfC: perf.contact });
+  }
+  for (const r of track) console.log("BF7/BF8 P" + String(r.g).padStart(2)
+    + "  no finger " + (r.none === null ? "NEVER" : r.none.toFixed(1) + "s").padEnd(7)
+    + "  tracked " + (r.hand === null ? "NEVER" : r.hand.toFixed(1) + "s").padEnd(7)
+    + "  on target: hand " + Math.round(r.handC * 100) + "%, perfect " + Math.round(r.perfC * 100) + "%");
+  for (const r of track) {
+    if (r.none === null || r.hand === null) { fails.push("P" + r.g + ": a duel never resolved in the tracking test"); continue; }
+    if (!(r.hand <= r.none * 0.72)) fails.push("P" + r.g + ": tracking only took the duel from " + r.none + "s to " + r.hand + "s — the finger is not worth much");
+    if (!(r.perfC > 0.9)) fails.push("P" + r.g + ": even a PERFECT tracker only holds " + Math.round(r.perfC * 100) + "% — this boss is not trackable, it is random");
+  }
+  { const c = track.map(r => r.handC);
+    if (!(c[0] > c[c.length - 1] + 0.12))
+      fails.push("tracking does not get harder with depth: P1 " + Math.round(c[0] * 100) + "% vs P18 " + Math.round(c[c.length - 1] * 100) + "% on target");
+    for (let i = 1; i < c.length; i++) if (c[i] > c[i - 1] + 0.03)
+      fails.push("difficulty is not monotonic: P" + track[i].g + " (" + Math.round(c[i] * 100) + "%) is EASIER than P" + track[i - 1].g + " (" + Math.round(c[i - 1] * 100) + "%)"); }
 
   await browser.close();
   console.log("\npage errors: " + (errs.length ? errs.join("\n  ") : "none"));
