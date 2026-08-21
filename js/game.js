@@ -62,7 +62,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v18.83";   // v18.83 = THE 24-HOUR ARC (owner: "for the amount of time conquering, like 24 hours, you can't actually change the spawn rate that much. You should start off small then by the end you're killing hordes and hordes"). MEASURED THE SHIPPED ARC FIRST, walking one planet's bar end to end at a fixed economy: 82 dots on arrival -> 97 -> 130 -> 202 -> 260 at a full bar. A x3.2 climb that opens at 82 (not small) and ends at 260 (not hordes). One term was responsible: fieldMul = 0.35 + 0.65*prog, a x2.9 ramp and the ONLY thing in the game that made a field THICKER as you conquered — every other thing the bar drives goes into per-dot TOUGHNESS, so a planet's endgame got tankier instead of more crowded. Now 0.08 + 1.45*prog^1.5, and it CURVES so the horde is a payoff you watch arrive: measured 21 -> 48 -> 128 -> 247 -> 417, a x19.7 arc. IT COSTS THE ECONOMY NOTHING, BY CONSTRUCTION: frontierPay divides every dot's bounty by this exact number, so a thinner stream pays proportionally fatter. Verified rather than trusted — halving the stream moved payout per dot x1.94 against x2.00 expected, at a matched roll. The two fieldMul call sites were separate hand-written copies of the same formula (spawnDot and the spawn loop); either drifting from the other would have silently decoupled the stream from the bounty that compensates it, so they are now one function. ALSO A PERFORMANCE PASS, because the arc needs the late field to be affordable: fireUnit rescanned the whole field once per VOLLEY, and maxShots is ceil(rate*dt)+1, so a longer frame bought MORE scans — more dots, slower frame, more scans, slower frame. That death spiral is the cliff measured at 349 dots (60fps -> 30 -> 20). The in-range set only changes when dots move and dots move once a frame, so it is gathered once a frame; the target rankings are frame-constant too (q and value cannot change mid-frame — only `covered` can, and it was the FIRST sort key, so walking the value/distance order and skipping covered is identical) and are built once instead of a full sort per volley. game.js JS work 52% -> 47% of frame time, fireUnit 12.9% -> 10.7%, verified behaviour-identical against v18.82 across all six classes in mind-sim. NOT RAISING THE 550 CAP: a CPU profile puts 41% of frame time in (program), i.e. software rasterisation that headless Chromium pays and a phone's GPU largely does not, so I cannot measure the real device budget from here and will not bet the design on it. The new arc lives inside the existing cap and makes the early game CHEAPER (21 dots, 60fps) while only the climax is heavy. FOUND, NOT FIXED, and reported by tools/mind-sim.js: turret's Mind branch is NEGATIVE in a crowded field (-15.8% killed value on v18.82, before any of this) — a pre-existing trap the old sparse-arrival scenario was hiding.
+  const VERSION = "v18.84";   // v18.84 = MIND STOPS WASTING ITS OWN SHOTS. Chasing a defect v18.83's gate surfaced but did not cause: turret's ◈ Mind branch was worth -15.8% killed value in a CROWDED field — a trap stat, live for versions. SPLIT MIND IN HALF TO FIND IT, because the sim only ever saw the sum of two unrelated mechanisms: HARVEST (FIRE DISCIPLINE in hitDot — refunds the loot a sloppy killing blow burns, plus a +12% precision dividend) and TRIAGE (target re-ordering in fireUnit). Measured separately: HARVEST pays +12.5% to +46.9% for EVERY class in EVERY regime and is where Mind's value actually lives; TRIAGE was worth +0.2% to +2.2% in a crowd for five classes and -21.2% for turret. THE BUG WAS A FALSE PREMISE SITTING IN A COMMENT: "value triage (rich = tough = well-matched targets, per TOUGH_POW)". Value rides hp^1.45 so that is usually true — but a SPECIAL pays x9 at ordinary HP and exotic races carry their own multipliers, so the richest dot in range is frequently a CHEAP one. Measured: with triage on, the dots a turret killed were richer (x1.30) but LOWER hp (x0.89), and since damage output is fixed either way the honest metric is HP destroyed per second — 1.64e6 with triage off against 1.20e6 with it on. 27% OF THE ARMY'S DAMAGE STOPPED DESTROYING ANYTHING; it was overkill, dumped into dots that needed a fraction of one shot. A shot costs the whole shot even when the target only needs part of it, so triage now ranks on value per damage SPENT: value / max(hp, dmg). Rich-and-tanky still ranks top, rich-and-nearly-dead ranks where it belongs, and this is finally the "overkill avoidance" uInt's own description has claimed all along. Turret crowded -15.8% -> +10.5%, triage alone -21.2% -> +8.2%, and every class is positive in both regimes (+5.1% to +28.1%). THE GATE COULD NOT HAVE SEEN THIS: tools/mind-sim.js ran the ARRIVAL field only, where the same trap reads +17.5%. It now runs arrival AND crowded, and the crowded pass needs a SHORTER window, not a longer one — it kills 5-10x more per second, so equal statistical power costs less time.
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   let settleShown = false, settleLast = 0, settleKey = "";   // v18.13 settled-dock swap state (see renderSettlePanel)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
@@ -852,6 +852,12 @@
 
   let dots = [], orbs = [], beams = [], shells = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
   let fireFrame = 0;   // v18.83: bumped once per update — see the field-scan cache in fireUnit
+  // v18.84 diagnostic knobs. Mind does TWO unrelated things — it re-orders targets (value triage /
+  // cluster-seeking in fireUnit) and it keeps loot off a sloppy killing blow (FIRE DISCIPLINE in
+  // hitDot). They can pull in opposite directions, and the mind-sim only ever saw their SUM, so a
+  // class could look like a trap stat with one half paying handsomely. These let a tool measure each
+  // half on its own; both default on and shipping code never changes them.
+  let MIND_TRIAGE = true, MIND_HARVEST = true;
   // v18.15 SABER COMBO (owner: "killing dots with your finger does a multiplier like Cookie Clicker —
   // the quicker you kill the bigger, up to ×5"): finger kills CHAIN. Each draw kill pays the current
   // multiplier, then heats it +0.35 (cap ×5 ≈ a 12-kill slaughter); a 1.6s grace window per kill,
@@ -2391,7 +2397,26 @@
     if (u._rf !== fireFrame) {
       u._rf = fireFrame;
       u._byQ = cands.slice().sort((a, b) => a.q - b.q);
-      u._byV = iq > 0.4 ? cands.slice().sort((a, b) => (b.value - a.value) || (a.q - b.q)) : null;
+      // ============ v18.84 VALUE TRIAGE IS VALUE PER SHOT, NOT VALUE ============
+      // This used to rank on raw `value`, and the comment beside it justified that with "rich = tough
+      // = well-matched targets, per TOUGH_POW". That premise is false, and measuring it is what found
+      // this: with triage on, the dots a turret kills are RICHER (x1.30) but LOWER hp (x0.89) — value
+      // rides hp^1.45 but a SPECIAL pays x9 and an exotic race carries its own multiplier, so the
+      // richest dot in range is very often a cheap one. Ranking on raw value walks the whole army onto
+      // dots whose remaining HP is a fraction of one shot, and the rest of every shot evaporates.
+      // Measured at P1 in a crowded field, damage output being identical either way:
+      //     triage off  9.5 kills/s x 1.73e5 hp = 1.64e6 hp destroyed per second
+      //     triage on   7.8 kills/s x 1.54e5 hp = 1.20e6      -> 27% of the army's damage wasted
+      // which is how Mind's targeting half came to be worth -21% killed value on a turret.
+      // A shot costs the whole shot even when the target only needs part of it, so the thing worth
+      // maximising is value per damage SPENT: value / max(hp, dmg). Rich-and-tanky still ranks top,
+      // rich-and-nearly-dead now ranks where it belongs, and this is the "overkill avoidance" that
+      // uInt has claimed to be in its one-line description all along.
+      if (iq > 0.4) {
+        const shotDmg = Math.max(1e-9, uDmg(u));
+        for (const c of cands) c.eff = c.value / Math.max(c.d.hp, shotDmg);
+        u._byV = cands.slice().sort((a, b) => (b.eff - a.eff) || (a.q - b.q));
+      } else u._byV = null;
       u._clus = null;
       // Cluster-seeking is the expensive one — for each of the nearest 24 it sums the loot every
       // other candidate would add to its blast, which is O(24 x field) and was ALSO per volley.
@@ -2403,7 +2428,7 @@
       }
     }
     // the ranking this volley walks: cluster-seek > value triage > nearest-first
-    const order = (reads && u._clus) ? u._clus : (reads && u._byV) ? u._byV : u._byQ;
+    const order = (reads && MIND_TRIAGE && u._clus) ? u._clus : (reads && MIND_TRIAGE && u._byV) ? u._byV : u._byQ;
     const shots = 1 + uMulti(u);                            // keystone nodes grant extra simultaneous targets
     const fired = [];
     for (const c of order) {
@@ -2572,7 +2597,7 @@
       // chip-kills — so without the dividend their ◈ branch would stay a trap at home era.
       if (ty) {
         const k = dmg / Math.max(1e-9, d.hp + dmg);   // killing-blow overshoot (d.hp is ≤0 here; hp-before = hp + dmg)
-        const disc = Math.min(1, (derived.cls[src] || {}).int || 0);
+        const disc = MIND_HARVEST ? Math.min(1, (derived.cls[src] || {}).int || 0) : 0;
         const burn = 0.30 * clamp((k - 1.5) / 6.5, 0, 1) * (1 - disc);
         d.value = Math.max(1, Math.round(d.value * (1 - burn) * (1 + 0.12 * disc)));
       }
@@ -6403,6 +6428,7 @@
     // pre-v18.82 build exactly, which is how the gate proves it is testing something real.
     setMenaceTree: v => { MENACE_TREE = +v; recompute(); },
     setFieldCurve: (lo, span, cv) => { FIELD_LOW = +lo; FIELD_SPAN = +span; FIELD_CURVE = +cv; },
+    setMindParts: (triage, harvest) => { MIND_TRIAGE = !!triage; MIND_HARVEST = !!harvest; },
     fieldMulFor, fieldKnobs: () => ({ lo: FIELD_LOW, span: FIELD_SPAN, curve: FIELD_CURVE }),
     setHpPow: v => { HP_POW = +v; recompute(); },
     armyPower, armyArmor,
