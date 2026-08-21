@@ -56,6 +56,10 @@ const SWEEP = process.argv.includes("--sweep");
 // below the worst measured value so a noisy field cannot flap it. The ceiling catches the opposite
 // failure, an army that has stopped clearing.
 const MIN_IN = 4, MAX_IN = 320;
+// v18.85: windows lengthened (in-range 11s->16s, payout 14s->22s, bins need 8 samples not 5). P6 is
+// the thinnest field this tool visits — 82 dots against 184 at P1, because a deep planet's menace
+// floor makes its arrivals few and tough — and it flapped on BOTH checks from the same build:
+// in-range 3.2 then 4.3, payout x1.13 then x1.31. Neither band moved; the sample behind them did.
 const CLIFF_MAX = 5;         // O4 — no quarter of a tree may be worth more than x5 of felt power
 
 // ---- state builder: a given depth, economy and tree fill, max army ----
@@ -224,7 +228,7 @@ const boot = async page => {
         await page.evaluate(v => window.__SIM.setMenaceTree(v), mt);
         await page.evaluate(setup, [g, 50, 1]);
         const kn = await page.evaluate(() => window.__SIM.balKnobs());
-        const r = await tir(page, 0.25, 11000);
+        const r = await tir(page, 0.25, 16000);
         console.log("   " + mt.toFixed(2).padStart(9) + "   P" + String(g).padEnd(4)
           + "  " + kn.armor.toFixed(0).padStart(9) + "   " + r.inRange.toFixed(1).padStart(8)
           + "  " + (r.field.toFixed(0) + " / " + r.cap).padStart(11)
@@ -241,7 +245,7 @@ const boot = async page => {
   for (const g of [1, 3, 6, 10]) {
     await page.evaluate(setup, [g, 50, 1]);
     const kn = await page.evaluate(() => window.__SIM.balKnobs());
-    const r = await tir(page, 0.25, 11000);
+    const r = await tir(page, 0.25, 16000);
     const bad = r.inRange < MIN_IN ? "DIES ON THE RIM" : r.inRange > MAX_IN ? "ARMY IS DROWNING" : "fights";
     console.log("    P" + String(g).padEnd(3) + "   " + kn.armor.toFixed(0).padStart(8)
       + "   " + r.inRange.toFixed(1).padStart(13) + "   " + (r.field.toFixed(0) + " / " + r.cap).padStart(11)
@@ -262,7 +266,7 @@ const boot = async page => {
   for (const [frac, lbl] of [[0, "bare tree"], [0.25, "quarter tree"]]) {
     await page.evaluate(setup, [1, 2, frac]);
     const kn = await page.evaluate(() => window.__SIM.balKnobs());
-    const r = await tir(page, 0.05, 9000);
+    const r = await tir(page, 0.05, 12000);
     console.log("    P1 " + lbl.padEnd(14) + "armour x" + kn.armor.toFixed(2).padStart(7)
       + "   power x" + kn.power.toFixed(1).padStart(8) + "   field " + r.field.toFixed(0) + " / " + r.cap
       + "   kills/s " + r.kps.toFixed(1));
@@ -328,14 +332,14 @@ const boot = async page => {
   for (const g of [3, 6]) {
     const shot = async mt => { await page.evaluate(v => window.__SIM.setMenaceTree(v), mt);
       await page.evaluate(setup, [g, 30, 1]);
-      return payout(page, 14000); };
+      return payout(page, 22000); };
     const A = await shot(0), B = await shot(k.menaceTree);
     // bin both samples by roll on a shared log ladder, then compare median payout inside each bin
     const bin = r => Math.round(Math.log(Math.max(1e-6, r)) * 3);
     const tab = rows => { const m = new Map();
       for (const r of rows) { const b = bin(r.roll); if (!m.has(b)) m.set(b, []); m.get(b).push(r.val); }
       const o = new Map();
-      for (const [b, v] of m) if (v.length >= 5) { v.sort((x, y) => x - y); o.set(b, v[v.length >> 1]); }
+      for (const [b, v] of m) if (v.length >= 8) { v.sort((x, y) => x - y); o.set(b, v[v.length >> 1]); }   // v18.85: 5 was too thin — P6 read x1.13 then x1.31 from the same build
       return o; };
     const ta = tab(A.rows), tb = tab(B.rows);
     const ratios = [];

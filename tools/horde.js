@@ -157,8 +157,14 @@ const matched = (A, B) => {
     + "   (shipped v18.82 was 82 -> 260, x3.2)");
   if (start > MAX_ARRIVAL) fails.push("H1: landing on a fresh world already shows " + start.toFixed(0) + " dots — that is a crowd, not a start (max " + MAX_ARRIVAL + ")");
   if (end < MIN_HORDE) fails.push("H2: a full bar musters only " + end.toFixed(0) + " dots — not a horde (min " + MIN_HORDE + ")");
-  if (pts[pts.length - 1].peak >= pts[pts.length - 1].cap)
-    fails.push("H2: the endgame field is pinned at its " + pts[pts.length - 1].cap + "-dot cap — the ramp is clamped exactly where it should pay off");
+  // On the SUSTAINED field, not an instantaneous peak. This asked `peak >= cap` and flapped: the
+  // endgame field averages ~417 against a 550 cap but touches it now and then, and one sample on the
+  // ceiling is not "the ramp is clamped". What the gate means is that the last stretch of the bar
+  // still has somewhere to grow, which is a question about where the field SITS.
+  const last = pts[pts.length - 1];
+  if (last.field >= last.cap * 0.92)
+    fails.push("H2: the endgame field sits at " + last.field.toFixed(0) + " against a " + last.cap
+      + "-dot cap — the ramp is clamped exactly where it should pay off");
   for (let i = 1; i < pts.length; i++) if (pts[i].field <= pts[i - 1].field)
     fails.push("H3: the field does not grow from " + (100 * [0.02, 0.25, 0.5, 0.75, 1.0][i - 1]).toFixed(0) + "% to "
       + (100 * [0.02, 0.25, 0.5, 0.75, 1.0][i]).toFixed(0) + "% of the bar (" + pts[i - 1].field.toFixed(0) + " -> " + pts[i].field.toFixed(0) + ")");

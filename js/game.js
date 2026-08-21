@@ -62,7 +62,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v18.84";   // v18.84 = MIND STOPS WASTING ITS OWN SHOTS. Chasing a defect v18.83's gate surfaced but did not cause: turret's ◈ Mind branch was worth -15.8% killed value in a CROWDED field — a trap stat, live for versions. SPLIT MIND IN HALF TO FIND IT, because the sim only ever saw the sum of two unrelated mechanisms: HARVEST (FIRE DISCIPLINE in hitDot — refunds the loot a sloppy killing blow burns, plus a +12% precision dividend) and TRIAGE (target re-ordering in fireUnit). Measured separately: HARVEST pays +12.5% to +46.9% for EVERY class in EVERY regime and is where Mind's value actually lives; TRIAGE was worth +0.2% to +2.2% in a crowd for five classes and -21.2% for turret. THE BUG WAS A FALSE PREMISE SITTING IN A COMMENT: "value triage (rich = tough = well-matched targets, per TOUGH_POW)". Value rides hp^1.45 so that is usually true — but a SPECIAL pays x9 at ordinary HP and exotic races carry their own multipliers, so the richest dot in range is frequently a CHEAP one. Measured: with triage on, the dots a turret killed were richer (x1.30) but LOWER hp (x0.89), and since damage output is fixed either way the honest metric is HP destroyed per second — 1.64e6 with triage off against 1.20e6 with it on. 27% OF THE ARMY'S DAMAGE STOPPED DESTROYING ANYTHING; it was overkill, dumped into dots that needed a fraction of one shot. A shot costs the whole shot even when the target only needs part of it, so triage now ranks on value per damage SPENT: value / max(hp, dmg). Rich-and-tanky still ranks top, rich-and-nearly-dead ranks where it belongs, and this is finally the "overkill avoidance" uInt's own description has claimed all along. Turret crowded -15.8% -> +10.5%, triage alone -21.2% -> +8.2%, and every class is positive in both regimes (+5.1% to +28.1%). THE GATE COULD NOT HAVE SEEN THIS: tools/mind-sim.js ran the ARRIVAL field only, where the same trap reads +17.5%. It now runs arrival AND crowded, and the crowded pass needs a SHORTER window, not a longer one — it kills 5-10x more per second, so equal statistical power costs less time.
+  const VERSION = "v18.85";   // v18.85 = MIND IS NOT A BRANCH ANY MORE (owner: "make mind upgrades like crit upgrades" -> "no, like a couple upgrades here and there, tethered to other upgrade paths, not really its own thing"). Mind carried TEN ◈ slots kept by "closest to the start", and closest-first collects them along ONE arm — so it read as a wing you walked down, and the nodes you passed were ◈ nodes and nothing else. It is now FIVE slots at +20%, capped at two per wing, so they land on three separate wings and you pick them up while buying damage, rate or range. Same countable 0%→100% climb, a quarter of the tree real estate, and the ◈ bill collapsed ~1000x (turret 3.4e6 -> 2.2e3) because they are shallow pickups instead of a detour. TWO THINGS I MEASURED AND CHANGED MY MIND ABOUT. First, ranking carriers by "shares a node with another stat" SOUNDS like the definition of tethered and measures terribly: the shared carriers are keystones and cross-arm joins, which sit at the FAR end of an arm, so preferring them pushed every pick to depth 5.5-8 and made Mind an expensive detour. Sorting SHALLOW first and only breaking ties toward shared slots is what actually puts ◈ on the way to somewhere else. Second, one-per-wing is worse than two-per-wing for the same reason — when a wing's only carrier is deep, the rule forces the detour it was meant to prevent. IMPLEMENTED AS A POST-PASS OVER ALREADY-BUILT NODES, deliberately: the obvious version drops "int" from DEF_PRIM so Mind stops owning a primary, but that changes NP, which changes the RNG stream, which renames every node id in every tree — and classStats silently skips ids it cannot find, so every existing save would have quietly lost its spent nodes. This moves no node and renames no id. ALSO RE-BALANCED FOR v18.84: MENACE_TREE 0.55 -> 0.585. v18.84 stopped a Mind-invested army wasting ~27% of its damage on overkill, a real x1.35 gain in EFFECTIVE damage — but armyPower() reads dmg x rate, which that fix does not touch, so armour never kept pace and the in-range band drifted toward its floor. power^dm = 1.35 -> dm = ln(1.35)/ln(5700) = 0.035. And tools/overkill.js got a bigger sample rather than looser bands: P6 is the thinnest field it visits (82 dots against 184 at P1, because a deep planet's menace floor makes arrivals few and tough) and it flapped on BOTH checks from an unchanged build — in-range 3.2 then 4.3, payout x1.13 then x1.31.
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   let settleShown = false, settleLast = 0, settleKey = "";   // v18.13 settled-dock swap state (see renderSettlePanel)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
@@ -294,7 +294,11 @@
   // Mind (int) quanta (v17.7, owner call): every ◈ node grants a flat +10%, and each defender tree
   // carries EXACTLY ten Mind slots (enforced in buildTree — surplus deep Mind converts to Crit), so
   // the branch is a clean, countable 0% → 100% climb: ten upgrades to a fully calibrated class.
-  const INT_STEP = 0.10;
+  // v18.85: FIVE ◈ slots at +20%, not ten at +10% (see the Mind post-pass in buildTree). Mind stopped
+  // being a wing you walk down and became a few slots riding other stats' nodes, so there are fewer of
+  // them and each is worth more. Same countable 0%→100% climb, same hard cap, a quarter of the tree
+  // real estate. Both numbers live here so the pair can never drift apart: MIND_SLOTS * INT_STEP = 1.
+  const MIND_SLOTS = 5, INT_STEP = 1 / MIND_SLOTS;
   function slotAmt(type, s) {
     if (isCol(type)) {
       if (s.p === "x") return MAG_COL.ingest[s.mag];                 // x branch = ingestion speed
@@ -350,7 +354,13 @@
   // You still get much stronger for filling a tree — measured net ×45 over a full tree — but you no
   // longer outrun the entire game with it. MENACE_TREE was picked by sweeping it against the measured
   // in-range population in tools/overkill.js, which fails if dots ever go back to dying on the rim.
-  let MENACE_TREE = 0.55;
+  // v18.85: 0.55 -> 0.585. v18.84 fixed Mind's targeting to rank on value-per-shot, which stopped a
+  // Mind-invested army wasting ~27% of its damage on overkill — a real ~x1.35 gain in EFFECTIVE
+  // damage. armyPower() reads dmg x rate, which that fix does not touch, so armour did not keep pace
+  // and the in-range band drifted down toward its floor. Restoring it needs power^dm = 1.35, i.e.
+  // dm = ln(1.35)/ln(5700) = 0.035. Still well inside the swept envelope: 0.62 measured as too far
+  // (P1 kills/s 25 -> 9, field climbing to the cap).
+  let MENACE_TREE = 0.585;
   const armyPower = () => {
     let p = 0, n = 0;
     for (const t of DEF_ORDER) {
@@ -4810,10 +4820,38 @@
       if (intP > 0) {
         const carriers = [];
         for (const n of nodes) if (n.slots) for (const s of n.slots) if (s.p === intP) carriers.push({ n, s });
-        carriers.sort((a, b) => Math.hypot(a.n.x, a.n.y) - Math.hypot(b.n.x, b.n.y));
-        for (let i = 10; i < carriers.length; i++) {
-          const { n, s } = carriers[i]; s.p = "x";
-          if (n.slots.every(sl => sl.p === "x") && n.nameSlot !== "key") n.nameSlot = "x";   // fully converted node reads as a Crit node (icon + name pool)
+        // ============ v18.85 MIND IS NOT A BRANCH YOU PATH INTO ============
+        // Owner: "a couple upgrades here and there, tethered to other upgrade paths, not really its
+        // own thing." Keeping the ten CLOSEST slots did the opposite: closest-first collects them
+        // along one arm, so Mind read as a wing you walked down, and the ◈ nodes you passed were
+        // ◈ nodes and nothing else. Mind is already generated as a SECONDARY slot on other stats'
+        // arms — this now keeps those by preference, at most one per wing, so the ◈ you pick up
+        // arrives while you are buying damage or fire rate. Everything else still converts to Crit,
+        // exactly as before, so no generated node is wasted.
+        // The slots are FEWER and each is worth more (INT_STEP), so the climb is the same 0%→100%
+        // and stays countable. This is a post-pass over already-built nodes: it moves no node and
+        // renames no id, so a save's allocations survive the change.
+        // Sort SHALLOW first, and only break ties toward slots that share a node with another stat.
+        // Ranking "shared" first reads better than it measures: the shared carriers are keystones and
+        // cross-arm joins, which live at the FAR end of an arm, so preferring them pushed every pick
+        // out to depth 5.5-8 and turned Mind into an expensive detour — the opposite of picking one
+        // up here and there. A ◈ slot sitting partway down a damage arm is already tethered to that
+        // path; what makes it casual is that it is on the way.
+        const shared = c => (c.n.slots.length > 1 ? 0 : 1);
+        const depth = c => Math.hypot(c.n.x, c.n.y);
+        carriers.sort((a, b) => depth(a) - depth(b) || shared(a) - shared(b));
+        // Two per wing, not one. A hard one-per-wing rule sounds more spread out and is worse: when a
+        // wing's only ◈ carrier sits at the far end of an arm it forces a deep, expensive detour to
+        // pick up a slot, which is the opposite of "here and there" (measured: picks at depth 5.5-8
+        // and a turret ◈ bill of 3.4e6). Two per wing still spans 3-5 wings and keeps them cheap.
+        const keep = new Set(), perW = new Map();
+        for (const c of carriers) { if (keep.size >= MIND_SLOTS) break;
+          const w = perW.get(c.n.wing) || 0; if (w >= 2) continue;
+          perW.set(c.n.wing, w + 1); keep.add(c); }
+        for (const c of carriers) { if (keep.size >= MIND_SLOTS) break; keep.add(c); }   // too few wings — top up
+        for (const c of carriers) if (!keep.has(c)) {
+          c.s.p = "x";
+          if (c.n.slots.every(sl => sl.p === "x") && c.n.nameSlot !== "key") c.n.nameSlot = "x";   // fully converted node reads as a Crit node (icon + name pool)
         }
       }
     }
@@ -4863,7 +4901,7 @@
     rate: "Fire rate (shots/sec). High enough and a unit machine-guns, firing several shots per frame.",
     range: "Targeting range (flat bonus). Wider range keeps more dots in reach, so units idle less.",
     crit: "Crit chance. A critical shot deals ~2.2× damage and pops a little extra.",
-    int: "Mind — fire control & coordination, in ten +10% steps (10 ◈ nodes = a fully calibrated 100% class). Each volley a unit READS THE FIELD with probability = Mind; otherwise it sprays at whatever's nearest like any dumb gun. Reading skips doomed targets (lethal shells already inbound), triages shots onto the richest dot it can hit (>40%), and aims blasts where they catch the most loot (>50%, splash classes). Above all: FIRE DISCIPLINE — an overshot killing blow vaporizes up to 30% of a dot's loot, and Mind is what keeps it (plus a precision-harvest bonus up to +12%). Higher Mind = fewer mistakes = visibly more income per kill.",
+    int: "Mind — fire control & coordination, in five +20% steps (5 ◈ nodes = a fully calibrated 100% class), picked up along your damage/rate/range paths rather than bought as a branch of its own. Each volley a unit READS THE FIELD with probability = Mind; otherwise it sprays at whatever's nearest like any dumb gun. Reading skips doomed targets (lethal shells already inbound), triages shots onto the richest dot it can hit (>40%), and aims blasts where they catch the most loot (>50%, splash classes). Above all: FIRE DISCIPLINE — an overshot killing blow vaporizes up to 30% of a dot's loot, and Mind is what keeps it (plus a precision-harvest bonus up to +12%). Higher Mind = fewer mistakes = visibly more income per kill.",
     splash: "Blast Radius — how wide the Mortar's bomb detonates. Every dot inside the blast takes the FULL shell damage, so a wider blast means one lobbed bomb wipes a whole cluster at once. Area grows with the square of the radius, so each node hits dramatically more dots — the Mortar's core lever alongside raw shell damage (it fires only once every several seconds, so each bomb must count).",
     multi: "Multishot. Each keystone lets EVERY unit of this class fire at one extra dot at the same time.",
     speed: "Movement speed — how fast this collector chases orbs. Capped so it stays agile instead of flying straight past loot.",
