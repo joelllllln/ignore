@@ -414,7 +414,11 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
    FIXED max (minmax(78px,148px)) makes the browser count columns by the max — which collapsed the
    whole grid to a single 148px column on a 320px phone. 1fr counts by the 78px min and then
    stretches what is left over the chips that exist. */
-#gm-planets{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:7px}
+/* v18.86: BOUNDED. A system with eight worlds wrapped this grid to three rows on a narrow phone and
+   the dock swallowed the screen — measured on a 320x568 the dock stood 511px of 568 and the sky came
+   out NEGATIVE. The chip list scrolls now, so the dock's height stops depending on how many worlds
+   the system you tapped happens to have. */
+#gm-planets{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:7px;max-height:16vh;overflow-y:auto}
 .mpl{position:relative;min-height:50px;padding:6px 5px 5px;border-radius:12px;
   background:var(--panel);border:1px solid var(--edge);color:var(--text);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden}
@@ -438,14 +442,20 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
   .mnav-sys .ms-n{font-size:11px;letter-spacing:.04em}
   .mnav-sys .ms-c{font-size:8.5px;letter-spacing:.04em}
 }
-/* short screens (landscape): the map is the point, so the dock gives up its padding first */
+/* short screens (landscape): the map is the point, so the dock gives up its padding first.
+   v18.86: padding was not nearly enough. Measured on 844x390 the dock stood ~290px of a 390px
+   screen and left NINE PER CENT of the viewport as sky — the camera has nowhere to put a planet,
+   so no amount of aiming (see GMap.skyCY) can keep the info card off the thing it describes.
+   The card gives up the most, the two nav rows shrink, and the planet chips become ONE row that
+   scrolls sideways instead of a grid that wraps to two. tools/map-focus.js gates the result. */
 @media (max-height:520px){
-  #gm-dock{gap:6px;padding-top:6px;padding-bottom:8px}
+  #gm-dock{gap:5px;padding-top:5px;padding-bottom:7px}
   #map-nav{gap:5px}
-  .mnav-you,.mnav-sys{min-height:40px}
-  .mpl{min-height:42px}
+  .mnav-you,.mnav-sys{min-height:34px}
+  .mpl{min-height:36px}
   .mpl .mp-n{font-size:13px}
-  .gm-info{max-height:30vh}
+  .gm-info{max-height:17vh}
+  #gm-planets{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(78px,1fr);overflow-x:auto}
   .map-hint{display:none}
 }
 
@@ -562,7 +572,7 @@ button svg.ico,.big svg.ico,.tab svg.ico,.act svg.ico,h1 svg.ico,h2 svg.ico,.map
 .st-foot #st-sell{flex:0 1 auto;min-width:0;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:10px;padding:11px 16px;font-weight:700}
 
 /* ---- galaxy info panel ---- */
-.gm-info{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;display:none;max-height:38vh;overflow-y:auto}
+.gm-info{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;display:none;max-height:20vh;overflow-y:auto}   /* v18.86: 38vh left too little sky above the dock — see #gm-planets and GMap.skyCY */
 .gm-info.show{display:block}
 .gi-name{font-family:var(--mono);letter-spacing:2px;color:#fff;font-size:15px;margin-bottom:4px}
 .gi-desc{font-size:12px;color:var(--dim);line-height:1.4}

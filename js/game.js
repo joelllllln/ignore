@@ -62,7 +62,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v18.85";   // v18.85 = MIND IS NOT A BRANCH ANY MORE (owner: "make mind upgrades like crit upgrades" -> "no, like a couple upgrades here and there, tethered to other upgrade paths, not really its own thing"). Mind carried TEN ◈ slots kept by "closest to the start", and closest-first collects them along ONE arm — so it read as a wing you walked down, and the nodes you passed were ◈ nodes and nothing else. It is now FIVE slots at +20%, capped at two per wing, so they land on three separate wings and you pick them up while buying damage, rate or range. Same countable 0%→100% climb, a quarter of the tree real estate, and the ◈ bill collapsed ~1000x (turret 3.4e6 -> 2.2e3) because they are shallow pickups instead of a detour. TWO THINGS I MEASURED AND CHANGED MY MIND ABOUT. First, ranking carriers by "shares a node with another stat" SOUNDS like the definition of tethered and measures terribly: the shared carriers are keystones and cross-arm joins, which sit at the FAR end of an arm, so preferring them pushed every pick to depth 5.5-8 and made Mind an expensive detour. Sorting SHALLOW first and only breaking ties toward shared slots is what actually puts ◈ on the way to somewhere else. Second, one-per-wing is worse than two-per-wing for the same reason — when a wing's only carrier is deep, the rule forces the detour it was meant to prevent. IMPLEMENTED AS A POST-PASS OVER ALREADY-BUILT NODES, deliberately: the obvious version drops "int" from DEF_PRIM so Mind stops owning a primary, but that changes NP, which changes the RNG stream, which renames every node id in every tree — and classStats silently skips ids it cannot find, so every existing save would have quietly lost its spent nodes. This moves no node and renames no id. ALSO RE-BALANCED FOR v18.84: MENACE_TREE 0.55 -> 0.585. v18.84 stopped a Mind-invested army wasting ~27% of its damage on overkill, a real x1.35 gain in EFFECTIVE damage — but armyPower() reads dmg x rate, which that fix does not touch, so armour never kept pace and the in-range band drifted toward its floor. power^dm = 1.35 -> dm = ln(1.35)/ln(5700) = 0.035. And tools/overkill.js got a bigger sample rather than looser bands: P6 is the thinnest field it visits (82 dots against 184 at P1, because a deep planet's menace floor makes arrivals few and tough) and it flapped on BOTH checks from an unchanged build — in-range 3.2 then 4.3, payout x1.13 then x1.31.
+  const VERSION = "v18.86";   // v18.86 = YOU LOOK AT THE PLANET, NOT AT THE CARD ABOUT IT (owner, with a 828x1792 star-map shot: "the menu is in front of the planet your viewing"). THREE causes, and only the first was the obvious one. (1) GMap.proj centred the focus on this.h*0.5 — the middle of the CANVAS — but the canvas is full-screen and the bottom of that screen is a dock carrying the info card, the system row and a chip per planet, so tapping a planet glided the camera to put it exactly where the card would cover it. Measured on a 414x896: planets landing at y=441-533 against a dock lid at 406. The play field fixed this in v18.27 with VIEW_CY; the map never got it. skyCY() now measures the live DOM, because the dock height moves with the card, the chip count and the shape of the phone. (2) THE DOCK WAS UNBOUNDED: an eight-world system wrapped the chip grid to three rows and on a 320x568 the dock stood 511px of 568 — the sky came out NEGATIVE. The chip list scrolls now, so dock height stops depending on which system you tapped. (3) THE CAMERA HAD NO HEIGHT. Planets ride inclined orbits and carry a real world Y, but the focus only ever tracked X/Z, so a focused planet projected y1*f above or below where the camera pointed. This is why P1/P2/P5 came clean the moment skyCY landed while P9/P14/P18 stayed buried — deep planets have the biggest orbits and the steepest inclination. The focus tracks cy now; systems set it back to 0, so a system view is unchanged. ONE GUARD WAS ACTIVELY HARMFUL AND WORTH REMEMBERING: skyCY first bailed to the canvas centre when the band fell under 60px, which defeated the fix precisely where it mattered — landscape measured 42px of sky, the guard fired, and the camera went straight back to parking planets under the dock. A thin band is a reason to aim more carefully, not to stop aiming. Gated by tools/map-focus.js across five shapes; it reported every one of these before the fix.
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   let settleShown = false, settleLast = 0, settleKey = "";   // v18.13 settled-dock swap state (see renderSettlePanel)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
@@ -5592,10 +5592,17 @@
   const GMap = {
     open: false, yaw: 0.45, pitch: -0.72, zoom: 0.7, t: 0, cv: null, c: null, w: 0, h: 0,
     cx: 0, cz: 0, tcx: 0, tcz: 0, _orb: null,   // camera focus (world XZ) + smooth-lerp target
+    // v18.86: the focus needs a HEIGHT too. Planets ride inclined orbits, so a planet has a real
+    // world Y — but the camera only ever tracked X/Z, which meant a focused planet projected
+    // y1*f ABOVE or BELOW where the camera was pointing. Deep planets have the biggest orbits and
+    // the biggest inclination, which is why they were the ones still landing under the dock after
+    // skyCY went in (measured: P1/P2/P5 clean, P9/P14/P18 still buried). Tracking it centres the
+    // planet exactly. Systems set tcy back to 0, so a system view is unchanged.
+    cy: 0, tcy: 0,
     // v16.5: the resting zoom adapts to the screen — 0.7 framed the whole galaxy nicely on desktop but left
     // a phone squinting at a thumbnail with the planet names colliding; small screens rest ~80% closer.
     restZoom() { return Math.min(this.w || window.innerWidth, this.h || window.innerHeight) < 560 ? 1.25 : 0.7; },
-    reset() { this.yaw = 0.45; this.pitch = -0.72; this.zoom = this.restZoom(); this.tzoom = null; this.navG = null; this.navSys = null; this.navFollow = false; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); this.updateNav(); },
+    reset() { this.cy = 0; this.tcy = 0; this.yaw = 0.45; this.pitch = -0.72; this.zoom = this.restZoom(); this.tzoom = null; this.navG = null; this.navSys = null; this.navFollow = false; this.focusSystem(PLANET_SYS[planetIdx(S.galaxy)], true); this.updateNav(); },
     ptrs: new Map(), lx: 0, ly: 0, sx0: 0, sy0: 0, moved: false, pinchD: 0, midX: null, midY: 0, rotMode: false, hit: [], stars: [], sel: 0,
     init() {
       this.cv = $("gmap"); if (!this.cv) return; this.c = this.cv.getContext("2d");
@@ -5638,9 +5645,9 @@
       this.intro = 0; this.introDur = 1.25; this.iz0 = 3.2; this.zoom = 3.2; this._warp = 1.7; Sfx.swoosh(1.05); },   // full hyperspace ARRIVAL on opening the map
     hide() { this.open = false; if (this.flight) { this.flight = null; this._warp = 1; this._diveP = null; const tv = $("transition"); if (tv) { tv.style.opacity = "0"; tv.style.background = ""; } const root = $("root"); if (root) root.classList.remove("cinematic"); } },   // closing mid-dive ABORTS the cinematic cleanly (was: left the letterbox + black veil stuck forever — a soft-lock)
     resize() { if (!this.cv) return; const dpr = Math.min(window.devicePixelRatio || 1, 2); this.w = this.cv.clientWidth; this.h = this.cv.clientHeight; this.cv.width = this.w * dpr | 0; this.cv.height = this.h * dpr | 0; this.c.setTransform(dpr, 0, 0, dpr, 0, 0); },
-    focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; if (instant) { this.cx = c.x; this.cz = c.z; } this.clampFocus(); },
+    focusSystem(si, instant) { const c = this.sunCenter(si); this.tcx = c.x; this.tcz = c.z; this.tcy = 0; if (instant) { this.cx = c.x; this.cz = c.z; this.cy = 0; } this.clampFocus(); },
     // keep the camera focus inside the galaxy so it can NEVER fly off to infinity
-    clampFocus() { this.cx = clamp(this.cx, -1700, 1700); this.cz = clamp(this.cz, -1300, 1300); this.tcx = clamp(this.tcx, -1700, 1700); this.tcz = clamp(this.tcz, -1300, 1300); },   // wider bounds so you can roam the whole map
+    clampFocus() { this.cy = clamp(this.cy, -400, 400); this.tcy = clamp(this.tcy, -400, 400); this.cx = clamp(this.cx, -1700, 1700); this.cz = clamp(this.cz, -1300, 1300); this.tcx = clamp(this.tcx, -1700, 1700); this.tcz = clamp(this.tcz, -1300, 1300); },   // wider bounds so you can roam the whole map
     // ALWAYS-STABLE pan: a screen drag moves the focus in the camera's ground plane, bounded — no perspective
     // inversion (which blew up near edge-on), so it can't rocket the view away.
     pan(dx, dy) {
@@ -5658,7 +5665,7 @@
     focusPlanet(g, follow) {
       g = clamp(g | 0, 1, TOTAL_PLANETS); this.navG = g; this.navFollow = follow !== false;
       this.navSys = null;   // following a planet: the grid tracks whichever system that planet is in
-      const p = this.planetWorld(g); this.tcx = p.x; this.tcz = p.z; this.clampFocus();
+      const p = this.planetWorld(g); this.tcx = p.x; this.tcz = p.z; this.tcy = p.y; this.clampFocus();
       this.tzoom = Math.max(this.zoom, this.restZoom() < 1 ? 1.5 : 2.0);
       this.updateNav();
     },
@@ -5704,7 +5711,7 @@
         el.classList.toggle("far", g > S.peakGalaxy && !S.free); }
     },
     rotate(dx, dy) { this.yaw += dx * 0.009; this.pitch = clamp(this.pitch - dy * 0.009, -1.5, 1.5); },   // full tilt: from straight-down, through edge-on, all the way under to view from below
-    proj(x, y, z) { x -= this.cx; z -= this.cz; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / Math.max(120, 720 + z2) * this.zoom; return { x: this.w / 2 + x1 * f, y: this.h * 0.5 + y1 * f, z: z2, f }; },   // near-clip (max 120) stops f going zero/negative when far planets cross behind the camera on a wide pan — was flipping/NaN-ing the projection
+    proj(x, y, z) { x -= this.cx; z -= this.cz; y -= this.cy; const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let x1 = x * cy + z * sy, z1 = -x * sy + z * cy; const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch); let y1 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; const f = 360 / Math.max(120, 720 + z2) * this.zoom; return { x: this.w / 2 + x1 * f, y: (this._vcy != null ? this._vcy : this.h * 0.5) + y1 * f, z: z2, f }; },   // v18.86: _vcy is the middle of the SKY, not of the canvas — see skyCY()   // near-clip (max 120) stops f going zero/negative when far planets cross behind the camera on a wide pan — was flipping/NaN-ing the projection
     // THREE widely-spaced solar systems (a big triangle). Each planet rides its OWN
     // orbit: a distinct ellipse, inclination (tilt) and orientation, seeded by planet.
     SYS_POS: [{ x: -680, z: -150 }, { x: 0, z: 300 }, { x: 680, z: -150 }],
@@ -5845,8 +5852,35 @@
     },
     // cinematic dive: glide focus onto a planet, accelerate the zoom, white-wipe over the cut, drop into the world
     flyInto(g, onArrive) { this.flight = { g, t: 0, dur: 1.45, cx0: this.cx, cz0: this.cz, z0: this.zoom, onArrive, done: false }; Sfx.warp(1.45); const root = $("root"); if (root) root.classList.add("cinematic"); },
+    // ============ v18.86 THE CAMERA FRAMES THE SKY, NOT THE CANVAS ============
+    // Owner, with a shot of the star map: "the menu is in front of the planet you're viewing."
+    // proj centred the focused point on this.h * 0.5 — the middle of the CANVAS — and the canvas is
+    // full-screen, while the bottom of that screen is a dock carrying the info card, the system row
+    // and a chip per planet. So tapping a planet glided the camera to put it exactly where the card
+    // would cover it. Measured before the fix on a 414x896: planets landing at y=441-533 against a
+    // dock whose lid is at 406. The play field hit this in v18.27 and fixed it with VIEW_CY; the map
+    // never got the same treatment. Read from the live DOM rather than from constants, because the
+    // dock's height changes with the card, the chip count and the shape of the phone.
+    skyCY() {
+      const cv = this.cv; if (!cv || !cv.getBoundingClientRect) return this.h * 0.5;
+      const r = cv.getBoundingClientRect();
+      let top = 0, bot = r.height;
+      for (const sel of ["#galaxy-map .map-bar", "#galaxy-map .map-hint"]) {
+        const e = qs(sel); if (!e) continue; const q = e.getBoundingClientRect();
+        if (q.height > 1) top = Math.max(top, q.bottom - r.top);
+      }
+      const d = $("gm-dock");
+      if (d) { const q = d.getBoundingClientRect(); if (q.height > 1) bot = Math.min(bot, q.top - r.top); }
+      // Aim at whatever sky there IS. This guard used to bail to the canvas centre below 60px of
+      // band, which defeated the fix precisely where it mattered most: on landscape the sky measured
+      // 42px, the guard fired, and the camera went back to parking planets under the dock. A thin
+      // band is a reason to aim more carefully, not less. Only a degenerate band falls back.
+      if (!(bot - top > 8)) return this.h * 0.5;
+      return top + (bot - top) / 2;
+    },
     render(dt) {
       if (!this.cv) return; const c = this.c;
+      this._vcy = this.skyCY();   // once a frame: proj is called hundreds of times and must not measure the DOM
       this.t += dt;
       if (!this.flight && this.intro == null && this._warp) this._warp = Math.max(0, this._warp - dt * 4);   // warp streaks settle after the dive
       if (this.intro != null) {                              // FULL hyperspace arrival when the map opens
@@ -5878,9 +5912,9 @@
             lt.classList.remove("show"); void lt.offsetWidth; lt.classList.add("show"); }
         }
       }
-      this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5);   // smooth focus glide
+      this.cx += (this.tcx - this.cx) * Math.min(1, dt * 5); this.cz += (this.tcz - this.cz) * Math.min(1, dt * 5); this.cy += (this.tcy - this.cy) * Math.min(1, dt * 5);   // smooth focus glide
       if (this.tzoom != null) { this.zoom += (this.tzoom - this.zoom) * Math.min(1, dt * 5); if (Math.abs(this.zoom - this.tzoom) < 0.01) this.tzoom = null; }   // v18.20 quick-nav zoom ease (manual zoom/pinch cancels it — see zoomBy)
-      if (this.navG != null && this.navFollow) { const pw = this.planetWorld(this.navG); this.tcx = pw.x; this.tcz = pw.z; this.clampFocus(); }   // v18.20: while nav-locked, track the planet along its orbit
+      if (this.navG != null && this.navFollow) { const pw = this.planetWorld(this.navG); this.tcx = pw.x; this.tcz = pw.z; this.tcy = pw.y; this.clampFocus(); }   // v18.20: while nav-locked, track the planet along its orbit
       const dpr = Math.min(window.devicePixelRatio || 1, 2); c.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (this._diveP != null && opt("shake")) { const sh = this._diveP * this._diveP * 10; c.translate((Math.random() * 2 - 1) * sh, (Math.random() * 2 - 1) * sh); }   // build-up camera shake during the dive
       c.fillStyle = "#000"; c.fillRect(0, 0, this.w, this.h);
