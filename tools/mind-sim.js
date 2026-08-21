@@ -32,7 +32,13 @@ const { chromium } = requirePlaywright();
     const SIM = window.__SIM, D = window.__IDS, S = D.S();
     const out = [];
     D.setScreen("play");
-    const WARM = 300, MEASURE = 2400, DT = 0.05;   // 15s warm-up, 120s measured window
+    // v18.83: measured window doubled, 120s -> 240s. v18.83 made a planet's ARRIVAL field genuinely
+    // sparse (fieldMul at the bar's foot went 0.35 -> 0.08, see fieldMulFor), which is the intended
+    // design but cut this sim's sample with it: plasma at its home planet now kills ~1.4/s into a
+    // crowd of 27, and killed VALUE is heavy-tailed because payout rides (hp/avg)^1.45. Three runs of
+    // IDENTICAL code read -11.6%, +48.5% and +61.8% — the gate had become a coin flip. Nothing about
+    // the assertion changed; it just needs the kills to back it up.
+    const WARM = 400, MEASURE = 4800, DT = 0.05;   // 20s warm-up, 240s measured window
     const SEEDS = [11, 23, 37];                    // paired seeding: both arms replay the SAME random streams, then average —
     // unseeded single windows swung ±30% on UNCHANGED code paths (spawn-tier luck dominates a 90s read)
     const mulberry32 = s => () => { s = (s + 0x6D2B79F5) | 0; let z = s ^ (s >>> 15); z = Math.imul(z, 1 | s); z = (z + Math.imul(z ^ (z >>> 7), 61 | z)) ^ z; return ((z ^ (z >>> 14)) >>> 0) / 4294967296; };

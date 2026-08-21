@@ -62,7 +62,7 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const rnd = (a, b) => a + Math.random() * (b - a);
   // ▶ BUILD VERSION — bump this on EVERY change (shown top-right in-game) so it's obvious which build is live.
-  const VERSION = "v18.82";   // v18.82 = THE ARMY HAS TO FIGHT FOR IT (owner: "near max turrets, planet 3, level 50 economy, the turrets are just completely carrying and as soon as it pops in radius it dies pretty much instantly"). NOT A FEEL — ARITHMETIC. A tree's dmg and rate each grow LINEARLY with node count and then MULTIPLY, so a finished tree is QUADRATIC in nodes: full turret x85 dmg * x56.9 rate * x3.44 crit = x16,600, nova x216,000. Everything on the enemy's side moves x13 (three planets of enemyHpMul is x1.63; fifty levels of Value is x8.1). Measured live at P3: the army could kill 3,246 dots/sec while the field asked 28 — idle 99.1% — and the average number of dots INSIDE a gun's radius was 0.5. There was nothing to watch. Idle ran 97-99% at EVERY depth P1-P8, so this was never a P3 problem. THE FIRST FIX WAS WRONG AND THAT IS THE USEFUL PART: a soft knee on dmg and rate SATURATED — swept knee 3-16 x pass 0.08-0.30, in-range population stalled near 5 whatever I did, because crit (x3.4), multishot (x5) and unit count are not in the knee. You cannot fix a SLOPE by bending one of its terms. So the fix is ON the slope: a dot's armour now rides the army's OWN invested tree power, and since tree power is quadratic in nodes, a ~0.5 exponent makes the player's net gain per node roughly LINEAR — the shape the rest of the game already has. Three things come free: the cold open is untouched BY CONSTRUCTION (bare tree = power 1 = armour x1, bit-identical, and it is tuned to the gram); the keystone CLIFF damps itself (last quarter was x9.3 raw, x2.7 felt) with no separate rule to keep in sync; and NOT ONE NUMBER IN THE ECONOMY MOVES, because payout keys off hp/avg where base cancels — verified at a matched roll with spawnMenace pinned: dot HP x36-x86, payout x1.00-x1.14. MENACE_TREE=0.55 was chosen by sweeping it against the measured in-range population across P1/P3/P6/P10; 0.62+ started losing (P1 kills/s 25->9->5.8, field climbing to the 550 cap). Result: in-range 0.3-0.8 -> 6.6-29.6, dots now spend 0.2-2s under fire instead of ~15ms, and a full tree is still worth x45-54. NOT FIXED HERE, and printed by the gate so it stays visible: enemyHpMul is FLAT (P1->P4 is x1.63 across three planets). Raising its exponent also drives ERA, which re-prices every deep tree, so it needs its own pass with the ladder sims.
+  const VERSION = "v18.83";   // v18.83 = THE 24-HOUR ARC (owner: "for the amount of time conquering, like 24 hours, you can't actually change the spawn rate that much. You should start off small then by the end you're killing hordes and hordes"). MEASURED THE SHIPPED ARC FIRST, walking one planet's bar end to end at a fixed economy: 82 dots on arrival -> 97 -> 130 -> 202 -> 260 at a full bar. A x3.2 climb that opens at 82 (not small) and ends at 260 (not hordes). One term was responsible: fieldMul = 0.35 + 0.65*prog, a x2.9 ramp and the ONLY thing in the game that made a field THICKER as you conquered — every other thing the bar drives goes into per-dot TOUGHNESS, so a planet's endgame got tankier instead of more crowded. Now 0.08 + 1.45*prog^1.5, and it CURVES so the horde is a payoff you watch arrive: measured 21 -> 48 -> 128 -> 247 -> 417, a x19.7 arc. IT COSTS THE ECONOMY NOTHING, BY CONSTRUCTION: frontierPay divides every dot's bounty by this exact number, so a thinner stream pays proportionally fatter. Verified rather than trusted — halving the stream moved payout per dot x1.94 against x2.00 expected, at a matched roll. The two fieldMul call sites were separate hand-written copies of the same formula (spawnDot and the spawn loop); either drifting from the other would have silently decoupled the stream from the bounty that compensates it, so they are now one function. ALSO A PERFORMANCE PASS, because the arc needs the late field to be affordable: fireUnit rescanned the whole field once per VOLLEY, and maxShots is ceil(rate*dt)+1, so a longer frame bought MORE scans — more dots, slower frame, more scans, slower frame. That death spiral is the cliff measured at 349 dots (60fps -> 30 -> 20). The in-range set only changes when dots move and dots move once a frame, so it is gathered once a frame; the target rankings are frame-constant too (q and value cannot change mid-frame — only `covered` can, and it was the FIRST sort key, so walking the value/distance order and skipping covered is identical) and are built once instead of a full sort per volley. game.js JS work 52% -> 47% of frame time, fireUnit 12.9% -> 10.7%, verified behaviour-identical against v18.82 across all six classes in mind-sim. NOT RAISING THE 550 CAP: a CPU profile puts 41% of frame time in (program), i.e. software rasterisation that headless Chromium pays and a phone's GPU largely does not, so I cannot measure the real device budget from here and will not bet the design on it. The new arc lives inside the existing cap and makes the early game CHEAPER (21 dots, 60fps) while only the climax is heavy. FOUND, NOT FIXED, and reported by tools/mind-sim.js: turret's Mind branch is NEGATIVE in a crowded field (-15.8% killed value on v18.82, before any of this) — a pre-existing trap the old sparse-arrival scenario was hiding.
   let hudCashLast = 0, hudBumpT = 0;   // cash-counter bump throttle (see syncHUD)
   let settleShown = false, settleLast = 0, settleKey = "";   // v18.13 settled-dock swap state (see renderSettlePanel)
   const hudAbPrev = {};                // last-seen ability cooldowns → "ready" flash on the 0-crossing
@@ -631,6 +631,27 @@
   // tools/overkill.js can drive it; the shipped value is the one that sweep chose.
   let HP_POW = 0.4;
   const enemyHpMul = g => Math.pow(diff(g), HP_POW);       // dampened difficulty → dots tankier per planet (in-planet Value ramps them further)
+  // ============ v18.83 THE 24-HOUR ARC — HOW THICK IS THE FIELD RIGHT NOW? ============
+  // Owner: "for the amount of time conquering, like 24 hours, you can't actually change the spawn
+  // rate that much. You should start off small then by the end you're killing hordes and hordes."
+  //
+  // Measured on the shipped build at a FIXED economy, walking one planet's bar end to end:
+  //     bar   2%  ->  65 dots        75%  -> 223
+  //          25%  ->  99             100% -> 329
+  // A x5 arc, and it opens at 65 — which is neither "small" at the start nor "hordes" at the end.
+  // The old curve was 0.35 + 0.65*prog: a x2.9 ramp, and it was the ONLY thing in the game that made
+  // a field thicker as you conquered. Everything else the bar drives goes into TOUGHNESS (see the
+  // menace block in spawnDot), so a planet's late game got tankier rather than more crowded.
+  //
+  // This is steeper and it CURVES, so the horde is a payoff you watch arrive rather than a slope you
+  // never notice: sparse on landing, and running into the field cap by the time the bar is full.
+  // It costs the economy nothing, by construction — frontierPay divides every dot's bounty by this
+  // exact number (see spawnDot), so a thinner stream pays proportionally fatter and $/s never moves.
+  // That compensation is why this constant can be moved at all, and tools/horde.js checks it holds.
+  let FIELD_LOW = 0.08, FIELD_SPAN = 1.45, FIELD_CURVE = 1.5;
+  // P1 is exempt and stays exempt: the cold open is tuned to the gram and opens on a classic field.
+  const fieldMulFor = (g, prog) => g <= 1 ? 1 : FIELD_LOW + FIELD_SPAN * Math.pow(clamp(prog, 0, 1), FIELD_CURVE);
+  const barProg = g => clamp(curEarned / Math.max(1, conquerTarget(g)), 0, 1);
   const galSpawnMul = g => 1;                           // flat base spawn (you raise it in-planet with Spawn Rate)
   const galCap = g => Math.round(550 * Math.min(FIELD_COMP, 1.5));   // field cap — v18.4 raised 400→550 (owner call: up the visual spawn limit; measured 0.21ms/step at the old 400-dot ceiling — headroom to spare). PC shell holds up to ~825; never shrinks for any reason
   // SOFT spawn ceiling (v14.4 — "Spawn Rate never goes dead"). Below the knee dots spawn 1:1 with
@@ -830,6 +851,7 @@
   const stat = () => META.stats;
 
   let dots = [], orbs = [], beams = [], shells = [], drones = [], spawnAcc = 0, cps = 0, earnAcc = 0, earnT = 0, curEarned = 0, bossAcc = 0;
+  let fireFrame = 0;   // v18.83: bumped once per update — see the field-scan cache in fireUnit
   // v18.15 SABER COMBO (owner: "killing dots with your finger does a multiplier like Cookie Clicker —
   // the quicker you kill the bigger, up to ×5"): finger kills CHAIN. Each draw kill pays the current
   // multiplier, then heats it +0.35 (cap ×5 ≈ a 12-kill slaughter); a 1.6s grace window per kill,
@@ -2248,7 +2270,7 @@
     // (P1 is exempt from the thinning: its menace floor is 0, so a thinned-but-soft P1 field would pay
     // ~×2.9 in the dps-limited cold open. From P2 on the raised floor makes thin+tough+rich ≈ neutral
     // in BOTH regimes: spawn-limited 0.35×2.86≈×1, dps-limited (2.86 pay)/(≈×3 HP inflow)≈×1.)
-    const fieldMul = (g <= 1 || (pmSpawn && pmSpawn.conquered)) ? 1 : 0.35 + 0.65 * prog;
+    const fieldMul = (pmSpawn && pmSpawn.conquered) ? 1 : fieldMulFor(g, prog);   // v18.83: ONE definition, shared with the spawn loop — these were two copies of the same formula
     const frontierPay = ((pmSpawn && pmSpawn.conquered) ? 1 : 1 + 0.08 * men) / fieldMul;
     const val = Math.max(1, Math.round(eco(g) * derived.valueMul * derived.incomeMul * frontierPay * Math.pow(hp / avg, TOUGH_POW) * (special ? 9 : 1) * (cfg ? cfg.val : 1)));
     const r = clamp(7 + Math.log10(hp + 10) * 2.6, kind === "swift" || kind === "flock" ? 6 : 7, armored ? 40 : 24);
@@ -2316,11 +2338,36 @@
     // arcing toward it) — v17.6 fixed this: it used to also count damage that had ALREADY landed
     // (instant beams marked `aimed`/`pending` on resolved hits), so "coordination" made smart units
     // skip wounded-but-alive dots instead of finishing them.
-    const rng = uRange(u) ** 2; const cands = [];
+    const rng = uRange(u) ** 2;
     const iq = Math.min(1, uInt(u));   // 0 = dumb (nearest-first spray), ~1 = perfect fire control
-    for (const d of dots) {
-      if (d.dead || d.cloaked) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;   // Halcyon Mirage can't be targeted while cloaked
-      cands.push({ d, q, covered: (d.aimed || 0) >= d.hp, value: d.value || 0 });
+    // ================= v18.83 ONE FIELD SCAN PER UNIT PER FRAME =================
+    // This scan is O(dots) and it used to run once per VOLLEY. maxShots (see the units pass) is
+    // ceil(rate*dt)+1, so the number of volleys a unit fires in a frame GROWS AS THE FRAME GETS
+    // LONGER — which made the cost of a big field feed on itself: more dots -> slower frame -> more
+    // volleys per frame -> more full-field scans -> slower frame. That death spiral is the cliff
+    // measured at 349 dots (60fps -> 30fps -> 20fps), and it is why the field cap could never rise.
+    // A spatial grid does NOT fix this: a full tree pushes uRange past 540px on a 414px-wide field,
+    // so a unit genuinely sees every dot and no partitioning can prune anything. What CAN be fixed is
+    // doing it four times over: the in-range set only changes when dots MOVE, and dots move once a
+    // frame, so it is gathered once a frame and every volley after the first reuses it. Per-volley
+    // state is still refreshed (`covered` is claimed by mortar shells mid-frame, and dots die between
+    // volleys), so targeting decisions are unchanged — only the scan is shared.
+    let cands;
+    if (u._cf === fireFrame && u._cd) {
+      cands = u._cd;
+      let w = 0;
+      for (let i = 0; i < cands.length; i++) { const c = cands[i], d = c.d;
+        if (d.dead || d.cloaked) continue;                       // died to an earlier volley this frame
+        c.covered = (d.aimed || 0) >= d.hp; c.value = d.value || 0;
+        cands[w++] = c; }
+      cands.length = w;
+    } else {
+      cands = [];
+      for (const d of dots) {
+        if (d.dead || d.cloaked) continue; const q = (d.x - p.x) ** 2 + (d.y - p.y) ** 2; if (q > rng) continue;   // Halcyon Mirage can't be targeted while cloaked
+        cands.push({ d, q, covered: (d.aimed || 0) >= d.hp, value: d.value || 0 });
+      }
+      u._cf = fireFrame; u._cd = cands;
     }
     if (!cands.length) return;
     // v17.6 (owner call: "the game should naturally make more mistakes so Mind becomes more useful"):
@@ -2331,26 +2378,47 @@
     //     is also the best-matched target for a big shot — see FIRE DISCIPLINE in hitDot)
     //   · > 50% Mind + splash: cluster-seeking — aim where the blast catches the most total loot
     const reads = Math.random() < iq;
-    cands.sort((a, b) => (reads ? (a.covered - b.covered) : 0) ||
-      (reads && iq > 0.4 ? (b.value - a.value) : 0) || (a.q - b.q));
     const eaoe = uSplash(u) + (uExplode(u) ? 34 + uExplode(u) * 26 : 0);   // v17.21 audit: triage with the radius the shot actually DETONATES at (explosive keystones included)
-    if (eaoe > 0 && uSplash(u) > 0 && reads && iq > 0.5 && cands.length > 2) {
-      // sample the NEAREST 24 (the thick of the field), not the richest few — a lone fat elite
-      // lagging at the spawn edge must lose to a trash cluster whose combined loot beats it
-      const R2 = eaoe * eaoe, top = cands.slice().sort((a, b) => a.q - b.q).slice(0, 24);
-      for (const c of top) { c.bv = c.value; for (const o of cands) { if (o !== c && (o.d.x - c.d.x) ** 2 + (o.d.y - c.d.y) ** 2 <= R2) c.bv += o.value; } }
-      top.sort((a, b) => (a.covered - b.covered) || (b.bv - a.bv) || (a.q - b.q));   // bv = total ✦ under the blast — cluster-seeking IS value triage for AoE
-      for (let i = 0; i < top.length; i++) cands[i] = top[i];
+    // ================= v18.83 RANK ONCE PER FRAME, WALK PER VOLLEY =================
+    // The old comparator was (covered asc, value desc, q asc) and it ran a full sort of the whole
+    // in-range field EVERY VOLLEY — 8 units x ~4 volleys x ~550 candidates, about 160k comparator
+    // calls a frame. But look at the keys: `q` and `value` cannot change inside a frame (dots move
+    // once per frame, and a dot's bounty is fixed at spawn). Only `covered` moves, claimed by mortar
+    // shells mid-frame. So the ORDERINGS are frame-constant and get built once; a volley then walks
+    // the right one and skips what it must. Ranking is identical because `covered` was the FIRST
+    // key: "uncovered first, then by value/distance" is exactly "walk the value/distance order,
+    // skipping covered".
+    if (u._rf !== fireFrame) {
+      u._rf = fireFrame;
+      u._byQ = cands.slice().sort((a, b) => a.q - b.q);
+      u._byV = iq > 0.4 ? cands.slice().sort((a, b) => (b.value - a.value) || (a.q - b.q)) : null;
+      u._clus = null;
+      // Cluster-seeking is the expensive one — for each of the nearest 24 it sums the loot every
+      // other candidate would add to its blast, which is O(24 x field) and was ALSO per volley.
+      // Positions and values are frame-constant, so this is a frame quantity too.
+      if (eaoe > 0 && uSplash(u) > 0 && iq > 0.5 && cands.length > 2) {
+        const R2 = eaoe * eaoe, top = u._byQ.slice(0, 24);
+        for (const c of top) { c.bv = c.value; for (const o of cands) { if (o !== c && (o.d.x - c.d.x) ** 2 + (o.d.y - c.d.y) ** 2 <= R2) c.bv += o.value; } }
+        u._clus = top.slice().sort((a, b) => (b.bv - a.bv) || (a.q - b.q));   // bv = total ✦ under the blast — cluster-seeking IS value triage for AoE
+      }
     }
+    // the ranking this volley walks: cluster-seek > value triage > nearest-first
+    const order = (reads && u._clus) ? u._clus : (reads && u._byV) ? u._byV : u._byQ;
     const shots = 1 + uMulti(u);                            // keystone nodes grant extra simultaneous targets
     const fired = [];
-    for (const c of cands) {
+    for (const c of order) {
       if (fired.length >= shots) break;
+      if (c.d.dead) continue;                               // v18.83: the frame's ranking outlives the dots in it
       if (c.covered && reads) continue;                     // a reading unit never wastes a volley on a doomed dot
-      if (fired.indexOf(c) >= 0) continue;                  // v17.21 audit: the cluster re-rank can leave an object at two indices when >24 candidates — never fire twice at one dot in a volley
       fired.push(c);
     }
-    if (!fired.length) fired.push(cands[0]);   // nothing valid to skip onto — fire anyway
+    // cluster-seek only ranks the nearest 24; if every one of those is doomed, fall through to the
+    // rest of the field rather than firing at a corpse
+    if (!fired.length && order !== u._byQ) {
+      for (const c of u._byQ) { if (fired.length >= shots) break; if (c.d.dead) continue; if (c.covered && reads) continue; fired.push(c); }
+    }
+    if (!fired.length) { const c = order.find(x => !x.d.dead) || order[0]; if (c) fired.push(c); }   // nothing valid to skip onto — fire anyway
+    if (!fired.length) return;
     let recoiled = false;
     for (const c of fired) {
       const target = c.d;
@@ -2688,7 +2756,7 @@
       // v18.14 FEW, TOUGH, RICH: the spawn STREAM opens at ×0.35 on a fresh bar and ramps to ×1 as
       // the conquest advances — arrivals are a handful of tanky, fat-bounty dots, and the field
       // thickens as the world fights back. spawnDot pays each dot ×1/fieldMul so $/s never drops.
-      const fieldMul = S.galaxy <= 1 ? 1 : 0.35 + 0.65 * clamp(curEarned / Math.max(1, conquerTarget(S.galaxy)), 0, 1);   // P1 exempt — the cold open keeps its classic field (see spawnDot)
+      const fieldMul = fieldMulFor(S.galaxy, barProg(S.galaxy));   // v18.83: was a second hand-written copy of spawnDot's formula — one drifting from the other would silently decouple the stream from the bounty that compensates it
       spawnAcc += dt * visRate * fieldMul;
       let _spawned = 0; while (spawnAcc >= 1 && dots.length < cap && _spawned < 4) { spawnDot(); spawnAcc -= 1; _spawned++; }   // small per-frame cap softens bursts (no frame spike)
       if (spawnAcc > 4) spawnAcc = 4;                                          // tiny buffer — lets a cleared field release a gentle pulse, never a robotic one-at-a-time nor an instant wall
@@ -2816,6 +2884,7 @@
         floatTxt(W / 2, H * 0.5, "+" + curSym(S.galaxy) + " " + fmt(sweep) + " — settlement crews sweep the field"); } }
 
     for (const sh of shells) if (sh.tref && !sh.tref.dead) sh.tref.aimed = (sh.tref.aimed || 0) + sh.dmg;   // v17.6: in-flight shells re-claim their target each frame, so `covered` means truly doomed — real coordination, not the old already-landed double-count
+    fireFrame++;   // v18.83: one field scan per unit per frame (see fireUnit)
     if (!settled) for (let i = 0; i < S.units.length; i++) { const u = S.units[i]; if (u.rx) { const dc = Math.exp(-dt * 16); u.rx *= dc; u.ry *= dc; } if (u.flash > 0) u.flash -= dt; u.cd -= dt; const period = 1 / uRate(u); const maxShots = Math.min(64, Math.max(1, Math.ceil(uRate(u) * dt) + 1)); let shots = 0; while (u.cd <= 0 && shots < maxShots) { fireUnit(u, unitPos(i, S.units.length)); u.cd += period; shots++; } if (u.cd < -period) u.cd = -period; }   // machine-gun: per-frame allowance scales with rate×dt so high fire rates (Laser, Frenzy) fully realize and stay FRAME-RATE-INDEPENDENT; debt floored so it can't spiral. v18.6: the army stands down on settled worlds
     for (const b of beams) b.life -= dt; beams = beams.filter(b => b.life > 0);
     // arcing mortar bombs: fly their parabola, then detonate on landing (deferred splash).
@@ -6333,6 +6402,8 @@
     // population rather than have me pick them by algebra. Setting MENACE_TREE to 0 restores the
     // pre-v18.82 build exactly, which is how the gate proves it is testing something real.
     setMenaceTree: v => { MENACE_TREE = +v; recompute(); },
+    setFieldCurve: (lo, span, cv) => { FIELD_LOW = +lo; FIELD_SPAN = +span; FIELD_CURVE = +cv; },
+    fieldMulFor, fieldKnobs: () => ({ lo: FIELD_LOW, span: FIELD_SPAN, curve: FIELD_CURVE }),
     setHpPow: v => { HP_POW = +v; recompute(); },
     armyPower, armyArmor,
     balKnobs: () => ({ menaceTree: MENACE_TREE, hpPow: HP_POW, power: armyPower(), armor: armyArmor() }),
