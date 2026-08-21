@@ -1,10 +1,21 @@
-<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" rx="16" fill="#12141c"/>
-  <circle cx="40" cy="34" r="11" fill="#ec5c5c"/>
-  <circle cx="78" cy="28" r="11" fill="#f59e44"/>
-  <circle cx="60" cy="56" r="11" fill="#f5dc4c"/>
-  <rect x="20" y="92" width="88" height="6" rx="3" fill="#d94040"/>
-  <circle cx="64" cy="104" r="14" fill="#5bb8ff"/>
-  <rect x="60" y="76" width="8" height="22" rx="3" fill="#dce8ff"/>
-  <circle cx="64" cy="104" r="5" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#122031"/>
+      <stop offset="1" stop-color="#060a0e"/>
+    </linearGradient>
+    <radialGradient id="dome" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#7ab8ff"/>
+      <stop offset="1" stop-color="#45e0c0"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+  <circle cx="34" cy="30" r="9" fill="#67e08a"/>
+  <circle cx="64" cy="22" r="9" fill="#ffb84d"/>
+  <circle cx="94" cy="30" r="9" fill="#ff6b6b"/>
+  <rect x="60" y="70" width="8" height="26" rx="4" fill="#7ab8ff"/>
+  <circle cx="64" cy="92" r="18" fill="url(#dome)"/>
+  <circle cx="64" cy="92" r="8" fill="#04121a"/>
+  <circle cx="50" cy="58" r="3" fill="#ffffff"/>
+  <circle cx="78" cy="52" r="3" fill="#ffffff"/>
 </svg>
